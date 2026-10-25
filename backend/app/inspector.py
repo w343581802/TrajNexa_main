@@ -1,4 +1,4 @@
-"""M1a: conservative real media introspection, no OCR or identity inference.
+"""M1b: conservative media introspection with optional overlay OCR; no identity inference.
 
 Reports raw measurements and explicit unknowns. Heuristics do NOT imply image
 forensic validity, camera authenticity, or an actual capture timestamp.
