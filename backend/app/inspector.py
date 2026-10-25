@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from app.overlay_ocr import analyze_overlay
 from app.camera_catalog import annotate_camera_report
+from app.filename_hints import add_filename_hints
 import json
 import subprocess
 
@@ -137,5 +138,6 @@ def inspect_media(media, path: Path) -> dict:
     except Exception:
         result['time']['time_status'] = 'ocr_pipeline_error'
         result['camera']['match_status'] = 'ocr_pipeline_error'
+    add_filename_hints(result, getattr(media, 'original_name', None))
     annotate_camera_report(result)
     return result
