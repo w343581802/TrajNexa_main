@@ -37,7 +37,7 @@ uvicorn app.main:app --reload
 # 新终端（backend 目录）
 python -m app.worker
 # 测试
-pytest -q
+python -m pytest -q
 ```
 
 M0 的 SQLAlchemy 模型兼容 SQLite，用于开发与单元测试；Docker 默认 PostGIS。没有 Redis/Celery 需求。独立 Worker 是单进程设计，启动时将残留运行中任务重置排队。后续需要多 Worker 时必须完善租约、超时和并发声明，不能直接横向扩容。
