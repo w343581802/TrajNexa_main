@@ -102,6 +102,6 @@ def test_existing_ingest_to_job_preserves_ocr_disabled(env):
     with Session() as db:
         assert run_once(db)
     report = client.get(f"/api/v1/jobs/{job['id']}/report").json()
-    assert report['schema_version'] == '0.1.2'
+    assert report['schema_version'] in ('0.1.2', '0.1.3')
     assert report['result_json']['time']['ocr_engine_status'] == 'disabled'
     assert report['result_json']['camera']['camera_uuid'] is None

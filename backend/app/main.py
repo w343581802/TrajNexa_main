@@ -12,9 +12,10 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import MediaAsset, AnalysisJob, InspectionReport
+from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision
 from app.media import detect_signature, safe_basename
 from app.config import settings
+from app.camera_catalog import load_catalog, CatalogError, catalog_status
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
 
@@ -138,7 +139,7 @@ def get_media(media_id: str, db: Session = Depends(get_db)):
 def inspect_media(media_id: str, db: Session = Depends(get_db)):
     if not db.get(MediaAsset, media_id):
         fail(404, 'not_found', '素材不存在')
-    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_m1b', status='queued', attempt=0, progress=0)
+    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_m1c', status='queued', attempt=0, progress=0)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -179,3 +180,74 @@ def get_job_report(job_id: str, db: Session = Depends(get_db)):
     if report is None:
         fail(404, 'not_found', '尚无报告')
     return report
+
+
+# Localhost-only Demo. These camera bindings do NOT establish a person's identity.
+class BindingInput(BaseModel):
+    decision: str
+    camera_uuid: str | None = None
+    note: str
+
+class BindingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    inspection_id: str
+    decision: str
+    camera_uuid: str | None
+    camera_name_snapshot: str | None
+    catalog_revision: str | None
+    catalog_sha256: str | None
+    matched_from_ocr: bool
+    note: str
+    created_at: datetime
+
+@app.get('/api/v1/cameras/catalog')
+def cameras_catalog():
+    return catalog_status()
+
+@app.get('/api/v1/inspections/{inspection_id}/camera-bindings', response_model=list[BindingOut])
+def camera_binding_history(inspection_id: str, db: Session = Depends(get_db)):
+    if db.get(InspectionReport, inspection_id) is None:
+        fail(404, 'not_found', '预检报告不存在')
+    return list(db.scalars(select(CameraBindingDecision)
+                .where(CameraBindingDecision.inspection_id == inspection_id)
+                .order_by(CameraBindingDecision.created_at, CameraBindingDecision.id)))
+
+@app.post('/api/v1/inspections/{inspection_id}/camera-bindings',
+          response_model=BindingOut, status_code=201)
+def add_camera_binding(inspection_id: str, body: BindingInput, db: Session = Depends(get_db)):
+    """Human decision appended to separate history. Report JSON stays immutable."""
+    report = db.get(InspectionReport, inspection_id)
+    if report is None:
+        fail(404, 'not_found', '预检报告不存在')
+    note = body.note.strip()
+    if len(note) < 8 or len(note) > 500:
+        fail(422, 'reason_required', '请填写至少 8 个字符的核实依据（最多 500 字符）')
+    if body.decision not in ('confirm', 'revoke'):
+        fail(422, 'invalid_decision', '仅支持 confirm 或 revoke')
+    candidate = None
+    catalog = None
+    if body.decision == 'confirm':
+        if not body.camera_uuid:
+            fail(422, 'camera_required', '人工确认时必须指定摄像头 UUID')
+        try:
+            catalog = load_catalog()
+        except CatalogError:
+            fail(409, 'catalog_unavailable', '缺少有效的摄像头目录快照，不能确认绑定')
+        candidate = catalog.by_uuid(body.camera_uuid)
+        if candidate is None or candidate['active'] is not True:
+            fail(422, 'unknown_camera', '摄像头 UUID 不在当前有效目录中')
+    elif body.camera_uuid is not None:
+        fail(422, 'camera_must_be_null', '撤销绑定无需传入摄像头 UUID')
+    suggestions = (report.result_json.get('camera') or {}).get('directory_candidates', [])
+    from_ocr = bool(candidate and any(x.get('camera_uuid') == candidate['camera_uuid'] for x in suggestions))
+    item = CameraBindingDecision(id=str(uuid4()), inspection_id=inspection_id,
+        decision=body.decision, camera_uuid=candidate['camera_uuid'] if candidate else None,
+        camera_name_snapshot=candidate['display_name'] if candidate else None,
+        catalog_revision=catalog.revision if catalog else None,
+        catalog_sha256=catalog.fingerprint if catalog else None,
+        matched_from_ocr=from_ocr, note=note)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item

@@ -77,3 +77,11 @@ M0 不实现 M1 OCR/质量检测、不提供真实媒体播放、不提供预检
 ## M1b 角标 OCR（可选）
 
 M1b 已加入时间角标 OCR、带标签的摄像头名称候选提取及视频三帧时间一致性检查，默认 `OCR_ENABLED=false`，不影响 M0/M1a。实际启用：将 `.env` 中 `OCR_ENABLED=true`，使用 `docker compose -f compose.yaml -f compose.ocr.yaml up --build -d`。CPU 镜像首次需要安装 PaddleOCR / PaddlePaddle 并下载模型；此容器部署及真实角标识别效果尚未验证。参见 `design/03_M1b_角标OCR与多帧一致性_实施验证.md`。
+
+## M1b–M1c 模块
+
+M1b 使用可选 PaddleOCR 角标识别。M1c 用只读目录快照给出摄像头名称候选，并由人在主界面确认/撤销。自动结果不会直接绑定 camera_uuid。新增 Alembic 迁移 0002_m1c。
+
+演示目录：在仓库根目录执行 cp examples/camera_catalog.demo.json storage/camera_catalog.json。示例是虚构数据，不代表 TrajNexa_Map 已联通。目录缺失时系统应返回不可用，不虚构摄像头。
+
+详见 design/04_M1c_摄像头目录候选匹配与人工绑定.md。仍需真实 OCR、Docker Desktop 与浏览器联调。Demo 无用户鉴权，只限本机授权测试。

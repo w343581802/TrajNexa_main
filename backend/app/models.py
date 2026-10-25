@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, BigInteger, ForeignKey, JSON, Text, Index
+from sqlalchemy import String, Integer, DateTime, BigInteger, ForeignKey, JSON, Text, Index, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
@@ -40,4 +40,20 @@ class InspectionReport(Base):
     schema_version: Mapped[str] = mapped_column(String(20))
     module_version: Mapped[str] = mapped_column(String(50))
     result_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CameraBindingDecision(Base):
+    """Append-only human review; original OCR reports remain immutable."""
+    __tablename__ = 'camera_binding_decisions'
+    __table_args__ = (Index('ix_camera_binding_inspection_created', 'inspection_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    inspection_id: Mapped[str] = mapped_column(ForeignKey('inspection_reports.id'))
+    decision: Mapped[str] = mapped_column(String(12))
+    camera_uuid: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    camera_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    catalog_revision: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    catalog_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    matched_from_ocr: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

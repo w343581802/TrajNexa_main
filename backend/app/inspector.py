@@ -7,14 +7,15 @@ from __future__ import annotations
 
 from pathlib import Path
 from app.overlay_ocr import analyze_overlay
+from app.camera_catalog import annotate_camera_report
 import json
 import subprocess
 
 
 def _default_report(media) -> dict:
     return {
-        'schema_version': '0.1.2',
-        'processing_stage': 'm1b_metadata_quality_and_optional_overlay_ocr',
+        'schema_version': '0.1.3',
+        'processing_stage': 'm1c_metadata_ocr_and_directory_candidates',
         'media': {
             'media_id': media.id, 'kind': media.kind, 'sha256': media.sha256,
             'size_bytes': media.size_bytes, 'mime_detected': media.mime_detected,
@@ -136,4 +137,5 @@ def inspect_media(media, path: Path) -> dict:
     except Exception:
         result['time']['time_status'] = 'ocr_pipeline_error'
         result['camera']['match_status'] = 'ocr_pipeline_error'
+    annotate_camera_report(result)
     return result
