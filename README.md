@@ -1,8 +1,8 @@
-# TrajNexa Main — M0 standalone demo preview
+# TrajNexa Main — M0–M1b 独立 Demo
 
 **注意：此文件夹是全新 TrajNexa 主系统的独立预览，绝不是 TrajNexa_Map。**
 
-M0 只实现“上传 → 素材持久化 → 排队 → 独立 Worker → 模拟报告 → 前端查看”，不执行 OCR、AI、身份识别或跨镜头追踪。Map 仅在未来通过独立只读 API 接入。请不要把此项目代码覆盖到原先的地图项目源码上。
+当前已实现“上传 → 素材持久化 → 队列 → 独立 Worker → M1a 媒体元数据/质量检查 → M1b 可选角标 OCR → 前端查看”。角标 OCR 默认关闭、启用后仍只输出未核实的时间与摄像头名称候选；**不执行身份识别或跨镜头追踪**。TrajNexa_Map 将通过独立只读 API 接入，不得将此项目覆盖到原地图系统。
 
 ## 环境
 
