@@ -72,3 +72,8 @@ M0 不实现 M1 OCR/质量检测、不提供真实媒体播放、不提供预检
 当前在 M0 基础上已增加 `backend/app/inspector.py`：图片使用 OpenCV 解码，记录实际尺寸、像素中位亮度、Laplacian 方差；视频使用 FFprobe 读取容器与视频流参数。损坏文件会以 `decode_status=failed` 保存报告。`ffprobe` 元数据成功**不等于逐帧解码成功**。
 
 **尚未实现**：角标时间 OCR、摄像头名称 OCR、设备绑定、视角/参考图校验、视频逐帧质量检查。模糊和亮度指标仅是粗略候选告警，不能作为真实事实恢复或身份识别依据。以上任务将继续独立验收。新的 Docker 后端包含 FFmpeg/FFprobe 和 `opencv-python-headless`。
+
+
+## M1b 角标 OCR（可选）
+
+M1b 已加入时间角标 OCR、带标签的摄像头名称候选提取及视频三帧时间一致性检查，默认 `OCR_ENABLED=false`，不影响 M0/M1a。实际启用：将 `.env` 中 `OCR_ENABLED=true`，使用 `docker compose -f compose.yaml -f compose.ocr.yaml up --build -d`。CPU 镜像首次需要安装 PaddleOCR / PaddlePaddle 并下载模型；此容器部署及真实角标识别效果尚未验证。参见 `design/03_M1b_角标OCR与多帧一致性_实施验证.md`。

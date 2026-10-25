@@ -1,0 +1,6 @@
+# Usage: set OCR_ENABLED=true in .env, then docker compose -f compose.yaml -f compose.ocr.yaml up --build -d
+services:
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ocr

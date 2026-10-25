@@ -7,5 +7,6 @@ class Settings(BaseSettings):
     storage_root: Path = Path('./storage')
     max_upload_bytes: int = 268435456
     worker_poll_seconds: float = 2
+    ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
 
 settings = Settings()

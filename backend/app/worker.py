@@ -65,7 +65,7 @@ def run_once(db: Session) -> bool:
             raise FileNotFoundError('媒体文件不存在或位置非法')
         result = inspect_media(media, path)
         report = InspectionReport(id=str(uuid4()), job_id=job.id, media_id=media.id,
-            schema_version='0.1.1', module_version='m1a-metadata-0.1', result_json=result)
+            schema_version='0.1.2', module_version='m1b-overlay-0.1', result_json=result)
         db.add(report)
         job.status, job.progress, job.finished_at = 'succeeded', 100, utcnow()
         db.commit()

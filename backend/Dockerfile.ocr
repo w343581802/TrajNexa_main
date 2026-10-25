@@ -1,0 +1,10 @@
+# Optional heavyweight OCR-capable worker; keep API and default workers lightweight.
+FROM python:3.12-slim
+WORKDIR /srv
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libglib2.0-0 libgl1 && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+# CPU runtime must be installed before PaddleOCR 3.x.
+RUN pip install --no-cache-dir 'paddlepaddle==3.2.0' 'paddleocr>=3.2,<4'
+COPY . .
+ENV PYTHONPATH=/srv

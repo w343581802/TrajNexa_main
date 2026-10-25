@@ -6,14 +6,15 @@ forensic validity, camera authenticity, or an actual capture timestamp.
 from __future__ import annotations
 
 from pathlib import Path
+from app.overlay_ocr import analyze_overlay
 import json
 import subprocess
 
 
 def _default_report(media) -> dict:
     return {
-        'schema_version': '0.1.1',
-        'processing_stage': 'm1a_metadata_and_basic_quality',
+        'schema_version': '0.1.2',
+        'processing_stage': 'm1b_metadata_quality_and_optional_overlay_ocr',
         'media': {
             'media_id': media.id, 'kind': media.kind, 'sha256': media.sha256,
             'size_bytes': media.size_bytes, 'mime_detected': media.mime_detected,
@@ -130,4 +131,9 @@ def inspect_media(media, path: Path) -> dict:
         # Preserve a report with explicit failure instead of fabricated observations.
         result['quality'].update(decode_status='failed', overall_status='unusable')
         result['quality']['issues'].append('unexpected_decode_error')
+    try:
+        analyze_overlay(media, path, result)
+    except Exception:
+        result['time']['time_status'] = 'ocr_pipeline_error'
+        result['camera']['match_status'] = 'ocr_pipeline_error'
     return result
