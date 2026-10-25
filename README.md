@@ -66,3 +66,9 @@ M0 不实现 M1 OCR/质量检测、不提供真实媒体播放、不提供预检
 `TrajNexa_Map` 只是空间数据生产、编辑、校准与发布系统，主系统不得直接修改它的数据库或把它的地图编辑器作为自身业务地图。
 
 完整设计参见 `design/01_Demo_M0-M1_初步技术规划_V0.1.md`。后续 M1 再接 FFprobe、PaddleOCR 与 OpenCV。
+
+## M1a 基础预检增量
+
+当前在 M0 基础上已增加 `backend/app/inspector.py`：图片使用 OpenCV 解码，记录实际尺寸、像素中位亮度、Laplacian 方差；视频使用 FFprobe 读取容器与视频流参数。损坏文件会以 `decode_status=failed` 保存报告。`ffprobe` 元数据成功**不等于逐帧解码成功**。
+
+**尚未实现**：角标时间 OCR、摄像头名称 OCR、设备绑定、视角/参考图校验、视频逐帧质量检查。模糊和亮度指标仅是粗略候选告警，不能作为真实事实恢复或身份识别依据。以上任务将继续独立验收。新的 Docker 后端包含 FFmpeg/FFprobe 和 `opencv-python-headless`。

@@ -1,10 +1,10 @@
 <template>
   <main class="layout">
     <header class="header">
-      <div><div class="eyebrow">TrajNexa / 迹枢</div><h1>主系统 Demo M0</h1></div>
+      <div><div class="eyebrow">TrajNexa / 迹枢</div><h1>主系统 Demo M1a</h1></div>
       <div class="state"><span :class="['dot', health === 'ok' ? 'ready' : '']"></span> API {{ health === 'ok' ? '就绪' : '未连接' }}</div>
     </header>
-    <p class="banner">当前仅验证上传、作业持久化和模拟报告。尚未执行 OCR、画质检测、视角校验或跨镜头分析。</p>
+    <p class="banner">当前已支持真实媒体元数据及基础图像质量检查；尚未执行角标 OCR、录像逐帧完整性检查、视角校验或跨镜头分析。</p>
     <div class="content">
       <div class="main-col">
         <section class="panel">
@@ -21,7 +21,7 @@
           <p v-if="!media.length" class="muted">尚无上传素材。</p>
           <div v-for="item in media" :key="item.id" class="item">
             <div><strong>{{ item.original_name }}</strong><p class="muted">{{ item.kind }} · {{ bytes(item.size_bytes) }} · SHA-256 {{ item.sha256.slice(0, 12) }}…</p></div>
-            <button @click="createJob(item.id)" :disabled="busy">预检（M0 模拟）</button>
+            <button @click="createJob(item.id)" :disabled="busy">开始 M1a 基础预检</button>
           </div>
         </section>
         <section class="panel" v-if="job">
@@ -31,8 +31,8 @@
           <p v-if="job.error_message" class="error">{{ job.error_message }}</p>
           <button v-if="job.status === 'failed'" @click="retryJob">重试</button>
           <div v-if="report" class="report">
-            <h3>模拟预检报告</h3>
-            <p>媒体类型：{{ report.result_json.media.kind }}；角标时间：未检查；摄像头：未检查；画质：未知；视角：未检查。</p>
+            <h3>M1a 基础预检报告</h3>
+            <p>媒体类型：{{ report.result_json.media.kind }}；角标时间：未检查；摄像头：未检查；解码：{{ (report.result_json.quality as any)?.decode_status ?? "未知" }}；视角：未检查。</p>
             <pre>{{ JSON.stringify(report.result_json, null, 2) }}</pre>
           </div>
         </section>

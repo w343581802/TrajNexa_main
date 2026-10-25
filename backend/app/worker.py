@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import SessionLocal
 from app.models import MediaAsset, AnalysisJob, InspectionReport
+from app.inspector import inspect_media
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +63,9 @@ def run_once(db: Session) -> bool:
         path = (root / media.storage_relpath).resolve()
         if not path.is_relative_to(root) or not path.is_file():
             raise FileNotFoundError('媒体文件不存在或位置非法')
-        result = mock_inspect(media, path)
+        result = inspect_media(media, path)
         report = InspectionReport(id=str(uuid4()), job_id=job.id, media_id=media.id,
-            schema_version='0.1.0', module_version='m0-stub-0.1', result_json=result)
+            schema_version='0.1.1', module_version='m1a-metadata-0.1', result_json=result)
         db.add(report)
         job.status, job.progress, job.finished_at = 'succeeded', 100, utcnow()
         db.commit()

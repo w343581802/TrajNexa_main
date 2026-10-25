@@ -70,7 +70,7 @@ def test_video_stub_and_multiple_reports_preserved(env):
         assert run_once(db)
     reports = [client.get(f'/api/v1/jobs/{j}/report').json() for j in jobs]
     assert reports[0]['id'] != reports[1]['id']
-    assert reports[0]['result_json']['quality']['decode_status'] == 'not_checked'
+    assert reports[0]['result_json']['quality']['decode_status'] == 'failed'
 
 
 def test_interrupted_job_recovered(env):

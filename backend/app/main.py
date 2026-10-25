@@ -138,7 +138,7 @@ def get_media(media_id: str, db: Session = Depends(get_db)):
 def inspect_media(media_id: str, db: Session = Depends(get_db)):
     if not db.get(MediaAsset, media_id):
         fail(404, 'not_found', '素材不存在')
-    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_stub', status='queued', attempt=0, progress=0)
+    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_m1a', status='queued', attempt=0, progress=0)
     db.add(job)
     db.commit()
     db.refresh(job)
