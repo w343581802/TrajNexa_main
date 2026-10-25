@@ -36,6 +36,12 @@
             <p class="muted">OCR 运行状态：{{ (report.result_json.time as any)?.ocr_engine_status ?? '未记录' }}</p>
             <p v-if="(report.result_json.time as any)?.ocr_engine_status === 'disabled'" class="error" role="alert">角标 OCR 未启用；当前报告没有识别画面时间和摄像头文字。请使用 docker compose -f compose.yaml -f compose.ocr.yaml up --build -d 启动 OCR Worker，然后重新发起媒体预检。</p>
             <p v-else-if="['error','unavailable'].includes((report.result_json.time as any)?.ocr_engine_status)" class="error" role="alert">OCR 引擎不可用或执行异常，请检查 Worker 日志与 PaddleOCR 模型安装。</p>
+            <div v-if="(report.result_json.time as any)?.time_status === 'unreadable'" class="camera-review">
+              <h3>时间角标未解析：OCR 原始文字诊断</h3>
+              <p class="muted">下方保留右上角 OCR 返回的原始文字。OCR 置信度不等于真实拍摄时间可信度。</p>
+              <p class="muted">局部增强重试：{{ (report.result_json.time as any)?.ocr_time_diagnostics?.roi_fallback_attempted ? '已尝试' : '未尝试' }}</p>
+              <pre>{{ JSON.stringify((report.result_json.time as any)?.ocr_time_diagnostics?.top_raw_texts ?? [], null, 2) }}</pre>
+            </div>
             <p v-if="(report.result_json.time as any)?.filename_time_window_hint" class="muted">文件名所述时间范围（未经验证，不是 OCR）：{{ (report.result_json.time as any).filename_time_window_hint.start_local_unverified }} 至 {{ (report.result_json.time as any).filename_time_window_hint.end_local_unverified }}</p>
             <p v-if="(report.result_json.camera as any)?.filename_name_hint" class="muted">文件名所述设备名称（未经验证，不是 OCR）：{{ (report.result_json.camera as any).filename_name_hint.text }}</p>
             <div class="camera-review">

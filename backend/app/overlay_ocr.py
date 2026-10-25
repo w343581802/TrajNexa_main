@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 import re
 import subprocess
+import unicodedata
 
 import cv2
 import numpy as np
@@ -86,21 +87,62 @@ def _read_overlay_strips(image: np.ndarray, recognizer=None) -> list[dict]:
     return rows[:60]
 
 
+def _normalize_time_text(raw: str) -> str:
+    """Normalize OCR punctuation only, never guess missing digits."""
+    value = unicodedata.normalize('NFKC', raw)
+    value = value.replace('–', '-').replace('—', '-').replace('−', '-').replace('∶', ':').replace('，', ' ').replace(',', ' ')
+    return re.sub(r'\s*([:/\-.年月日])\s*', r'\1', value)
+
+
 def _parse_time(rows: list[dict]) -> tuple[str | None, str | None]:
-    """Returns (date-time without timezone, original OCR span), never an epoch."""
-    for label in ('top', 'bottom'):
-        segment = [x['text'] for x in rows if x['region'] == label]
-        # OCR may split date and clock into separate boxes, preserve their order.
-        for line in segment + [' '.join(segment)]:
-            m = _DATE_TIME.search(line)
-            if not m:
+    """Only parse complete valid calendar timestamps; timezone remains unknown."""
+    for label in ('top_right', 'top', 'bottom'):
+        parts = [x['text'] for x in rows if x['region'] == label]
+        for raw in parts + [' '.join(parts)]:
+            match = _DATE_TIME.search(_normalize_time_text(raw))
+            if not match:
                 continue
             try:
-                dt = datetime(*map(int, m.groups()))
-                return dt.strftime('%Y-%m-%dT%H:%M:%S'), m.group(0)
+                dt = datetime(*map(int, match.groups()))
+                return dt.strftime('%Y-%m-%dT%H:%M:%S'), match.group(0)
             except ValueError:
                 continue
     return None, None
+
+
+def _time_fallback_rows(image: np.ndarray, recognizer) -> list[dict]:
+    """On time parse failure, retry OCR only for the upper-right OSD area."""
+    h, w = image.shape[:2]
+    if h < 40 or w < 80:
+        return []
+    roi = image[:max(24, round(h * 0.13)), round(w * 0.50):]
+    if roi.size == 0:
+        return []
+    if roi.shape[1] > 1000:
+        scale = 1000.0 / roi.shape[1]
+        roi = cv2.resize(roi, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    enlarged = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    _, high = cv2.threshold(gray, 185, 255, cv2.THRESH_BINARY)
+    modes = [('upscaled', enlarged),
+             ('clahe', cv2.cvtColor(clahe, cv2.COLOR_GRAY2BGR)),
+             ('white_text', cv2.cvtColor(high, cv2.COLOR_GRAY2BGR))]
+    rows = []
+    for mode, frame in modes:
+        padded = cv2.copyMakeBorder(frame, 15, 15, 15, 15, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        for item in recognizer(padded):
+            raw = str(item.get('text', '')).strip()[:160]
+            try:
+                confidence = float(item.get('confidence', 0.0))
+            except (ValueError, TypeError):
+                continue
+            if raw and confidence >= 0.3:
+                rows.append({'text': raw, 'confidence': round(min(confidence, 1), 4),
+                             'region': 'top_right', 'preprocess': mode})
+        if _parse_time(rows)[0] is not None:
+            break
+    return rows[:36]
 
 
 def _parse_name(rows: list[dict]) -> tuple[str | None, str]:
@@ -186,10 +228,31 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
             return
         parsed_time, time_raw = _parse_time(rows)
         name, name_status = _parse_name(rows)
+        fallback_attempted = False
+        if parsed_time is None and (media.kind == 'image' or not successful):
+            fallback_attempted = True
+            try:
+                extra = _time_fallback_rows(frame, recognizer)
+                rows = (rows + extra)[:96]
+                parsed_time, time_raw = _parse_time(rows)
+            except Exception:
+                pass
         successful.append({'offset_seconds': offset, 'time_text': time_raw,
                            'local_time': parsed_time, 'name_candidate': name,
-                           'name_status': name_status, 'ocr_rows': rows})
+                           'name_status': name_status, 'ocr_rows': rows,
+                           'time_roi_fallback_attempted': fallback_attempted})
     time['overlay_time_samples'] = successful
+    time['ocr_time_diagnostics'] = {
+        'source': 'ocr_text_unverified',
+        'parsed_sample_count': sum(bool(s['local_time']) for s in successful),
+        'top_raw_texts': [
+            {'text': r['text'], 'confidence': r['confidence'],
+             'region': r['region'], 'preprocess': r.get('preprocess', 'original')}
+            for s in successful for r in s['ocr_rows']
+            if r.get('region') in ('top', 'top_right')
+        ][:30],
+        'roi_fallback_attempted': any(s['time_roi_fallback_attempted'] for s in successful),
+    }
     time['ocr_engine_status'] = camera['ocr_engine_status'] = 'ran'
     if not successful:
         time['time_status'] = 'frame_unavailable'
