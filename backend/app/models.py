@@ -42,18 +42,45 @@ class InspectionReport(Base):
     result_json: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-
 class CameraBindingDecision(Base):
-    """Append-only human review; original OCR reports remain immutable."""
+    """Append-only human review, distinct from immutable media/OCR output."""
     __tablename__ = 'camera_binding_decisions'
     __table_args__ = (Index('ix_camera_binding_inspection_created', 'inspection_id', 'created_at'),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     inspection_id: Mapped[str] = mapped_column(ForeignKey('inspection_reports.id'))
-    decision: Mapped[str] = mapped_column(String(12))
+    decision: Mapped[str] = mapped_column(String(12))  # confirm/revoke
     camera_uuid: Mapped[str | None] = mapped_column(String(36), nullable=True)
     camera_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
     catalog_revision: Mapped[str | None] = mapped_column(String(120), nullable=True)
     catalog_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     matched_from_ocr: Mapped[bool] = mapped_column(Boolean, default=False)
     note: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CameraViewReference(Base):
+    """Human-designated image reference, never overwrites original media or Map data."""
+    __tablename__ = 'camera_view_references'
+    __table_args__ = (Index('ix_view_refs_camera', 'camera_uuid', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    camera_uuid: Mapped[str] = mapped_column(String(36))
+    media_id: Mapped[str] = mapped_column(ForeignKey('media_assets.id'))
+    catalog_revision: Mapped[str] = mapped_column(String(120))
+    catalog_sha256: Mapped[str] = mapped_column(String(64))
+    media_sha256: Mapped[str] = mapped_column(String(64))
+    note: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ViewComparisonRecord(Base):
+    """Immutable comparison result, separate from the original inspector report."""
+    __tablename__ = 'view_comparison_records'
+    __table_args__ = (Index('ix_view_checks_inspection', 'inspection_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    inspection_id: Mapped[str] = mapped_column(ForeignKey('inspection_reports.id'))
+    reference_id: Mapped[str] = mapped_column(ForeignKey('camera_view_references.id'))
+    camera_uuid: Mapped[str] = mapped_column(String(36))
+    catalog_revision: Mapped[str] = mapped_column(String(120))
+    binding_decision_id: Mapped[str] = mapped_column(ForeignKey('camera_binding_decisions.id'))
+    result_json: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

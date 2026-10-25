@@ -12,10 +12,11 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision
+from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision, CameraViewReference, ViewComparisonRecord
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
+from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
 
@@ -139,7 +140,7 @@ def get_media(media_id: str, db: Session = Depends(get_db)):
 def inspect_media(media_id: str, db: Session = Depends(get_db)):
     if not db.get(MediaAsset, media_id):
         fail(404, 'not_found', '素材不存在')
-    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_m1c', status='queued', attempt=0, progress=0)
+    job = AnalysisJob(id=str(uuid4()), media_id=media_id, module='media_inspector_m1d', status='queued', attempt=0, progress=0)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -181,8 +182,7 @@ def get_job_report(job_id: str, db: Session = Depends(get_db)):
         fail(404, 'not_found', '尚无报告')
     return report
 
-
-# Localhost-only Demo. These camera bindings do NOT establish a person's identity.
+# M1c: this demo API is loopback-only; these manual confirmations are NOT identity findings.
 class BindingInput(BaseModel):
     decision: str
     camera_uuid: str | None = None
@@ -203,6 +203,7 @@ class BindingOut(BaseModel):
 
 @app.get('/api/v1/cameras/catalog')
 def cameras_catalog():
+    """Read-only display of the snapshot. No TrajNexa_Map write operations."""
     return catalog_status()
 
 @app.get('/api/v1/inspections/{inspection_id}/camera-bindings', response_model=list[BindingOut])
@@ -216,7 +217,7 @@ def camera_binding_history(inspection_id: str, db: Session = Depends(get_db)):
 @app.post('/api/v1/inspections/{inspection_id}/camera-bindings',
           response_model=BindingOut, status_code=201)
 def add_camera_binding(inspection_id: str, body: BindingInput, db: Session = Depends(get_db)):
-    """Human decision appended to separate history. Report JSON stays immutable."""
+    """Human decision appended to separate audit table. Existing report stays untouched."""
     report = db.get(InspectionReport, inspection_id)
     if report is None:
         fail(404, 'not_found', '预检报告不存在')
@@ -239,6 +240,7 @@ def add_camera_binding(inspection_id: str, body: BindingInput, db: Session = Dep
             fail(422, 'unknown_camera', '摄像头 UUID 不在当前有效目录中')
     elif body.camera_uuid is not None:
         fail(422, 'camera_must_be_null', '撤销绑定无需传入摄像头 UUID')
+    # Only the source report's suggestions determine whether OCR suggested this UUID.
     suggestions = (report.result_json.get('camera') or {}).get('directory_candidates', [])
     from_ocr = bool(candidate and any(x.get('camera_uuid') == candidate['camera_uuid'] for x in suggestions))
     item = CameraBindingDecision(id=str(uuid4()), inspection_id=inspection_id,
@@ -251,3 +253,130 @@ def add_camera_binding(inspection_id: str, body: BindingInput, db: Session = Dep
     db.commit()
     db.refresh(item)
     return item
+
+
+# M1d compares fixed background only after a human-confirmed camera binding.
+class ViewReferenceInput(BaseModel):
+    media_id: str
+    note: str
+
+class ViewReferenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    camera_uuid: str
+    media_id: str
+    catalog_revision: str
+    catalog_sha256: str
+    media_sha256: str
+    note: str
+    created_at: datetime
+
+class ViewCheckInput(BaseModel):
+    reference_id: str
+
+class ViewCheckOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    inspection_id: str
+    reference_id: str
+    camera_uuid: str
+    catalog_revision: str
+    binding_decision_id: str
+    result_json: dict
+    created_at: datetime
+
+@app.post('/api/v1/cameras/{camera_uuid}/view-references',
+          response_model=ViewReferenceOut, status_code=201)
+def add_view_reference(camera_uuid: str, body: ViewReferenceInput,
+                       db: Session = Depends(get_db)):
+    """Register an existing uploaded test image as a manually designated reference."""
+    try:
+        catalog = load_catalog()
+    except CatalogError:
+        fail(409, 'catalog_unavailable', '缺少有效的摄像头目录快照')
+    camera = catalog.by_uuid(camera_uuid)
+    if camera is None or camera['active'] is not True:
+        fail(422, 'invalid_camera', '摄像头不在当前有效目录中')
+    note = body.note.strip()
+    if not 8 <= len(note) <= 500:
+        fail(422, 'note_required', '请填写至少 8 个字符的参考画面来源说明')
+    media = db.get(MediaAsset, body.media_id)
+    if media is None or media.kind != 'image':
+        fail(422, 'reference_image_required', '请选择已经上传的图片素材')
+    try:
+        img = _decode_image(media_path(media))
+    except ViewInputError:
+        fail(409, 'reference_file_invalid', '参考图片原件不存在或 SHA-256 不匹配')
+    if img is None or min(img.shape[:2]) < 64 or img.shape[0] * img.shape[1] > 28_000_000:
+        fail(422, 'reference_image_invalid', '参考图片无效或尺寸超出支持范围')
+    ref = CameraViewReference(id=str(uuid4()), camera_uuid=camera_uuid,
+        media_id=media.id, catalog_revision=catalog.revision,
+        catalog_sha256=catalog.fingerprint, media_sha256=media.sha256, note=note)
+    db.add(ref)
+    db.commit()
+    db.refresh(ref)
+    return ref
+
+@app.get('/api/v1/cameras/{camera_uuid}/view-references', response_model=list[ViewReferenceOut])
+def get_view_references(camera_uuid: str, db: Session = Depends(get_db)):
+    return list(db.scalars(select(CameraViewReference)
+        .where(CameraViewReference.camera_uuid == camera_uuid)
+        .order_by(CameraViewReference.created_at, CameraViewReference.id)))
+
+@app.get('/api/v1/inspections/{inspection_id}/view-checks', response_model=list[ViewCheckOut])
+def list_view_checks(inspection_id: str, db: Session = Depends(get_db)):
+    if not db.get(InspectionReport, inspection_id):
+        fail(404, 'inspection_not_found', '预检报告不存在')
+    return list(db.scalars(select(ViewComparisonRecord)
+        .where(ViewComparisonRecord.inspection_id == inspection_id)
+        .order_by(ViewComparisonRecord.created_at, ViewComparisonRecord.id)))
+
+@app.post('/api/v1/inspections/{inspection_id}/view-checks',
+          response_model=ViewCheckOut, status_code=201)
+def create_view_check(inspection_id: str, body: ViewCheckInput,
+                      db: Session = Depends(get_db)):
+    inspection = db.get(InspectionReport, inspection_id)
+    if inspection is None:
+        fail(404, 'inspection_not_found', '预检报告不存在')
+    reference = db.get(CameraViewReference, body.reference_id)
+    if reference is None:
+        fail(404, 'reference_not_found', '参考画面不存在')
+    # Current human binding is the last decision, not the first confirmation.
+    binding = db.scalar(select(CameraBindingDecision)
+        .where(CameraBindingDecision.inspection_id == inspection_id)
+        .order_by(CameraBindingDecision.created_at.desc(), CameraBindingDecision.id.desc())
+        .limit(1))
+    if binding is None or binding.decision != 'confirm':
+        fail(409, 'camera_binding_required', '请先人工确认当前素材的摄像头')
+    if binding.camera_uuid != reference.camera_uuid:
+        fail(409, 'camera_binding_mismatch', '参考画面与当前绑定摄像头不一致')
+    try:
+        catalog = load_catalog()
+    except CatalogError:
+        fail(409, 'catalog_unavailable', '缺少有效摄像头目录')
+    camera = catalog.by_uuid(reference.camera_uuid)
+    if camera is None or not camera['active']:
+        fail(409, 'camera_inactive', '当前摄像头无有效目录记录')
+    if (catalog.fingerprint != reference.catalog_sha256 or
+            catalog.fingerprint != binding.catalog_sha256):
+        fail(409, 'catalog_revision_changed', '摄像头目录已变更，需重新审核绑定和参考画面')
+    observed = db.get(MediaAsset, inspection.media_id)
+    reference_media = db.get(MediaAsset, reference.media_id)
+    if observed is None or reference_media is None:
+        fail(409, 'media_unavailable', '原始媒体记录不存在')
+    try:
+        result = check_reference_view(reference_media, observed, inspection.result_json)
+    except ViewInputError:
+        fail(409, 'media_hash_mismatch_or_missing', '媒体原件不存在或哈希校验失败')
+    result['reference_id'] = reference.id
+    result['camera_uuid'] = reference.camera_uuid
+    result['catalog_revision'] = catalog.revision
+    result['binding_decision_id'] = binding.id
+    result['requires_human_review'] = True
+    comparison = ViewComparisonRecord(id=str(uuid4()), inspection_id=inspection_id,
+        reference_id=reference.id, camera_uuid=reference.camera_uuid,
+        catalog_revision=catalog.revision, binding_decision_id=binding.id, result_json=result)
+    db.add(comparison)
+    db.commit()
+    db.refresh(comparison)
+    return comparison
