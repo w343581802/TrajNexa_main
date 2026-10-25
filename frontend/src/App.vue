@@ -33,6 +33,11 @@
           <div v-if="report" class="report">
             <h3>M1d 媒体预检报告</h3>
             <p>媒体类型：{{ report.result_json.media.kind }}；角标时间：{{ (report.result_json.time as any)?.time_status ?? "未知" }}；角标摄像头：{{ (report.result_json.camera as any)?.overlay_name_raw ?? "未确定" }}；摄像头匹配：{{ (report.result_json.camera as any)?.match_status ?? "未知" }}；解码：{{ (report.result_json.quality as any)?.decode_status ?? "未知" }}；目录候选：{{ (report.result_json.camera as any)?.directory_status ?? "未知" }}；地图视角：需人工绑定后另行校验。</p>
+            <p class="muted">OCR 运行状态：{{ (report.result_json.time as any)?.ocr_engine_status ?? '未记录' }}</p>
+            <p v-if="(report.result_json.time as any)?.ocr_engine_status === 'disabled'" class="error" role="alert">角标 OCR 未启用；当前报告没有识别画面时间和摄像头文字。请使用 docker compose -f compose.yaml -f compose.ocr.yaml up --build -d 启动 OCR Worker，然后重新发起媒体预检。</p>
+            <p v-else-if="['error','unavailable'].includes((report.result_json.time as any)?.ocr_engine_status)" class="error" role="alert">OCR 引擎不可用或执行异常，请检查 Worker 日志与 PaddleOCR 模型安装。</p>
+            <p v-if="(report.result_json.time as any)?.filename_time_window_hint" class="muted">文件名所述时间范围（未经验证，不是 OCR）：{{ (report.result_json.time as any).filename_time_window_hint.start_local_unverified }} 至 {{ (report.result_json.time as any).filename_time_window_hint.end_local_unverified }}</p>
+            <p v-if="(report.result_json.camera as any)?.filename_name_hint" class="muted">文件名所述设备名称（未经验证，不是 OCR）：{{ (report.result_json.camera as any).filename_name_hint.text }}</p>
             <div class="camera-review">
               <h3>设备绑定（人工确认）</h3>
               <p class="muted">自动匹配仅提供候选，不会认定设备。当前目录：{{ catalog?.status === 'available' ? (catalog.spatial_revision + ' · ' + catalog.cameras.length + ' 台') : '不可用，请导入只读快照' }}</p>
