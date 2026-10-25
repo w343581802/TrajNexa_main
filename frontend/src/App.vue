@@ -42,6 +42,14 @@
               <p class="muted">局部增强重试：{{ (report.result_json.time as any)?.ocr_time_diagnostics?.roi_fallback_attempted ? '已尝试' : '未尝试' }}</p>
               <pre>{{ JSON.stringify((report.result_json.time as any)?.ocr_time_diagnostics?.top_raw_texts ?? [], null, 2) }}</pre>
             </div>
+            <div v-if="(report.result_json.time as any)?.filename_cross_check" class="camera-review">
+              <h3>角标与文件名时间核验</h3>
+              <p>OCR 状态：{{ (report.result_json.time as any)?.time_status }} · 文件名交叉检查：{{ (report.result_json.time as any).filename_cross_check.status }}</p>
+              <p class="muted">OCR 日期与文件名均未经设备校时认证，不能自动确认为拍摄时间。</p>
+              <p v-if="(report.result_json.time as any).filename_cross_check.possible_date_repair_for_review" class="error" role="alert">
+                发现疑似漏识别的日期数字。仅供人工核查的候选：{{ (report.result_json.time as any).filename_cross_check.possible_date_repair_for_review.candidate_local_unverified }}；不会修改 OCR 原文。
+              </p>
+            </div>
             <p v-if="(report.result_json.time as any)?.filename_time_window_hint" class="muted">文件名所述时间范围（未经验证，不是 OCR）：{{ (report.result_json.time as any).filename_time_window_hint.start_local_unverified }} 至 {{ (report.result_json.time as any).filename_time_window_hint.end_local_unverified }}</p>
             <p v-if="(report.result_json.camera as any)?.filename_name_hint" class="muted">文件名所述设备名称（未经验证，不是 OCR）：{{ (report.result_json.camera as any).filename_name_hint.text }}</p>
             <div class="camera-review">
