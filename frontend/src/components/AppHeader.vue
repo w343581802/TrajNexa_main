@@ -31,25 +31,34 @@ import { actions, roundView, wb } from "../store/workbench";
     <div class="topbar-sep" />
 
     <div class="task">
-      <span class="task-label">当前任务</span>
+      <span class="task-label">案件</span>
       <span class="task-name truncate" :title="wb.taskName">{{ wb.taskName }}</span>
-      <StatusChip v-if="!wb.emptyMode" :label="`研判中 · ${roundView.id}`" tone="info" dot />
+      <AppIcon name="chevron-down" :size="12" class="task-caret" />
+      <span v-if="!wb.emptyMode" class="round-chip">
+        <b class="num">{{ roundView.id }}</b>
+        <span>{{ roundView.directionLabel }}</span>
+        <span class="round-win num">（18:00–20:12）</span>
+      </span>
       <StatusChip v-else label="空任务" tone="muted" dot />
-      <span class="task-id mono">{{ wb.taskId }}</span>
     </div>
 
     <div class="topbar-grow" />
 
     <div class="meta meta--snapshot" title="空间点位 / FOV 均来自 TrajNexa_Map 已发布快照，主系统只读消费">
       <AppIcon name="map" :size="14" />
-      <span>Map 快照 <b class="mono">{{ snapshot.revision }}</b></span>
-      <span class="meta-sub">{{ snapshot.publishedAgo }} · 只读</span>
+      <span>Map 数据 <b class="mono">{{ snapshot.revision }}</b></span>
+      <span class="meta-sub">只读</span>
     </div>
 
-    <div class="meta meta--auth" title="当前任务的授权范围；越权资源不会出现在可启动的任务选择中">
-      <AppIcon name="shield" :size="14" />
-      <span>{{ wb.authorized }}</span>
+    <div class="meta meta--window" title="本次研判使用的真实时间窗">
+      <AppIcon name="clock" :size="14" />
+      <span>时间范围 <b class="num">2026-10-25 18:00–24:00</b></span>
     </div>
+
+    <button class="meta meta--link" title="查看录像覆盖情况" @click="actions.openCoverage()">
+      <AppIcon name="video" :size="14" />
+      <span>录像覆盖</span>
+    </button>
 
     <button
       class="scene-switch"
@@ -128,7 +137,7 @@ import { actions, roundView, wb } from "../store/workbench";
 }
 
 .brand-text span {
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.1em;
   color: var(--text-3);
 }
@@ -166,6 +175,46 @@ import { actions, roundView, wb } from "../store/workbench";
   font-size: 10px;
   color: var(--text-4);
   flex: none;
+}
+
+.task-caret {
+  color: var(--text-4);
+  flex: none;
+}
+
+.round-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 63, 208, 0.5);
+  background: rgba(91, 63, 208, 0.18);
+  color: #cfc3ff;
+  font-size: 11px;
+  white-space: nowrap;
+  flex: none;
+}
+
+.round-chip b {
+  color: #a58bff;
+  font-weight: 700;
+}
+
+.round-win {
+  color: #9a90c8;
+}
+
+.meta--link {
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-2);
+}
+
+.meta--link:hover {
+  border-color: var(--accent-line);
+  color: var(--accent-hi);
 }
 
 .topbar-grow {
@@ -293,7 +342,7 @@ import { actions, roundView, wb } from "../store/workbench";
 }
 
 .user-text span {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-3);
 }
 

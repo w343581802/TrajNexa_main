@@ -87,7 +87,7 @@ export const ui = reactive({
   featureDetailOpen: false,
   correctionOpen: false,
   dockCollapsed: false,
-  dockHeight: 300,
+  dockHeight: 248,
   toasts: [] as Toast[],
   nextElementSeq: 5,
 });
@@ -198,6 +198,106 @@ export function toast(text: string, tone: ToastTone = "info") {
   window.setTimeout(() => {
     ui.toasts = ui.toasts.filter((t) => t.id !== item.id);
   }, 3600);
+}
+
+/* ------------------------------ 添加 / 编辑要素 ------------------------------ */
+
+export type ElementAttributeInput = { key: string; value: string; unknown: boolean };
+
+export type ElementPayload = {
+  /** 画面角标日期，默认案发日；OCR 解析出日期时用识别值 */
+  date: string;
+  timeLabel: string;
+  timeUnknown: boolean;
+  cameraId: string | null;
+  cameraLabel: string;
+  status: TargetElement["status"];
+  statusLabel: string;
+  note: string;
+  tone: TargetElement["tone"];
+  quality: TargetElement["quality"];
+  category: NonNullable<TargetElement["category"]>;
+  attributes: ElementAttributeInput[];
+  boxes: NonNullable<TargetElement["boxes"]>;
+};
+
+/** 表单级校验：任一条不满足就不写库，错误文案直接回给弹窗 */
+export function validateElementPayload(payload: ElementPayload): string | null {
+  if (!payload.timeUnknown && !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(payload.timeLabel.trim())) {
+    return "画面角标时间格式应为 HH:MM:SS，或标记为「时间未知」";
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.date)) return "日期格式应为 YYYY-MM-DD";
+  if (payload.status === "confirmed" && !payload.cameraId) {
+    return "「来源已确认」需要绑定镜头目录；否则请保存为候选来源或仅确定区域";
+  }
+  if (payload.note.length > 200) return "备注不超过 200 字";
+  return null;
+}
+
+function buildElement(id: string, payload: ElementPayload): TargetElement {
+  return {
+    id,
+    timeLabel: payload.timeUnknown ? "时间未知" : payload.timeLabel.trim(),
+    time: payload.timeUnknown ? `${payload.date} 时间未知` : `${payload.date} ${payload.timeLabel.trim()}`,
+    cameraId: payload.cameraId,
+    cameraLabel: payload.cameraLabel,
+    status: payload.status,
+    statusLabel: payload.statusLabel,
+    note: payload.note.trim(),
+    tone: payload.tone,
+    quality: payload.quality,
+    category: payload.category,
+    timeUnknown: payload.timeUnknown,
+    origin: "user",
+    attributes: payload.attributes.map((attr) => ({
+      key: attr.key,
+      value: attr.unknown ? "" : attr.value.trim(),
+      unknown: attr.unknown,
+    })),
+    boxes: payload.boxes.map((box) => ({ ...box })),
+  };
+}
+
+function buildAnchorObservation(element: TargetElement): Observation {
+  return {
+    id: `O-${element.id}`,
+    timeLabel: element.timeLabel,
+    kind: "anchor",
+    cameraId: element.cameraId,
+    title: `起始锚点 ${element.id} · 用户添加要素`,
+    sub: `${element.cameraLabel} · ${element.statusLabel}`,
+    reliability: null,
+    relation: null,
+    round: roundInfo.id,
+    elementId: element.id,
+  };
+}
+
+/** 把要素录入的属性重算为特征候选：不确定值不进特征，已核验值不被覆盖 */
+function applyAttributes(elementId: string, payload: ElementPayload) {
+  featureList.value = featureList.value.filter((feature) => feature.elementId !== elementId);
+  const created: TargetFeature[] = [];
+  payload.attributes.forEach((attr, index) => {
+    const value = attr.value.trim();
+    if (!value && !attr.unknown) return;
+    const unknown = attr.unknown || !value;
+    created.push({
+      id: `F-${elementId}-${index + 1}`,
+      elementId,
+      attr: attr.key,
+      value: unknown ? "未知" : value,
+      status: unknown ? "unknown" : "proposed",
+      statusLabel: unknown ? "未知（人工标注）" : "人工录入 · 待核验",
+      meta: `要素 ${elementId} · 人工录入`,
+      sources: 1,
+      window: payload.timeUnknown ? "—" : payload.timeLabel,
+    });
+  });
+  featureList.value.push(...created);
+  featureStats.pending = featureList.value.filter(
+    (feature) => feature.status === "review" || feature.status === "proposed",
+  ).length;
+  featureStats.conflicts = featureList.value.filter((feature) => feature.conflict).length;
 }
 
 export const actions = {
@@ -320,50 +420,61 @@ export const actions = {
       toast("已撤销人工核验，恢复为待复核提议", "info");
     }
   },
-  saveElement(payload: {
-    timeLabel: string;
-    cameraId: string | null;
-    cameraLabel: string;
-    status: "confirmed" | "candidate" | "unlocated";
-    statusLabel: string;
-    note: string;
-    tone: "color" | "gray";
-    quality: "good" | "low";
-  }) {
+  saveElement(payload: ElementPayload) {
+    const error = validateElementPayload(payload);
+    if (error) {
+      toast(error, "warn");
+      return null;
+    }
     const id = `E${String(ui.nextElementSeq).padStart(2, "0")}`;
     ui.nextElementSeq += 1;
-    const element: TargetElement = {
-      id,
-      timeLabel: payload.timeLabel,
-      time: `2026-10-25 ${payload.timeLabel}`,
-      cameraId: payload.cameraId,
-      cameraLabel: payload.cameraLabel,
-      status: payload.status,
-      statusLabel: payload.statusLabel,
-      note: payload.note,
-      tone: payload.tone,
-      quality: payload.quality,
-    };
+    // 空任务里添加第一个要素后，工作台不再停留在空态，时间线/特征栏随即出现该要素
+    if (wb.emptyMode) wb.emptyMode = false;
+    const element = buildElement(id, payload);
     elementList.value.push(element);
-    observationList.value.push({
-      id: `O-${id}`,
-      timeLabel: payload.timeLabel,
-      kind: "anchor",
-      cameraId: payload.cameraId,
-      title: `起始锚点 ${id} · 用户添加要素`,
-      sub: `${payload.cameraLabel} · ${payload.statusLabel}`,
-      reliability: null,
-      relation: null,
-      round: roundInfo.id,
-      elementId: id,
-    });
+    observationList.value.push(buildAnchorObservation(element));
     observationList.value.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+    applyAttributes(id, payload);
     wb.selectedElementId = id;
     wb.selectedAnchorId = id;
+    wb.selectedObservationId = `O-${id}`;
     if (payload.cameraId) wb.selectedCameraId = payload.cameraId;
-    featureStats.pending += 2;
     featureStats.refs += 1;
-    toast(`${id} 已保存；2 条特征候选进入待核查`, "ok");
+    const proposals = payload.attributes.filter((attr) => !attr.unknown && attr.value.trim()).length;
+    const unknowns = payload.attributes.filter((attr) => attr.unknown).length;
+    toast(
+      proposals + unknowns > 0
+        ? `${id} 已保存：${proposals} 项特征候选进入待核查${unknowns ? `，${unknowns} 项标为未知` : ""}`
+        : `${id} 已保存，未录入可观察属性`,
+      "ok",
+    );
+    return id;
+  },
+  updateElement(elementId: string, payload: ElementPayload) {
+    const error = validateElementPayload(payload);
+    if (error) {
+      toast(error, "warn");
+      return null;
+    }
+    const index = elementList.value.findIndex((item) => item.id === elementId);
+    if (index < 0) {
+      toast(`要素 ${elementId} 不存在，可能已被删除`, "danger");
+      return null;
+    }
+    const element = buildElement(elementId, payload);
+    elementList.value[index] = element;
+
+    const anchor = observationList.value.find((item) => item.elementId === elementId && item.kind === "anchor");
+    if (anchor) {
+      anchor.timeLabel = element.timeLabel;
+      anchor.cameraId = element.cameraId;
+      anchor.sub = `${element.cameraLabel} · ${element.statusLabel}`;
+    }
+    observationList.value.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+    applyAttributes(elementId, payload);
+    wb.selectedElementId = elementId;
+    toast(`${elementId} 已更新；特征候选按最新录入重算`, "ok");
+    return elementId;
   },
   togglePreview(on?: boolean) {
     wb.previewOn = on ?? !wb.previewOn;

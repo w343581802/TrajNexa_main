@@ -1,113 +1,95 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
+import MockFrame from "./ui/MockFrame.vue";
 import { cameras, type Observation } from "../data/mock";
-import {
-  actions,
-  filteredObservations,
-  timelineCounts,
-  wb,
-  type TimelineFilter,
-} from "../store/workbench";
+import { actions, elementList, filteredObservations, timelineCounts, wb, type TimelineFilter } from "../store/workbench";
 
-const filters: { id: TimelineFilter; label: string }[] = [
-  { id: "all", label: "全部" },
+const statusOptions: { id: TimelineFilter; label: string }[] = [
+  { id: "all", label: "全部状态" },
   { id: "anchor", label: "起始锚点" },
-  { id: "review", label: "待复核" },
-  { id: "approved", label: "已审核" },
+  { id: "review", label: "待核查" },
+  { id: "approved", label: "已检验" },
   { id: "excluded", label: "已排除" },
 ];
 
-const reliabilityMap = {
-  detected: { label: "检测候选", tone: "muted" },
-  review: { label: "观察待核验", tone: "warn" },
-  verified: { label: "观察已核验", tone: "ok" },
-  invalid: { label: "观察无效", tone: "danger" },
-} as const;
+const order = ref<"asc" | "desc">("asc");
 
-const relationMap = {
-  unknown: { label: "关联未判断", tone: "muted" },
-  hypothesis: { label: "工作假设", tone: "info" },
-  pending: { label: "关联待复核", tone: "warn" },
-  confirmed: { label: "人工确认关联", tone: "ok" },
-  excluded: { label: "关联已排除", tone: "danger" },
-  indeterminate: { label: "无法判断", tone: "muted" },
-} as const;
+const cameraName = (id: string | null) => cameras.find((camera) => camera.id === id)?.name ?? "";
 
-const chips = (obs: Observation) => {
-  const list: { label: string; tone: string }[] = [];
-  if (obs.reliability) list.push(reliabilityMap[obs.reliability]);
-  if (obs.relation) list.push(relationMap[obs.relation]);
-  if (obs.kind === "gap") list.push({ label: "无已索引录像", tone: "muted" });
-  return list;
-};
+/** 用户添加但未绑定镜头目录的要素：显示识别到的角标名，而不是退回「未知盲区」 */
+function camLabel(obs: Observation) {
+  if (obs.cameraId) return `${obs.cameraId} ${cameraName(obs.cameraId)}`;
+  const element = obs.elementId ? elementList.value.find((item) => item.id === obs.elementId) : undefined;
+  if (element?.cameraLabel) return element.cameraLabel;
+  return `未知盲区 ${obs.title.replace(/^未知盲区\s*·\s*/, "")}`;
+}
 
-const kindLabel = (kind: Observation["kind"]) =>
-  kind === "anchor" ? "起始锚点" : kind === "gap" ? "盲区" : "候选观测";
+const list = computed(() => {
+  const rows = [...filteredObservations.value];
+  return order.value === "asc" ? rows : rows.reverse();
+});
 
 const total = computed(() => timelineCounts.value);
 
-function select(obs: Observation) {
-  actions.selectObservation(obs.id);
+function statusOf(obs: Observation) {
+  if (obs.kind === "anchor") return { label: "起始锚点", tone: "anchor" };
+  if (obs.kind === "gap") return { label: "盲区", tone: "muted" };
+  switch (obs.reliability) {
+    case "verified":
+      return { label: "已检验", tone: "ok" };
+    case "review":
+      return { label: "待核查", tone: "warn" };
+    case "invalid":
+      return { label: "已排除", tone: "info" };
+    default:
+      return { label: "检测候选", tone: "muted" };
+  }
 }
 
-function focusNew() {
-  wb.timelineFilter = "review";
-  actions.dismissNewCandidates();
+/** 追查方向：锚点是倒查起点，其余按观测先后给出一句可执行动作 */
+function actionOf(obs: Observation) {
+  if (obs.kind === "gap") return null;
+  if (obs.kind === "anchor") return "向前倒查";
+  return obs.relation === "pending" || obs.relation === "hypothesis" ? "向后追查" : "向后追查";
 }
+
+function caption(obs: Observation) {
+  if (obs.kind === "anchor") return "";
+  return obs.sub || obs.note || "";
+}
+
+const dotTone = (obs: Observation) => statusOf(obs).tone;
 </script>
 
 <template>
-  <aside class="rail" aria-label="统一观测时间线">
+  <aside class="rail" aria-label="观测时间线">
     <header class="rail-head">
-      <div class="rail-title">
-        <span class="card-title">统一观测时间线</span>
-        <span class="rail-count num">{{ total.all }}</span>
-      </div>
-      <div class="rail-tools">
-        <button class="icon-btn" aria-label="刷新时间线" title="刷新时间线">
-          <AppIcon name="refresh" :size="14" />
-        </button>
-        <button class="icon-btn" aria-label="时间线筛选设置" title="筛选设置">
-          <AppIcon name="filter" :size="14" />
-        </button>
-      </div>
+      <span class="rail-mark"><AppIcon name="target" :size="13" /></span>
+      <span class="rail-title">观测时间线</span>
+      <span class="rail-count num">({{ total.all }})</span>
+      <button class="icon-btn rail-refresh" aria-label="刷新时间线" title="刷新时间线">
+        <AppIcon name="refresh" :size="14" />
+      </button>
     </header>
 
-    <div class="rail-filters scroll-x">
-      <button
-        v-for="filter in filters"
-        :key="filter.id"
-        class="fchip"
-        :class="{ 'is-on': wb.timelineFilter === filter.id }"
-        @click="wb.timelineFilter = filter.id"
-      >
-        {{ filter.label }}
-        <span class="num">{{ total[filter.id] }}</span>
-      </button>
-    </div>
-
-    <div class="rail-selects">
+    <div class="rail-filters">
       <select v-model="wb.timelineRound" class="select select--sm" aria-label="按研判轮次筛选">
         <option value="all">全部轮次</option>
         <option value="R1">R1 · 首轮</option>
         <option value="R2">R2 · 当前轮</option>
       </select>
-      <select v-model="wb.timelineCamera" class="select select--sm" aria-label="按摄像头筛选">
-        <option value="all">全部来源</option>
-        <option v-for="camera in cameras" :key="camera.id" :value="camera.id">{{ camera.id }} {{ camera.name }}</option>
+      <select v-model="wb.timelineFilter" class="select select--sm" aria-label="按观测状态筛选">
+        <option v-for="option in statusOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+      </select>
+      <select v-model="order" class="select select--sm" aria-label="排序">
+        <option value="asc">时间正序</option>
+        <option value="desc">时间倒序</option>
       </select>
     </div>
 
-    <div v-if="wb.newCandidates > 0" class="rail-notice">
-      <AppIcon name="info" :size="13" />
-      <span>发现 <b class="num">{{ wb.newCandidates }}</b> 条新候选</span>
-      <button class="rail-notice-link" @click="focusNew">查看</button>
-      <button class="rail-notice-x" aria-label="忽略本次提醒" @click="actions.dismissNewCandidates()">忽略</button>
-    </div>
-
     <div class="rail-list scroll-y">
-      <div v-if="!filteredObservations.length" class="rail-empty">
+      <div v-if="!list.length" class="rail-empty">
         <span class="rail-empty-icon"><AppIcon name="clock" :size="16" /></span>
         <p class="rail-empty-title">{{ wb.emptyMode ? "时间线为空" : "当前筛选下没有记录" }}</p>
         <p class="rail-empty-text">
@@ -118,35 +100,55 @@ function focusNew() {
         </button>
       </div>
 
-      <button
-        v-for="obs in filteredObservations"
-        :key="obs.id"
-        class="rec"
-        :class="[`rec--${obs.kind}`, { 'is-selected': wb.selectedObservationId === obs.id }]"
-        :title="obs.note ?? obs.sub"
-        @click="select(obs)"
-      >
-        <span class="rec-rail">
-          <i class="rec-dot" />
-        </span>
-        <span class="rec-body">
-          <span class="rec-top">
-            <span class="rec-time num">{{ obs.timeLabel }}</span>
-            <span class="rec-kind">{{ kindLabel(obs.kind) }}</span>
-            <span v-if="obs.round" class="rec-round num">{{ obs.round }}</span>
-          </span>
-          <span class="rec-title">{{ obs.title }}</span>
-          <span class="rec-sub">{{ obs.sub }}</span>
-          <span v-if="chips(obs).length" class="rec-chips">
-            <span v-for="chip in chips(obs)" :key="chip.label" class="chip" :data-tone="chip.tone">{{ chip.label }}</span>
-          </span>
-        </span>
-      </button>
+      <template v-else>
+        <div class="day-head">
+          <button class="day-toggle" title="本日分组">
+            <AppIcon name="chevron-down" :size="12" />
+          </button>
+          <span class="day-label num">2026-10-25</span>
+        </div>
+
+        <div class="tl">
+          <article
+            v-for="obs in list"
+            :key="obs.id"
+            class="tl-row"
+            :class="{ 'is-selected': wb.selectedObservationId === obs.id }"
+          >
+            <span class="tl-dot" :data-tone="dotTone(obs)" />
+            <button class="tl-card" @click="actions.selectObservation(obs.id)">
+              <div class="tl-top">
+                <span class="tl-time num">{{ obs.timeLabel }}</span>
+                <span class="tl-cam">{{ camLabel(obs) }}</span>
+                <span v-if="obs.elementId" class="tl-el num">{{ obs.elementId }}</span>
+                <span v-if="obs.round" class="tl-round num">{{ obs.round }}</span>
+              </div>
+              <div class="tl-mid">
+                <span class="tl-thumb">
+                  <MockFrame
+                    :chrome="false"
+                    :label="obs.cameraId ?? (obs.elementId ? '候选来源' : '未知盲区')"
+                    :time="obs.timeLabel"
+                    :tone="obs.kind === 'anchor' ? 'gray' : 'color'"
+                    :quality="obs.reliability === 'invalid' ? 'low' : 'good'"
+                  />
+                </span>
+                <span class="tl-status" :data-tone="statusOf(obs).tone">{{ statusOf(obs).label }}</span>
+                <span v-if="actionOf(obs)" class="tl-act">{{ actionOf(obs) }}</span>
+                <span v-else class="tl-note">{{ obs.title.replace(/^未知盲区\s*·\s*/, "") }}</span>
+              </div>
+              <div v-if="caption(obs)" class="tl-sub">
+                <span class="tl-sub-label">特征：</span>{{ caption(obs) }}
+              </div>
+            </button>
+          </article>
+        </div>
+      </template>
     </div>
 
     <footer class="rail-foot">
-      <span class="dim">按实际观测时间升序</span>
-      <span class="dim">共 {{ filteredObservations.length }} 条</span>
+      <span class="dim">按真实观测时间排序 · 不构成身份结论</span>
+      <span class="dim num">{{ list.length }} 条</span>
     </footer>
   </aside>
 </template>
@@ -156,142 +158,291 @@ function focusNew() {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--bg-1);
+  background: #080c12;
   border-left: 1px solid var(--line);
 }
 
 .rail-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: 36px;
-  padding: 0 8px 0 12px;
+  gap: 7px;
+  height: 42px;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--line);
   flex: none;
 }
 
-.rail-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.rail-count {
-  font-size: 10px;
-  color: var(--text-3);
-  background: var(--bg-3);
-  border-radius: 99px;
-  padding: 0 6px;
-  line-height: 16px;
-}
-
-.rail-tools {
-  display: flex;
-  gap: 2px;
-  flex: none;
-}
-
-.rail-tools .icon-btn {
-  width: 22px;
-  height: 22px;
-}
-
-.rail-filters {
-  display: flex;
-  gap: 3px;
-  padding: 7px 8px 6px;
-  border-bottom: 1px solid var(--line);
-  flex: none;
-}
-
-.fchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  color: var(--text-2);
-  font-size: 10.5px;
-  white-space: nowrap;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-
-.fchip:hover {
-  background: var(--bg-3);
-  color: var(--text-1);
-}
-
-.fchip.is-on {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
+.rail-mark {
+  display: grid;
+  place-items: center;
   color: var(--accent-hi);
 }
 
-.fchip span {
-  font-size: 9px;
+.rail-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-0);
+}
+
+.rail-count {
+  font-size: 12px;
   color: var(--text-3);
 }
 
-.fchip.is-on span {
-  color: #8fb6ff;
+.rail-refresh {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
 }
 
-.rail-selects {
-  display: flex;
-  gap: 5px;
-  padding: 6px 8px;
+.rail-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   flex: none;
 }
 
 .select--sm {
-  height: 24px;
-  font-size: 10px;
-  padding-left: 6px;
-}
-
-.rail-notice {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 7px 8px 0;
-  padding: 5px 8px;
+  height: 26px;
+  font-size: 11px;
+  padding: 0 6px;
   border-radius: 6px;
-  border: 1px solid var(--accent-line);
-  background: var(--accent-soft);
-  color: #b6cffd;
-  font-size: 10px;
-  flex: none;
-}
-
-.rail-notice b {
-  color: #dbe8ff;
-}
-
-.rail-notice-link {
-  margin-left: auto;
-  color: #cfe0ff;
-  font-size: 10px;
-  text-decoration: underline;
-}
-
-.rail-notice-x {
-  color: var(--text-3);
-  font-size: 10px;
-}
-
-.rail-notice-x:hover {
-  color: var(--text-1);
 }
 
 .rail-list {
   flex: 1;
   min-height: 0;
-  padding: 6px 6px 10px 8px;
+  padding: 6px 10px 12px;
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 8px;
+}
+
+.day-toggle {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line-3);
+  color: var(--text-3);
+}
+
+.day-label {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.tl {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.tl::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--line-2);
+}
+
+.tl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.tl-dot {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  margin: 9px 0 0 3px;
+  border-radius: 50%;
+  background: var(--text-3);
+  box-shadow: 0 0 0 3px #080c12;
+}
+
+.tl-dot[data-tone="ok"] {
+  background: var(--ok);
+}
+
+.tl-dot[data-tone="warn"] {
+  background: var(--warn);
+}
+
+.tl-dot[data-tone="info"] {
+  background: var(--accent);
+}
+
+.tl-dot[data-tone="anchor"] {
+  background: var(--violet);
+}
+
+.tl-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 9px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #0c121a;
+  text-align: left;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.tl-card:hover {
+  border-color: var(--line-3);
+}
+
+.tl-row.is-selected .tl-card {
+  border-color: var(--accent-line);
+  background: #0d1622;
+}
+
+.tl-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.tl-time {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-0);
+  letter-spacing: 0.01em;
+}
+
+.tl-cam {
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-el {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #5b3fd0;
+  color: #efe9ff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tl-round {
+  margin-left: auto;
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+.tl-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tl-thumb {
+  flex: none;
+  width: 62px;
+  height: 42px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  background: #0a0f15;
+}
+
+.tl-thumb :deep(.mock-frame) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.tl-status {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #06110c;
+  background: var(--text-3);
+}
+
+.tl-status[data-tone="ok"],
+.tl-status[data-tone="anchor"] {
+  background: #24c48b;
+  color: #04150e;
+}
+
+.tl-status[data-tone="warn"] {
+  background: #f0a63c;
+  color: #1a1003;
+}
+
+.tl-status[data-tone="info"] {
+  background: #3b82f6;
+  color: #f2f7ff;
+}
+
+.tl-status[data-tone="muted"] {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-1);
+}
+
+.tl-act {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--line-3);
+  background: rgba(77, 141, 255, 0.08);
+  color: #8fb6ff;
+  font-size: 11.5px;
+}
+
+.tl-note {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-sub {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-sub-label {
+  color: var(--text-4);
+}
+
+.rail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 10px;
+  border-top: 1px solid var(--line);
+  font-size: 10.5px;
+  flex: none;
 }
 
 .rail-empty {
@@ -319,161 +470,8 @@ function focusNew() {
 }
 
 .rail-empty-text {
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.55;
   color: var(--text-3);
-}
-
-.rec {
-  position: relative;
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 8px 7px 4px;
-  border-radius: 7px;
-  border: 1px solid transparent;
-  text-align: left;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-
-.rec:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.rec.is-selected {
-  background: linear-gradient(90deg, rgba(77, 141, 255, 0.12), rgba(77, 141, 255, 0.02));
-  border-color: rgba(77, 141, 255, 0.28);
-}
-
-.rec-rail {
-  position: relative;
-  width: 10px;
-  flex: none;
-  display: flex;
-  justify-content: center;
-}
-
-.rec-rail::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  bottom: -12px;
-  width: 1px;
-  background: var(--line-2);
-}
-
-.rec:last-child .rec-rail::before {
-  display: none;
-}
-
-.rec-dot {
-  position: relative;
-  z-index: 1;
-  width: 7px;
-  height: 7px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--bg-1);
-  border: 1.6px solid var(--text-3);
-}
-
-.rec--anchor .rec-dot {
-  border-color: var(--violet);
-  background: var(--violet);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-}
-
-.rec--gap .rec-dot {
-  border-color: #55657a;
-  border-style: dashed;
-  background: transparent;
-}
-
-.rec-body {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.rec-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.rec-time {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-1);
-  letter-spacing: 0.01em;
-}
-
-.rec-kind {
-  font-size: 9px;
-  color: var(--text-3);
-  padding: 0 4px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.04);
-  white-space: nowrap;
-}
-
-.rec--anchor .rec-kind {
-  color: #c3aeff;
-  background: var(--violet-soft);
-}
-
-.rec-round {
-  margin-left: auto;
-  font-size: 8.5px;
-  color: var(--text-4);
-}
-
-.rec-title {
-  font-size: 11.5px;
-  color: var(--text-1);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rec--anchor .rec-title {
-  color: #d5c9ff;
-}
-
-.rec-sub {
-  font-size: 9.5px;
-  color: var(--text-3);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.rec-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 2px;
-}
-
-.rec-chips .chip {
-  height: 16px;
-  font-size: 8.5px;
-  padding: 0 5px;
-}
-
-.rail-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 26px;
-  padding: 0 10px;
-  border-top: 1px solid var(--line);
-  font-size: 9.5px;
-  flex: none;
 }
 </style>

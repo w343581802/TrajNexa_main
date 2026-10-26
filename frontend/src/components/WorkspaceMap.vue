@@ -1,82 +1,188 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import {
-  buildings,
   cameras,
   coverageDate,
   coverageMinutes,
   hasCoverage,
-  mapLabels,
   minutesToLabel,
-  roads,
-  snapshot,
   timeWindowPresets,
   type Camera,
 } from "../data/mock";
 import { actions, layers, observationList, timeWindow, visibleElements, wb } from "../store/workbench";
+import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 
-/* ---------------------------- 视图变换 ---------------------------- */
+/* ---------------------------- 地理投影 ----------------------------
+ * 底图为真实 OSM 瓦片（WGS84）。默认视野对准桂林临桂（Map 库中两台已标定
+ * 镜头的所在片区）。演示业务层沿用 1400×430 的世界坐标，以固定仿射关系
+ * 投影到该片区，仅用于界面演示，不代表真实轨迹。
+ * ------------------------------------------------------------------ */
 
-const view = reactive({ k: 1, tx: 0, ty: 0 });
-const panning = ref(false);
-let dragStart = { x: 0, y: 0, tx: 0, ty: 0 };
-let moved = false;
+const WORLD = { w: 1400, h: 430 };
+const GEO = { west: 110.20302, south: 25.24968, east: 110.21394, north: 25.25272 };
+const GEO_BOUNDS = L.latLngBounds([GEO.south, GEO.west], [GEO.north, GEO.east]);
+const METERS_PER_DEG_LAT = 111320;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const geoHeightMeters = (GEO.north - GEO.south) * METERS_PER_DEG_LAT;
 
-function onWheel(event: WheelEvent) {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const dx = event.clientX - rect.left - rect.width / 2;
-  const dy = event.clientY - rect.top - rect.height / 2;
-  const next = clamp(view.k * Math.exp(-event.deltaY * 0.0015), 0.8, 4);
-  const ratio = next / view.k;
-  view.tx = view.tx * ratio + dx * (1 - ratio);
-  view.ty = view.ty * ratio + dy * (1 - ratio);
-  view.k = next;
+const toLatLng = (x: number, y: number): L.LatLng =>
+  L.latLng(
+    GEO.north - (y / WORLD.h) * (GEO.north - GEO.south),
+    GEO.west + (x / WORLD.w) * (GEO.east - GEO.west),
+  );
+
+const worldRadiusMeters = (radius: number) => (radius / WORLD.h) * geoHeightMeters;
+
+/* ---------------------------- 地图实例 ---------------------------- */
+
+const mapEl = ref<HTMLElement | null>(null);
+const mapSize = ref({ w: 0, h: 0 });
+const zoom = ref(16);
+const cursor = ref<{ lat: number; lng: number } | null>(null);
+let map: L.Map | null = null;
+
+const lMock = L.layerGroup();
+const lReal = L.layerGroup();
+const lFocus = L.layerGroup();
+const lTracks = L.layerGroup();
+const lAnchors = L.layerGroup();
+const lLabels = L.layerGroup();
+
+/** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
+const FOV_COLORS: Record<string, string> = {
+  identification: "#ff3131",
+  recognition: "#ffbf00",
+  observation: "#00b300",
+};
+
+function baseTiles(): L.TileLayer {
+  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors · 镜头数据 TrajNexa_Map",
+  });
 }
 
-function startPan(event: PointerEvent) {
-  if (event.button !== 0) return;
-  panning.value = true;
-  moved = false;
-  dragStart = { x: event.clientX, y: event.clientY, tx: view.tx, ty: view.ty };
-  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+function satelliteTiles(): L.TileLayer {
+  return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    attribution: "影像 © Esri · Maxar · Earthstar Geographics",
+  });
 }
 
-function onPan(event: PointerEvent) {
-  if (!panning.value) return;
-  const dx = event.clientX - dragStart.x;
-  const dy = event.clientY - dragStart.y;
-  if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
-  view.tx = clamp(dragStart.tx + dx, -420, 420);
-  view.ty = clamp(dragStart.ty + dy, -260, 260);
+type Basemap = "map" | "satellite";
+const basemap = ref<Basemap>("map");
+let tileLayer: L.TileLayer | null = null;
+
+function setBasemap(kind: Basemap) {
+  if (!map || basemap.value === kind) return;
+  basemap.value = kind;
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = (kind === "satellite" ? satelliteTiles() : baseTiles()).addTo(map);
 }
 
-function endPan() {
-  panning.value = false;
+const query = ref("");
+const hits = ref<{ id: number; label: string; lat: number; lon: number }[]>([]);
+
+function runSearch() {
+  const text = query.value.trim().toLowerCase();
+  if (!text) {
+    hits.value = [];
+    return;
+  }
+  hits.value = (snapshot.value?.cameras ?? [])
+    .filter((camera) =>
+      `${camera.camera_id} ${camera.index_code} ${camera.external_index_code} ${camera.zone} ${cameraCode(camera)}`.toLowerCase().includes(text),
+    )
+    .slice(0, 6)
+    .map((camera) => ({ id: camera.camera_id, label: cameraLabel(camera), lat: camera.lat, lon: camera.lon }));
+  if (hits.value.length === 1) focusHit(hits.value[0]);
+}
+
+function focusHit(hit: { lat: number; lon: number; id: number; label: string }) {
+  hits.value = [];
+  query.value = hit.label;
+  map?.setView([hit.lat, hit.lon], Math.max(18, map?.getZoom() ?? 18));
+  selectedRealId.value = hit.id;
+}
+
+function initMap() {
+  if (!mapEl.value) return;
+  map = L.map(mapEl.value, {
+    center: GEO_BOUNDS.getCenter(),
+    zoom: 16,
+    zoomControl: false,
+    attributionControl: false,
+    preferCanvas: true,
+  });
+  tileLayer = baseTiles().addTo(map);
+  [lFocus, lReal, lMock, lTracks, lAnchors, lLabels].forEach((group) => group.addTo(map!));
+  map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
+  zoom.value = map.getZoom();
+
+  map.on("zoomend", () => {
+    zoom.value = map!.getZoom();
+  });
+  map.on("move zoom resize", () => {
+    placeCard();
+  });
+  map.on("move zoom resize", () => {
+    placeCard();
+    syncSize();
+  });
+  map.on("zoomend", () => {
+    syncSize();
+  });
+  map.on("mousemove", (event: L.LeafletMouseEvent) => {
+    cursor.value = { lat: event.latlng.lat, lng: event.latlng.lng };
+  });
+  map.on("mouseout", () => {
+    cursor.value = null;
+  });
+  syncSize();
+}
+
+function syncSize() {
+  if (!map) return;
+  const size = map.getSize();
+  mapSize.value = { w: size.x, h: size.y };
 }
 
 function zoomBy(factor: number) {
-  const next = clamp(view.k * factor, 0.8, 4);
-  const ratio = next / view.k;
-  view.tx *= ratio;
-  view.ty *= ratio;
-  view.k = next;
+  if (!map) return;
+  if (factor > 1) map.zoomIn();
+  else map.zoomOut();
 }
 
 function resetView() {
-  view.k = 1;
-  view.tx = 0;
-  view.ty = 0;
+  map?.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
 }
 
-function onBackgroundClick() {
-  if (moved) return;
-  openPanel.value = null;
-  camCardOpen.value = false;
+/* ---------------------------- Map 快照 ---------------------------- */
+
+const snapshotState = ref<"loading" | "ready" | "error">("loading");
+const snapshot = ref<MapSnapshot | null>(null);
+const realVisible = ref(true);
+const selectedRealId = ref<number | null>(null);
+
+async function reloadSnapshot() {
+  snapshotState.value = "loading";
+  try {
+    snapshot.value = await loadMapSnapshot(true);
+    snapshotState.value = "ready";
+  } catch {
+    snapshotState.value = "error";
+  }
+  render();
 }
+
+const selectedReal = computed(
+  () => snapshot.value?.cameras.find((item) => item.camera_id === selectedRealId.value) ?? null,
+);
+
 
 /* ---------------------------- 弹层 ---------------------------- */
 
@@ -110,35 +216,63 @@ const windowLabel = computed(
   () => `${minutesToLabel(timeWindow.start)}–${timeWindow.end >= 1440 ? "24:00" : minutesToLabel(timeWindow.end)}`,
 );
 
-const fovPath = (camera: Camera) => {
-  const radius = 96;
-  const start = camera.heading - camera.fov / 2;
-  const end = camera.heading + camera.fov / 2;
-  const steps = 10;
-  const points: string[] = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const angle = ((start + ((end - start) * i) / steps) * Math.PI) / 180;
-    points.push(`${(camera.x + Math.sin(angle) * radius).toFixed(1)},${(camera.y - Math.cos(angle) * radius).toFixed(1)}`);
-  }
-  return `M${camera.x},${camera.y} L${points.join(" L")} Z`;
-};
-
 /* ---------------------------- 选中态 ---------------------------- */
 
 const selectedCamera = computed(() => cameras.find((c) => c.id === wb.selectedCameraId) ?? null);
 const camCardOpen = ref(false);
 const anchorCardOpen = ref(false);
+const realCardOpen = ref(false);
+
+const cardLatLng = ref<L.LatLng | null>(null);
+const cardPoint = ref<{ x: number; y: number } | null>(null);
+
+function placeCard() {
+  if (!map || !cardLatLng.value) {
+    cardPoint.value = null;
+    return;
+  }
+  const point = map.latLngToContainerPoint(cardLatLng.value);
+  cardPoint.value = { x: point.x, y: point.y };
+}
+
+const CARD = { w: 272, h: 214 };
+
+const cardStyle = computed(() => {
+  const point = cardPoint.value;
+  if (!point) return undefined;
+  const box = mapSize.value;
+  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CARD.w - 8, 8));
+  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CARD.h, 8));
+  return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
+});
 
 function pickCamera(camera: Camera) {
   actions.selectCamera(camera.id);
   camCardOpen.value = true;
   anchorCardOpen.value = false;
+  realCardOpen.value = false;
+  cardLatLng.value = toLatLng(camera.x, camera.y);
+  placeCard();
+}
+
+function pickReal(camera: SnapshotCamera) {
+  selectedRealId.value = camera.camera_id;
+  realCardOpen.value = true;
+  camCardOpen.value = false;
+  anchorCardOpen.value = false;
+  cardLatLng.value = L.latLng(camera.lat, camera.lon);
+  placeCard();
 }
 
 function pickAnchor(elementId: string) {
   actions.selectAnchor(elementId);
   anchorCardOpen.value = true;
   camCardOpen.value = false;
+  realCardOpen.value = false;
+  const element = visibleElements.value.find((item) => item.id === elementId);
+  const camera = cameras.find((item) => item.id === element?.cameraId);
+  cardLatLng.value = camera ? toLatLng(camera.x, camera.y) : toLatLng(800, 330);
+  placeCard();
 }
 
 watch(
@@ -148,6 +282,20 @@ watch(
     if (obs?.kind === "anchor" && obs.elementId) {
       anchorCardOpen.value = true;
       camCardOpen.value = false;
+      realCardOpen.value = false;
+      const element = visibleElements.value.find((item) => item.id === obs.elementId);
+      const camera = cameras.find((item) => item.id === element?.cameraId);
+      cardLatLng.value = camera ? toLatLng(camera.x, camera.y) : toLatLng(800, 330);
+      placeCard();
+    } else if (obs && obs.kind !== "gap" && obs.cameraId) {
+      const camera = cameras.find((item) => item.id === obs.cameraId);
+      if (camera) {
+        camCardOpen.value = true;
+        anchorCardOpen.value = false;
+        realCardOpen.value = false;
+        cardLatLng.value = toLatLng(camera.x, camera.y);
+        placeCard();
+      }
     }
   },
 );
@@ -178,247 +326,205 @@ const tracks = [
   { id: "branch", tone: "branch", dash: "2 8", label: "多分支", labelAt: [948, 250], points: "856,344 902,314 962,282 1032,246" },
 ];
 
+/* ---------------------------- 图层渲染 ---------------------------- */
+
+const TRACK_COLOR: Record<string, string> = {
+  verified: "rgba(47,207,146,0.92)",
+  candidate: "rgba(240,180,90,0.85)",
+  branch: "rgba(240,180,90,0.45)",
+  gap: "rgba(140,158,180,0.45)",
+};
+
+const parseWorldPoints = (raw: string): L.LatLng[] =>
+  raw
+    .split(" ")
+    .map((pair) => pair.split(",").map(Number))
+    .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]))
+    .map(([x, y]) => toLatLng(x, y));
+
+function mockCameraIcon(camera: Camera): L.DivIcon {
+  const classes = [
+    "mk",
+    wb.selectedCameraId === camera.id ? "is-selected" : "",
+    linkedCameraId.value === camera.id ? "is-linked" : "",
+    camera.analyzing ? "is-analyzing" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return L.divIcon({
+    className: "mk-wrap",
+    html: `<span class="${classes}" data-tone="${isActive(camera) ? "ok" : "idle"}"><i></i>${
+      camera.notice ? '<b class="mk-note">!</b>' : ""
+    }</span>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+}
+
+function textIcon(text: string, className: string, offset: [number, number] = [0, 0]): L.DivIcon {
+  return L.divIcon({
+    className: "mk-wrap",
+    html: `<span class="${className}">${text}</span>`,
+    iconSize: [0, 0],
+    iconAnchor: [offset[0], offset[1]],
+  });
+}
+
+function anchorIcon(elementId: string, selected: boolean): L.DivIcon {
+  return L.divIcon({
+    className: "mk-wrap",
+    html: `<span class="anchor-pin${selected ? " is-selected" : ""}"><svg viewBox="0 0 24 34" width="22" height="30" aria-hidden="true"><path d="M12 33C12 33 22 21.5 22 13A10 10 0 1 0 2 13C2 21.5 12 33 12 33Z" fill="#7c5cf0" stroke="#c3aeff" stroke-width="1.4"/><circle cx="12" cy="12.6" r="4" fill="#f0ecff"/></svg><em>${elementId}</em></span>`,
+    iconSize: [22, 30],
+    iconAnchor: [11, 30],
+  });
+}
+
+function render() {
+  if (!map) return;
+  [lMock, lReal, lFocus, lTracks, lAnchors, lLabels].forEach((group) => group.clearLayers());
+
+  /* 真实镜头：TrajNexa_Map 只读快照 */
+  if (realVisible.value) {
+    for (const camera of snapshot.value?.cameras ?? []) {
+      const calibrated = camera.pose_quality === "calibrated";
+      if (layers.fov) {
+        if (camera.fov_levels?.length) {
+          // 与 TrajNexa_Map 同一套等级配色：辨识 #ff3131 / 识别 #ffbf00 / 观察 #00b300
+          for (const group of camera.fov_levels) {
+            const color = FOV_COLORS[group.level] ?? FOV_COLORS.observation;
+            for (const ring of group.rings) {
+              L.polygon(
+                ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+                { stroke: false, fillColor: color, fillOpacity: 0.4, interactive: false },
+              ).addTo(lFocus);
+            }
+          }
+        } else if (camera.fov_rings) {
+          for (const ring of camera.fov_rings) {
+            L.polygon(
+              ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+              { stroke: false, fillColor: FOV_COLORS.observation, fillOpacity: 0.4, interactive: false },
+            ).addTo(lFocus);
+          }
+        }
+      }
+      const selected = selectedRealId.value === camera.camera_id;
+      const marker = L.circleMarker([camera.lat, camera.lon], {
+        radius: selected ? 7.5 : calibrated ? 5.2 : 4.6,
+        color: selected ? "#d8f6ff" : "#060a0f",
+        weight: selected ? 2 : 1.4,
+        fillColor: calibrated ? "#4fd1d9" : "#8b9bb0",
+        fillOpacity: 0.92,
+      }).addTo(lReal);
+      marker.bindTooltip(
+        `${cameraLabel(camera)} · ${calibrated ? "已标定姿态" : "姿态未知（不画扇形）"}`,
+        { direction: "top", offset: [0, -6], className: "map-tip" },
+      );
+      marker.on("click", () => pickReal(camera));
+    }
+  }
+
+  /* 演示业务层：摄像头 */
+  if (layers.cameras) {
+    for (const camera of cameras) {
+      L.marker(toLatLng(camera.x, camera.y), { icon: mockCameraIcon(camera), keyboard: false })
+        .addTo(lMock)
+        .on("click", () => pickCamera(camera));
+      if (layers.labels) {
+        L.marker(toLatLng(camera.x, camera.y), {
+          icon: textIcon(camera.name, `mk-label${isActive(camera) ? " is-on" : ""}`),
+          interactive: false,
+          keyboard: false,
+        }).addTo(lLabels);
+      }
+    }
+  }
+
+  /* 演示业务层：轨迹 */
+  if (layers.tracks) {
+    for (const track of tracks) {
+      L.polyline(parseWorldPoints(track.points), {
+        color: TRACK_COLOR[track.tone] ?? TRACK_COLOR.gap,
+        weight: track.tone === "verified" ? 2.6 : 1.8,
+        dashArray: track.dash || undefined,
+        lineCap: "round",
+        interactive: false,
+      }).addTo(lTracks);
+      if (layers.labels) {
+        L.marker(toLatLng(track.labelAt[0], track.labelAt[1]), {
+          icon: textIcon(track.label, `track-label is-${track.tone}`),
+          interactive: false,
+          keyboard: false,
+        }).addTo(lTracks);
+      }
+    }
+  }
+
+  /* 演示业务层：锚点 */
+  if (layers.anchors) {
+    for (const item of cameraAnchors.value) {
+      L.marker(toLatLng(item.camera.x, item.camera.y - 8), {
+        icon: anchorIcon(item.element.id, wb.selectedAnchorId === item.element.id),
+        keyboard: false,
+      })
+        .addTo(lAnchors)
+        .on("click", () => pickAnchor(item.element.id));
+    }
+    for (const element of regionAnchors.value) {
+      const center = toLatLng(regionAnchor.x, regionAnchor.y);
+      L.circle(center, {
+        radius: worldRadiusMeters(regionAnchor.r),
+        color: "rgba(169,139,255,0.55)",
+        weight: 1.2,
+        dashArray: "5 5",
+        fillColor: "#a98bff",
+        fillOpacity: 0.07,
+      })
+        .addTo(lAnchors)
+        .on("click", () => pickAnchor(element.id));
+      L.marker(center, {
+        icon: textIcon(`${element.id} · 区域锚点（待定位）`, "region-label"),
+        interactive: false,
+        keyboard: false,
+      }).addTo(lAnchors);
+    }
+  }
+}
+
+watch(
+  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot],
+  () => render(),
+  { deep: true },
+);
+
+onMounted(() => {
+  initMap();
+  render();
+  void reloadSnapshot();
+});
+
+onBeforeUnmount(() => {
+  map?.remove();
+  map = null;
+});
+
 function focusAnchor() {
   resetView();
   if (anchorChips.value) {
-    actions.selectAnchor(anchorChips.value.id);
-    anchorCardOpen.value = true;
+    pickAnchor(anchorChips.value.id);
   }
 }
 </script>
 
 <template>
   <section class="map-region">
-    <div
-      class="map-canvas"
-      :class="{ 'is-panning': panning }"
-      @pointerdown="startPan"
-      @pointermove="onPan"
-      @pointerup="endPan"
-      @pointercancel="endPan"
-      @wheel.prevent="onWheel"
-      @dblclick="resetView"
-      @click="onBackgroundClick"
-    >
-      <svg
-        class="map-svg"
-        :style="{ transform: `translate3d(${view.tx}px, ${view.ty}px, 0) scale(${view.k})` }"
-        viewBox="0 0 1400 430"
-        preserveAspectRatio="xMidYMid slice"
+    <div class="map-canvas">
+      <div
+        ref="mapEl"
+        class="map-leaflet"
         role="img"
-        aria-label="业务地图：Map 发布的摄像头点位、视域与业务叠加层（示意数据）"
-      >
-        <defs>
-          <pattern id="map-grid" width="36" height="36" patternUnits="userSpaceOnUse">
-            <path d="M36 0H0V36" fill="none" stroke="#0d1622" stroke-width="1" />
-          </pattern>
-          <radialGradient id="map-glow" cx="0.5" cy="0.45" r="0.62">
-            <stop offset="0" stop-color="#0d1723" />
-            <stop offset="1" stop-color="#070c12" />
-          </radialGradient>
-          <filter id="map-glow-blur" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="6" />
-          </filter>
-        </defs>
-
-        <rect width="1400" height="430" fill="url(#map-glow)" />
-        <rect width="1400" height="430" fill="url(#map-grid)" opacity="0.55" />
-
-        <!-- 街区与建筑体块（示意，非真实测绘数据） -->
-        <g>
-          <rect
-            v-for="(b, index) in buildings"
-            :key="`b-${index}`"
-            :x="b.x"
-            :y="b.y"
-            :width="b.w"
-            :height="b.h"
-            rx="1.5"
-            :fill="b.tone === 0 ? '#121c28' : b.tone === 1 ? '#16212e' : '#192535'"
-            stroke="#0b131c"
-            stroke-width="1"
-          />
-        </g>
-
-        <!-- 道路 -->
-        <g fill="none" stroke-linecap="round">
-          <polyline
-            v-for="road in roads"
-            :key="road.id"
-            :points="road.points.map((p) => `${p[0]},${p[1]}`).join(' ')"
-            :stroke-width="road.width"
-            stroke="#111a25"
-          />
-        </g>
-        <g fill="none" stroke-linecap="round">
-          <polyline
-            v-for="road in roads"
-            :key="`line-${road.id}`"
-            :points="road.points.map((p) => `${p[0]},${p[1]}`).join(' ')"
-            stroke-width="1.2"
-            stroke="#263545"
-            stroke-dasharray="14 16"
-            opacity="0.8"
-          />
-        </g>
-
-        <!-- 地铁口 / 广场标记 -->
-        <g>
-          <rect x="1086" y="126" width="276" height="74" rx="6" fill="#0f1822" stroke="#1b2937" stroke-dasharray="4 5" />
-          <circle cx="900" cy="206" r="9" fill="#16212e" stroke="#31445c" />
-          <text x="900" y="210" text-anchor="middle" font-size="9" fill="#8fb6ff">M</text>
-        </g>
-
-        <!-- 地名与路名 -->
-        <g v-if="layers.labels">
-          <text
-            v-for="label in mapLabels"
-            :key="label.text"
-            :x="label.x"
-            :y="label.y"
-            :font-size="label.size"
-            :fill="label.kind === 'road' ? '#3d5065' : '#54687f'"
-            :letter-spacing="label.kind === 'road' ? 2 : 3"
-            text-anchor="middle"
-            style="paint-order: stroke; stroke: #070c12; stroke-width: 3px"
-          >
-            {{ label.text }}
-          </text>
-        </g>
-
-        <!-- 摄像头视域（FOV） -->
-        <g v-if="layers.fov">
-          <path
-            v-for="camera in cameras"
-            :key="`fov-${camera.id}`"
-            :d="fovPath(camera)"
-            :fill="isActive(camera) ? 'rgba(47,207,146,0.10)' : 'rgba(130,148,170,0.055)'"
-            :stroke="isActive(camera) ? 'rgba(47,207,146,0.34)' : 'rgba(130,148,170,0.2)'"
-            stroke-width="1"
-            :stroke-dasharray="camera.fovType === '理论' ? '4 4' : undefined"
-          />
-        </g>
-
-        <!-- 轨迹与盲区 -->
-        <g v-if="layers.tracks" fill="none" stroke-linecap="round">
-          <polyline
-            v-for="track in tracks"
-            :key="track.id"
-            :points="track.points"
-            :stroke="
-              track.tone === 'verified'
-                ? 'rgba(47,207,146,0.92)'
-                : track.tone === 'candidate'
-                  ? 'rgba(240,180,90,0.85)'
-                  : track.tone === 'branch'
-                    ? 'rgba(240,180,90,0.45)'
-                    : 'rgba(140,158,180,0.45)'
-            "
-            :stroke-width="track.tone === 'verified' ? 2.6 : 1.8"
-            :stroke-dasharray="track.dash || undefined"
-          />
-          <g font-size="8.5" text-anchor="middle" stroke="none">
-            <text
-              v-for="track in tracks"
-              :key="`tl-${track.id}`"
-              :x="track.labelAt[0]"
-              :y="track.labelAt[1]"
-              :fill="track.tone === 'verified' ? '#6fe4b6' : track.tone === 'gap' ? '#7d8ca1' : '#f0c07c'"
-              style="paint-order: stroke; stroke: #070c12; stroke-width: 3px"
-            >
-              {{ track.label }}
-            </text>
-          </g>
-        </g>
-
-        <!-- 起始锚点 -->
-        <g v-if="layers.anchors">
-          <g v-for="element in regionAnchors" :key="`region-${element.id}`" @pointerdown.stop @click.stop="pickAnchor(element.id)">
-            <circle
-              :cx="regionAnchor.x"
-              :cy="regionAnchor.y"
-              :r="regionAnchor.r"
-              fill="rgba(169,139,255,0.07)"
-              stroke="rgba(169,139,255,0.55)"
-              stroke-dasharray="5 5"
-              stroke-width="1.2"
-            />
-            <circle :cx="regionAnchor.x" :cy="regionAnchor.y" r="3" fill="#a98bff" />
-            <text
-              :x="regionAnchor.x"
-              :y="regionAnchor.y - regionAnchor.r - 8"
-              text-anchor="middle"
-              font-size="9.5"
-              fill="#c3aeff"
-              style="paint-order: stroke; stroke: #070c12; stroke-width: 3px"
-            >
-              {{ element.id }} · 区域锚点（待定位）
-            </text>
-          </g>
-          <g
-            v-for="item in cameraAnchors"
-            :key="`a-${item.element.id}`"
-            class="anchor-pin"
-            :class="{ 'is-selected': wb.selectedAnchorId === item.element.id }"
-            :transform="`translate(${item.camera.x},${item.camera.y - 8})`"
-            @pointerdown.stop
-            @click.stop="pickAnchor(item.element.id)"
-          >
-            <circle v-if="wb.selectedAnchorId === item.element.id" r="20" fill="rgba(169,139,255,0.14)" />
-            <path
-              d="M0 0 C-3.6 -6 -12 -11 -12 -19.5 A12 12 0 1 1 12 -19.5 C12 -11 3.6 -6 0 0 Z"
-              fill="#7c5cf0"
-              stroke="#c3aeff"
-              stroke-width="1.2"
-            />
-            <circle cy="-19.5" r="4.2" fill="#f0ecff" />
-            <g transform="translate(0,-44)">
-              <rect x="-16" y="-10" width="32" height="15" rx="4" fill="#1a1430" stroke="rgba(169,139,255,0.6)" stroke-width="1" />
-              <text y="1.6" text-anchor="middle" font-size="9" fill="#d8ccff">{{ item.element.id }}</text>
-            </g>
-          </g>
-        </g>
-
-        <!-- 摄像头 -->
-        <g v-if="layers.cameras">
-          <g
-            v-for="camera in cameras"
-            :key="camera.id"
-            class="camera-marker"
-            :class="{ 'is-selected': wb.selectedCameraId === camera.id, 'is-linked': linkedCameraId === camera.id }"
-            :transform="`translate(${camera.x},${camera.y})`"
-            @pointerdown.stop
-            @click.stop="pickCamera(camera)"
-          >
-            <circle v-if="camera.analyzing" class="pulse-ring" r="9" fill="none" stroke="#4d8dff" stroke-width="1.6" />
-            <circle v-if="camera.analyzing" r="14" fill="none" stroke="rgba(77,141,255,0.45)" stroke-width="1" stroke-dasharray="3 4" />
-            <circle v-if="wb.selectedCameraId === camera.id" r="16" fill="none" stroke="#6fa5ff" stroke-width="1.2" stroke-dasharray="3 3" />
-            <circle v-if="linkedCameraId === camera.id" r="12" fill="none" stroke="rgba(169,139,255,0.75)" stroke-width="1.4" />
-            <circle
-              r="6.4"
-              :fill="isActive(camera) ? '#2fcf92' : '#4a5a70'"
-              stroke="#060a0f"
-              stroke-width="1.8"
-            />
-            <circle r="2" :fill="isActive(camera) ? '#052018' : '#0b1119'" opacity="0.7" />
-            <g v-if="camera.notice" :transform="'translate(9,-9)'">
-              <circle r="4.6" fill="#f0b45a" stroke="#060a0f" stroke-width="1" />
-              <text y="2.2" text-anchor="middle" font-size="6.5" font-weight="700" fill="#1a1205">!</text>
-            </g>
-            <text
-              v-if="layers.labels"
-              x="10"
-              y="3.4"
-              font-size="9.2"
-              :fill="isActive(camera) ? '#a8c5bb' : '#6f8095'"
-              style="paint-order: stroke; stroke: #070c12; stroke-width: 3.4px"
-            >
-              {{ camera.name }}
-            </text>
-            <title>{{ camera.name }} · {{ isActive(camera) ? "当前窗内有已索引录像" : "当前窗内无已索引录像" }}</title>
-          </g>
-        </g>
-      </svg>
+        aria-label="业务地图：TrajNexa_Map 发布的摄像头点位与标定视域，叠加演示业务层"
+      />
 
       <div class="map-compass" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="26" height="26">
@@ -427,48 +533,97 @@ function focusAnchor() {
           <path d="M12 18.5 9.8 12 12 13.4l2.2-1.4Z" fill="#33465c" />
         </svg>
       </div>
+
+      <div v-if="snapshotState !== 'ready'" class="map-snapshot-hint" :data-tone="snapshotState">
+        <AppIcon :name="snapshotState === 'error' ? 'warning' : 'refresh'" :size="13" />
+        <span>{{ snapshotState === "error" ? "TrajNexa_Map 快照不可用：仅显示演示业务层" : "正在加载 TrajNexa_Map 空间快照…" }}</span>
+        <button v-if="snapshotState === 'error'" class="btn btn--sm btn--outline" @click="reloadSnapshot">重试</button>
+      </div>
     </div>
 
     <!-- 顶部工具条 -->
     <div class="map-toolbar popover" @click.stop>
-      <div class="tb-group">
-        <button class="tb-btn" :class="{ 'is-open': openPanel === 'layers' }" @click="togglePanel('layers')">
-          <AppIcon name="layers" :size="14" />图层
-        </button>
-        <button class="tb-btn" @click="actions.openCoverage()">
-          <AppIcon name="video" :size="14" />录像覆盖
-        </button>
-        <button class="tb-btn" @click="focusAnchor">
-          <AppIcon name="target" :size="14" />定位
-        </button>
-        <button class="tb-btn" :class="{ 'is-open': openPanel === 'legend' }" @click="togglePanel('legend')">
-          <AppIcon name="list" :size="14" />图例
-        </button>
+      <div class="tb-seg">
+        <button class="tb-seg-btn" :class="{ 'is-on': basemap === 'map' }" :aria-pressed="basemap === 'map'" @click="setBasemap('map')">地图</button>
+        <button class="tb-seg-btn" :class="{ 'is-on': basemap === 'satellite' }" :aria-pressed="basemap === 'satellite'" @click="setBasemap('satellite')">卫星</button>
+        <button class="tb-seg-btn" disabled title="三维地形需要 WebGL 服务，本版本未接入">三维</button>
       </div>
+      <label class="tb-search" :class="{ 'is-open': hits.length > 0 }">
+        <AppIcon name="search" :size="13" />
+        <input
+          v-model="query"
+          type="search"
+          placeholder="搜索摄像头 / 编号"
+          @input="query && runSearch()"
+          @keydown.enter.prevent="runSearch"
+        />
+        <ul v-if="hits.length" class="tb-hits">
+          <li v-for="hit in hits" :key="hit.id">
+            <button @click="focusHit(hit)">{{ hit.label }}</button>
+          </li>
+        </ul>
+      </label>
       <span class="tb-sep" />
+      <button class="tb-btn tb-btn--icon" :class="{ 'is-open': openPanel === 'layers' }" title="图层" aria-label="图层" @click="togglePanel('layers')">
+        <AppIcon name="layers" :size="14" />
+      </button>
+      <button class="tb-btn tb-btn--icon" :class="{ 'is-open': openPanel === 'legend' }" title="图例" aria-label="图例" @click="togglePanel('legend')">
+        <AppIcon name="list" :size="14" />
+      </button>
+      <button class="tb-btn tb-btn--icon" title="定位到起始锚点" aria-label="定位到起始锚点" @click="focusAnchor">
+        <AppIcon name="target" :size="14" />
+      </button>
+      <button class="tb-btn tb-btn--icon" title="录像覆盖" aria-label="录像覆盖" @click="actions.openCoverage()">
+        <AppIcon name="video" :size="14" />
+      </button>
       <button class="tb-time" :class="{ 'is-open': openPanel === 'time' }" @click="togglePanel('time')">
-        <AppIcon name="clock" :size="14" />
+        <AppIcon name="clock" :size="13" />
         <span class="num">{{ windowLabel }}</span>
-        <AppIcon name="chevron-down" :size="12" />
+        <AppIcon name="chevron-down" :size="11" />
+      </button>
+    </div>
+
+    <!-- 图层开关 -->
+    <div class="map-chips popover" @click.stop>
+      <label class="map-chip"><input v-model="layers.fov" type="checkbox" /><span>摄像头视域</span></label>
+      <label class="map-chip"><input v-model="layers.tracks" type="checkbox" /><span>轨迹图层</span></label>
+      <label class="map-chip"><input v-model="layers.labels" type="checkbox" /><span>名称标注</span></label>
+      <label class="map-chip"><input v-model="layers.anchors" type="checkbox" /><span>起始锚点</span></label>
+      <button class="map-chip map-chip--more" :class="{ 'is-open': openPanel === 'layers' }" @click="togglePanel('layers')">
+        更多图层
+        <AppIcon name="chevron-down" :size="11" />
       </button>
     </div>
 
     <div v-if="openPanel === 'layers'" class="map-panel map-panel--layers popover" @click.stop>
       <header class="panel-head">
         <span>图层</span>
-        <span class="dim">来自 Map 快照</span>
+        <span class="dim">{{ snapshot ? snapshot.spatial_revision : "快照未就绪" }}</span>
       </header>
-      <label class="layer-row"><input v-model="layers.cameras" type="checkbox" /><span>摄像头点位</span><em>{{ cameras.length }}</em></label>
-      <label class="layer-row"><input v-model="layers.fov" type="checkbox" /><span>视域 FOV</span><em>{{ cameras.length }}</em></label>
+      <label class="layer-row">
+        <input v-model="realVisible" type="checkbox" /><span>Map 镜头（TrajNexa_Map）</span><em>{{ snapshot?.cameras.length ?? 0 }}</em>
+      </label>
+      <label class="layer-row">
+        <input v-model="layers.fov" type="checkbox" /><span>标定视域 FOV</span><em>{{ snapshot?.counts.with_focus ?? 0 }}</em>
+      </label>
+      <label class="layer-row"><input v-model="layers.cameras" type="checkbox" /><span>任务镜头（演示）</span><em>{{ cameras.length }}</em></label>
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
       <label class="layer-row"><input v-model="layers.tracks" type="checkbox" /><span>轨迹与盲区</span><em>{{ tracks.length }}</em></label>
-      <label class="layer-row"><input v-model="layers.labels" type="checkbox" /><span>地名与路名</span><em>—</em></label>
-      <p class="panel-note">可用性颜色来自主系统录像索引，不写回 Map GIS。</p>
+      <label class="layer-row"><input v-model="layers.labels" type="checkbox" /><span>名称标注</span><em>—</em></label>
+      <p class="panel-note">Map 镜头与视域来自 TrajNexa_Map 只读快照；任务镜头与轨迹为演示数据，按示意投影落图。</p>
     </div>
 
     <div v-if="openPanel === 'legend'" class="map-panel map-panel--legend popover" @click.stop>
       <header class="panel-head"><span>图例</span></header>
-      <p class="legend-title">摄像头录像可用性</p>
+      <p class="legend-title">Map 镜头（TrajNexa_Map 快照）</p>
+      <ul class="legend">
+        <li><i class="sw sw--real" />已标定姿态</li>
+        <li><i class="sw sw--real-unknown" />姿态未知，仅点位（不虚构扇形）</li>
+        <li><i class="sw sw--fov-ident" />视域 辨识（identification）</li>
+        <li><i class="sw sw--fov-recog" />视域 识别（recognition）</li>
+        <li><i class="sw sw--fov-obs" />视域 观察（observation）</li>
+      </ul>
+      <p class="legend-title">任务层录像可用性（演示）</p>
       <ul class="legend">
         <li><i class="sw sw--ok" />当前查询窗内有已索引录像</li>
         <li><i class="sw sw--idle" />当前窗内无已索引录像（<b>非离线</b>）</li>
@@ -515,12 +670,12 @@ function focusAnchor() {
       <button class="icon-btn" aria-label="缩小" title="缩小" @click="zoomBy(0.8)"><AppIcon name="minus" :size="14" /></button>
       <span class="zoom-sep" />
       <button class="icon-btn" aria-label="复位视图" title="复位视图" @click="resetView"><AppIcon name="scan" :size="14" /></button>
-      <span class="zoom-level num">{{ Math.round(view.k * 100) }}%</span>
+      <span class="zoom-level num">z{{ zoom }}</span>
     </div>
 
     <!-- 锚点操作卡 -->
     <Transition name="slide">
-      <aside v-if="anchorCardOpen && anchorChips && !wb.emptyMode" class="anchor-card popover">
+      <aside v-if="anchorCardOpen && anchorChips && !wb.emptyMode" class="anchor-card popover" :style="cardStyle">
         <div class="anchor-top">
           <div class="anchor-thumb">
             <MockFrame :tone="anchorChips.tone" :quality="anchorChips.quality" :time="anchorChips.time" :label="anchorChips.cameraLabel" :shape="'portrait'" />
@@ -576,7 +731,7 @@ function focusAnchor() {
 
     <!-- 摄像头概览卡 -->
     <Transition name="slide">
-      <aside v-if="camCardOpen && selectedCamera" class="cam-card popover">
+      <aside v-if="camCardOpen && selectedCamera" class="cam-card popover" :style="cardStyle">
         <header class="cam-head">
           <span class="mono cam-id">{{ selectedCamera.id }}</span>
           <span class="chip" :data-tone="isActive(selectedCamera) ? 'ok' : 'muted'">
@@ -612,16 +767,47 @@ function focusAnchor() {
       </aside>
     </Transition>
 
+    <!-- TrajNexa_Map 镜头卡 -->
+    <Transition name="slide">
+      <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="cardStyle">
+        <header class="cam-head">
+          <span class="mono cam-id">{{ cameraLabel(selectedReal) }}</span>
+          <span class="chip" :data-tone="selectedReal.pose_quality === 'calibrated' ? 'info' : 'muted'">
+            <i class="dot" />{{ selectedReal.pose_quality === "calibrated" ? "已标定姿态" : "姿态未知" }}
+          </span>
+          <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
+        </header>
+        <p class="cam-sub">
+          {{ selectedReal.camera_type || "类型未登记" }} · {{ selectedReal.zone || "区域未登记" }}
+          <span class="dim mono">{{ cameraCode(selectedReal) }}</span>
+        </p>
+        <dl class="cam-kv">
+          <div><dt>经纬度</dt><dd class="num">{{ selectedReal.lon.toFixed(5) }}, {{ selectedReal.lat.toFixed(5) }}</dd></div>
+          <div><dt>朝向</dt><dd class="num">{{ selectedReal.bearing_deg ?? "—" }}°</dd></div>
+          <div><dt>视域</dt><dd class="num">{{ selectedReal.fov_deg ?? "—" }}°</dd></div>
+          <div><dt>量程</dt><dd class="num">{{ selectedReal.range_m ?? "—" }} m</dd></div>
+        </dl>
+        <div class="cam-actions">
+          <button class="btn btn--sm btn--outline" @click="actions.openCorrection()">
+            <AppIcon name="edit" :size="12" />上报修正工单
+          </button>
+        </div>
+        <p class="cam-note">来自 TrajNexa_Map 只读快照；主系统不回写 GIS，不构成身份结论。</p>
+      </aside>
+    </Transition>
+
     <footer class="map-status">
-      <span class="mono">{{ snapshot.revision }}</span>
+      <span class="mono">{{ snapshot ? snapshot.spatial_revision : "快照未连接" }}</span>
       <span class="sep">·</span>
-      <span>{{ cameras.length }} 台摄像头</span>
+      <span>{{ snapshot?.cameras.length ?? 0 }} 台 Map 镜头</span>
       <span class="sep">·</span>
-      <span class="ok">{{ activeCount }} 台当前窗内有已索引录像</span>
+      <span class="ok">{{ activeCount }}/{{ cameras.length }} 台任务镜头窗内有索引</span>
       <span class="grow" />
       <span class="dim">查询窗 {{ coverageDate }} {{ windowLabel }}</span>
       <span class="sep">·</span>
-      <span class="dim">拖动平移 · 滚轮缩放 · 双击复位</span>
+      <span v-if="cursor" class="dim num">坐标 {{ cursor.lat.toFixed(5) }}, {{ cursor.lng.toFixed(5) }}</span>
+      <span class="sep">·</span>
+      <span class="dim">底图 © OpenStreetMap</span>
     </footer>
   </section>
 </template>
@@ -638,47 +824,7 @@ function focusAnchor() {
 .map-canvas {
   position: absolute;
   inset: 0;
-  cursor: grab;
-  touch-action: none;
   overflow: hidden;
-}
-
-.map-canvas.is-panning {
-  cursor: grabbing;
-}
-
-.map-svg {
-  width: 100%;
-  height: 100%;
-  transition: transform 0.18s var(--ease);
-  will-change: transform;
-}
-
-.map-svg text {
-  font-family: var(--font);
-  user-select: none;
-}
-
-.map-canvas.is-panning .map-svg {
-  transition: none;
-}
-
-.camera-marker {
-  cursor: pointer;
-}
-
-.camera-marker:hover text {
-  fill: #e6eefb;
-}
-
-.anchor-pin {
-  cursor: pointer;
-}
-
-.pulse-ring {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: pulse-ring 2.2s var(--ease) infinite;
 }
 
 /* 工具条 */
@@ -688,11 +834,158 @@ function focusAnchor() {
   left: 10px;
   display: flex;
   align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 3px 4px;
+  border-radius: 9px;
+  background: rgba(8, 12, 18, 0.92);
+  backdrop-filter: blur(10px);
+  z-index: 6;
+}
+
+.tb-seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tb-seg-btn {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 5px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.tb-seg-btn:hover:not(:disabled) {
+  color: var(--text-0);
+}
+
+.tb-seg-btn.is-on {
+  background: #e8eef7;
+  color: #10161f;
+  font-weight: 600;
+}
+
+.tb-seg-btn:disabled {
+  color: var(--text-4);
+  cursor: not-allowed;
+}
+
+.tb-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 214px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-3);
+}
+
+.tb-search.is-open {
+  border-color: var(--accent-line);
+}
+
+.tb-search input {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  font-size: 11.5px;
+  outline: none;
+}
+
+.tb-search input::placeholder {
+  color: var(--text-4);
+}
+
+.tb-hits {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  width: 100%;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: #0b1119;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9;
+}
+
+.tb-hits button {
+  display: block;
+  width: 100%;
+  padding: 5px 7px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 11.5px;
+  color: var(--text-1);
+}
+
+.tb-hits button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+.tb-btn--icon {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.map-chips {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
   gap: 4px;
   padding: 4px;
   border-radius: 9px;
-  background: rgba(10, 16, 24, 0.9);
+  background: rgba(8, 12, 18, 0.92);
   backdrop-filter: blur(10px);
+  z-index: 5;
+}
+
+.map-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.map-chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-1);
+}
+
+.map-chip input {
+  width: 12px;
+  height: 12px;
+  accent-color: var(--accent);
+}
+
+.map-chip--more {
+  gap: 4px;
+  border-left: 1px solid var(--line-2);
+  border-radius: 0 6px 6px 0;
+  padding-left: 10px;
+}
+
+.map-chip--more.is-open {
+  color: var(--accent-hi);
 }
 
 .tb-group {
@@ -744,7 +1037,7 @@ function focusAnchor() {
 
 .map-panel {
   position: absolute;
-  top: 48px;
+  top: 58px;
   left: 10px;
   width: 248px;
   padding: 10px;
@@ -1242,4 +1535,255 @@ function focusAnchor() {
   opacity: 0;
   transform: translateY(8px);
 }
+
+/* ---------------------------- Leaflet 底图 ---------------------------- */
+
+.map-leaflet {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #eef1f4;
+}
+
+.map-leaflet :deep(.leaflet-container) {
+  background: #eef1f4;
+  font-family: var(--font);
+  outline: none;
+}
+
+/* 底图与 TrajNexa_Map 完全一致：OSM 原色，不加反相/滤色，避免语义色被翻掉 */
+.map-leaflet :deep(.leaflet-tile-pane) {
+  filter: none;
+}
+
+.map-leaflet :deep(.leaflet-control-container) {
+  display: none;
+}
+
+.map-snapshot-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line-2);
+  background: rgba(11, 17, 25, 0.95);
+  color: var(--text-2);
+  font-size: 10px;
+  transform: translateX(-50%);
+}
+
+.map-snapshot-hint[data-tone="error"] {
+  border-color: rgba(240, 180, 90, 0.55);
+  color: #f0c07c;
+}
+
+/* ---------------------------- 地图标记 ---------------------------- */
+
+.map-canvas :deep(.mk-wrap) {
+  background: none;
+  border: 0;
+}
+
+.map-canvas :deep(.mk) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #060a0f;
+  background: #4a5a70;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: box-shadow 0.16s var(--ease), width 0.16s var(--ease), height 0.16s var(--ease);
+}
+
+.map-canvas :deep(.mk i) {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: rgba(6, 10, 15, 0.55);
+}
+
+.map-canvas :deep(.mk[data-tone="ok"]) {
+  background: #2fcf92;
+  box-shadow: 0 0 10px rgba(47, 207, 146, 0.45);
+}
+
+.map-canvas :deep(.mk.is-selected) {
+  width: 17px;
+  height: 17px;
+  border-color: #d8f6ff;
+  box-shadow: 0 0 0 3px rgba(111, 165, 255, 0.26);
+}
+
+.map-canvas :deep(.mk.is-linked) {
+  box-shadow: 0 0 0 4px rgba(169, 139, 255, 0.3);
+}
+
+.map-canvas :deep(.mk.is-analyzing)::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.4px solid rgba(77, 141, 255, 0.75);
+  animation: mk-pulse 1.6s ease-out infinite;
+}
+
+@keyframes mk-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.map-canvas :deep(.mk-note) {
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #f0b45a;
+  color: #1a1205;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 11px;
+  text-align: center;
+}
+
+.map-canvas :deep(.mk-label) {
+  position: absolute;
+  left: 9px;
+  top: -5px;
+  color: #3f4c59;
+  font-size: 9px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+}
+
+.map-canvas :deep(.mk-label.is-on) {
+  color: #0d7357;
+}
+
+.map-canvas :deep(.track-label) {
+  position: absolute;
+  color: #54606d;
+  transform: translate(-50%, -50%);
+  font-size: 8.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+}
+
+.map-canvas :deep(.track-label.is-verified) {
+  color: #0a7a4a;
+}
+
+.map-canvas :deep(.track-label.is-gap) {
+  color: #4e5a67;
+}
+
+.map-canvas :deep(.track-label.is-candidate),
+.map-canvas :deep(.track-label.is-branch) {
+  color: #8a5c00;
+}
+
+.map-canvas :deep(.region-label) {
+  position: absolute;
+  color: #5b3fb0;
+  font-size: 9.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  transform: translate(-50%, -100%);
+}
+
+.map-canvas :deep(.anchor-pin) {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  transform: translate(-50%, -100%);
+  cursor: pointer;
+}
+
+.map-canvas :deep(.anchor-pin em) {
+  margin-top: -3px;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(169, 139, 255, 0.6);
+  background: #1a1430;
+  color: #d8ccff;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 13px;
+}
+
+.map-canvas :deep(.anchor-pin.is-selected)::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  background: rgba(169, 139, 255, 0.14);
+}
+
+.map-leaflet :deep(.map-tip) {
+  padding: 3px 6px;
+  border: 1px solid #d5dde6;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #1b2733;
+  font-size: 10px;
+  box-shadow: 0 2px 8px rgba(15, 26, 38, 0.16);
+}
+
+.map-leaflet :deep(.map-tip::before) {
+  display: none;
+}
+
+/* 图例补色：视域等级与 TrajNexa_Map 的 FOV_STYLES 一致 */
+.sw--real {
+  background: #4fd1d9;
+}
+
+.sw--real-unknown {
+  background: #8b9bb0;
+}
+
+.sw--fov-ident,
+.sw--fov-recog,
+.sw--fov-obs {
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.sw--fov-ident {
+  background: #ff3131;
+}
+
+.sw--fov-recog {
+  background: #ffbf00;
+}
+
+.sw--fov-obs {
+  background: #00b300;
+}
+
+.cam-card,
+.anchor-card {
+  max-height: calc(100% - 16px);
+  overflow: auto;
+}
+
 </style>

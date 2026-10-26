@@ -55,6 +55,7 @@ npm run dev
 - `GET /api/v1/health`
 - `POST /api/v1/media`：`multipart/form-data` 中单个 `file`；文件名去路径；不信任客户端 MIME；按文件头初筛。**签名有效并不等于文件可正确解码**，M1 将进一步探测。
 - `GET /api/v1/media` / `GET /api/v1/media/{media_id}`
+- `GET /api/v1/media/{media_id}/content`：只读回显原始画面（预览/人工核对角标用），路径做存储根校验，不改写不转码。
 - `POST /api/v1/media/{media_id}/inspect`：产生持久化排队作业。
 - `GET /api/v1/jobs/{job_id}` / `POST /api/v1/jobs/{job_id}/retry`
 - `GET /api/v1/jobs/{job_id}/report` / `GET /api/v1/inspections/{inspection_id}`

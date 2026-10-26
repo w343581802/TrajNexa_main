@@ -59,6 +59,7 @@ onMounted(applyDemoHash);
 
 .stage {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
   min-width: 0;

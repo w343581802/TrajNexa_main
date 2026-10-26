@@ -6,7 +6,7 @@ from uuid import uuid4
 import os
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -135,6 +135,19 @@ def get_media(media_id: str, db: Session = Depends(get_db)):
     if asset is None:
         fail(404, 'not_found', '素材不存在')
     return asset
+
+@app.get('/api/v1/media/{media_id}/content')
+def media_content(media_id: str, db: Session = Depends(get_db)):
+    """只读回放原始画面：供工作台预览与人工核对角标证据，不做任何改写。"""
+    asset = db.get(MediaAsset, media_id)
+    if asset is None:
+        fail(404, 'not_found', '素材不存在')
+    root = settings.storage_root.resolve()
+    file = (root / asset.storage_relpath).resolve()
+    if not file.is_relative_to(root) or not file.is_file():
+        fail(404, 'not_found', '素材文件不存在')
+    return FileResponse(file, media_type=asset.mime_detected,
+                        headers={'Cache-Control': 'private, max-age=600'})
 
 @app.post('/api/v1/media/{media_id}/inspect', response_model=JobOut, status_code=202)
 def inspect_media(media_id: str, db: Session = Depends(get_db)):

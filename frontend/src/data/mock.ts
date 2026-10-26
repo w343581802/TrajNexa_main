@@ -35,6 +35,19 @@ export type Camera = {
   intervals: CoverageInterval[];
 };
 
+export type ElementAttribute = { key: string; value: string; unknown: boolean };
+
+export type ElementBox = {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  kind: "person" | "face" | "vehicle";
+  label: string;
+  auto: boolean;
+};
+
 export type TargetElement = {
   id: string;
   timeLabel: string;
@@ -46,12 +59,24 @@ export type TargetElement = {
   note: string;
   tone: "color" | "gray";
   quality: "good" | "low";
+  /** 目标类别：人员 / 车辆 / 其他 */
+  category?: "person" | "vehicle" | "other";
+  /** 录入的可观察属性（保存后转为特征候选） */
+  attributes?: ElementAttribute[];
+  /** 人工框选 / 自动检测框，仅用于回溯画面位置 */
+  boxes?: ElementBox[];
+  /** 角标时间是否未知（未知时不参与时间排序） */
+  timeUnknown?: boolean;
+  /** 记录来源：seed 演示数据 / 用户添加 */
+  origin?: "seed" | "user";
 };
 
 export type FeatureStatus = "verified" | "review" | "unknown" | "conflict" | "proposed";
 
 export type TargetFeature = {
   id: string;
+  /** 由哪个要素录入产生；种子特征为空 */
+  elementId?: string;
   attr: string;
   value: string;
   /** 机器提议值：仅作为候选展示，永不自动覆盖 value */
@@ -60,6 +85,8 @@ export type TargetFeature = {
   statusLabel: string;
   meta: string;
   sources: number;
+  /** 特征可信度（0–100），仅用于界面呈现；未知特征不给分 */
+  confidence?: number;
   window: string;
   conflict?: { value: string; reason: string };
 };
@@ -461,6 +488,7 @@ export const features: TargetFeature[] = [
     statusLabel: "人工已核验",
     meta: "人工核验 · 20:18",
     sources: 3,
+    confidence: 92,
     window: "20:12–20:33",
     conflict: { value: "浅灰色外套", reason: "夜间灰度画面，颜色不可靠" },
   },
@@ -482,6 +510,7 @@ export const features: TargetFeature[] = [
     statusLabel: "待复核",
     meta: "机器提议 · 2 条来源",
     sources: 2,
+    confidence: 68,
     window: "20:19–20:29",
   },
   {
@@ -492,6 +521,7 @@ export const features: TargetFeature[] = [
     statusLabel: "人工已核验",
     meta: "多次观察支持",
     sources: 4,
+    confidence: 88,
     window: "20:12–20:44",
   },
   {
@@ -512,6 +542,7 @@ export const features: TargetFeature[] = [
     statusLabel: "机器提议",
     meta: "待复核 · 未经关联审核",
     sources: 1,
+    confidence: 65,
     window: "20:19–20:41",
   },
 ];
