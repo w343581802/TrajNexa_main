@@ -19,7 +19,7 @@ from app.config import settings
 
 # Require a full calendar date and a clock: accepting HH:MM alone would invent date.
 _DATE_TIME = re.compile(
-    r'(?<!\d)((?:19|20)\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})\s*(?:日|T|/)?\s*'
+    r'(?<!\d)((?:19|20)\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})\s*(?:日|T|/|:)?\s*'
     r'(\d{1,2})[:：](\d{2})[:：](\d{2})(?!\d)'
 )
 _NAME_PREFIX = re.compile(r'(?i)(?:摄像头|监控点|监控|通道|点位|camera|channel|cam)\s*[:：#_\-]?\s*(.+)')
