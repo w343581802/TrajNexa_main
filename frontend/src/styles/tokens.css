@@ -1,0 +1,87 @@
+/* ------------------------------------------------------------------
+ * TrajNexa 主系统 · 设计令牌（唯一来源）
+ * 深色“研判工作台”基调：低饱和石墨底 + 单一交互蓝 + 业务语义色
+ * 语义色（录像可用性 / 轨迹可信度）不得被主题色替代
+ * ------------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+
+  /* 表面层级 */
+  --bg-0: #06090e;
+  --bg-1: #0a0f16;
+  --bg-2: #0e1520;
+  --bg-3: #131c29;
+  --bg-4: #192434;
+  --bg-hover: #1b2738;
+  --bg-input: #0b1119;
+
+  /* 描边 */
+  --line: #1a2432;
+  --line-2: #233245;
+  --line-3: #31455d;
+
+  /* 文字 */
+  --text-0: #eef3fb;
+  --text-1: #b9c6d7;
+  --text-2: #9aa9bd;
+  --text-3: #7b8ca1;
+  --text-4: #5d6c80;
+
+  /* 交互主色（仅用于交互，不复用为录像可用性） */
+  --accent: #4d8dff;
+  --accent-hi: #6fa5ff;
+  --accent-soft: rgba(77, 141, 255, 0.13);
+  --accent-line: rgba(77, 141, 255, 0.42);
+
+  /* 业务语义色 */
+  --ok: #2fcf92;          /* 有已索引录像 / 已核验证据 */
+  --ok-soft: rgba(47, 207, 146, 0.12);
+  --warn: #f0b45a;        /* 待复核 / 解析异常 */
+  --warn-soft: rgba(240, 180, 90, 0.12);
+  --danger: #f2706a;      /* 冲突 / 失败 */
+  --danger-soft: rgba(242, 112, 106, 0.12);
+  --violet: #a98bff;      /* 目标锚点 / 目标特征 */
+  --violet-soft: rgba(169, 139, 255, 0.13);
+  --cyan: #4fd1d9;
+  --cyan-soft: rgba(79, 209, 217, 0.12);
+
+  /* 地图专用 */
+  --map-bg: #070c12;
+  --map-land: #0c131c;
+  --map-block: #111a26;
+  --map-building: #16202e;
+  --map-building-hi: #1b2837;
+  --map-road: #131d29;
+  --map-road-line: #22303f;
+  --map-label: #3f5065;
+
+  /* 尺寸与节奏 */
+  --dock-h: 352px;
+  --header-h: 52px;
+  --rail-w: clamp(322px, 23.5vw, 384px);
+  --feature-h: 176px;
+  --radius-lg: 14px;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-xs: 5px;
+  --ctl-h: 30px;
+  --ctl-h-sm: 24px;
+
+  /* 字号 */
+  --fs-micro: 10px;
+  --fs-note: 11px;
+  --fs-label: 11.5px;
+  --fs-body: 12.5px;
+  --fs-strong: 13px;
+  --fs-title: 14.5px;
+  --fs-xl: 17px;
+
+  /* 阴影 / 动效 */
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.28);
+  --dur: 0.16s;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  --font: "Inter", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+}

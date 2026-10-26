@@ -1,0 +1,573 @@
+/* ------------------------------------------------------------------
+ * 基础层：重置、排版、通用控件
+ * 组件内只写布局与专属样式，控件外观一律复用这里的 .btn / .chip / .input
+ * ------------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+dl,
+dd,
+ul,
+ol {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(77, 141, 255, 0.35);
+  color: #fff;
+}
+
+svg {
+  display: block;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.94em;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  color: var(--text-2);
+}
+
+.dim {
+  color: var(--text-3);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------- 滚动条 ---------------- */
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-3) transparent;
+  overscroll-behavior: contain;
+}
+
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-3) transparent;
+  overscroll-behavior-x: contain;
+}
+
+.scroll-y::-webkit-scrollbar,
+.scroll-x::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-y::-webkit-scrollbar-thumb,
+.scroll-x::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.scroll-y::-webkit-scrollbar-thumb:hover,
+.scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--line-3);
+  background-clip: content-box;
+}
+
+.scroll-y::-webkit-scrollbar-track,
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------- 按钮 ---------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--ctl-h);
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--bg-3);
+  color: var(--text-1);
+  font-size: var(--fs-label);
+  font-weight: 550;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-4);
+  color: var(--text-0);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: linear-gradient(180deg, #5a97ff, #3d7cf0);
+  border-color: rgba(140, 180, 255, 0.5);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 6px 16px rgba(61, 124, 240, 0.22);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #6ba2ff, #4a86f5);
+  color: #fff;
+}
+
+.btn--outline {
+  background: transparent;
+  border-color: var(--line-2);
+  color: var(--text-1);
+}
+
+.btn--outline:hover:not(:disabled) {
+  border-color: var(--line-3);
+  background: var(--bg-3);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.btn--danger {
+  background: transparent;
+  border-color: rgba(242, 112, 106, 0.4);
+  color: #ff8f89;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: rgba(242, 112, 106, 0.62);
+  color: #ffb0ac;
+}
+
+.btn--ok {
+  background: var(--ok-soft);
+  border-color: rgba(47, 207, 146, 0.35);
+  color: #6fe4b6;
+}
+
+.btn--sm {
+  height: var(--ctl-h-sm);
+  padding: 0 8px;
+  font-size: var(--fs-note);
+  gap: 4px;
+}
+
+.btn--lg {
+  height: 34px;
+  padding: 0 16px;
+  font-size: var(--fs-strong);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  border: 1px solid transparent;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-0);
+}
+
+.icon-btn[aria-pressed="true"],
+.icon-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  border-color: var(--accent-line);
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------------- 表单 ---------------- */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  height: var(--ctl-h);
+  padding: 0 9px;
+  background: var(--bg-input);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-0);
+  font-size: var(--fs-label);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.textarea {
+  height: auto;
+  padding: 7px 9px;
+  resize: vertical;
+  line-height: 1.55;
+  min-height: 54px;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-4);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--line-3);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  background: #0a1220;
+  box-shadow: 0 0 0 3px rgba(77, 141, 255, 0.1);
+}
+
+.select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 12px, calc(100% - 9px) 12px;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 24px;
+  cursor: pointer;
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+}
+
+.field-label {
+  font-size: var(--fs-note);
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+.field-hint {
+  font-size: var(--fs-note);
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+/* ---------------- 徽章 / 标签 ---------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.chip .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chip[data-tone="ok"] {
+  color: #62dfb2;
+  border-color: rgba(47, 207, 146, 0.3);
+  background: var(--ok-soft);
+}
+
+.chip[data-tone="warn"] {
+  color: #f3c47c;
+  border-color: rgba(240, 180, 90, 0.32);
+  background: var(--warn-soft);
+}
+
+.chip[data-tone="danger"] {
+  color: #ff9a95;
+  border-color: rgba(242, 112, 106, 0.32);
+  background: var(--danger-soft);
+}
+
+.chip[data-tone="info"] {
+  color: #8fb6ff;
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.chip[data-tone="violet"] {
+  color: #c3aeff;
+  border-color: rgba(169, 139, 255, 0.34);
+  background: var(--violet-soft);
+}
+
+.chip[data-tone="cyan"] {
+  color: #8fe6ec;
+  border-color: rgba(79, 209, 217, 0.3);
+  background: var(--cyan-soft);
+}
+
+.chip[data-tone="muted"] {
+  color: var(--text-3);
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chip--sq {
+  border-radius: var(--radius-xs);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---------------- 面板 / 卡片 ---------------- */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  color: var(--text-1);
+  letter-spacing: 0.02em;
+}
+
+.card-title::before {
+  content: "";
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--line-3);
+}
+
+.sec-title {
+  font-size: var(--fs-micro);
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--fs-label);
+}
+
+.kv dt {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.kv dd {
+  color: var(--text-1);
+  text-align: right;
+  min-width: 0;
+}
+
+/* ---------------- 弹出层基座 ---------------- */
+.popover {
+  background: #0c131d;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px);
+}
+
+/* ---------------- 动效 ---------------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
