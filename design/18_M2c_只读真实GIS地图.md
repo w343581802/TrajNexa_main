@@ -49,8 +49,8 @@ Invoke-RestMethod 'http://localhost:8000/api/v1/gis/viewport?bbox=110.20,25.24,1
 新增注入式只读事务、人工修订/墓碑查询、超限、坏几何、bbox、API 错误测试。目前未在用户实际 Docker、PostGIS、npm 网络和浏览器执行完整验收。需运行：
 
 ~~~powershell
-docker compose exec -T api python -m pytest -q tests/test_map_db_gis.py tests/test_gis_viewport_api.py
-docker compose exec -T api python -m pytest -q
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.map-db.yaml run --rm --no-deps api sh -lc "pip install -r requirements-dev.txt && python -m pytest -q tests/test_map_db_gis.py tests/test_gis_viewport_api.py"
+# 全套测试（可在上述容器中将末尾 pytest 参数改为 -q）
 docker compose exec -T frontend npm run build
 ~~~
 
@@ -69,3 +69,8 @@ GRANT SELECT (camera_id_id, name, value) ON TABLE public.cameras_cameratags TO t
 
 
 M2c 额外提供 GET /api/v1/gis/anchor，只读获取 Map 数据库首个有点位的摄像头坐标作为首次视野和「定位 Map 镜头」操作；无设备则 center=null，前端不生成假设备。这个接口只使用现有 cameras_camera 的 location 和 id 字段权限。
+
+
+### 尚未覆盖的 Map 图层
+
+M2c 初版只绘制融合建筑基座 cameras_building（包括已提升的 SinoBF-1 建筑）和 MapFeature 有效人工建筑修订；**未提升、仅暂存在 cameras_building_source 的 SinoBF-1 源轮廓没有作为独立图层发布**。OSM context 中的铁路、水系、围墙、出入口、功能区及行政边界也暂未集成；这些源数据不会因此被删除或覆盖。下一轮可以继续增加按需矢量瓦片/图层，而不是让一次 bbox 请求加载全量。
