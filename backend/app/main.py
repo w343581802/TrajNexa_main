@@ -17,7 +17,7 @@ from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
 from app.map_db_spatial import read_map_spatial, SpatialReadError
-from app.map_db_gis import read_gis_viewport, parse_bbox, ViewportError
+from app.map_db_gis import read_gis_viewport, read_gis_anchor, parse_bbox, ViewportError
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
@@ -408,3 +408,11 @@ def map_gis_viewport(bbox: str):
         code=str(exc)
         fail(422 if 'zoom_in' in code else 503,code,
              'Map GIS 数据暂不可读取，或当前范围过大；没有使用模拟地图数据')
+
+
+@app.get('/api/v1/gis/anchor')
+def map_gis_anchor():
+    try:
+        return read_gis_anchor(dsn=settings.map_db_readonly_url)
+    except ViewportError as exc:
+        fail(503,str(exc),'Map 镜头定位暂不可用')

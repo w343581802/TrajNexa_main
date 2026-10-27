@@ -222,3 +222,45 @@ def read_gis_viewport(*,dsn:str,bbox:str,connect=None):
         # Do not leak database URL, credentials, SQL or internal table names.
         raise ViewportError('gis_map_db_query_unavailable') from None
     return assemble_viewport(bounds,*results)
+
+
+ANCHOR_SQL = """
+SELECT ST_Y(location), ST_X(location)
+FROM public.cameras_camera
+WHERE location IS NOT NULL
+ORDER BY id LIMIT 1
+"""
+
+def read_gis_anchor(*, dsn: str, connect=None) -> dict:
+    """First real Map camera as an initial viewport hint, never a device bind."""
+    if not isinstance(dsn,str) or not dsn.strip():
+        raise ViewportError('gis_map_db_not_configured')
+    if connect is None:
+        try: import psycopg
+        except ImportError:
+            raise ViewportError('gis_postgresql_driver_unavailable') from None
+        connect=psycopg.connect
+    try:
+        with connect(dsn,connect_timeout=4) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('SET TRANSACTION READ ONLY')
+                cursor.execute("SET LOCAL statement_timeout = '4000ms'")
+                cursor.execute(ANCHOR_SQL)
+                row=cursor.fetchone()
+    except Exception:
+        raise ViewportError('gis_map_db_query_unavailable') from None
+    if row is None:
+        return {'status':'available','center':None,'crs':'EPSG:4326',
+                'source':'map_postgresql_readonly'}
+    if len(row)!=2:
+        raise ViewportError('gis_invalid_anchor')
+    lat,lon=row
+    try:
+        if lat is None or lon is None or not math.isfinite(float(lat)) or not math.isfinite(float(lon)):
+            raise ValueError()
+        if not -90 <= float(lat) <=90 or not -180 <= float(lon) <=180:
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ViewportError('gis_invalid_anchor') from None
+    return {'status':'available','center':[round(float(lat),6),round(float(lon),6)],
+            'crs':'EPSG:4326','source':'map_postgresql_readonly'}

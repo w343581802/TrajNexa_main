@@ -35,3 +35,13 @@ def test_failure_does_not_fallback_to_fake_features(env,monkeypatch):
     assert response.status_code==503
     assert response.json()['error']['code']=='gis_map_db_query_unavailable'
     assert 'secret' not in str(response.json())
+
+
+def test_anchor_endpoint_empty_map(env,monkeypatch):
+    client,_,_=env
+    monkeypatch.setattr(settings,'map_db_readonly_url','postgresql://readonly@map/db')
+    monkeypatch.setattr(map_db_gis,'read_gis_anchor',lambda **kwargs: {
+        'status':'available','center':None,'source':'map_postgresql_readonly'})
+    result=client.get('/api/v1/gis/anchor')
+    assert result.status_code==200
+    assert result.json()['center'] is None

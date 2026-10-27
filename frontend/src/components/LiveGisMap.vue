@@ -28,6 +28,8 @@ const error = ref("");
 const status = ref("尚未请求地图数据");
 const counts = ref<Record<string, number>>({});
 const useExternalTiles = ref(false);
+const locating = ref(false);
+let userMoved = false;
 let map: L.Map | null = null;
 let roadLayer: L.GeoJSON | null = null;
 let buildingLayer: L.GeoJSON | null = null;
@@ -132,6 +134,27 @@ function scheduleRefresh() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => void refresh(),230);
 }
+async function locateFirstMapCamera() {
+  if (!map) return;
+  locating.value = true;
+  try {
+    const response = await fetch("/api/v1/gis/anchor",{cache:"no-store"});
+    const obj = await response.json();
+    if (!response.ok) throw new Error(obj?.error?.code || "gis_anchor_unavailable");
+    const center = obj?.center;
+    if (Array.isArray(center) && center.length === 2 &&
+        Number.isFinite(center[0]) && Number.isFinite(center[1]) && map && !userMoved) {
+      map.setView([center[0],center[1]],16);
+    }
+  } catch {
+    // Initial viewport remains an explicit browsing coordinate, never fake data.
+    if (!userMoved) status.value="地图镜头定位不可用，可手动移动视野";
+  } finally {
+    locating.value=false;
+    if (map) void refresh();
+  }
+}
+
 function setExternalTiles() {
   if (!map) return;
   if (useExternalTiles.value) {
@@ -190,13 +213,15 @@ onMounted(() => {
     "Map 模型 FOV":fovLayer,
     "摄像头点位":cameraLayer,
   },{collapsed:false,position:"topright"}).addTo(map);
+  map.on("dragstart",() => { userMoved = true; });
   map.on("moveend zoomend",() => {
     if (!map) return;
     const c=map.getCenter();
     sessionStorage.setItem("trajnexa_m2c_view",JSON.stringify([c.lat,c.lng,map.getZoom()]));
     scheduleRefresh();
   });
-  void refresh();
+  if (!last) void locateFirstMapCamera();
+  else void refresh();
 });
 onUnmounted(() => {
   active?.abort();
@@ -218,6 +243,7 @@ onUnmounted(() => {
         <input v-model="useExternalTiles" type="checkbox" @change="setExternalTiles" />
         在线 OSM 瓦片（可选）
       </label>
+      <button type="button" :disabled="locating" @click="userMoved = false; locateFirstMapCamera()">定位 Map 镜头</button>
       <button type="button" :disabled="loading" @click="refresh">刷新</button>
       <span v-if="error" class="gis-error">读取失败：{{ error }}。请缩小视野或检查 Map 只读数据库权限。</span>
     </div>

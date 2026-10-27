@@ -66,3 +66,6 @@ GRANT SELECT (camera_id_id, name, value) ON TABLE public.cameras_cameratags TO t
 ~~~
 
 真实 GIS 视图对 OSM 矢量路网始终署名 © OpenStreetMap 贡献者（ODbL）；在线 OSM 瓦片依旧需要明确勾选才会请求外部服务器。
+
+
+M2c 额外提供 GET /api/v1/gis/anchor，只读获取 Map 数据库首个有点位的摄像头坐标作为首次视野和「定位 Map 镜头」操作；无设备则 center=null，前端不生成假设备。这个接口只使用现有 cameras_camera 的 location 和 id 字段权限。

@@ -106,3 +106,26 @@ def test_unlinked_legacy_camera_name_from_map_tags_not_uuid():
     out=assemble_viewport(parse_bbox(BBOX),[],[],[tuple(cam)],[])
     assert out['cameras'][0]['display_name']=='来自旧地图的人工摄像头名称'
     assert out['cameras'][0]['camera_uuid'] is None
+
+
+
+def test_anchor_readonly_and_no_fabrication():
+    from app.map_db_gis import read_gis_anchor
+    class AnchorCursor:
+        def __init__(self, row): self.row=row;self.queries=[]
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def execute(self,sql):self.queries.append(sql)
+        def fetchone(self):return self.row
+    class AnchorConn:
+        def __init__(self,row):self.cursor_obj=AnchorCursor(row)
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def cursor(self):return self.cursor_obj
+    db=AnchorConn((25.25,110.21))
+    result=read_gis_anchor(dsn='postgresql://readonly@map/db',
+                connect=lambda dsn,connect_timeout:db)
+    assert result['center']==[25.25,110.21]
+    assert 'READ ONLY' in db.cursor_obj.queries[0]
+    assert read_gis_anchor(dsn='x',
+        connect=lambda dsn,connect_timeout:AnchorConn(None))['center'] is None
