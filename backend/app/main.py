@@ -16,6 +16,7 @@ from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingD
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
+from app.map_db_spatial import read_map_spatial, SpatialReadError
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
@@ -380,3 +381,13 @@ def create_view_check(inspection_id: str, body: ViewCheckInput,
     db.commit()
     db.refresh(comparison)
     return comparison
+
+
+# M2b: read-only GIS camera points and modelled FOV from TrajNexa_Map.
+# No map writes, fake fallback geometry, or automatic UUID binding.
+@app.get('/api/v1/spatial/cameras')
+def get_map_spatial_cameras():
+    try:
+        return read_map_spatial(dsn=settings.map_db_readonly_url)
+    except SpatialReadError as exc:
+        fail(503, str(exc), 'Map 空间数据当前不可读取；原始数据未修改')
