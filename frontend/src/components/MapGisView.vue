@@ -338,6 +338,8 @@ onMounted(() => {
   const instance = L.map(host.value, { zoomControl: false, attributionControl: true, preferCanvas: true })
     .setView([25.2512, 110.2084], 16);
   map = instance;
+  // 只在开发构建里暴露实例，便于用像素级测试核对“几何 → 屏幕投影”是否一致
+  if (import.meta.env.DEV) (window as unknown as { __gisMap?: L.Map }).__gisMap = instance;
   canvas = L.canvas({ padding: 0.4, tolerance: 6 });
   instance.createPane("fovPane");
   instance.getPane("fovPane")!.style.zIndex = "415";

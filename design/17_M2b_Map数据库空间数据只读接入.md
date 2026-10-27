@@ -73,3 +73,41 @@ Map 的 bigint 摄像头 ID 在 API JSON 中以 **string** 输出（例如 `"900
 3. Map 自身 snapshot 的 `camera_id` 仍以 JSON 数字输出（16 位 bigint），JS 侧存在精度风险；主系统已改用字符串。
 
 测试：`tests/test_spatial_api.py` 原先 patch 的是 `app.map_db_spatial.read_map_spatial`，而路由在 `app.main` 里已按值导入，导致「成功路径」用例实际打到真实函数并 503。已改为 patch `app.main.read_map_spatial`，四个文件 25 项全部通过。
+
+## 几何与投影复核（可复跑，2026-10-28）
+
+单元测试只证明适配器按约定解析，不证明「真实库里的数对得上、画到屏幕上也对得上」。为此补了一个可复跑的只读核对脚本：
+
+```bash
+docker run --rm --network trajnexa_map_default \
+  -e MAP_DB_READONLY_URL="postgresql://trajnexa_reader:...@postgis:5432/trajnexa_map" \
+  -v "$PWD/backend/app:/srv/app" -v "$PWD/backend/tools:/srv/tools" -w /srv \
+  trajnexa_main-api python tools/verify_map_spatial.py
+```
+
+它把 `read_map_spatial()` 的返回与 `cameras_camera` / `cameras_registry` / `cameras_camerafocus(scenario='mean')` 逐条比对，任何一项不符退出码 1（可挂 CI）。当前结果：
+
+| 检查 | 结果 |
+| --- | --- |
+| 状态与集合 | `available`；55 个点位与 `cameras_camera` 完全一致 |
+| 坐标 | 逐条 ≤1e-6°（等价 0.1 m，差异仅来自 6 位小数的取整） |
+| 朝向 / 俯角 / 量程 | 全部等于 `direction` / `angle` / `effective_range_m` |
+| UUID | 2 个关联全部等于 `cameras_registry.id`，无冲突、无凭空生成 |
+| FOV 集合 | 21 个面与 `cameras_camerafocus(mean)` 一一对应 |
+| FOV 几何 | 顶点坐标（6 位小数）与外接框完全一致；面积与 `ST_Area(geography)` 相符 |
+| FOV 起点 | 每个面离镜头 ≤8 m，顶点落在镜头处 |
+| 汇总 | 55 点 / 2 关联 / 21 面 / 0 项失败 |
+
+渲染层另做了像素级核对（仅开发构建暴露 `window.__gisMap`）：把地图定位到 `9000000000000023` 的 18 级，读取 FOV 专用 canvas 在「开/关 FOV」前后的像素差，与同一视野内 6 个可见 FOV 面的投影多边形比对——
+
+| 检查 | 结果 |
+| --- | --- |
+| 绘制区域 vs 投影外接框 | 偏差 ≤1 px（`[-1,-1,0,0]`） |
+| 覆盖面积 | 9366 px / 11775 px ≈ 0.80（差值来自描边与重叠填充只计一次） |
+| 楔形顶点到镜头像素 | 0 px |
+
+结论范围要说清楚：
+
+- **已验证**：点位、UUID、FOV 几何与台账一致；几何经 Leaflet WGS84 投影后落在应有像素上；跨系统（主系统接口 / Map 快照 / 数据库）三方 ID 集合一致。
+- **未验证**：FOV 是 Map 的模型几何，**不是实测覆盖**——没有遮挡计算（`occlusion_applied` 全为 false），也没有与真实画面、录像可用性、绝对朝向精度做过比对；55 个点位里只有 2 个经过台账标定姿态，其余 5 个带 FOV 的镜头位姿未知，界面按 `modelled_unverified` 展示。
+- **台账缺陷（需 Map 侧修）**：`9000000000000024` 的 `recognition` 与 `observation` 几何完全相同；`cameras_camera.angle`（23°）与 `cameras_registry.tilt_deg`（15°）冲突，`tilt_deg` 未授予只读角色，脚本只能 SKIP 该比对。
