@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libglib2
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 # CPU runtime must be installed before PaddleOCR 3.x.
-RUN pip install --no-cache-dir 'paddlepaddle==3.2.0' 'paddleocr>=3.2,<4'
+# 3.7 起的产线默认才带 PP-OCRv6（3.2/3.3 默认 PP-OCRv5），所以锁到 3.7.x；
+# 代码里另外显式传 ocr_version='PP-OCRv6'，重建镜像不会静默换模型。
+RUN pip install --no-cache-dir 'paddlepaddle==3.2.0' 'paddleocr>=3.7,<3.8'
 COPY . .
 ENV PYTHONPATH=/srv

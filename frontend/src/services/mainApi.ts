@@ -73,6 +73,8 @@ export type InspectionResult = {
     overlay_time_samples: TimeSample[];
     timezone?: string | null;
     ocr_engine_status?: string;
+    /** 实际使用的 OCR 库与模型版本，例如 paddleocr 3.7.0 / PP-OCRv6 */
+    ocr_engine?: { library: string; library_version?: string | null; ocr_version: string } | null;
     ocr_time_diagnostics?: { top_raw_texts: OcrRow[]; parsed_sample_count?: number };
   };
   camera: CameraBlock;

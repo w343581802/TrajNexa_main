@@ -47,3 +47,11 @@ docker compose -f compose.yaml -f compose.ocr.yaml exec worker python scripts/be
 
 - PaddleOCR 通用产线：https://www.paddleocr.ai/main/version3.x/pipeline_usage/OCR.html
 - 独立文本识别接口：https://www.paddleocr.ai/main/version3.x/module_usage/text_recognition.html
+
+## 正式接入的版本钉扎（2026-10-28）
+
+- **代码**：`backend/app/overlay_ocr.py` 的 `_get_ocr_engine()` 显式传 `ocr_version='PP-OCRv6'`（常量 `OCR_VERSION`），并新增 `ocr_engine_info()` 记录库版本；不再依赖 PaddleOCR 的默认值。
+- **镜像**：`backend/Dockerfile.ocr` 锁 `paddleocr>=3.7,<3.8` + `paddlepaddle==3.2.0`。3.2/3.3 的通用产线默认是 PP-OCRv5，3.7 起默认才是 PP-OCRv6；不锁版本的话重建镜像会静默换模型。
+- **报告**：预检结果新增 `time.ocr_engine = {library, library_version, ocr_version}`，前端「添加要素 → 识别依据」显示 `paddleocr 3.7.0 · PP-OCRv6`。
+- **本机实测**：worker 容器 `paddleocr 3.7.0 / paddlepaddle 3.2.0`，模型缓存为 `PP-OCRv6_medium_det` + `PP-OCRv6_medium_rec`；合成角标图（`2026-10-25 18:42:11` + `camera: CAM-10 SCHOOL WALL`）识别出 `2026-10-25T18:42:11`（0.9969）与 `CAM-1O SCHOOL WALL`（数字 0 被认成字母 O，属 OCR 混淆，系统不自动纠正）；经 `POST /api/v1/media/{id}/inspect` 走完整 job 链路，报告 `ocr_engine_status=ran`。
+- **仍未做**：真实监控素材（夜间、红外、低分辨率、压缩块）上的识别率验收；名称字符纠错策略。

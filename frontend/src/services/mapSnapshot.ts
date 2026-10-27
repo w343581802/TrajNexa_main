@@ -69,10 +69,6 @@ const SPATIAL_URL = "/api/v1/spatial/cameras";
 
 let cache: MapSnapshot | null = null;
 
-export function cachedSnapshot(): MapSnapshot | null {
-  return cache;
-}
-
 function ringsOf(geometry: { type: string; coordinates: unknown }): [number, number][][] {
   const polygons = geometry.type === "Polygon"
     ? [geometry.coordinates as number[][][]]

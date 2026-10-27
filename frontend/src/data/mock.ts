@@ -130,8 +130,6 @@ export type Job = {
 
 export type Road = { id: string; name: string; width: number; points: [number, number][] };
 export type Building = { x: number; y: number; w: number; h: number; tone: 0 | 1 | 2 };
-export type MapLabel = { text: string; x: number; y: number; size?: number; kind?: "area" | "road" };
-
 export const roads: Road[] = [
   { id: "r-main", name: "城北大道", width: 54, points: [[-20, 214], [1420, 206]] },
   { id: "r-west", name: "西环路", width: 40, points: [[300, -20], [296, 450]] },
@@ -188,18 +186,6 @@ function makeBuildings(): Building[] {
 }
 
 export const buildings: Building[] = makeBuildings();
-
-export const mapLabels: MapLabel[] = [
-  { text: "西 片 城 中 村", x: 140, y: 64, size: 13, kind: "area" },
-  { text: "南 巷 市 场", x: 600, y: 400, size: 12, kind: "area" },
-  { text: "北 门 广 场", x: 1150, y: 148, size: 11.5, kind: "area" },
-  { text: "地 铁 A 口", x: 928, y: 244, size: 10.5, kind: "area" },
-  { text: "城北大道", x: 700, y: 222, size: 10, kind: "road" },
-  { text: "西环路", x: 288, y: 392, size: 9.5, kind: "road" },
-  { text: "南巷", x: 862, y: 46, size: 9.5, kind: "road" },
-  { text: "北门街", x: 470, y: 98, size: 9.5, kind: "road" },
-  { text: "东门巷", x: 560, y: 314, size: 9.5, kind: "road" },
-];
 
 /* ------------------------------ 摄像头 ------------------------------ */
 
@@ -824,10 +810,4 @@ export function coverageMinutes(camera: Camera, window: TimeWindow): number {
   return camera.intervals
     .filter((i) => i.status === "indexed")
     .reduce((sum, i) => sum + Math.max(0, Math.min(i.e, window.end) - Math.max(i.s, window.start)), 0);
-}
-
-export function intersection(camera: Camera, window: TimeWindow): { s: number; e: number }[] {
-  return camera.intervals
-    .filter((i) => i.status === "indexed" && i.s < window.end && i.e > window.start)
-    .map((i) => ({ s: Math.max(i.s, window.start), e: Math.min(i.e, window.end) }));
 }

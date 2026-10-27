@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.map_db_spatial import LEVELS, read_map_spatial  # noqa: E402
+from app.map_db_spatial import read_map_spatial  # noqa: E402
 
 POINTS = """
 SELECT m.id, ST_X(m.location), ST_Y(m.location), m.direction, m.angle,

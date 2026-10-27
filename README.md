@@ -77,6 +77,8 @@ M0 初始阶段不提供 OCR/质量检测或真实媒体播放；M1a–M1d 已�
 ## M1b / M1c 角标 OCR 与设备目录匹配
 
 - OCR 是可选功能，默认 `.env` 内 `OCR_ENABLED=false`；需要 OCR 时使用 `docker compose -f compose.yaml -f compose.ocr.yaml up --build -d`，仍需使用真实样本验证。
+- **OCR 模型版本**：worker 镜像锁 `paddleocr>=3.7,<3.8` + `paddlepaddle==3.2.0`，代码显式传 `ocr_version='PP-OCRv6'`；
+  预检报告 `time.ocr_engine` 记录实际库版本与模型版本（本机实测 `paddleocr 3.7.0 · PP-OCRv6`）。
 - **首次测试摄像头目录**：`cp examples/camera_catalog.demo.json storage/camera_catalog.json`（Windows 可复制该文件到 `storage` 文件夹）。此样例完全虚构，不是实际 Map 导出。
 - `GET /api/v1/cameras/catalog` 检查目录加载状态。M1c 只做精确别名候选匹配，不确认摄像头。
 - 人工绑定接口：`POST /api/v1/inspections/{id}/camera-bindings`；操作会追加到独立历史表，撤销/更正不会改写 OCR 预检报告。

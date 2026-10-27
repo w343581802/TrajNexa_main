@@ -5,7 +5,6 @@ Raw observations (including clipped and garbled text) must be preserved.
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from difflib import SequenceMatcher
 import re
 import unicodedata

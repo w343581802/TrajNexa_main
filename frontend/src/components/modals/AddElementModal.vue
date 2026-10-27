@@ -91,6 +91,22 @@ const recognizeError = ref<string | null>(null);
 
 const timeList = computed(() => (report.value ? timeCandidates(report.value.result_json) : []));
 const nameList = computed(() => (report.value ? cameraNameCandidates(report.value.result_json) : []));
+/** 报告里记录的识别引擎版本，用来核对是否真的跑在 PP-OCRv6 上 */
+const engineLabel = computed(() => {
+  const engine = report.value?.result_json.time.ocr_engine;
+  if (!engine) return "—";
+  const library = [engine.library, engine.library_version].filter(Boolean).join(" ");
+  return [library, engine.ocr_version].filter(Boolean).join(" · ");
+});
+/** OCR 没跑起来时不能让人误以为“画面里没有角标/名称” */
+const ocrProblem = computed(() => {
+  const status = report.value?.result_json.time.ocr_engine_status;
+  if (!status || status === "ran") return null;
+  if (status === "disabled") return "OCR 未启用：当前 worker 没加载 PaddleOCR 镜像，请用 compose.ocr.yaml 启动。识别为空不代表画面没有角标。";
+  if (status === "unavailable") return "OCR 引擎不可用：worker 里缺少 PaddleOCR/PaddlePaddle，识别结果为空不代表画面没有角标。";
+  if (status === "error") return "OCR 执行出错：本次识别结果不可用，请重试或人工填写。";
+  return `OCR 状态：${status}，识别结果可能不完整。`;
+});
 const timeStatus = computed(() => {
   const status = report.value?.result_json.time.time_status ?? "";
   return TIME_STATUS_TEXT[status] ?? { label: status || "未识别", tone: "muted" as const };
@@ -414,6 +430,8 @@ function save(keepOpen: boolean) {
             OCR {{ (report.result_json.time.overlay_time_samples[0]?.ocr_rows ?? []).length }} 行
           </p>
 
+          <p v-if="ocrProblem" class="ae-error">{{ ocrProblem }}</p>
+
           <p v-if="recognizeError" class="ae-error">{{ recognizeError }}</p>
 
           <template v-if="evidenceOpen">
@@ -431,6 +449,10 @@ function save(keepOpen: boolean) {
               <div class="evidence-row">
                 <span class="evidence-key">质量</span>
                 <span>{{ report.result_json.quality?.overall_status ?? "—" }}<template v-if="report.result_json.quality?.issues?.length"> · {{ report.result_json.quality.issues.join("、") }}</template></span>
+              </div>
+              <div class="evidence-row">
+                <span class="evidence-key">识别引擎</span>
+                <span class="mono">{{ engineLabel }}</span>
               </div>
               <div class="evidence-rows">
                 <span class="evidence-key">OCR 原始行</span>

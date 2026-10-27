@@ -99,6 +99,10 @@ npm run typecheck
   选中后经 `GET /api/v1/media/{id}/content` 回显只读原图或视频，预览占满左侧可用区域，不做任何改写。
 - **识别链路**：`POST /api/v1/media/{id}/inspect` 建预检作业 → 轮询 `GET /api/v1/jobs/{id}` → `GET /api/v1/jobs/{id}/report`，
   实现在 `src/services/mainApi.ts`；作业状态、进度、失败原因直接显示在弹窗里，「识别依据」可展开查看 OCR 原始行。
+- **识别引擎**：OCR 在独立 worker（`compose.ocr.yaml` + `Dockerfile.ocr`）里跑 PaddleOCR，
+  代码显式传 `ocr_version='PP-OCRv6'`（不依赖库的默认值），镜像锁 `paddleocr>=3.7,<3.8`；
+  报告的 `time.ocr_engine` 记录 `library / library_version / ocr_version`，「识别依据」里显示「paddleocr 3.7.0 · PP-OCRv6」，
+  可以直接核对这次跑的是哪一版模型。
 - **时间**：优先取结构化样本 `time.overlay_time_samples[].time_text`（如 `2026-10-3/14:59:59`），解析成 `日期 + HH:MM:SS`
   并附 OCR 置信度；`source_conflict_needs_review` 给“时间存在冲突，需人工确认”，`observed_unverified` 给“时间待人工确认”。
   识别不到可手填或标「时间未知」。

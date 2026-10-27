@@ -101,15 +101,11 @@ export const featureStats = reactive({ pending: 2, conflicts: 1, refs: 6 });
 /* ------------------------------ 派生视图 ------------------------------ */
 
 export const visibleElements = computed(() => (wb.emptyMode ? [] : elementList.value));
-export const visibleFeatures = computed(() => (wb.emptyMode ? [] : featureList.value));
 export const visibleObservations = computed(() => (wb.emptyMode ? [] : observationList.value));
 export const visibleJobs = computed(() => (wb.emptyMode ? [] : jobList.value));
 
 export const selectedCamera = computed(() => cameras.find((c) => c.id === wb.selectedCameraId) ?? null);
-export const selectedElement = computed(() => elementList.value.find((e) => e.id === wb.selectedElementId) ?? null);
-export const selectedAnchor = computed(() => elementList.value.find((e) => e.id === wb.selectedAnchorId) ?? null);
 export const selectedFeature = computed(() => featureList.value.find((f) => f.id === wb.selectedFeatureId) ?? null);
-export const selectedJob = computed(() => jobList.value.find((j) => j.id === wb.previewJobId) ?? null);
 
 export const indexView = computed(() =>
   wb.emptyMode
@@ -182,10 +178,6 @@ export const startConditions = computed(() => {
     { id: "scope", label: "时间范围在授权范围内", ok: inScope },
   ];
 });
-
-export const canStartRound = computed(
-  () => startConditions.value.every((c) => c.ok) && (wb.roundStatus === "ready" || wb.roundStatus === "draft" || wb.roundStatus === "paused" || wb.roundStatus === "done"),
-);
 
 /* ------------------------------ 弹窗 / 提示 ------------------------------ */
 

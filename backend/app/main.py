@@ -1,6 +1,5 @@
 """Minimal main-system HTTP API. No TrajNexa_Map tables or endpoints are reused."""
 from hashlib import sha256
-from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 import os

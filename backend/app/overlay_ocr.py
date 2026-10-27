@@ -32,6 +32,10 @@ _DEVICE_CODE = re.compile(
 )
 _TIMESTAMP_TOLERANCE_SECONDS = 3.0
 
+# 显式钉住识别模型版本：PaddleOCR 3.x 的默认值随版本变化（3.2/3.3 默认 PP-OCRv5，
+# 3.7 起默认 PP-OCRv6）。不写死就会在重建镜像时悄悄换模型，报告里也说不清跑的哪一版。
+OCR_VERSION = 'PP-OCRv6'
+
 
 @lru_cache(maxsize=1)
 def _get_ocr_engine():
@@ -40,7 +44,20 @@ def _get_ocr_engine():
     return PaddleOCR(use_doc_orientation_classify=False,
                      use_doc_unwarping=False,
                      use_textline_orientation=False,
+                     ocr_version=OCR_VERSION,
                      engine='paddle')
+
+
+@lru_cache(maxsize=1)
+def ocr_engine_info() -> dict:
+    """写进报告的引擎版本信息，用来核对“这次到底跑的是哪一版 PP-OCR”。"""
+    info = {'library': 'paddleocr', 'ocr_version': OCR_VERSION, 'library_version': None}
+    try:
+        import paddleocr
+        info['library_version'] = getattr(paddleocr, '__version__', None)
+    except ImportError:
+        pass
+    return info
 
 
 def _recognize(image: np.ndarray) -> list[dict]:
@@ -264,6 +281,7 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
         'roi_fallback_attempted': any(s['time_roi_fallback_attempted'] for s in successful),
     }
     time['ocr_engine_status'] = camera['ocr_engine_status'] = 'ran'
+    time['ocr_engine'] = ocr_engine_info()
     if not successful:
         time['time_status'] = 'frame_unavailable'
         camera['match_status'] = 'frame_unavailable'

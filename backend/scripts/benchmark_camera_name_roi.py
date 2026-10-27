@@ -2,7 +2,6 @@
 from __future__ import annotations
 import argparse, hashlib, json, re, time, unicodedata
 from pathlib import Path
-from collections import defaultdict
 import cv2
 import numpy as np
 
