@@ -105,12 +105,18 @@ FROM features ORDER BY fid LIMIT 401
 
 CAMERAS_SQL = """
 WITH box AS (SELECT ST_MakeEnvelope(%s,%s,%s,%s,4326) AS geom)
-SELECT m.id, r.id, COALESCE(r.name,''), ST_X(m.location), ST_Y(m.location),
+SELECT m.id, r.id, COALESCE(NULLIF(r.name,''), tags.legacy_name, ''), ST_X(m.location), ST_Y(m.location),
        m.direction, m.angle, m.camera_type, m.effective_range_m,
        r.pose_quality, r.position_quality, r.enabled, r.horizontal_fov_deg
 FROM public.cameras_camera m
 LEFT JOIN public.cameras_registry r
-       ON r.map_camera_id=m.id AND r.deleted_at IS NULL, box
+       ON r.map_camera_id=m.id AND r.deleted_at IS NULL
+LEFT JOIN LATERAL (
+  SELECT MAX(t.value) AS legacy_name
+  FROM public.cameras_cameratags t
+  WHERE t.camera_id_id=m.id AND t.name='name'
+) tags ON TRUE
+CROSS JOIN box
 WHERE m.location && box.geom AND ST_Intersects(m.location,box.geom)
 ORDER BY m.id LIMIT 501
 """

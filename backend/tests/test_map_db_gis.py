@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.map_db_gis import (read_gis_viewport,assemble_viewport,parse_bbox,
-                            ViewportError,ROADS_SQL,BUILDINGS_SQL)
+                            ViewportError,ROADS_SQL,BUILDINGS_SQL,CAMERAS_SQL)
 
 GEO_LINE=json.dumps({'type':'LineString','coordinates':[[110.1,25.1],[110.2,25.2]]})
 GEO_POLY=json.dumps({'type':'Polygon','coordinates':[[[110.1,25.1],[110.2,25.1],
@@ -97,3 +97,12 @@ def test_db_error_never_leaks_password():
     with pytest.raises(ViewportError,match='gis_map_db_query_unavailable') as e:
         read_gis_viewport(dsn='secret_password',bbox=BBOX,connect=fail)
     assert 'secret_password' not in str(e.value)
+
+
+def test_unlinked_legacy_camera_name_from_map_tags_not_uuid():
+    assert "cameras_cameratags" in CAMERAS_SQL
+    assert "COALESCE(NULLIF(r.name,''), tags.legacy_name, '')" in CAMERAS_SQL
+    cam = list(camera(uuid=None));cam[2]='来自旧地图的人工摄像头名称'
+    out=assemble_viewport(parse_bbox(BBOX),[],[],[tuple(cam)],[])
+    assert out['cameras'][0]['display_name']=='来自旧地图的人工摄像头名称'
+    assert out['cameras'][0]['camera_uuid'] is None

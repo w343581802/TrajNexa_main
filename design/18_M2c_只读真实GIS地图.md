@@ -55,3 +55,14 @@ docker compose exec -T frontend npm run build
 ~~~
 
 局限：目前大量道路和建筑场景会按上限拒绝；后续可使用 PostGIS MVT 按瓦片发布并加入空间范围过滤。仅绘制镜头安装点位于视野内的 FOV，不能覆盖所有跨视野的远距离 FOV。
+
+
+## 旧版地图摄像头名称
+
+M2c 在地图记录尚未关联 CameraRegistry 时，从 cameras_cameratags 中读取 name 标签作为显示名称。保留 camera_uuid=null，不能因此自动认为台账已绑定。必须为只读账号补充：
+
+~~~sql
+GRANT SELECT (camera_id_id, name, value) ON TABLE public.cameras_cameratags TO trajnexa_reader;
+~~~
+
+真实 GIS 视图对 OSM 矢量路网始终署名 © OpenStreetMap 贡献者（ODbL）；在线 OSM 瓦片依旧需要明确勾选才会请求外部服务器。

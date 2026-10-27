@@ -225,6 +225,7 @@ onUnmounted(() => {
     <div class="gis-legend">
       <span>● 蓝：关联台账 UUID</span><span>● 橙：仅地图点位</span>
       <span>紫：人工编辑要素</span><span>FOV 是模型推算，非实测覆盖</span>
+      <span>OSM 数据 © OpenStreetMap 贡献者 · ODbL</span>
     </div>
   </section>
 </template>
