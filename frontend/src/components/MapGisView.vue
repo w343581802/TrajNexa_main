@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -32,6 +32,18 @@ const showBuildings = ref(true);
 const showCameras = ref(true);
 const showFov = ref(true);
 const showLabels = ref(false);
+const visibleCount = ref(0);
+const fitted = ref(false);
+const query = ref("");
+const markers = new Map<string, L.CircleMarker>();
+
+const matches = computed(() => {
+  const text = query.value.trim().toLowerCase();
+  if (!text) return [];
+  return (cameras.value?.cameras ?? [])
+    .filter((cam) => `${cam.display_name ?? ""} ${cam.map_camera_id} ${cam.camera_uuid ?? ""}`.toLowerCase().includes(text))
+    .slice(0, 8);
+});
 
 let map: L.Map | null = null;
 let canvas: L.Canvas | null = null;
@@ -90,6 +102,7 @@ function drawCameras() {
   cameraLayer?.clearLayers();
   fovLayer?.clearLayers();
   labelLayer?.clearLayers();
+  markers.clear();
   for (const cam of cameras.value?.cameras ?? []) {
     if (showFov.value) {
       for (const level of cam.fov_levels) {
@@ -116,6 +129,7 @@ function drawCameras() {
       fillOpacity: 1,
     }).addTo(cameraLayer!);
     marker.bindPopup(cameraPopup(cam));
+    markers.set(cam.map_camera_id, marker);
     const line = headingLine(cam);
     if (line) L.polyline(line, { color: "#eef6ff", weight: 1.3, opacity: 0.7, interactive: false }).addTo(cameraLayer!);
     if (showLabels.value) {
@@ -153,7 +167,15 @@ function drawBasemap(data: Basemap) {
   if (showBuildings.value && map.getZoom() >= 15) buildingLayer.addTo(map);
 }
 
-function applyToggles() {
+function clearBasemapLayers() {
+  roadLayer?.remove();
+  buildingLayer?.remove();
+  roadLayer = null;
+  buildingLayer = null;
+  basemap.value = null;
+}
+
+function applyLayerVisibility() {
   if (!map) return;
   if (roadLayer) {
     if (showRoads.value && !map.hasLayer(roadLayer)) roadLayer.addTo(map);
@@ -164,6 +186,11 @@ function applyToggles() {
     if (want && !map.hasLayer(buildingLayer)) buildingLayer.addTo(map);
     if (!want && map.hasLayer(buildingLayer)) buildingLayer.remove();
   }
+}
+
+function applyToggles() {
+  if (!map) return;
+  applyLayerVisibility();
   drawCameras();
   if (cameraLayer) {
     if (showCameras.value && !map.hasLayer(cameraLayer)) cameraLayer.addTo(map);
@@ -189,10 +216,18 @@ async function loadBasemap() {
   const level = Math.round(map.getZoom());
   zoom.value = level;
   if (level < 13) {
-    notice.value = "缩放级别过低，道路与建筑在放大后按范围加载。";
+    clearBasemapLayers();
+    notice.value = "当前缩放只显示镜头点位与模型 FOV，放大到 13 级以上再加载道路与建筑。";
     return;
   }
   const bounds = map.getBounds();
+  const spanLon = bounds.getEast() - bounds.getWest();
+  const spanLat = bounds.getNorth() - bounds.getSouth();
+  if (spanLon > 0.45 || spanLat > 0.45) {
+    clearBasemapLayers();
+    notice.value = "视野过大（跨城市），道路与建筑在放大到 13 级以上后再按范围加载；镜头点位与 FOV 始终显示。";
+    return;
+  }
   const key = boundsKey(bounds, level);
   if (key === lastKey && basemap.value) return;
   lastKey = key;
@@ -231,9 +266,63 @@ async function loadCameras() {
     if (!response.ok || body?.status !== "available") throw new Error(body?.error?.code || "map_unavailable");
     cameras.value = body as CameraResult;
     drawCameras();
+    updateVisible();
+    if (!fitted.value) { fitted.value = true; fitArea(); }
   } catch (e) {
     cameraError.value = e instanceof Error ? e.message : "request_failed";
   }
+}
+
+function updateVisible() {
+  if (!map) return;
+  const bounds = map.getBounds();
+  visibleCount.value = (cameras.value?.cameras ?? [])
+    .filter((cam) => bounds.contains([cam.location.lat, cam.location.lon])).length;
+}
+
+function fitCameras(list: Camera[], maxZoom = 16) {
+  if (!map || !list.length) return;
+  const bounds = L.latLngBounds(list.map((c) => [c.location.lat, c.location.lon] as L.LatLngTuple));
+  map.fitBounds(bounds, { padding: [28, 28], maxZoom });
+  updateVisible();
+}
+
+function fitAll() {
+  fitCameras(cameras.value?.cameras ?? [], 14);
+}
+
+function fitFov() {
+  const all = cameras.value?.cameras ?? [];
+  const withFov = all.filter((c) => c.fov_levels.length);
+  fitCameras(withFov.length ? withFov : all, 15);
+}
+
+// default view: the densest 0.1-degree cluster (usually one city), so points and FOV are actually legible
+function fitDensest() {
+  const all = cameras.value?.cameras ?? [];
+  if (!all.length) return;
+  const cells = new Map<string, Camera[]>();
+  for (const cam of all) {
+    const key = `${Math.round(cam.location.lon * 10)},${Math.round(cam.location.lat * 10)}`;
+    const list = cells.get(key) ?? [];
+    list.push(cam);
+    cells.set(key, list);
+  }
+  const best = [...cells.values()].sort((a, b) => b.length - a.length)[0] ?? all;
+  fitCameras(best, 17);
+}
+
+function fitArea() {
+  map?.fitBounds([[25.249, 110.204], [25.254, 110.214]]);
+  updateVisible();
+}
+
+function selectCamera(cam: Camera) {
+  if (!map) return;
+  query.value = "";
+  map.setView([cam.location.lat, cam.location.lon], 18);
+  updateVisible();
+  window.setTimeout(() => markers.get(cam.map_camera_id)?.openPopup(), 450);
 }
 
 function scheduleLoad() {
@@ -241,7 +330,8 @@ function scheduleLoad() {
   timer = window.setTimeout(() => { void loadBasemap(); }, 250);
 }
 
-watch([showRoads, showBuildings, showCameras, showFov, showLabels], applyToggles);
+watch([showRoads, showBuildings], applyLayerVisibility);
+watch([showCameras, showFov, showLabels], applyToggles);
 
 onMounted(() => {
   if (!host.value) return;
@@ -259,8 +349,13 @@ onMounted(() => {
   fovLayer = L.layerGroup().addTo(instance);
   cameraLayer = L.layerGroup().addTo(instance);
   labelLayer = L.layerGroup().addTo(instance);
-  instance.on("moveend", scheduleLoad);
-  instance.on("zoomend", () => { zoom.value = Math.round(instance.getZoom()); applyToggles(); scheduleLoad(); });
+  instance.on("moveend", () => { updateVisible(); scheduleLoad(); });
+  instance.on("zoomend", () => {
+    zoom.value = Math.round(instance.getZoom());
+    updateVisible();
+    applyLayerVisibility();
+    scheduleLoad();
+  });
   void loadCameras();
   void loadBasemap();
 });
@@ -281,23 +376,45 @@ onUnmounted(() => {
         <small>道路与建筑来自 TrajNexa_Map 只读库 · 缩放 {{ zoom }} 级 · 不使用示意坐标</small>
       </div>
       <div class="status">
+        <span class="counts">
+          视野内 <b>{{ visibleCount }}</b> / {{ cameras?.counts.displayable_points ?? 0 }} 个镜头 ·
+          <b>{{ cameras?.counts.with_fov ?? 0 }}</b> 个有 FOV
+        </span>
         <span v-if="basemap">道路 {{ basemap.counts.roads }} · 建筑 {{ basemap.counts.buildings }}</span>
         <span v-if="loading" class="dim">加载中…</span>
         <span v-if="basemap" class="dim">{{ basemap.basemap_revision }}</span>
-        <button type="button" class="ghost" @click="map?.fitBounds([[25.249, 110.204], [25.254, 110.214]])">回到金水路</button>
+        <button type="button" class="ghost" @click="fitAll">全部镜头</button>
+        <button type="button" class="ghost" @click="fitFov">有 FOV 的镜头</button>
+        <button type="button" class="ghost" @click="fitArea">金水路</button>
         <button type="button" class="ghost" @click="loadBasemap">刷新</button>
       </div>
     </header>
 
     <div class="toolbar">
+      <div class="search">
+        <input v-model="query" type="search" placeholder="搜索镜头名称 / Map ID / UUID" aria-label="搜索镜头" />
+        <ul v-if="matches.length" class="hits">
+          <li v-for="cam in matches" :key="cam.map_camera_id" @click="selectCamera(cam)">
+            <span class="truncate">{{ cam.display_name || "未登记名称" }}</span>
+            <span class="dim">#{{ cam.map_camera_id }}</span>
+            <span class="dim">{{ cam.fov_levels.length ? "有 FOV" : "仅点位" }}</span>
+          </li>
+        </ul>
+        <p v-else-if="query.trim()" class="none">没有匹配的镜头</p>
+      </div>
       <label><input v-model="showRoads" type="checkbox" />道路</label>
       <label><input v-model="showBuildings" type="checkbox" />建筑</label>
       <label><input v-model="showCameras" type="checkbox" />摄像头</label>
       <label><input v-model="showFov" type="checkbox" />FOV</label>
       <label><input v-model="showLabels" type="checkbox" />名称</label>
       <span class="legend"><i class="lv1" />辨识 <i class="lv2" />识别 <i class="lv3" />观察</span>
-      <span class="dim">蓝点＝台账已关联 · 橙点＝仅 GIS 点位</span>
     </div>
+
+    <p v-if="visibleCount < (cameras?.counts.displayable_points ?? 0)" class="hint">
+      全库 {{ cameras?.counts.displayable_points ?? 0 }} 个镜头、{{ cameras?.counts.with_fov ?? 0 }} 个有模型 FOV；
+      当前视野 {{ visibleCount }} 个。其余点位分布在另一片区（约 110.21°E,25.25°N 与 108.37°E,21.71°N），
+      可用搜索或「全部镜头」查看。蓝点＝台账已关联，橙点＝仅 GIS 点位。
+    </p>
 
     <p v-if="cameraError || basemapError" class="banner err">
       数据读取失败：{{ basemapError || cameraError }}（不显示任何替代几何，请检查 Map 只读账号与网络）
@@ -343,6 +460,51 @@ header {
   padding: 6px 12px; border-bottom: 1px solid #1f2f42; font-size: 11px;
 }
 .toolbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.search { position: relative; display: flex; align-items: center; }
+.search input {
+  width: 190px;
+  padding: 4px 8px;
+  color: #dbe8f6;
+  background: #0f2133;
+  border: 1px solid #2f4c67;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.search input::placeholder { color: #6f8aa3; }
+.hits, .none {
+  position: absolute;
+  top: 26px;
+  left: 0;
+  z-index: 50;
+  width: 260px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #0f2133;
+  border: 1px solid #2f4c67;
+  border-radius: 6px;
+  box-shadow: 0 8px 22px rgba(3, 9, 16, 0.6);
+  font-size: 11px;
+}
+.none { padding: 6px 8px; color: #8ea6bd; width: auto; }
+.hits li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.hits li:hover { background: #17324a; }
+.hits .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hint {
+  margin: 0;
+  padding: 4px 12px;
+  border-bottom: 1px solid #1f2f42;
+  background: #101f2e;
+  color: #a9c1d6;
+  font-size: 10px;
+}
 .legend { display: flex; align-items: center; gap: 4px; color: #b9cde0; }
 .legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 3px; }
 .legend i:not(:first-child) { margin-left: 8px; }
