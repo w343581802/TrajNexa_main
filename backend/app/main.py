@@ -17,6 +17,7 @@ from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
 from app.map_db_spatial import read_map_spatial, SpatialReadError
+from app.map_db_gis import read_gis_viewport, parse_bbox, ViewportError
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
@@ -391,3 +392,19 @@ def get_map_spatial_cameras():
         return read_map_spatial(dsn=settings.map_db_readonly_url)
     except SpatialReadError as exc:
         fail(503, str(exc), 'Map 空间数据当前不可读取；原始数据未修改')
+
+
+# M2c: real view-scoped, source-aware GIS. OSM baseline + Map manual revisions.
+# Data never written to the Map database and no artificial road/camera geometry.
+@app.get('/api/v1/gis/viewport')
+def map_gis_viewport(bbox: str):
+    try:
+        parse_bbox(bbox)
+    except ViewportError as exc:
+        fail(422,str(exc),'请使用有效的小范围地图视野（west,south,east,north）')
+    try:
+        return read_gis_viewport(dsn=settings.map_db_readonly_url,bbox=bbox)
+    except ViewportError as exc:
+        code=str(exc)
+        fail(422 if 'zoom_in' in code else 503,code,
+             'Map GIS 数据暂不可读取，或当前范围过大；没有使用模拟地图数据')
