@@ -80,6 +80,10 @@ M0 初始阶段不提供 OCR/质量检测或真实媒体播放；M1a–M1d 已�
 - **首次测试摄像头目录**：`cp examples/camera_catalog.demo.json storage/camera_catalog.json`（Windows 可复制该文件到 `storage` 文件夹）。此样例完全虚构，不是实际 Map 导出。
 - `GET /api/v1/cameras/catalog` 检查目录加载状态。M1c 只做精确别名候选匹配，不确认摄像头。
 - 人工绑定接口：`POST /api/v1/inspections/{id}/camera-bindings`；操作会追加到独立历史表，撤销/更正不会改写 OCR 预检报告。
+- **Map 只读空间数据（M2b/M2c）**：`GET /api/v1/spatial/cameras` 读镜头点位、朝向/俯角与三级模型 FOV；
+  `GET /api/v1/spatial/basemap?bbox=&zoom=` 按视野读 OSM 道路与建筑并按缩放简化。两者都走只读账号
+  `trajnexa_reader`，需要 `.env` 的 `MAP_DB_READONLY_URL` 与 `compose.map-db.yaml` 加入 Map 网络；
+  超额直接拒绝（不截断），失败返回 503 且不含数据库口令，也不返回任何替代几何。见 `design/17`、`design/18`。
 - **升级已有开发数据库**：`docker compose run --rm migrate`（如果已启动并运行 compose，则直接执行 `docker compose up --build -d` 触发 migrate）；不要清除现有数据库卷。
 - 可复现自动化测试：`cd backend && python -m pytest -q`，以及本地 SQLite 上 `alembic upgrade head`。
 - 真实 Map 的稳定 `camera_uuid` 发布接口尚未接通，设备快照只是适配器；M1d 已实现独立参考场景比较，但尚未进行实景精度和绝对地理朝向验收。

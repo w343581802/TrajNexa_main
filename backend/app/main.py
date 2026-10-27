@@ -17,6 +17,7 @@ from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
 from app.map_db_spatial import read_map_spatial, SpatialReadError
+from app.map_db_basemap import read_map_basemap, BasemapReadError
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
@@ -404,3 +405,16 @@ def get_map_spatial_cameras():
         return read_map_spatial(dsn=settings.map_db_readonly_url)
     except SpatialReadError as exc:
         fail(503, str(exc), 'Map 空间数据当前不可读取；原始数据未修改')
+
+
+# M2c: read-only OSM roads and buildings from TrajNexa_Map for the GIS view.
+# bbox-scoped, zoom-simplified, rejected instead of truncated when too dense.
+@app.get('/api/v1/spatial/basemap')
+def get_map_basemap(bbox: str = '', zoom: int = 16):
+    try:
+        return read_map_basemap(dsn=settings.map_db_readonly_url, bbox=bbox, zoom=zoom)
+    except BasemapReadError as exc:
+        code = str(exc)
+        if code.startswith('map_basemap_invalid') or 'bbox_too' in code:
+            fail(400, code, '请求范围或缩放级别不合法；原始数据未修改')
+        fail(503, code, 'Map 道路与建筑数据当前不可读取；原始数据未修改')

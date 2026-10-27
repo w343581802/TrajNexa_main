@@ -6,6 +6,7 @@ import ObservationTimeline from "./components/ObservationTimeline.vue";
 import TargetFeatureBar from "./components/TargetFeatureBar.vue";
 import WorkspaceMap from "./components/WorkspaceMap.vue";
 import SpatialDataPreview from "./components/SpatialDataPreview.vue";
+import MapGisView from "./components/MapGisView.vue";
 import AddElementModal from "./components/modals/AddElementModal.vue";
 import CorrectionDialog from "./components/modals/CorrectionDialog.vue";
 import CoverageModal from "./components/modals/CoverageModal.vue";
@@ -14,7 +15,7 @@ import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
 import { applyDemoHash } from "./store/workbench";
 
-const mapPreview = ref(false);
+const mapMode = ref<"demo" | "spatial" | "gis">("demo");
 onMounted(applyDemoHash);
 </script>
 
@@ -24,8 +25,15 @@ onMounted(applyDemoHash);
 
     <main class="app-main">
       <div class="stage">
-        <div class="m2b-toggle"><button type="button" @click="mapPreview=!mapPreview">{{ mapPreview ? "返回业务示意地图" : "查看 Map 真实空间数据" }}</button></div>
-        <SpatialDataPreview v-if="mapPreview" />
+        <div class="m2b-toggle">
+          <div class="map-modes" role="group" aria-label="地图视图">
+            <button type="button" :class="{ 'is-on': mapMode === 'demo' }" @click="mapMode = 'demo'">示意地图</button>
+            <button type="button" :class="{ 'is-on': mapMode === 'spatial' }" @click="mapMode = 'spatial'">空间数据</button>
+            <button type="button" :class="{ 'is-on': mapMode === 'gis' }" @click="mapMode = 'gis'">Map GIS</button>
+          </div>
+        </div>
+        <MapGisView v-if="mapMode === 'gis'" />
+        <SpatialDataPreview v-else-if="mapMode === 'spatial'" />
         <WorkspaceMap v-else />
         <TargetFeatureBar />
       </div>
@@ -77,14 +85,26 @@ onMounted(applyDemoHash);
   bottom: 10px;
   right: 12px;
 }
-.m2b-toggle button {
-  color: #d4eaff;
-  background: #123148;
+.map-modes {
+  display: flex;
+  gap: 1px;
+  overflow: hidden;
   border: 1px solid #437196;
   border-radius: 6px;
+  background: #0f2536;
+  box-shadow: 0 6px 18px rgba(4, 10, 18, 0.45);
+}
+.map-modes button {
+  color: #d4eaff;
+  background: transparent;
+  border: 0;
   padding: 7px 10px;
   cursor: pointer;
   font-size: 11px;
+}
+.map-modes button.is-on {
+  background: #1d4a68;
+  color: #ecf6ff;
 }
 @media (max-width: 1100px) {
   .app-main {
