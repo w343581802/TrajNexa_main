@@ -344,7 +344,7 @@ onMounted(() => {
   instance.createPane("fovPane");
   instance.getPane("fovPane")!.style.zIndex = "415";
   canvasFov = L.canvas({ padding: 0.4, tolerance: 6, pane: "fovPane" });
-  L.control.scale({ imperial: false, position: "bottomright" }).addTo(instance);
+  L.control.scale({ imperial: false, position: "bottomleft" }).addTo(instance);
   L.control.zoom({ position: "topleft" }).addTo(instance);
   instance.attributionControl.setPrefix(false);
   instance.attributionControl.addAttribution("道路/建筑 © OpenStreetMap contributors (ODbL) · 台账 TrajNexa_Map（只读）");

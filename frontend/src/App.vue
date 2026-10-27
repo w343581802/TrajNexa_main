@@ -25,6 +25,11 @@ onMounted(applyDemoHash);
 
     <main class="app-main">
       <div class="stage">
+        <div class="map-slot">
+          <MapGisView v-if="mapMode === 'gis'" />
+          <SpatialDataPreview v-else-if="mapMode === 'spatial'" />
+          <WorkspaceMap v-else />
+        </div>
         <div class="m2b-toggle">
           <div class="map-modes" role="group" aria-label="地图视图">
             <button type="button" :class="{ 'is-on': mapMode === 'demo' }" @click="mapMode = 'demo'">示意地图</button>
@@ -32,9 +37,6 @@ onMounted(applyDemoHash);
             <button type="button" :class="{ 'is-on': mapMode === 'gis' }" @click="mapMode = 'gis'">Map GIS</button>
           </div>
         </div>
-        <MapGisView v-if="mapMode === 'gis'" />
-        <SpatialDataPreview v-else-if="mapMode === 'spatial'" />
-        <WorkspaceMap v-else />
         <TargetFeatureBar />
       </div>
       <ObservationTimeline />
@@ -78,12 +80,34 @@ onMounted(applyDemoHash);
   min-width: 0;
 }
 
+/* 地图单独占第一行，控件挂在地图内，避免压到下面的目标特征栏 */
+.map-slot {
+  position: relative;
+  display: flex;
+  grid-row: 1;
+  grid-column: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.map-slot > * {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.feature-bar {
+  grid-row: 2;
+  grid-column: 1;
+}
 
 .m2b-toggle {
-  position: absolute;
+  grid-row: 1;
+  grid-column: 1;
   z-index: 30;
-  bottom: 10px;
-  right: 12px;
+  align-self: end;
+  justify-self: end;
+  /* 让开底图署名、比例尺与状态行 */
+  margin: 0 12px 46px 0;
+  pointer-events: none;
 }
 .map-modes {
   display: flex;
@@ -93,6 +117,7 @@ onMounted(applyDemoHash);
   border-radius: 6px;
   background: #0f2536;
   box-shadow: 0 6px 18px rgba(4, 10, 18, 0.45);
+  pointer-events: auto;
 }
 .map-modes button {
   color: #d4eaff;
