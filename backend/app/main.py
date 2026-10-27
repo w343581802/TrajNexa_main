@@ -16,8 +16,8 @@ from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingD
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
-from app.map_db_spatial import read_map_spatial, SpatialReadError
-from app.map_db_gis import read_gis_viewport, read_gis_anchor, parse_bbox, ViewportError
+from app import map_db_spatial
+from app import map_db_gis
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
@@ -389,8 +389,8 @@ def create_view_check(inspection_id: str, body: ViewCheckInput,
 @app.get('/api/v1/spatial/cameras')
 def get_map_spatial_cameras():
     try:
-        return read_map_spatial(dsn=settings.map_db_readonly_url)
-    except SpatialReadError as exc:
+        return map_db_spatial.read_map_spatial(dsn=settings.map_db_readonly_url)
+    except map_db_spatial.SpatialReadError as exc:
         fail(503, str(exc), 'Map 空间数据当前不可读取；原始数据未修改')
 
 
@@ -399,12 +399,12 @@ def get_map_spatial_cameras():
 @app.get('/api/v1/gis/viewport')
 def map_gis_viewport(bbox: str):
     try:
-        parse_bbox(bbox)
-    except ViewportError as exc:
+        map_db_gis.parse_bbox(bbox)
+    except map_db_gis.ViewportError as exc:
         fail(422,str(exc),'请使用有效的小范围地图视野（west,south,east,north）')
     try:
-        return read_gis_viewport(dsn=settings.map_db_readonly_url,bbox=bbox)
-    except ViewportError as exc:
+        return map_db_gis.read_gis_viewport(dsn=settings.map_db_readonly_url,bbox=bbox)
+    except map_db_gis.ViewportError as exc:
         code=str(exc)
         fail(422 if 'zoom_in' in code else 503,code,
              'Map GIS 数据暂不可读取，或当前范围过大；没有使用模拟地图数据')
@@ -413,6 +413,6 @@ def map_gis_viewport(bbox: str):
 @app.get('/api/v1/gis/anchor')
 def map_gis_anchor():
     try:
-        return read_gis_anchor(dsn=settings.map_db_readonly_url)
-    except ViewportError as exc:
+        return map_db_gis.read_gis_anchor(dsn=settings.map_db_readonly_url)
+    except map_db_gis.ViewportError as exc:
         fail(503,str(exc),'Map 镜头定位暂不可用')
