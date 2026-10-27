@@ -6,7 +6,7 @@ import ObservationTimeline from "./components/ObservationTimeline.vue";
 import TargetFeatureBar from "./components/TargetFeatureBar.vue";
 import WorkspaceMap from "./components/WorkspaceMap.vue";
 import SpatialDataPreview from "./components/SpatialDataPreview.vue";
-import MapGisView from "./components/MapGisView.vue";
+import LiveGisMap from "./components/LiveGisMap.vue";
 import AddElementModal from "./components/modals/AddElementModal.vue";
 import CorrectionDialog from "./components/modals/CorrectionDialog.vue";
 import CoverageModal from "./components/modals/CoverageModal.vue";
@@ -15,7 +15,7 @@ import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
 import { applyDemoHash } from "./store/workbench";
 
-const mapMode = ref<"demo" | "spatial" | "gis">("demo");
+const mapView = ref<"demo" | "preview" | "gis">("demo");
 onMounted(applyDemoHash);
 </script>
 
@@ -26,15 +26,30 @@ onMounted(applyDemoHash);
     <main class="app-main">
       <div class="stage">
         <div class="map-slot">
-          <MapGisView v-if="mapMode === 'gis'" />
-          <SpatialDataPreview v-else-if="mapMode === 'spatial'" />
+          <LiveGisMap v-if="mapView === 'gis'" />
+          <SpatialDataPreview v-else-if="mapView === 'preview'" />
           <WorkspaceMap v-else />
         </div>
         <div class="m2b-toggle">
           <div class="map-modes" role="group" aria-label="地图视图">
-            <button type="button" :class="{ 'is-on': mapMode === 'demo' }" @click="mapMode = 'demo'">示意地图</button>
-            <button type="button" :class="{ 'is-on': mapMode === 'spatial' }" @click="mapMode = 'spatial'">空间数据</button>
-            <button type="button" :class="{ 'is-on': mapMode === 'gis' }" @click="mapMode = 'gis'">Map GIS</button>
+            <button
+              type="button"
+              :aria-pressed="mapView === 'demo'"
+              :class="{ 'is-on': mapView === 'demo' }"
+              @click="mapView = 'demo'"
+            >业务示意</button>
+            <button
+              type="button"
+              :aria-pressed="mapView === 'preview'"
+              :class="{ 'is-on': mapView === 'preview' }"
+              @click="mapView = 'preview'"
+            >空间原始预览</button>
+            <button
+              type="button"
+              :aria-pressed="mapView === 'gis'"
+              :class="{ 'is-on': mapView === 'gis' }"
+              @click="mapView = 'gis'"
+            >真实 GIS 地图</button>
           </div>
         </div>
         <TargetFeatureBar />

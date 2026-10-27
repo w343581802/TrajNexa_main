@@ -67,21 +67,28 @@ npm run typecheck
 
 ## Map GIS 视图（M2c）
 
-地图面板右下角有三态切换：`示意地图 / 空间数据 / Map GIS`。前两个是原有工作台与 M2b 预览，`Map GIS` 是独立的真实 GIS 视图
-（`src/components/MapGisView.vue`），业务示意地图不受影响。
+地图面板右下角有三态切换：`业务示意 / 空间原始预览 / 真实 GIS 地图`。前两个分别是工作台示意地图与 M2b 空间数据预览，
+`真实 GIS 地图` 是独立的只读 GIS 视图（`src/components/LiveGisMap.vue`），业务示意地图不受影响。
 
-- **底图**：不套栅格瓦片，直接画 TrajNexa_Map 台账里的 OSM 矢量数据——道路来自 `cameras_osm_road`（按 `highway` 分级配色，
-  主干金色加粗、服务道路灰色细线），建筑来自 `cameras_building`（15 级起显示）。数据经
-  `GET /api/v1/spatial/basemap?bbox=&zoom=` 按当前视野拉取，`ST_SimplifyPreserveTopology` 的容差随缩放级别变化。
-- **覆盖层**：摄像头点位（蓝＝台账已关联、橙＝仅 GIS 点位）、朝向短线、可选名称；FOV 三级面沿用 Map 配色
-  （辨识 `#ff3131` / 识别 `#ffbf00` / 观察 `#00b300`，`occlusion_applied=false` 时虚线），单独 canvas 图层保证压在道路之上。
-- **加载策略**：视口变化 250 ms 防抖后请求，`AbortController` 丢弃过期响应；13 级以下提示放大、15 级以下提示建筑不加载；
-  道路/建筑超额时后端返回 503（拒绝而非截断），前端只显示错误码横幅并保留上一次图层，**不画任何替代几何**；
-  视野跨城市（>0.45°）时主动清空底图并提示放大，不拿旧范围的几何凑数。
-- **找镜头**：顶栏有「视野内 N / 全库 55」计数与 `全部镜头 / 有 FOV 的镜头 / 金水路` 三个定位按钮，
-  另有按名称、Map ID、UUID 的即时搜索，点结果直接定位到 18 级并弹出镜头元数据（台账 UUID、朝向/俯角、位姿质量、FOV 等级）。
-- **署名与结论**：右下角固定 `© OpenStreetMap contributors (ODbL)` 与台账来源；FOV 标注为模型几何，
-  不构成真实覆盖证明，也不构成身份结论。
+- **数据来源**：一个 `GET /api/v1/gis/viewport?bbox=w,s,e,n` 请求，后端在**同一个 repeatable-read 只读事务**里取四类数据：
+  - 道路 = `cameras_osm_road` 底图 + `cameras_map_feature`（`kind='road'`，人工修订优先；已删除的不出现）
+  - 建筑 = `cameras_building`（含 `cameras_building_source` 升级来源）+ `cameras_map_feature`（`kind='building'`）
+  - 镜头 = `cameras_camera` ⟕ `cameras_registry` ⟕ `cameras_cameratags`（旧名称兜底）
+  - 视域 = `cameras_camerafocus`（`scenario='mean'`），沿用 Map 的模型几何，**不是实测覆盖**
+  每个要素带 `source_key` / `source_ref` / `reviewed_geometry`，人工编辑过的道路与建筑以紫色描边区分。
+- **上限与失败方式**：单图层 1500 个要素、500 个镜头、1500 个视域、8 MiB 响应；超限返回
+  `gis_viewport_limit_exceeded_zoom_in`（422），**拒绝而不是截断**。前端收到 `zoom_in` 会自动放大一级重取（最多两跳），
+  仍超出才显示错误横幅，并在出错时清空旧图层，绝不沿用上一视野的几何。
+- **底图**：默认不套栅格瓦片，只用台账里的矢量道路与建筑；「在线 OSM 瓦片（可选）」勾选后才向
+  `tile.openstreetmap.org` 取图，署名保留在下方图例里。
+- **找镜头**：状态栏有「视野内 N / 库内 55 个镜头 · 7 个有模型 FOV」计数，输入框可按名称、Map ID、UUID 即时搜索，
+  点结果直接定位到 18 级；另有「定位 Map 镜头」按钮跳到台账里第一台有坐标的镜头，「刷新」重取当前视野。
+- **署名与结论**：图例固定 `OSM 数据 © OpenStreetMap 贡献者 · ODbL` 与「FOV 是模型推算，非实测覆盖」；
+  所有面板都不构成身份结论。
+- **只读账号需要的最小权限**（本机已按此授予，列级授权）：`cameras_camera`、`cameras_registry`、`cameras_camerafocus`、
+  `cameras_osm_road`、`cameras_building`（含 `osm_id`）、`cameras_building_source`（`id`,`promoted_building_id`）、
+  `cameras_map_feature`（`id`,`kind`,`geom`,`name`,`source_key`,`source_ref`,`is_deleted`）、
+  `cameras_cameratags`（`id`,`name`,`value`,`camera_id_id`）。
 
 
 ## 添加目标要素：时间与摄像头名称识别

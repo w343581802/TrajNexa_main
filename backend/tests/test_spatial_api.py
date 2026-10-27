@@ -13,8 +13,8 @@ def test_not_configured_returns_503(env,monkeypatch):
 def test_configured_success_does_not_guess_geometry(env,monkeypatch):
     client,_,_=env
     monkeypatch.setattr(settings,'map_db_readonly_url','postgresql://readonly:secret@map/db')
-    # main imported the function by value, so patch the binding the route actually uses
-    monkeypatch.setattr(app_main,'read_map_spatial',lambda **k: {
+    # the route calls the module attribute, so patch it on the module
+    monkeypatch.setattr(map_db_spatial,'read_map_spatial',lambda **k: {
         'status':'available','source':'map_postgresql_readonly',
         'spatial_revision':'mapdb-spatial:abc','counts':{'map_cameras':0},
         'cameras':[]})
@@ -26,7 +26,7 @@ def test_database_failure_does_not_fabricate_fallback(env,monkeypatch):
     client,_,_=env
     monkeypatch.setattr(settings,'map_db_readonly_url','postgresql://readonly:secret@map/db')
     def fail(**k):raise map_db_spatial.SpatialReadError('map_spatial_query_unavailable')
-    monkeypatch.setattr(app_main,'read_map_spatial',fail)
+    monkeypatch.setattr(map_db_spatial,'read_map_spatial',fail)
     r=client.get('/api/v1/spatial/cameras')
     assert r.status_code==503
     assert r.json()['error']['code']=='map_spatial_query_unavailable'
