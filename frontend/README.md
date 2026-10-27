@@ -50,9 +50,10 @@ npm run typecheck
   可切「卫星」= Esri World Imagery（`server.arcgisonline.com`，影像 © Esri/Maxar/Earthstar）；「三维」需要 WebGL 地形服务，本版本置灰未接入。
   暗色只用在控制台外壳（工具条、面板、状态栏），不对底图做反相。
 - **摄像头搜索**：工具条搜索框按 `camera_id / index_code / external_index_code / zone` 匹配快照镜头，命中列表点选即定位并打开镜头卡。
-- **镜头数据**：`GET /api/v1/spatial/snapshot/`（TrajNexa_Map 侧只读发布接口，见 `cameras/spatial_snapshot.py`），
-  字段含 `camera_id / index_code / lon / lat / bearing_deg / fov_deg / range_m / height_m / pose_quality / fov_levels`，
-  `spatial_revision` 为内容哈希，坐标恒为 `EPSG:4326`。
+- **镜头数据**：`GET /api/v1/spatial/cameras`（主系统直连 Map 只读库的 M2b 接口，见 `design/17`），
+  字段 `map_camera_id / camera_uuid / display_name / location / bearing_deg / tilt_deg / horizontal_fov_deg /
+  range_m / pose_quality / fov_levels`，`spatial_revision` 为内容哈希，坐标恒为 `EPSG:4326`；
+  前端在 `src/services/mapSnapshot.ts` 里把它适配成地图快照结构，**不再依赖 Map 的 HTTP 服务，也不需要 `/map-api` 代理**。
 - **视域配色与 Map 完全一致**：`fov_levels` 按 辨识（identification `#ff3131`）/ 识别（recognition `#ffbf00`）/
   观察（observation `#00b300`）三级下发，填充 0.4、无描边，和 Map 的 `FOV_STYLES` 同源同色。
 - **姿态未知不画扇形**：只有 `pose_quality = calibrated` 且带 `fov_levels`（或旧字段 `fov_rings`）的镜头才绘制视域；
@@ -62,7 +63,7 @@ npm run typecheck
   Map 库里两台**已标定姿态**的镜头就在这片，三级视域能直接看到；其余镜头随平移查看。
 - **演示业务层**：13 台任务镜头、轨迹分段、E01–E04 锚点仍来自 `mock.ts`，按同一 bbox
   做仿射投影后叠加，仅用于界面演示，不代表真实轨迹；图例与状态栏均已标注来源。
-- 快照不可用时地图不空白：顶部提示“快照不可用，仅显示演示业务层”，并提供重试。
+- Map 空间数据不可用（`/api/v1/spatial/cameras` 返回错误）时地图不空白：顶部提示“Map 空间数据不可用：仅显示演示业务层”，并提供重试。
 
 ## Map GIS 视图（M2c）
 

@@ -95,7 +95,7 @@ function runSearch() {
   }
   hits.value = (snapshot.value?.cameras ?? [])
     .filter((camera) =>
-      `${camera.camera_id} ${camera.index_code} ${camera.external_index_code} ${camera.zone} ${cameraCode(camera)}`.toLowerCase().includes(text),
+      `${camera.camera_id} ${camera.index_code} ${camera.external_index_code} ${camera.zone} ${camera.display_name} ${cameraCode(camera)}`.toLowerCase().includes(text),
     )
     .slice(0, 6)
     .map((camera) => ({ id: camera.camera_id, label: cameraLabel(camera), lat: camera.lat, lon: camera.lon }));
@@ -536,7 +536,7 @@ function focusAnchor() {
 
       <div v-if="snapshotState !== 'ready'" class="map-snapshot-hint" :data-tone="snapshotState">
         <AppIcon :name="snapshotState === 'error' ? 'warning' : 'refresh'" :size="13" />
-        <span>{{ snapshotState === "error" ? "TrajNexa_Map 快照不可用：仅显示演示业务层" : "正在加载 TrajNexa_Map 空间快照…" }}</span>
+        <span>{{ snapshotState === "error" ? "Map 空间数据不可用：仅显示演示业务层" : "正在加载 Map 空间数据…" }}</span>
         <button v-if="snapshotState === 'error'" class="btn btn--sm btn--outline" @click="reloadSnapshot">重试</button>
       </div>
     </div>
@@ -598,7 +598,7 @@ function focusAnchor() {
     <div v-if="openPanel === 'layers'" class="map-panel map-panel--layers popover" @click.stop>
       <header class="panel-head">
         <span>图层</span>
-        <span class="dim">{{ snapshot ? snapshot.spatial_revision : "快照未就绪" }}</span>
+        <span class="dim">{{ snapshot ? snapshot.spatial_revision : "空间数据未就绪" }}</span>
       </header>
       <label class="layer-row">
         <input v-model="realVisible" type="checkbox" /><span>Map 镜头（TrajNexa_Map）</span><em>{{ snapshot?.cameras.length ?? 0 }}</em>
@@ -610,12 +610,12 @@ function focusAnchor() {
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
       <label class="layer-row"><input v-model="layers.tracks" type="checkbox" /><span>轨迹与盲区</span><em>{{ tracks.length }}</em></label>
       <label class="layer-row"><input v-model="layers.labels" type="checkbox" /><span>名称标注</span><em>—</em></label>
-      <p class="panel-note">Map 镜头与视域来自 TrajNexa_Map 只读快照；任务镜头与轨迹为演示数据，按示意投影落图。</p>
+      <p class="panel-note">Map 镜头与视域来自 TrajNexa_Map 只读空间数据（主系统直连 Map 只读库）；任务镜头与轨迹为演示数据，按示意投影落图。</p>
     </div>
 
     <div v-if="openPanel === 'legend'" class="map-panel map-panel--legend popover" @click.stop>
       <header class="panel-head"><span>图例</span></header>
-      <p class="legend-title">Map 镜头（TrajNexa_Map 快照）</p>
+      <p class="legend-title">Map 镜头（TrajNexa_Map）</p>
       <ul class="legend">
         <li><i class="sw sw--real" />已标定姿态</li>
         <li><i class="sw sw--real-unknown" />姿态未知，仅点位（不虚构扇形）</li>
@@ -792,12 +792,12 @@ function focusAnchor() {
             <AppIcon name="edit" :size="12" />上报修正工单
           </button>
         </div>
-        <p class="cam-note">来自 TrajNexa_Map 只读快照；主系统不回写 GIS，不构成身份结论。</p>
+        <p class="cam-note">来自 TrajNexa_Map 只读空间数据；主系统不回写 GIS，不构成身份结论。</p>
       </aside>
     </Transition>
 
     <footer class="map-status">
-      <span class="mono">{{ snapshot ? snapshot.spatial_revision : "快照未连接" }}</span>
+      <span class="mono">{{ snapshot ? snapshot.spatial_revision : "空间数据未连接" }}</span>
       <span class="sep">·</span>
       <span>{{ snapshot?.cameras.length ?? 0 }} 台 Map 镜头</span>
       <span class="sep">·</span>
