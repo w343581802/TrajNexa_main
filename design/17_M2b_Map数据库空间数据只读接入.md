@@ -46,3 +46,8 @@ Invoke-RestMethod http://localhost:8000/api/v1/spatial/cameras
 M2a 名称目录与 M2b 空间视域使用相同只读连接，但**目录修订号与空间几何修订号相互独立**。已有人工确认绑定、OCR 报告、Map 台账均不改变。
 
 测试：`cd backend && python -m pytest -q tests/test_map_db_spatial.py tests/test_spatial_api.py`。测试模拟 PG 连接，不等于跨 Docker 实际联调。
+
+
+## 数字 ID 精度
+
+Map 的 bigint 摄像头 ID 在 API JSON 中以 **string** 输出（例如 `"9000000000000001"`），避免 JavaScript Number 精度丢失。数据库查询仍使用 bigint，`camera_uuid` 仍保持单独的 UUID 字段。

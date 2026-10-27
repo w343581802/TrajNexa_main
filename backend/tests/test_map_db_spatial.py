@@ -16,7 +16,7 @@ def test_position_and_tilt_not_confused_with_fov():
     x=build_spatial_payload([point()],[(1,'observation',False,POLY)])
     cam=x['cameras'][0]
     assert cam['camera_uuid']==A
-    assert cam['map_camera_id']==1
+    assert cam['map_camera_id']=='1'
     assert cam['tilt_deg']==35 and cam['horizontal_fov_deg']==75
     assert cam['bearing_deg']==90
     assert cam['pose_quality']=='calibrated'

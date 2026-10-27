@@ -4,7 +4,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 type Geo = { type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][] };
 type Level = { level: string; geometry: Geo; occlusion_applied: boolean };
 type Camera = {
-  map_camera_id: number; camera_uuid: string | null; display_name: string | null;
+  map_camera_id: string; camera_uuid: string | null; display_name: string | null;
   location: { lon: number; lat: number };
   bearing_deg: number | null; tilt_deg: number | null; horizontal_fov_deg: number | null;
   pose_quality: string; map_registry_link: string; fov_levels: Level[];
@@ -14,7 +14,7 @@ type Result = { status: string; spatial_revision: string; counts: Record<string,
 const data = ref<Result | null>(null);
 const error = ref("");
 const loading = ref(false);
-const selectedId = ref<number | null>(null);
+const selectedId = ref<string | null>(null);
 const showFov = ref(true);
 const showNames = ref(false);
 let controller: AbortController | null = null;

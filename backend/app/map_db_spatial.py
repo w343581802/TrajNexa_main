@@ -121,7 +121,7 @@ def build_spatial_payload(point_rows, fov_rows):
         if bearing is None or tilt is None or uuid is None:
             quality='unknown'
         item={
-            'map_camera_id':map_id,'camera_uuid':uuid,
+            'map_camera_id':str(map_id),'camera_uuid':uuid,
             'display_name':str(name or '')[:120] or None,
             'location':{'lon':lon,'lat':lat,'crs':'EPSG:4326'},
             'bearing_deg':bearing,'tilt_deg':tilt,

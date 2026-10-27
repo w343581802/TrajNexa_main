@@ -73,7 +73,7 @@ onMounted(applyDemoHash);
 .m2b-toggle {
   position: absolute;
   z-index: 30;
-  top: 10px;
+  bottom: 10px;
   right: 12px;
 }
 .m2b-toggle button {
