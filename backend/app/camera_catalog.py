@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from app.config import settings
+from app.camera_name_match import suggest_names
 
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 MAX_CAMERAS = 3000
@@ -116,6 +117,7 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
     camera['catalog_revision'] = None
     camera['catalog_sha256'] = None
     camera['directory_candidates'] = []
+    camera['name_suggestions'] = []
     if catalog is None:
         try:
             catalog = load_catalog()
@@ -136,6 +138,10 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
     if not names:
         camera['directory_status'] = 'overlay_name_unavailable'
         return report
+    # 精确匹配之外再给相似建议：OCR 常见错字（0/O、1/l）用同形字折叠后的编辑相似度兜底。
+    # 建议只用于人工挑选，绝不写 camera_uuid、也不改 match_status。
+    camera['name_suggestions'] = suggest_names(
+        [x for x in raw if isinstance(x, str)], catalog.cameras)
     matches = []
     for item in catalog.cameras:
         if not item['active']:

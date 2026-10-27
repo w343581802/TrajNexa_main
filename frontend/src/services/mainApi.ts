@@ -55,6 +55,17 @@ export type CameraBlock = {
   filename_name_hint?: { text: string; source: string; camera_uuid: string | null } | null;
   directory_candidates?: string[];
   directory_status?: string;
+  /** 目录里与 OCR 名称相近的候选（只做建议，未绑定，需人工确认） */
+  name_suggestions?: {
+    camera_uuid: string;
+    display_name: string;
+    matched_value: string;
+    ocr_text: string;
+    score: number;
+    method: string;
+    map_camera_id?: unknown;
+    requires_human_confirmation?: boolean;
+  }[];
 };
 
 export type InspectionResult = {

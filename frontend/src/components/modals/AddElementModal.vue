@@ -190,6 +190,16 @@ function pickTime(index: number) {
   if (item.time) timeLabel.value = item.time;
 }
 
+/** 后端按目录名称算出的相似候选：只填名称，不改绑定状态 */
+const nameSuggestions = computed(() => report.value?.result_json.camera.name_suggestions ?? []);
+
+function applySuggestion(item: { display_name: string; score: number }) {
+  cameraName.value = item.display_name;
+  nameIndex.value = -1;
+  nameSource.value = `相似建议（${Math.round(item.score * 100)}%）`;
+  confirmedCamera.value = null;
+}
+
 function pickName(index: number) {
   const item = nameList.value[index];
   if (!item) return;
@@ -238,8 +248,13 @@ const cameraStatus = computed(() => {
   if (confirmedCamera.value) return { label: "已匹配镜头目录", tone: "ok" as const };
   if (cameraName.value) {
     const mined = nameSource.value.includes("OCR");
+    const suggested = nameSource.value.includes("相似建议");
     return {
-      label: mined ? "OCR 文本疑似名称，未结构化" : "已识别名称，未绑定镜头目录",
+      label: suggested
+        ? "已采用相似名称，未绑定镜头目录"
+        : mined
+          ? "OCR 文本疑似名称，未结构化"
+          : "已识别名称，未绑定镜头目录",
       tone: "warn" as const,
     };
   }
@@ -536,6 +551,22 @@ function save(keepOpen: boolean) {
             />
             <button class="chip-btn" :class="{ 'is-on': !cameraName }" @click="markUnlocated">仅确定区域</button>
           </div>
+
+          <div v-if="nameSuggestions.length" class="catalog-hits">
+            <span class="field-hint">相似建议：</span>
+            <button
+              v-for="item in nameSuggestions"
+              :key="item.camera_uuid"
+              class="tag suggest"
+              :title="`OCR：${item.ocr_text} · 相似度 ${Math.round(item.score * 100)}%`"
+              @click="applySuggestion(item)"
+            >
+              {{ item.display_name }}<span class="dim"> {{ Math.round(item.score * 100) }}%</span>
+            </button>
+          </div>
+          <p v-if="nameSuggestions.length" class="field-hint">
+            相似建议只填名称、不建立绑定；确认真实镜头请人工核对后再绑定。
+          </p>
 
           <div v-if="catalogMatches.length" class="catalog-hits">
             <span class="field-hint">镜头目录匹配：</span>
@@ -960,6 +991,21 @@ function save(keepOpen: boolean) {
   background: rgba(47, 207, 146, 0.12);
   color: #7fe3bb;
   font-size: 10.5px;
+}
+
+/* 相似建议是可点的，和只读的目录匹配标签区分开 */
+.tag.suggest {
+  cursor: pointer;
+  font-family: inherit;
+  border-color: rgba(120, 170, 255, 0.42);
+  background: rgba(90, 140, 255, 0.14);
+  color: #a9c8ff;
+}
+.tag.suggest:hover {
+  background: rgba(90, 140, 255, 0.24);
+}
+.tag.suggest .dim {
+  color: #7f9fc9;
 }
 
 .source-actions {
