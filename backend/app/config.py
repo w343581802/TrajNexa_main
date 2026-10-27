@@ -8,5 +8,6 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 268435456
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
+    name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
 
 settings = Settings()

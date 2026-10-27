@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from app.config import settings
+from app.camera_name_inspection import inspect_frame, apply_quality_to_camera
 
 # Require a full calendar date and a clock: accepting HH:MM alone would invent date.
 _DATE_TIME = re.compile(
@@ -184,7 +185,7 @@ def _video_frame(path: Path, offset: float) -> np.ndarray | None:
     return cv2.imdecode(np.frombuffer(proc.stdout, np.uint8), cv2.IMREAD_COLOR)
 
 
-def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_reader=None) -> None:
+def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_reader=None, name_roi_recognizer=None) -> None:
     time = result['time']
     camera = result['camera']
     time.update(overlay_time_samples=[], time_status='not_checked', timezone=None,
@@ -211,6 +212,8 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
         reader = frame_reader or _video_frame
         sample_frames = [(offset, reader(path, offset)) for offset in _sample_offsets(duration)]
     successful = []
+    name_roi_result = None
+    do_name_roi = settings.name_roi_enabled and (recognizer is None or name_roi_recognizer is not None)
     for offset, frame in sample_frames:
         if frame is None:
             continue
@@ -228,6 +231,13 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
             return
         parsed_time, time_raw = _parse_time(rows)
         name, name_status = _parse_name(rows)
+        if do_name_roi and name_roi_result is None:
+            try:
+                name_roi_result = inspect_frame(frame, name_roi_recognizer or recognizer or _recognize)
+            except Exception:
+                name_roi_result = {'status': 'name_roi_error_requires_review',
+                    'candidates': [], 'warnings': ['roi_ocr_error'], 'raw_ocr_rows': [],
+                    'camera_uuid': None, 'no_auto_binding': True}
         fallback_attempted = False
         if parsed_time is None and (media.kind == 'image' or not successful):
             fallback_attempted = True
@@ -284,3 +294,6 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
                 if methods == ['structured_osd_candidate'] else 'labelled_candidate_unbound')
         else:
             camera['match_status'] = 'conflicting_names'
+
+    if name_roi_result is not None:
+        apply_quality_to_camera(camera, name_roi_result)

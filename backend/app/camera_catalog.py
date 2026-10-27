@@ -109,7 +109,14 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
             return report
     camera['catalog_revision'] = catalog.revision
     camera['catalog_sha256'] = catalog.fingerprint
-    raw = [camera.get('overlay_name_raw'), *(camera.get('camera_candidates') or [])]
+    # A quality-reviewed ROI must never fall back to full-width OCR guesses.
+    if camera.get('name_roi_analysis') is not None:
+        raw = camera.get('name_candidates_for_directory') or []
+        if not raw:
+            camera['directory_status'] = 'name_requires_review'
+            return report
+    else:
+        raw = [camera.get('overlay_name_raw'), *(camera.get('camera_candidates') or [])]
     names = {canonical_name(x) for x in raw if isinstance(x, str) and canonical_name(x)}
     if not names:
         camera['directory_status'] = 'overlay_name_unavailable'
