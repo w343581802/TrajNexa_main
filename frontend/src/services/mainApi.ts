@@ -64,8 +64,21 @@ export type CameraBlock = {
     score: number;
     method: string;
     map_camera_id?: unknown;
+    /** Map 台账里这台镜头是否人工审核过；false 表示名称只是台账写法 */
+    reviewed?: boolean;
     requires_human_confirmation?: boolean;
   }[];
+  /** 参与比对的启用镜头数；null/缺失表示目录没读到 */
+  directory_total?: number | null;
+  /** 其中人工审核过的台数 */
+  directory_reviewed?: number | null;
+  /** 没有达到阈值的建议时，给出最接近的一条，便于解释“为什么没建议” */
+  directory_nearest?: {
+    camera_uuid?: string;
+    display_name: string;
+    score: number;
+    reviewed?: boolean;
+  } | null;
 };
 
 export type InspectionResult = {

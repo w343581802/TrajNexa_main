@@ -80,7 +80,15 @@ def suggest_names(raw_names, catalog_cameras, *, min_score: float = MIN_SCORE,
                     'score': round(score, 3),
                     'method': 'homoglyph_folded_ratio',
                     'map_camera_id': camera.get('map_camera_id'),
+                    # 台账是否人工审核过：没审核过的名称只是“台账写法”，不构成核实结论
+                    'reviewed': bool(camera.get('reviewed_at')),
                     'requires_human_confirmation': True,
                 }
     ordered = sorted(best.values(), key=lambda item: item['score'], reverse=True)
     return ordered[:limit]
+
+
+def nearest_name(raw_names, catalog_cameras) -> dict | None:
+    """最高分的那一条（可能低于阈值），用于解释“为什么没有相近建议”。"""
+    hits = suggest_names(raw_names, catalog_cameras, min_score=0.01, limit=1)
+    return hits[0] if hits else None

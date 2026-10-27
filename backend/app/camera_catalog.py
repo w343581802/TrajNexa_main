@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from app.config import settings
-from app.camera_name_match import suggest_names
+from app.camera_name_match import suggest_names, nearest_name
 
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 MAX_CAMERAS = 3000
@@ -118,6 +118,9 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
     camera['catalog_sha256'] = None
     camera['directory_candidates'] = []
     camera['name_suggestions'] = []
+    camera['directory_total'] = None
+    camera['directory_reviewed'] = None
+    camera['directory_nearest'] = None
     if catalog is None:
         try:
             catalog = load_catalog()
@@ -140,8 +143,14 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
         return report
     # 精确匹配之外再给相似建议：OCR 常见错字（0/O、1/l）用同形字折叠后的编辑相似度兜底。
     # 建议只用于人工挑选，绝不写 camera_uuid、也不改 match_status。
-    camera['name_suggestions'] = suggest_names(
-        [x for x in raw if isinstance(x, str)], catalog.cameras)
+    active_cameras = [item for item in catalog.cameras if item.get('active') is not False]
+    camera['directory_total'] = len(active_cameras)
+    camera['directory_reviewed'] = (catalog.diagnostics or {}).get('reviewed_count')
+    inputs = [x for x in raw if isinstance(x, str)]
+    camera['name_suggestions'] = suggest_names(inputs, active_cameras)
+    # 没建议时也给出“最接近的一条”，让界面能说清是「台账里没有」还是「差得远」，
+    # 而不是笼统显示“未匹配到名称”。
+    camera['directory_nearest'] = None if camera['name_suggestions'] else nearest_name(inputs, active_cameras)
     matches = []
     for item in catalog.cameras:
         if not item['active']:

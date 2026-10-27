@@ -1,5 +1,6 @@
 """No real database required: ensure PostgreSQL direct adapter fails closed."""
 import json
+from datetime import datetime, timezone
 from uuid import UUID
 import pytest
 from app.map_db_catalog import read_map_directory,MapDBCatalogError
@@ -29,27 +30,31 @@ def read(rows,alias_path=None):
     assert 'deleted_at IS NULL' in conn.cur.queries[-1]
     return result
 
+# id,name,enabled,map_camera_id,index_code,external_index_code,reviewed_at,reviewed_by
+def row(uid,name,enabled=True,map_id=None,index='',ext='',reviewed_at=None,reviewed_by=None):
+    return (uid,name,enabled,map_id,index,ext,reviewed_at,reviewed_by)
+
 def test_uuids_status_and_revision():
     entries,rev,digest,diag=read([
-        (UUID(A),'3-DX-中仁路98号-球',True,100,'index','ext'),
-        (UUID(B),'其他摄像头',False,None,'','')])
+        row(UUID(A),'3-DX-中仁路98号-球',True,100,'index','ext'),
+        row(UUID(B),'其他摄像头',False,None,'','')])
     assert len(entries)==2 and entries[0]['camera_uuid']==A
     assert entries[0]['map_camera_id']==100 and not entries[1]['active']
     assert rev.startswith('mapdb-directory:') and len(digest)==64
     assert diag['spatial_revision'] is None
 
 def test_unnamed_not_fabricated():
-    entries,_,_,diag=read([(UUID(A),'',None,None,'','')])
+    entries,_,_,diag=read([row(UUID(A),'')])
     assert entries==[] and diag['unnamed_count']==1
 
 def test_rename_changes_catalog_revision():
-    assert read([(UUID(A),'名称A',True,None,'','')])[1] != read([(UUID(A),'名称B',True,None,'','')])[1]
+    assert read([row(UUID(A),'名称A')])[1] != read([row(UUID(A),'名称B')])[1]
 
 def test_aliases_overlay_without_overwriting_live_name(tmp_path):
     file=tmp_path/'map_camera_aliases.json'
     file.write_text(json.dumps({'schema_version':'1.0','aliases_by_uuid':{
         A:['旧名','旧名','历史名'],B:['旧设备名']}},ensure_ascii=False),encoding='utf8')
-    entries,_,_,diag=read([(UUID(A),'现名',None,None,'','')],file)
+    entries,_,_,diag=read([row(UUID(A),'现名')],file)
     assert entries[0]['display_name']=='现名'
     assert entries[0]['aliases']==['旧名','历史名']
     assert diag['orphaned_alias_uuids']==[B]
@@ -58,10 +63,10 @@ def test_invalid_aliases_rejected(tmp_path):
     file=tmp_path/'aliases.json'
     file.write_text('{"schema_version":"1.0","aliases_by_uuid":{"oops":["X"]}}')
     with pytest.raises(MapDBCatalogError,match='map_db_aliases_invalid_uuid'):
-        read([(UUID(A),'名称',True,None,'','')],file)
+        read([row(UUID(A),'名称')],file)
 
 def test_no_silent_truncation():
-    rows=[(UUID(int=n+1),'A',True,None,'','') for n in range(3001)]
+    rows=[row(UUID(int=n+1),'A') for n in range(3001)]
     with pytest.raises(MapDBCatalogError,match='map_db_catalog_exceeds_3000'):
         read(rows)
 
@@ -73,4 +78,15 @@ def test_error_does_not_leak_database_password():
 
 def test_duplicate_uuid_rejected():
     with pytest.raises(MapDBCatalogError,match='map_db_duplicate_uuid'):
-        read([(UUID(A),'A',True,None,'',''),(UUID(A),'B',True,None,'','')])
+        read([row(UUID(A),'A'),row(UUID(A),'B')])
+
+def test_review_state_is_carried_and_counted():
+    """台账审核状态必须透传：多数镜头从未审核，名称只能是“台账写法”。"""
+    reviewed=datetime(2026,10,1,8,0,tzinfo=timezone.utc)
+    entries,_,_,diag=read([
+        row(UUID(A),'已审核镜头',True,1,'','',reviewed,'operator'),
+        row(UUID(B),'未审核镜头',True,2,'','')])
+    assert entries[0]['reviewed_at']==reviewed.isoformat()
+    assert entries[0]['reviewed_by']=='operator'
+    assert entries[1]['reviewed_at'] is None and entries[1]['reviewed_by'] is None
+    assert diag['reviewed_count']==1 and diag['unreviewed_count']==1

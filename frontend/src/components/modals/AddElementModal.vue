@@ -200,6 +200,26 @@ function applySuggestion(item: { display_name: string; score: number }) {
   confirmedCamera.value = null;
 }
 
+/** 与后端 camera_name_match.MIN_SCORE 对齐，只用于文案 */
+const SIMILARITY_THRESHOLD = 0.78;
+
+/** 名称比对的说明文案：区分「目录读不到」「差得远」「目录里没有」三种情况 */
+const matchHint = computed(() => {
+  const camera = report.value?.result_json.camera;
+  const name = cameraName.value;
+  if (!camera || !name || catalogMatches.value.length) return null;
+  const status = camera.directory_status ?? "";
+  if (status.startsWith("map_db_") || status.startsWith("catalog_")) {
+    return "镜头目录不可用：本次没读到 Map 台账，因此没有做名称比对（不代表名称写错）。";
+  }
+  const nearest = camera.directory_nearest;
+  if (nearest) {
+    const percent = Math.round(nearest.score * 100);
+    return `台账里没有相近名称：最接近「${nearest.display_name}」${percent}%，低于 ${Math.round(SIMILARITY_THRESHOLD * 100)}% 阈值，未作为建议。`;
+  }
+  return `未在镜头目录中匹配到「${name}」（来源：${nameSource.value || "人工填写"}），保存后按候选来源处理。`;
+});
+
 function pickName(index: number) {
   const item = nameList.value[index];
   if (!item) return;
@@ -558,10 +578,11 @@ function save(keepOpen: boolean) {
               v-for="item in nameSuggestions"
               :key="item.camera_uuid"
               class="tag suggest"
-              :title="`OCR：${item.ocr_text} · 相似度 ${Math.round(item.score * 100)}%`"
+              :title="`OCR：${item.ocr_text} · 相似度 ${Math.round(item.score * 100)}%${item.reviewed === false ? ' · Map 台账未审核（名称只是台账写法）' : ''}`"
               @click="applySuggestion(item)"
             >
               {{ item.display_name }}<span class="dim"> {{ Math.round(item.score * 100) }}%</span>
+              <span v-if="item.reviewed === false" class="dim">·台账未审核</span>
             </button>
           </div>
           <p v-if="nameSuggestions.length" class="field-hint">
@@ -574,9 +595,7 @@ function save(keepOpen: boolean) {
               {{ camera.display_name }}
             </span>
           </div>
-          <p v-else-if="cameraName" class="field-hint">
-            未在镜头目录中匹配到「{{ cameraName }}」（来源：{{ nameSource || "人工填写" }}），保存后按候选来源处理。
-          </p>
+          <p v-else-if="matchHint" class="field-hint">{{ matchHint }}</p>
 
           <div class="source-actions">
             <span class="grow" />

@@ -51,7 +51,7 @@ def read_map_directory(*,dsn:str,alias_path:Path|None=None,connect=None):
         except ImportError:
             raise MapDBCatalogError('map_db_driver_unavailable') from None
         connect=psycopg.connect
-    sql=('SELECT id, name, enabled, map_camera_id, index_code, external_index_code '
+    sql=('SELECT id, name, enabled, map_camera_id, index_code, external_index_code, reviewed_at, reviewed_by '
          'FROM public.cameras_registry WHERE deleted_at IS NULL '
          'ORDER BY id LIMIT 3001')
     try:
@@ -66,11 +66,11 @@ def read_map_directory(*,dsn:str,alias_path:Path|None=None,connect=None):
         raise MapDBCatalogError('map_db_query_unavailable') from None
     if len(rows)>MAX_CAMERAS:
         raise MapDBCatalogError('map_db_catalog_exceeds_3000')
-    entries=[];seen=set();unnamed=0
+    entries=[];seen=set();unnamed=0;reviewed=0
     for row in rows:
-        if len(row)!=6:
+        if len(row)!=8:
             raise MapDBCatalogError('map_db_unexpected_row')
-        uid,name,enabled,map_camera_id,index_code,external_index_code=row
+        uid,name,enabled,map_camera_id,index_code,external_index_code,reviewed_at,reviewed_by=row
         try:uid=str(UUID(str(uid)))
         except (TypeError,ValueError):
             raise MapDBCatalogError('map_db_unexpected_uuid') from None
@@ -84,12 +84,18 @@ def read_map_directory(*,dsn:str,alias_path:Path|None=None,connect=None):
             raise MapDBCatalogError('map_db_name_exceeds_catalog_limit')
         if enabled is not None and not isinstance(enabled,bool):
             raise MapDBCatalogError('map_db_unexpected_enabled')
+        is_reviewed = reviewed_at is not None
+        if is_reviewed:
+            reviewed += 1
         entries.append({
             'camera_uuid':uid,'display_name':name.strip(),
             'aliases':aliases.get(uid,[]),'active':enabled is not False,
             'map_camera_id':map_camera_id,
             'index_code':index_code or '',
             'external_index_code':external_index_code or '',
+            # 台账审核状态：绝大多数镜头从未人工审核过，名称只能算“台账写法”，不是核实结论
+            'reviewed_at':reviewed_at.isoformat() if is_reviewed else None,
+            'reviewed_by':reviewed_by if isinstance(reviewed_by,str) else None,
         })
     entries.sort(key=lambda i:i['camera_uuid'])
     normalized=json.dumps(entries,sort_keys=True,separators=(',',':'),ensure_ascii=False)
@@ -97,6 +103,7 @@ def read_map_directory(*,dsn:str,alias_path:Path|None=None,connect=None):
     revision='mapdb-directory:'+fingerprint[:16]
     diagnostics={'source':'map_postgresql_readonly','registry_count':len(rows),
                  'named_count':len(entries),'unnamed_count':unnamed,
+                 'reviewed_count':reviewed,'unreviewed_count':len(entries)-reviewed,
                  'orphaned_alias_uuids':sorted(set(aliases)-seen)[:20],
                  'spatial_revision':None,'live_read':True}
     return entries,revision,fingerprint,diagnostics
