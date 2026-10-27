@@ -24,6 +24,8 @@ class CameraCatalog:
     revision: str
     fingerprint: str
     cameras: list[dict]
+    source: str = 'local_file'
+    diagnostics: dict | None = None
 
     def by_uuid(self, camera_uuid: str) -> dict | None:
         return next((item for item in self.cameras if item['camera_uuid'] == camera_uuid), None)
@@ -38,6 +40,18 @@ def catalog_path() -> Path:
 
 
 def load_catalog(path: Path | None = None) -> CameraCatalog:
+    # Explicit test path always uses original local-file mode.
+    # Map DB mode is opt-in; always SELECT-only, never copy/update Map data.
+    if path is None and settings.map_db_readonly_url.strip():
+        from app.map_db_catalog import read_map_directory, MapDBCatalogError
+        try:
+            cameras, revision, digest, diagnostics = read_map_directory(
+                dsn=settings.map_db_readonly_url,
+                alias_path=settings.storage_root.resolve() / 'map_camera_aliases.json')
+        except MapDBCatalogError as exc:
+            raise CatalogError(str(exc)) from None
+        return CameraCatalog(revision, digest, cameras,
+                             source='map_postgresql_readonly', diagnostics=diagnostics)
     path = path or catalog_path()
     try:
         if path.stat().st_size > MAX_CATALOG_BYTES:
@@ -92,7 +106,8 @@ def catalog_status() -> dict:
                 'spatial_revision': None, 'catalog_sha256': None, 'cameras': []}
     return {'status': 'available', 'reason': None,
             'spatial_revision': catalog.revision,
-            'catalog_sha256': catalog.fingerprint, 'cameras': catalog.cameras}
+            'catalog_sha256': catalog.fingerprint, 'cameras': catalog.cameras,
+            'source': catalog.source, 'diagnostics': catalog.diagnostics or {}}
 
 
 def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -> dict:
@@ -109,7 +124,14 @@ def annotate_camera_report(report: dict, catalog: CameraCatalog | None = None) -
             return report
     camera['catalog_revision'] = catalog.revision
     camera['catalog_sha256'] = catalog.fingerprint
-    raw = [camera.get('overlay_name_raw'), *(camera.get('camera_candidates') or [])]
+    # A quality-reviewed ROI must never fall back to full-width OCR guesses.
+    if camera.get('name_roi_analysis') is not None:
+        raw = camera.get('name_candidates_for_directory') or []
+        if not raw:
+            camera['directory_status'] = 'name_requires_review'
+            return report
+    else:
+        raw = [camera.get('overlay_name_raw'), *(camera.get('camera_candidates') or [])]
     names = {canonical_name(x) for x in raw if isinstance(x, str) and canonical_name(x)}
     if not names:
         camera['directory_status'] = 'overlay_name_unavailable'

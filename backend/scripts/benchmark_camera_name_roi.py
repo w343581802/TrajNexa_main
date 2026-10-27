@@ -15,13 +15,11 @@ PRESETS = {
 def canonical(s):
     return re.sub(r'[\s\-_:：·—－|]+', '', unicodedata.normalize('NFKC',s).casefold())
 
+from scripts.camera_osd_name_quality import describe, summarize_name_rows
+
+
 def code_hint(raw):
-    """A candidate label, NEVER a verified device identity."""
-    s=re.sub(r'[\s—－]+','-',unicodedata.normalize('NFKC',raw).strip())
-    m=re.match(r'^(?:\d{1,3}-?)?(?:DX|HIK|CAM|IPC|HK|DH|CH|CHN|NVR)(?:-|(?=[\u4e00-\u9fff]))',s,re.I)
-    if not m: return False
-    rest=s[m.end():]
-    return len(re.findall(r'[\u4e00-\u9fff]',rest))>=2 and 4<=len(rest)<=96
+    return describe(raw)['quality'] == 'structured_candidate'
 
 def crop(image, roi):
     h,w=image.shape[:2]
@@ -47,21 +45,13 @@ def rows_from_prediction(pages):
                 arr=np.asarray(polygons[i])
                 if arr.size>=8:pts=arr.reshape(-1,2).astype(float).round(1).tolist()
             rows.append(dict(text=s[:160],model_score=float(scores[i]) if i<len(scores) else None,
-                             polygon_roi=pts,camera_code_hint=code_hint(s)))
+                             polygon_roi=pts,camera_code_hint=code_hint(s),
+                             name_quality=describe(s)['quality'],
+                             name_quality_reason=describe(s)['reason']))
     return rows
 
 def summary(rows):
-    groups=defaultdict(set)
-    raw=defaultdict(list)
-    for item in rows:
-        if item['preset']=='bottom_context' or not item['camera_code_hint']:continue
-        name=canonical(item['text'])
-        groups[name].add(item['preset'])
-        raw[name].append(item['text'])
-    names=[dict(raw_text_examples=list(dict.fromkeys(raw[k]))[:5],
-                seen_in_presets=sorted(groups[k]),source='ocr_unverified') for k in sorted(groups)]
-    status='no_structured_name_hint' if not names else ('candidate_unverified' if len(names)==1 else 'conflicting_name_candidates_review')
-    return dict(status=status,candidates=names,camera_uuid=None,no_auto_binding=True)
+    return summarize_name_rows(rows)
 
 def run(path, predictor=None, preview_dir=None):
     if not path.is_file():raise FileNotFoundError(path)
