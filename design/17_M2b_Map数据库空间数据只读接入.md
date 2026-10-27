@@ -50,4 +50,26 @@ M2a 名称目录与 M2b 空间视域使用相同只读连接，但**目录修订
 
 ## 数字 ID 精度
 
-Map 的 bigint 摄像头 ID 在 API JSON 中以 **string** 输出（例如 `"9000000000000001"`），避免 JavaScript Number 精度丢失。数据库查询仍使用 bigint，`camera_uuid` 仍保持单独的 UUID 字段。
+Map 的 bigint 摄像头 ID 在 API JSON 中以 **string** 输出（例如 `"9000000000000003"`），避免 JavaScript Number 精度丢失。数据库查询仍使用 bigint，`camera_uuid` 仍保持单独的 UUID 字段。
+
+## 本地实际环境验收（2026-10-27）
+
+真实 PostgreSQL + Docker + 浏览器联调结果：
+
+| 检查项 | 结果 |
+| --- | --- |
+| 只读账号 `trajnexa_reader` | 按本文与 M2a 的列级授权创建；`UPDATE` 被 `read_only` 事务拒绝 |
+| 主系统 `GET /api/v1/spatial/cameras` | `status=available`、`source=map_postgresql_readonly`、`spatial_revision=mapdb-spatial:09379c788b6902d4` |
+| counts | 55 个地图镜头 / 55 可显示 / 台账关联 2 / 未关联 53 / 缺坐标 0 / 有 FOV 7 |
+| 台账 UUID 对应 | `9000000000000023 → 93b78618-…`、`9000000000000024 → cef44224-…`，与 `cameras_registry` 完全一致 |
+| FOV 几何 | 21 条（7 镜头 × 3 等级）逐条与 `cameras_camerafocus` 的顶点数、环数、外接框一致；顶点起点在镜头位置（0–8 m 偏移） |
+| 跨系统一致性 | Map `/api/v1/spatial/snapshot/` 与本接口 ID 集合、`with_focus=7`、`with_pose=2` 相同 |
+| 前端 | `查看 Map 真实空间数据` 预览渲染 55 点 + 21 个 FOV 面，无控制台错误，1280×800 无横向溢出 |
+
+发现的 Map 侧数据问题（不影响主系统只读接入，建议在 Map 台账修正）：
+
+1. `9000000000000024`：`cameras_camera.angle=23°` 与 `cameras_registry.tilt_deg=15°` 不一致；当前接口按本文约定取 `angle`。
+2. 同一镜头的 `recognition` 与 `observation` 两级 FOV 几何完全相同，`observation` 未比 `recognition` 更大，模型输出疑似退化。
+3. Map 自身 snapshot 的 `camera_id` 仍以 JSON 数字输出（16 位 bigint），JS 侧存在精度风险；主系统已改用字符串。
+
+测试：`tests/test_spatial_api.py` 原先 patch 的是 `app.map_db_spatial.read_map_spatial`，而路由在 `app.main` 里已按值导入，导致「成功路径」用例实际打到真实函数并 503。已改为 patch `app.main.read_map_spatial`，四个文件 25 项全部通过。
