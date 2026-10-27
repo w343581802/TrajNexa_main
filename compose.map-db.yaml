@@ -1,0 +1,15 @@
+# Optional direct TrajNexa_Map PostgreSQL access (Demo, read-only role required).
+# docker compose -f compose.yaml -f compose.ocr.yaml -f compose.map-db.yaml up -d --build
+services:
+  api:
+    networks:
+      - default
+      - trajnexa_map_ro
+  worker:
+    networks:
+      - default
+      - trajnexa_map_ro
+networks:
+  trajnexa_map_ro:
+    external: true
+    name: trajnexa_map_default

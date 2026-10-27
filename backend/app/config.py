@@ -9,5 +9,6 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
+    map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
 
 settings = Settings()
