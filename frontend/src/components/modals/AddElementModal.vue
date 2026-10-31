@@ -548,16 +548,16 @@ watch(
     if (!pendingElementFile.value) void loadM4History(true);
     const linkedObservationId = editingElement.value?.m4ObservationId;
     if (linkedObservationId) void reopenM4Record(linkedObservationId);
-    const activeSession = m4Session;
+    const catalogCaseId = currentCase.value?.id;
     void mainApi
       .listCameras()
       .then((catalogPage) => {
-        if (activeSession !== m4Session || !ui.addElementOpen) return;
+        if (catalogCaseId !== currentCase.value?.id || !ui.addElementOpen) return;
         catalog.value = catalogPage.cameras ?? [];
         if (cameraName.value) syncCatalogMatch();
       })
       .catch(() => {
-        if (activeSession !== m4Session || !ui.addElementOpen) return;
+        if (catalogCaseId !== currentCase.value?.id || !ui.addElementOpen) return;
         catalog.value = [];
       });
     // 「添加要素」已经先弹过系统选图框：拿到文件后进弹窗就直接上传+识别
