@@ -397,7 +397,6 @@ export const mainApi = {
     object_class: "person" | "vehicle" | "other";
     bbox_normalized: number[];
     review_note: string;
-    authorized: boolean;
   }) => request<M4Observation>(`/media/${encodeURIComponent(mediaId)}/observations`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -407,10 +406,10 @@ export const mainApi = {
   listCaseM4Observations: (caseId: string, limit = 50, offset = 0) =>
     request<M4Observation[]>(`/cases/${encodeURIComponent(caseId)}/observations?limit=${limit}&offset=${offset}`),
   /** M4b: candidates only; model is optional, no automatic identity binding. */
-  previewM4Detections: (mediaId: string, authorized: boolean, minConfidence = .4) =>
+  previewM4Detections: (mediaId: string, minConfidence = .4) =>
     request<M4DetectionPreview>(`/media/${encodeURIComponent(mediaId)}/detections/preview`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ authorized, min_confidence: minConfidence }),
+      body: JSON.stringify({ min_confidence: minConfidence }),
     }),
   getM4Observation: (id: string) =>
     request<M4Observation>(`/observations/${encodeURIComponent(id)}`),
@@ -465,13 +464,13 @@ export const mainApi = {
 
   /** 这段录像的开头截图：人工核对摄像头名称时看左边那张图 */
   previewRecordingKeyframes: (caseId: string, clipId: string, body: {
-    authorized: boolean; offsets_seconds: number[]; include_detection: boolean;
+    offsets_seconds: number[]; include_detection: boolean;
   }) => request<RecordingKeyframePreview>(
     `/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/preview`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
   ),
   recordingKeyframeImageUrl: (caseId: string, clipId: string, offsetSeconds: number) =>
-    `/api/v1/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/image?authorized=true&offset_seconds=${encodeURIComponent(String(offsetSeconds))}`,
+    `/api/v1/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/image?offset_seconds=${encodeURIComponent(String(offsetSeconds))}`,
 
   recordingClipFrameUrl: (clipId: string) =>
     `/api/v1/recordings/clips/${encodeURIComponent(clipId)}/frame`,
