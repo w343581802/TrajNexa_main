@@ -49,7 +49,8 @@ def preview_frame_attributes(case_id: str, clip_id: str, body: FrameReviewInput,
         review = m4d_frame_review.review_case_clip_frame(
             db, case_id=case_id, clip_id=clip_id, offset_seconds=body.offset_seconds,
             prompt=PROMPT, model=settings.m4d_model, client=client)
-        if (review.source.case_id != case_id or review.source.media_id != clip_id):
+        if (review.source.case_id != case_id or review.source.media_id != clip_id or
+                abs(review.source.frame_offset_ms - round(body.offset_seconds * 1000)) > 1):
             fail(409, "m4d-source-mismatch", "模型分析来源与当前录像不一致。")
         return {
             "case_id": case_id, "clip_id": clip_id,
