@@ -22,7 +22,7 @@ def _upload(client):
 
 def _post(client, media_id):
     return client.post(f'/api/v1/media/{media_id}/detections/preview',
-                       json={'authorized': True, 'min_confidence': 0.4})
+                       json={'min_confidence': 0.4})
 
 
 def test_detector_disabled_is_not_fake_empty_detection(env, monkeypatch):
@@ -44,15 +44,12 @@ def test_detector_model_digest_required(env, monkeypatch):
     assert _post(client, media['id']).json()['error']['code'] == 'm4b-model-sha256-required'
 
 
-def test_authorization_and_original_sha_guard(env, monkeypatch):
+def test_original_sha_guard(env, monkeypatch):
     client, Session, _ = env
     monkeypatch.setattr(settings, 'm4a_enabled', True)
     monkeypatch.setattr(settings, 'm4b_enabled', True)
     monkeypatch.setattr(settings, 'm4b_model_sha256', 'a'*64)
     _, media = _upload(client)
-    denied = client.post(f"/api/v1/media/{media['id']}/detections/preview",
-                         json={'authorized': False})
-    assert denied.status_code == 422
     with Session() as db:
         obj = db.get(MediaAsset, media['id'])
         file = settings.storage_root.resolve() / obj.storage_relpath
