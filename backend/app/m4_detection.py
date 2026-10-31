@@ -124,7 +124,45 @@ def parse_detections(outputs, source_shape, geometry, threshold: float = 0.4):
             'status': 'unverified_detection_proposal',
         })
     candidates.sort(key=lambda p: (-p['confidence'], p['proposal_index']))
-    return candidates[:MAX_CANDIDATES]
+    return _nms(candidates)[:MAX_CANDIDATES]
+
+
+def _overlap(a: list[float], b: list[float]) -> float:
+    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
+    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    if inter <= 0:
+        return 0.0
+    area_a = (a[2] - a[0]) * (a[3] - a[1])
+    area_b = (b[2] - b[0]) * (b[3] - b[1])
+    return inter / (area_a + area_b - inter)
+
+
+def _is_duplicate(a: list[float], b: list[float]) -> bool:
+    """重叠 + 近邻两种重复：小目标框尺寸略有差异时 IoU 会很低，只看 IoU 不够。"""
+    if _overlap(a, b) > 0.5:
+        return True
+    wa, ha = a[2] - a[0], a[3] - a[1]
+    wb, hb = b[2] - b[0], b[3] - b[1]
+    if min(wa, ha, wb, hb) <= 0:
+        return False
+    distance = math.hypot((a[0] + a[2]) / 2 - (b[0] + b[2]) / 2,
+                          (a[1] + a[3]) / 2 - (b[1] + b[3]) / 2)
+    if distance > 0.5 * max(wa, ha, wb, hb):
+        return False
+    ratio = (wa * ha) / (wb * hb)
+    return 0.4 <= ratio <= 2.5
+
+
+def _nms(candidates: list[dict]) -> list[dict]:
+    """同一个目标会给出多个重叠框：按分数保留，重复的丢掉，演示时画面才干净。"""
+    kept: list[dict] = []
+    for item in candidates:
+        box = item['bbox_normalized']
+        if any(_is_duplicate(box, other['bbox_normalized']) for other in kept):
+            continue
+        kept.append(item)
+    return kept
 
 
 def _validate_digest(digest: str):
@@ -159,24 +197,65 @@ def _session(path_str: str, expected_hash: str):
                                     providers=['CPUExecutionProvider'])
         inputs = {item.name: item for item in sess.get_inputs()}
         outputs = {item.name for item in sess.get_outputs()}
-        if set(inputs) != {'images', 'orig_target_sizes'} or not {
-            'labels', 'boxes', 'scores'}.issubset(outputs):
-            raise DetectionError('m4b_incompatible_model')
-        return sess
+        # 官方 deploy/onnx 导出：images + orig_target_sizes → labels/boxes/scores
+        if set(inputs) == {'images', 'orig_target_sizes'} and {
+                'labels', 'boxes', 'scores'}.issubset(outputs):
+            return sess, 'official'
+        # transformers / onnx-community 导出：pixel_values → logits + pred_boxes
+        if set(inputs) == {'pixel_values'} and {
+                'logits', 'pred_boxes'}.issubset(outputs):
+            return sess, 'hf'
+        raise DetectionError('m4b_incompatible_model')
     except DetectionError:
         raise
     except Exception:
         raise DetectionError('m4b_model_load_failed') from None
 
 
+def parse_hf_outputs(logits, pred_boxes):
+    """HF/onnx-community 导出 → 官方三件套（labels / xyxy 像素 / scores）。
+
+    logits 是 [1,300,80] 未过 sigmoid 的分类分；pred_boxes 是 [1,300,4] 的
+    cx,cy,w,h 且已按输入画布归一化，这里换算成 640 画布下的 xyxy 像素。
+    """
+    try:
+        logits = np.asarray(logits, dtype=np.float64)
+        boxes = np.asarray(pred_boxes, dtype=np.float64)
+    except (TypeError, ValueError):
+        raise DetectionError('m4b_bad_model_outputs') from None
+    if logits.ndim == 2:
+        logits = logits[None]
+    if boxes.ndim == 2:
+        boxes = boxes[None]
+    if logits.ndim != 3 or boxes.ndim != 3 or boxes.shape[-1] != 4 or \
+            logits.shape[:2] != boxes.shape[:2] or logits.shape[0] != 1:
+        raise DetectionError('m4b_bad_model_outputs')
+    probs = 1.0 / (1.0 + np.exp(-logits))
+    best = probs.argmax(axis=-1)                       # [1, N]
+    labels = best.reshape(-1)
+    scores = np.take_along_axis(probs, best[..., None], axis=-1).reshape(-1)
+    flat = boxes.reshape(-1, 4) * MODEL_SIZE
+    cx, cy, bw, bh = flat[:, 0], flat[:, 1], flat[:, 2], flat[:, 3]
+    xyxy = np.stack([cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2], axis=1)
+    return labels, xyxy, scores
+
+
 def detect_image(image: np.ndarray, *, model_path: Path, model_sha256: str,
                  source_sha256: str, threshold: float = 0.4) -> dict:
     _validate_digest(model_sha256)
-    session = _session(str(model_path), model_sha256.lower())
+    session, layout = _session(str(model_path), model_sha256.lower())
     input_tensor, original_size, geometry = to_onnx_input(image)
     try:
-        output = session.run(['labels', 'boxes', 'scores'],
-                             {'images': input_tensor, 'orig_target_sizes': original_size})
+        if layout == 'hf':
+            logits, pred_boxes = session.run(['logits', 'pred_boxes'],
+                                             {'pixel_values': input_tensor})
+            output = parse_hf_outputs(logits, pred_boxes)
+        else:
+            output = session.run(['labels', 'boxes', 'scores'],
+                                 {'images': input_tensor,
+                                  'orig_target_sizes': original_size})
+    except DetectionError:
+        raise
     except Exception:
         raise DetectionError('m4b_inference_failed') from None
     proposals = parse_detections(output, image.shape, geometry, threshold)

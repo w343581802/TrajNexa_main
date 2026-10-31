@@ -8,11 +8,19 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 268435456
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
-    m4a_enabled: bool = False  # explicit opt-in until access-control deployment
+    # Demo 阶段默认开启（design/26 约束 0）：不设授权闸门，先让能力在界面上看得见。
+    # 要关闭仍可用 M4A_ENABLED=false / M4B_ENABLED=false 覆盖。
+    m4a_enabled: bool = True
     m4c_enabled: bool = False  # opt-in read-only sampled frames of registered clips
-    m4b_enabled: bool = False  # opt-in D-FINE ONNX proposal preview
+    m4b_enabled: bool = True
     m4b_model_path: Path = Path('/models/dfine.onnx')
-    m4b_model_sha256: str = ''  # must be configured; prevents silent weight changes
+    m4b_model_sha256: str = ''  # 配了权重就必须配 SHA-256，防止权重被静默替换
+    # M4d 本地视觉模型（Qwen3-VL via Ollama）：与 D-FINE 并列的第二个识别引擎。
+    # 容器内要用 host.docker.internal 才能回到宿主机上的 ollama serve。
+    vision_enabled: bool = True
+    vision_base_url: str = 'http://host.docker.internal:11434'
+    vision_model: str = 'qwen3-vl:2b-instruct'
+    vision_timeout_seconds: int = 180
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。

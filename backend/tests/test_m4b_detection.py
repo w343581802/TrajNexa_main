@@ -81,7 +81,8 @@ def test_entire_onnx_adapter_with_injected_cpu_session(monkeypatch):
             return (np.array([[0]]),
                     np.array([[[64,176,320,464]]], np.float32),
                     np.array([[.87]], np.float32))
-    monkeypatch.setattr(m4_detection, '_session', lambda path, digest: FakeSession())
+    monkeypatch.setattr(m4_detection, '_session',
+                        lambda path, digest: (FakeSession(), 'official'))
     sample = np.zeros((360,640,3), np.uint8)
     result = m4_detection.detect_image(
         sample, model_path=Path('/models/dfine.onnx'),
@@ -90,6 +91,31 @@ def test_entire_onnx_adapter_with_injected_cpu_session(monkeypatch):
     assert result['source_sha256'] == 'b'*64
     assert result['candidate_count'] == 1
     assert result['candidates'][0]['bbox_normalized'] == [0.1,0.1,0.5,0.9]
+
+
+def test_hf_layout_onnx_adapter(monkeypatch):
+    """onnx-community 导出（pixel_values → logits/pred_boxes）也要能跑通。"""
+    from pathlib import Path
+    from app import m4_detection
+
+    class FakeSession:
+        def run(self, names, data):
+            assert names == ['logits', 'pred_boxes']
+            assert data['pixel_values'].shape == (1, 3, 640, 640)
+            logits = np.full((1, 1, 80), -10.0)
+            logits[0, 0, 0] = 6.0
+            boxes = np.array([[[0.5, 0.5, 0.2, 0.4]]], np.float32)
+            return logits, boxes
+
+    monkeypatch.setattr(m4_detection, '_session',
+                        lambda path, digest: (FakeSession(), 'hf'))
+    sample = np.zeros((640, 640, 3), np.uint8)
+    result = m4_detection.detect_image(sample, model_path=Path('/models/dfine.onnx'),
+                                       model_sha256='a'*64, source_sha256='b'*64)
+    assert result['candidate_count'] == 1
+    candidate = result['candidates'][0]
+    assert candidate['object_class'] == 'person'
+    assert candidate['bbox_normalized'] == [0.4, 0.3, 0.6, 0.7]
 
 
 def test_invalid_signature_requires_digest_before_loading():

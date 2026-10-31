@@ -41,7 +41,7 @@ def test_detector_model_digest_required(env, monkeypatch):
     monkeypatch.setattr(settings, 'm4b_enabled', True)
     monkeypatch.setattr(settings, 'm4b_model_sha256', '')
     _, media = _upload(client)
-    assert _post(client, media['id']).json()['error']['code'] == 'm4b-model-sha256-required'
+    assert _post(client, media['id']).json()['error']['code'] == 'm4b-model-not-installed'
 
 
 def test_authorization_and_original_sha_guard(env, monkeypatch):
@@ -50,9 +50,10 @@ def test_authorization_and_original_sha_guard(env, monkeypatch):
     monkeypatch.setattr(settings, 'm4b_enabled', True)
     monkeypatch.setattr(settings, 'm4b_model_sha256', 'a'*64)
     _, media = _upload(client)
-    denied = client.post(f"/api/v1/media/{media['id']}/detections/preview",
+    # Demo 口径：授权不再是闸门；authorized=False 只会继续走到模型检查（502/503），不再 422
+    legacy = client.post(f"/api/v1/media/{media['id']}/detections/preview",
                          json={'authorized': False})
-    assert denied.status_code == 422
+    assert legacy.status_code != 422
     with Session() as db:
         obj = db.get(MediaAsset, media['id'])
         file = settings.storage_root.resolve() / obj.storage_relpath

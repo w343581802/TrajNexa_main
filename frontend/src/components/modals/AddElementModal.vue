@@ -16,7 +16,9 @@ import {
   type InspectionReport,
   type MediaItem,
   type M4Observation,
-  type M4DetectionProposal,
+  type M4DetectCandidate,
+  type M4DetectEngine,
+  type M4RoiFeatures,
 } from "../../services/mainApi";
 
 /** 新建要素的默认日期 = 本机今天（不再写死演示日期） */
@@ -39,7 +41,12 @@ const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
-const m4Authorized = ref(false);
+/** 两个可切换的识别引擎：先看效果，再决定后面接哪一个 */
+const m4Engine = ref<M4DetectEngine>("qwen3vl");
+/** 选中框之后的关键特征（画质/主色 + 视觉模型外观短语） */
+const m4Features = ref<M4RoiFeatures | null>(null);
+const m4FeaturesBusy = ref(false);
+const m4FeaturesError = ref<string | null>(null);
 const m4Note = ref("");
 
 /* The pointer surface must match the IMAGE content, not the dark letterbox. */
@@ -80,6 +87,17 @@ const m4BoxStyle = computed(() => {
   return { left: (b[0] * 100) + '%', top: (b[1] * 100) + '%',
     width: ((b[2] - b[0]) * 100) + '%', height: ((b[3] - b[1]) * 100) + '%' };
 });
+/** 主色统计的展示文案：模板里不写带类型注解的箭头函数（Vue 模板表达式不支持） */
+function m4ToneText(tones: { tone: string; fraction: number }[]): string {
+  return tones.map(v => v.tone + " " + Math.round(v.fraction * 100) + "%").join(" / ") || "无法判定";
+}
+function m4CandidateStyle(box: readonly number[]): Record<string, string> {  const x1 = Math.min(box[0], box[2]), y1 = Math.min(box[1], box[3]);
+  const x2 = Math.max(box[0], box[2]), y2 = Math.max(box[1], box[3]);
+  return {
+    left: (x1 * 100) + '%', top: (y1 * 100) + '%',
+    width: ((x2 - x1) * 100) + '%', height: ((y2 - y1) * 100) + '%',
+  };
+}
 function m4Coords(event: PointerEvent, strict: boolean): [number, number] | null {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
@@ -110,7 +128,9 @@ function m4PointerUp(event: PointerEvent) {
   if (!m4Anchor.value) return;
   m4PointerMove(event); m4Anchor.value = null;
   if (m4Box.value && (m4Box.value[2] - m4Box.value[0] < .015 ||
-      m4Box.value[3] - m4Box.value[1] < .015)) m4Box.value = null;
+      m4Box.value[3] - m4Box.value[1] < .015)) { m4Box.value = null; return; }
+  // 手画框也要立刻出关键特征，和点选模型候选框是同一套反馈
+  if (m4Box.value) void loadM4Features();
 }
 function m4PointerCancel() { m4Anchor.value = null; m4Box.value = null; }
 function m4MatchesStored(): boolean {
@@ -177,7 +197,7 @@ async function reopenM4Record(id: string) {
     m4Observation.value = record;
     await nextTick(); syncM4Layout();
     m4Note.value = record.review_note;
-    m4Authorized.value = false;
+    m4Features.value = null;
     category.value = record.object_class;
     report.value = null;
     recognizeError.value = null;
@@ -186,48 +206,62 @@ async function reopenM4Record(id: string) {
   } finally { if (session === m4Session) m4Restoring.value = false; }
 }
 
-// M4b: model proposals are disposable until an operator explicitly selects
-// and saves a separate M4a evidence observation.
-const m4Proposals = ref<M4DetectionProposal[]>([]);
+// M4d: 模型候选框是可丢弃的建议，选中并保存后才成为观测。
+const m4Proposals = ref<M4DetectCandidate[]>([]);
 const m4DetectBusy = ref(false);
 const m4DetectError = ref<string | null>(null);
 const m4DetectModel = ref<string | null>(null);
+const m4DetectElapsed = ref<number | null>(null);
 let m4DetectRequest = 0;
 
-async function requestM4Detections() {
+const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
+  dfine: "D-FINE",
+  qwen3vl: "Qwen3-VL",
+};
+
+/** 选完图、换引擎都会自动跑一次：框先出来，人再决定用哪一个 */
+async function runDetection() {
   const source = selectedMedia.value;
   const caseId = currentCase.value?.id;
-  if (!source || !caseId || !m4Authorized.value || m4DetectBusy.value) {
-    m4DetectError.value = "请先选中案件截图并确认授权";
-    return;
-  }
+  if (!source || !caseId) return;
   const ticket = ++m4DetectRequest;
   const session = m4Session;
+  const engine = m4Engine.value;
   m4DetectBusy.value = true;
-  m4DetectError.value = null; m4Proposals.value = [];
-  m4DetectModel.value = null;
+  m4DetectError.value = null; m4Proposals.value = []; m4DetectModel.value = null;
+  m4DetectElapsed.value = null;
   try {
-    const response = await mainApi.previewM4Detections(source.id, true, .4);
+    const response = await mainApi.detectM4(source.id, engine, .4);
     if (ticket !== m4DetectRequest || session !== m4Session ||
         selectedMediaId.value !== source.id || currentCase.value?.id !== caseId ||
         !ui.addElementOpen) return;
     if (response.media_id !== source.id || response.case_id !== caseId ||
         response.source_sha256 !== source.sha256 ||
         response.status !== "candidates_unverified") {
-      throw new Error("检测结果来源不一致，已拒绝显示");
+      throw new Error("识别结果来源不一致，已拒绝显示");
     }
     m4Proposals.value = response.candidates;
-    m4DetectModel.value = response.model_family + " · SHA256 " + response.model_sha256.slice(0, 12);
-    if (!response.candidates.length) m4DetectError.value = "模型未找到达到阈值的候选；不代表截图中没有目标";
+    m4DetectElapsed.value = response.elapsed_seconds;
+    m4DetectModel.value = M4_ENGINE_TEXT[engine] +
+      (response.model_id ? ` · ${response.model_id}` : "");
+    if (!response.candidates.length) {
+      m4DetectError.value = `${M4_ENGINE_TEXT[engine]} 没有给出候选框；可换另一个引擎再试`;
+    } else if (!m4Box.value && response.candidates.length) {
+      // 框一出来就选中第一个：让「系统已经看到目标」这件事立刻可见
+      void selectM4Proposal(response.candidates[0]);
+    }
   } catch (error) {
-    if (ticket === m4DetectRequest && session === m4Session)
-      m4DetectError.value = error instanceof Error ? error.message : String(error);
+    if (ticket === m4DetectRequest && session === m4Session) {
+      const message = error instanceof Error ? error.message : String(error);
+      m4DetectError.value = message + (engine === "dfine"
+        ? "（D-FINE 需要本地 ONNX 权重与 M4B_MODEL_SHA256）" : "");
+    }
   } finally {
     if (ticket === m4DetectRequest) m4DetectBusy.value = false;
   }
 }
 
-function selectM4Proposal(proposal: M4DetectionProposal) {
+async function selectM4Proposal(proposal: M4DetectCandidate) {
   const b = proposal.bbox_normalized;
   if (!selectedMedia.value || b.length !== 4 || b.some(v => !Number.isFinite(v)) ||
       !(0 <= b[0] && b[0] < b[2] && b[2] <= 1 &&
@@ -237,18 +271,46 @@ function selectM4Proposal(proposal: M4DetectionProposal) {
   }
   m4Box.value = [b[0], b[1], b[2], b[3]];
   m4Observation.value = null;
-  category.value = proposal.object_class;
-  m4Note.value = "人工选择 D-FINE 建议框，目标类别与框选范围仍需核查";
+  m4Features.value = null;
+  category.value = proposal.object_class === "other" ? "other" : proposal.object_class;
+  if (!m4Note.value.trim()) m4Note.value = `${M4_ENGINE_TEXT[m4Engine.value]} 命中：${proposal.detector_label}`;
   m4Error.value = null;
+  await loadM4Features();
 }
+
+/** 选中框后自动出来的关键特征：画质/主色（确定性）+ 外观短语（模型，可降级） */
+async function loadM4Features() {
+  const mediaId = selectedMediaId.value;
+  const box = m4Box.value;
+  if (!mediaId || !box) return;
+  const session = m4Session;
+  m4FeaturesBusy.value = true;
+  m4FeaturesError.value = null;
+  m4Features.value = null;
+  try {
+    const result = await mainApi.analyzeM4Roi(mediaId, [...box], m4Engine.value);
+    if (session !== m4Session || selectedMediaId.value !== mediaId || !ui.addElementOpen) return;
+    m4Features.value = result;
+  } catch (error) {
+    if (session === m4Session) {
+      m4FeaturesError.value = error instanceof Error ? error.message : String(error);
+    }
+  } finally {
+    if (session === m4Session) m4FeaturesBusy.value = false;
+  }
+}
+
+// 选完图立刻识别一次；换引擎也重跑——这就是「两个模型看效果」的对比方式
+watch(selectedMediaId, (id) => {
+  if (id && ui.addElementOpen) void runDetection();
+});
+watch(m4Engine, () => {
+  if (selectedMediaId.value && ui.addElementOpen) void runDetection();
+});
 
 async function analyzeM4Selection() {
   if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
-    m4Error.value = "请先在截图中拖拽框选目标区域";
-    return;
-  }
-  if (!m4Authorized.value || m4Note.value.trim().length < 8) {
-    m4Error.value = "需要确认授权并填写至少 8 个字符的选取依据";
+    m4Error.value = "请先在截图中点击候选框或拖拽框选目标区域";
     return;
   }
   m4Busy.value = true; m4Error.value = null;
@@ -257,8 +319,9 @@ async function analyzeM4Selection() {
     const caseId = currentCase.value?.id;
     const session = m4Session;
     const saved = await mainApi.addM4Observation(mediaId, {
-      object_class: category.value, bbox_normalized: [...m4Box.value],
-      review_note: m4Note.value.trim(), authorized: m4Authorized.value,
+      object_class: category.value === "other" ? "other" : category.value,
+      bbox_normalized: [...m4Box.value],
+      review_note: m4Note.value.trim(),
     });
     if (session === m4Session && currentCase.value?.id === caseId && selectedMediaId.value === mediaId) {
       m4Observation.value = saved;
@@ -298,7 +361,7 @@ async function upload(file: File) {
   m4DetectRequest += 1; m4Proposals.value = [];
   m4DetectModel.value = null; m4DetectError.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
-  m4Authorized.value = false; m4Note.value = '';
+  m4Features.value = null; m4Note.value = '';
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
     selectedMedia.value = media;
@@ -558,7 +621,7 @@ function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
   selectedMedia.value = null;
-  m4Box.value = null; m4Observation.value = null; m4Authorized.value = false;
+  m4Box.value = null; m4Observation.value = null; m4Features.value = null;
   m4DetectRequest += 1; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectError.value = null;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
@@ -694,7 +757,7 @@ function save(keepOpen: boolean) {
   <BaseModal
     :open="ui.addElementOpen"
     :title="editingElement ? '编辑目标要素' : '添加目标要素'"
-    subtitle="添加要素只接受截图：选图后自动识别画面角标时间与摄像头名称，人工确认后再保存；人体 / 人脸 / 车辆识别尚未接入。"
+    subtitle="选图后自动用 D-FINE 或 Qwen3-VL 框出画面目标，点框即选中并标出关键特征；模型只给建议，保存前仍需人工核实。"
     width="xl"
     height="92vh"
     @close="ui.addElementOpen = false"
@@ -744,54 +807,86 @@ function save(keepOpen: boolean) {
               :alt="selectedMedia.original_name"
             />
             <div v-if="m4Layout" class="m4a-select-overlay" :style="m4OverlayStyle"
-              title="在原始截图中拖拽框选观察对象"
+              title="点击候选框选中目标；也可以直接拖拽框选"
               @pointerdown.prevent="m4PointerDown"
               @pointermove.prevent="m4PointerMove"
               @pointerup.prevent="m4PointerUp"
               @pointercancel="m4PointerCancel">
+              <div v-for="proposal in m4Proposals" :key="'cand-' + proposal.proposal_index"
+                class="m4a-candidate-box" :style="m4CandidateStyle(proposal.bbox_normalized)"
+                :title="proposal.detector_label"
+                @pointerdown.stop.prevent="selectM4Proposal(proposal)" />
               <div v-if="m4Box" class="m4a-selected-box" :style="m4BoxStyle"></div>
             </div>
-            <span class="preview-tag">只读原始画面 · 拖拽框选目标区域（M4a）</span>
+            <span class="preview-tag">只读原始画面 · 选图后自动框出候选，点框或拖拽选中</span>
           </template>
           <p v-else class="preview-empty">选择一张截图，自动识别画面角标时间与摄像头名称</p>
         </div>
 
         
         <section v-if="selectedMedia" class="m4b-panel">
-          <div class="m4a-panel-title">M4b · D-FINE 自动检测建议（需人工复核）</div>
-          <p>可选本地 ONNX 模型，默认关闭。不会自动确认人员身份，也不自动保存目标观测。</p>
-          <button type="button" class="btn btn--sm btn--primary"
-            :disabled="m4DetectBusy || !m4Authorized" @click="requestM4Detections">
-            {{ m4DetectBusy ? "正在检测…" : "生成自动检测候选框" }}
-          </button>
+          <div class="m4a-panel-title">识别引擎 · 点一下让系统框出来</div>
+          <div class="m4-engine-row">
+            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'qwen3vl' }"
+              @click="m4Engine = 'qwen3vl'">
+              Qwen3-VL <small>本地视觉模型</small>
+            </button>
+            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'dfine' }"
+              @click="m4Engine = 'dfine'">
+              D-FINE <small>ONNX 检测器</small>
+            </button>
+            <span class="grow" />
+            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy || !selectedMedia"
+              @click="runDetection">
+              {{ m4DetectBusy ? "识别中…" : "重新识别" }}
+            </button>
+          </div>
+          <p class="m4a-history-hint">
+            <template v-if="m4DetectBusy">正在识别画面中的目标…（首次加载模型会慢一些）</template>
+            <template v-else-if="m4DetectModel">{{ m4DetectModel }} · {{ m4DetectElapsed }}s · 框选后自动出关键特征</template>
+            <template v-else>选图后自动识别；两个引擎可以来回切换看效果</template>
+          </p>
           <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
-          <small v-if="m4DetectModel" class="m4a-history-hint">模型：{{ m4DetectModel }}</small>
-          <div v-for="proposal in m4Proposals" :key="proposal.proposal_index" class="m4b-proposal">
-            <span>{{ proposal.detector_label }} · {{ Math.round(proposal.confidence * 100) }}% · 待人工复核</span>
-            <button type="button" class="chip-btn" @click="selectM4Proposal(proposal)">采用此框（可重新拖框）</button>
+          <div class="m4b-proposal-list">
+            <button v-for="proposal in m4Proposals" :key="proposal.proposal_index" type="button"
+              class="chip-btn" @click="selectM4Proposal(proposal)">
+              {{ proposal.detector_label }}
+              <template v-if="proposal.confidence != null"> · {{ Math.round(proposal.confidence * 100) }}%</template>
+            </button>
           </div>
         </section>
         <div v-if="selectedMedia" class="m4a-panel">
-          <div class="m4a-panel-title">M4a · 目标区域画质与外观线索（人工框选）</div>
-          <p>拖动鼠标框选目标。统计结果可能混有背景，不能代表目标身份、衣物或地理坐标。</p>
+          <div class="m4a-panel-title">关键特征（选中框后自动标出）</div>
+          <p v-if="m4FeaturesBusy" class="m4a-history-hint">正在提取区域特征…</p>
+          <p v-else-if="m4FeaturesError" class="ae-error">{{ m4FeaturesError }}</p>
+          <div v-else-if="m4Features" class="m4a-result">
+            <span>框选范围 {{ m4Features.bbox_pixels.join(", ") }} px（{{ m4Features.frame_size.join("×") }}）</span>
+            <span>亮度 {{ m4Features.quality.median_luminance_0_255 }} ·
+              清晰度 {{ m4Features.quality.laplacian_variance }} · 主色
+              {{ m4ToneText(m4Features.appearance.roi_tones_unverified) }}</span>
+            <span v-if="m4Features.appearance.semantic_attributes?.features_unverified?.length">
+              外观线索：<b>{{ m4Features.appearance.semantic_attributes.features_unverified.join("、") }}</b>
+              <em class="dim">（视觉模型建议，待人工核实）</em>
+            </span>
+            <span v-else class="dim">
+              外观线索：{{ m4Features.appearance.semantic_status === "unavailable"
+                ? "视觉模型未给出（不影响框选，可换引擎重试）" : "未提取" }}
+            </span>
+            <span>画质提示：{{ m4Features.quality.flags.join("、") || "未触发规则告警" }}</span>
+          </div>
+          <p v-else class="m4a-history-hint">在上方候选框里点一个，或直接在画面上拖拽框选。</p>
           <div class="m4a-panel-form">
-            <input v-model="m4Note" class="input" placeholder="选取依据（至少 8 字）" maxlength="500" />
-            <label><input v-model="m4Authorized" type="checkbox" /> 本案件素材已获授权处理</label>
+            <input v-model="m4Note" class="input" placeholder="选取依据（可留空，自动生成）" maxlength="500" />
             <button class="btn btn--sm btn--primary" type="button"
               :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">
-              {{ m4Busy ? "分析中…" : "保存区域观测" }}
+              {{ m4Busy ? "保存中…" : "保存为目标要素" }}
             </button>
           </div>
           <p v-if="m4Error" class="ae-error">{{ m4Error }}</p>
           <div v-if="m4Observation" class="m4a-result">
-            <span>观测已保存 · {{ m4Observation.review_state }} · ROI
-              {{ m4Observation.analysis_json.bbox_pixels.join(", ") }}</span>
-            <span>亮度 {{ m4Observation.analysis_json.quality.median_luminance_0_255 }}
-              · 拉普拉斯方差 {{ m4Observation.analysis_json.quality.laplacian_variance }}</span>
-            <span>画质提示：{{ m4Observation.analysis_json.quality.flags.join("、") || "未触发规则告警" }}</span>
-            <span>ROI 粗颜色统计：{{ m4Observation.analysis_json.appearance.roi_tones_unverified
-              .map(v => v.tone + " " + Math.round(v.fraction * 100) + "%").join(" / ") }}</span>
-            <span>摄像头、地理位置、身份关联：未建立；不自动填入语义属性。</span>
+            <span>已保存 · {{ m4Observation.review_state }} · 框选
+              {{ m4Observation.analysis_json.bbox_pixels.join(", ") }} px</span>
+            <span>摄像头、地理位置、身份关联：未建立（模型输出只是建议）。</span>
           </div>
         </div>
         <section v-if="currentCase" class="m4a-history">
@@ -1230,6 +1325,15 @@ function save(keepOpen: boolean) {
 .m4a-selected-box { position: absolute; border: 2px solid #54cfff;
   box-shadow: 0 0 0 9999px rgba(0,0,0,.12); pointer-events: none;
   background: rgba(84,207,255,.11); }
+/* 模型候选框：默认可点，点中即成为选中框并触发关键特征 */
+.m4a-candidate-box { position: absolute; border: 1.5px dashed rgba(84,207,255,.85);
+  background: rgba(84,207,255,.05); border-radius: 2px;
+  cursor: pointer; pointer-events: auto; }
+.m4a-candidate-box:hover { background: rgba(84,207,255,.18); border-style: solid; }
+.m4-engine-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.m4-engine-row .chip-btn small { color: var(--text-3); font-size: 10px; margin-left: 4px; }
+.m4-engine-row .chip-btn.is-active { border-color: #54cfff; color: #54cfff; }
+.m4b-proposal-list { display: flex; gap: 6px; flex-wrap: wrap; }
 .m4b-panel { display: grid; gap: 7px; padding: 9px;
   border: 1px dashed var(--line-2); border-radius: 6px; font-size: 11px; }
 .m4b-panel p { margin: 0; color: var(--text-3); }

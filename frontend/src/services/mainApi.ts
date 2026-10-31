@@ -34,6 +34,56 @@ export type M4DetectionPreview = {
   candidates: M4DetectionProposal[];
 };
 
+/** M4d：两个可切换的识别引擎，同一张图上换引擎重跑即可对比效果 */
+export type M4DetectEngine = "dfine" | "qwen3vl";
+
+export type M4DetectCandidate = {
+  proposal_index: number;
+  object_class: "person" | "vehicle" | "other";
+  detector_label: string;
+  /** D-FINE 给分数；Qwen3-VL 不评分，保持 null */
+  confidence: number | null;
+  bbox_normalized: [number, number, number, number];
+  status: "unverified_detection_proposal" | "unverified_vlm_proposal";
+};
+
+export type M4DetectResult = {
+  engine: M4DetectEngine;
+  status: "candidates_unverified";
+  model_family: string;
+  model_id?: string;
+  model_sha256?: string;
+  source_sha256: string;
+  image_size: [number, number];
+  candidate_count: number;
+  candidates: M4DetectCandidate[];
+  media_id: string;
+  case_id: string;
+  elapsed_seconds: number;
+};
+
+/** 选中框之后的关键特征：画质与主色是确定性统计，外观短语来自视觉模型（可降级） */
+export type M4RoiFeatures = {
+  bbox_normalized: number[];
+  bbox_pixels: number[];
+  frame_size: number[];
+  engine?: string;
+  quality: {
+    heuristic_only: boolean;
+    flags: string[];
+    median_luminance_0_255: number;
+    laplacian_variance: number;
+    median_saturation_0_255?: number;
+  };
+  appearance: {
+    roi_tones_unverified: { tone: string; fraction: number }[];
+    semantic_status: string;
+    semantic_attributes?: { features_unverified?: string[] };
+    semantic_error?: string;
+  };
+  linkage: { identity_status: string; geo_status: string; camera_uuid: string | null };
+};
+
 export type M4Observation = {
   id: string;
   case_id: string;
@@ -392,12 +442,12 @@ export const mainApi = {
   getReport: (jobId: string) =>
     request<InspectionReport>(`/jobs/${encodeURIComponent(jobId)}/report`),
 
-  /** M4a：人工框选截图区域 → 观测记录；只读原截图，不执行身份识别 */
+  /** M4a：框选截图区域 → 观测记录；只读原截图，不执行身份识别 */
   addM4Observation: (mediaId: string, body: {
     object_class: "person" | "vehicle" | "other";
     bbox_normalized: number[];
-    review_note: string;
-    authorized: boolean;
+    review_note?: string;
+    authorized?: boolean;
   }) => request<M4Observation>(`/media/${encodeURIComponent(mediaId)}/observations`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -411,6 +461,18 @@ export const mainApi = {
     request<M4DetectionPreview>(`/media/${encodeURIComponent(mediaId)}/detections/preview`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ authorized, min_confidence: minConfidence }),
+    }),
+  /** M4d：统一识别入口，engine=dfine|qwen3vl；只出候选框，不落库不改图 */
+  detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4) =>
+    request<M4DetectResult>(`/media/${encodeURIComponent(mediaId)}/detect`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engine, min_confidence: minConfidence }),
+    }),
+  /** M4a：选中框后的关键特征（画质、主色 + 视觉模型外观短语） */
+  analyzeM4Roi: (mediaId: string, bbox: number[], engine: M4DetectEngine = "qwen3vl") =>
+    request<M4RoiFeatures>(`/media/${encodeURIComponent(mediaId)}/roi-features`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bbox_normalized: bbox, engine }),
     }),
   getM4Observation: (id: string) =>
     request<M4Observation>(`/observations/${encodeURIComponent(id)}`),

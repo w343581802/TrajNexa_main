@@ -28,6 +28,8 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./storage:/data/storage
+      # 本地 D-FINE ONNX 权重（不入库），供 /detect?engine=dfine 使用
+      - ./models:/models:ro
     ports:
       - "127.0.0.1:8000:8000"
   worker:

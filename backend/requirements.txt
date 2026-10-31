@@ -7,3 +7,5 @@ python-multipart>=0.0.18
 pydantic-settings>=2.6,<3
 
 opencv-python-headless>=4.9,<5
+# Demo：本地 D-FINE ONNX 检测器（权重不入库，见 models/README.md）
+onnxruntime>=1.19,<2

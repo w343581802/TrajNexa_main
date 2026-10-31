@@ -118,8 +118,9 @@ def test_reject_unowned_or_unapproved_or_invalid_object(env, monkeypatch):
     _, media = _case_and_media(client)
     url = f"/api/v1/media/{media['id']}/observations"
     payload = _payload()
+    # Demo 口径（design/26 约束 0）：授权勾选已取消，authorized=False 不再是拒绝理由
     payload['authorized'] = False
-    assert client.post(url, json=payload).status_code == 422
+    assert client.post(url, json=payload).status_code == 201
     payload = _payload()
     payload['object_class'] = 'face_id'
     assert client.post(url, json=payload).json()['error']['code'] == 'm4a-invalid-object-class'
