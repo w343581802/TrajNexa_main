@@ -42,13 +42,11 @@ def route(case_id,clip_id):
     return f'/api/v1/cases/{case_id}/recordings/clips/{clip_id}/keyframes/preview'
 
 
-def test_enabled_case_isolation_and_authorization(sample_clip):
+def test_enabled_case_isolation(sample_clip):
     client,_,case_id,clip_id,_=sample_clip
     url=route(case_id,clip_id)
-    denied=client.post(url,json={'offsets_seconds':[.5],'authorized':False})
-    assert denied.status_code==422
     wrong_case=client.post(route('another-case',clip_id),
-                           json={'offsets_seconds':[.5],'authorized':True})
+                           json={'offsets_seconds':[.5]})
     assert wrong_case.status_code==404
     assert wrong_case.json()['error']['code']=='m4c-clip-not-found'
 
@@ -61,7 +59,7 @@ def test_sampling_uses_shared_extractor_and_does_not_write(sample_clip,monkeypat
         return np.full((120,240,3),125,np.uint8)
     monkeypatch.setattr(m4_video.overlay_identity,'grab_evidence_frame',shared)
     data=client.post(route(case_id,clip_id),
-                     json={'authorized':True,'offsets_seconds':[.5,2,8]})
+                     json={'offsets_seconds':[.5,2,8]})
     assert data.status_code==200,data.text
     body=data.json()
     assert len(body['frames'])==3
@@ -80,7 +78,7 @@ def test_preview_image_returns_bounded_jpeg(sample_clip,monkeypatch):
     monkeypatch.setattr(m4_video.overlay_identity,'grab_evidence_frame',
                         lambda path,offsets:np.full((120,240,3),127,np.uint8))
     url=f'/api/v1/cases/{case_id}/recordings/clips/{clip_id}/keyframes/image'
-    response=client.get(url,params={'authorized':'true','offset_seconds':2})
+    response=client.get(url,params={'offset_seconds':2})
     assert response.status_code==200
     assert response.headers['content-type']=='image/jpeg'
     assert response.content[:3]==b'\xff\xd8\xff'
@@ -92,14 +90,14 @@ def test_changed_clip_requires_rescan(sample_clip):
     client,_,case_id,clip_id,path=sample_clip
     path.write_bytes(b'changed-during-retention')
     response=client.post(route(case_id,clip_id),
-                         json={'authorized':True,'offsets_seconds':[.5]})
+                         json={'offsets_seconds':[.5]})
     assert response.status_code==409
     assert response.json()['error']['code']=='m4c-clip-changed-rescan-required'
 
 
 def test_invalid_offsets_and_detector_gate(sample_clip):
     client,_,case_id,clip_id,_=sample_clip
-    base={'authorized':True}
+    base={}
     for offsets in ([1,1],[-1],[121], [1]*7):
         resp=client.post(route(case_id,clip_id),json={**base,'offsets_seconds':offsets})
         assert resp.status_code==422
@@ -117,7 +115,7 @@ def test_no_frame_does_not_claim_no_person(sample_clip,monkeypatch):
     monkeypatch.setattr(m4_video.overlay_identity,'grab_evidence_frame',
                         lambda path,offsets:None)
     response=client.post(route(case_id,clip_id),
-                         json={'authorized':True,'offsets_seconds':[.5]})
+                         json={'offsets_seconds':[.5]})
     assert response.status_code==200
     row=response.json()['frames'][0]
     assert row['status']=='frame_unavailable' and row['detections'] is None
@@ -133,7 +131,7 @@ def test_detector_failure_is_reported_not_hidden(sample_clip,monkeypatch):
         raise m4_detection.DetectionError('m4b_model_unavailable')
     monkeypatch.setattr(m4_detection,'detect_image',unavailable)
     resp=client.post(route(case_id,clip_id),
-                     json={'authorized':True,'offsets_seconds':[.5],
+                     json={'offsets_seconds':[.5],
                            'include_detection':True})
     assert resp.status_code==503
     assert resp.json()['error']['code']=='m4b-model-unavailable'
@@ -143,6 +141,6 @@ def test_feature_disabled_by_default(sample_clip,monkeypatch):
     client,_,case_id,clip_id,_=sample_clip
     monkeypatch.setattr(settings,'m4c_enabled',False)
     resp=client.post(route(case_id,clip_id),
-                     json={'authorized':True,'offsets_seconds':[.5]})
+                     json={'offsets_seconds':[.5]})
     assert resp.status_code==503
     assert resp.json()['error']['code']=='m4c-disabled'
