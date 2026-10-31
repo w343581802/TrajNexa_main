@@ -39,6 +39,14 @@ const pictureRatio = computed(() => {
     ? String(frame.width) + " / " + String(frame.height) : "16 / 9";
 });
 
+function onFrameImageError() {
+  frameFailed.value = true;
+  vlmEpoch += 1;
+  vlmBusy.value = false;
+  vlmResult.value = null;
+  vlmError.value = "关键帧图片读取失败，已清除模型候选";
+}
+
 function choose(offset: number) {
   vlmEpoch += 1;
   vlmBusy.value = false;
@@ -146,7 +154,7 @@ async function inspect() {
       <div v-if="currentFrame && currentFrame.status === 'frame_available' && !frameFailed"
         class="m4c-image" :style="{ aspectRatio: pictureRatio }">
         <img :key="imageUrl" :src="imageUrl" alt="录像指定偏移的关键帧（时间尚未经 PTS 校准）"
-          @error="frameFailed = true" />
+          @error="onFrameImageError" />
         <svg v-if="currentFrame.detections" viewBox="0 0 1 1"
           preserveAspectRatio="none" aria-label="未核实的检测候选框">
           <rect v-for="d in currentFrame.detections.candidates" :key="d.proposal_index"
