@@ -63,18 +63,48 @@ def test_empty_database_is_explicit_empty_not_mock():
     assert x['status']=='available'
     assert x['counts']['map_cameras']==0 and x['cameras']==[]
 
+def test_only_cameras_with_video_frame_snapshot_are_lit():
+    x=build_spatial_payload([point(1),point(2,uuid='22222222-2222-4222-8222-222222222222')],[],[(1,)])
+    rows={c['map_camera_id']:c for c in x['cameras']}
+    assert rows['1']['has_video'] is True
+    assert rows['2']['has_video'] is False
+    assert x['counts']['with_video']==1
+
+def test_video_row_shape_is_validated():
+    with pytest.raises(SpatialReadError,match='map_spatial_unexpected_video_row'):
+        build_spatial_payload([point()],[],[(1,'video_frame')])
+
 class Cursor:
     def __init__(self):self.calls=[]
     def __enter__(self):return self
     def __exit__(self,*a):pass
     def execute(self,sql):self.calls.append(sql)
     def fetchall(self):
-        return [point()] if 'ST_X' in self.calls[-1] else [(1,'recognition',True,POLY)]
+        if 'ST_X' in self.calls[-1]:
+            return [point()]
+        if 'cameras_snapshot' in self.calls[-1]:
+            return [(1,)]
+        return [(1,'recognition',True,POLY)]
 class Conn:
-    def __init__(self):self.cur=Cursor()
+    def __init__(self, cursor=None):self.cur=cursor or Cursor()
     def __enter__(self):return self
     def __exit__(self,*a):pass
     def cursor(self):return self.cur
+
+class DegradedCursor(Cursor):
+    """模拟只读账号没有 cameras_snapshot 授权。"""
+    def execute(self,sql):
+        super().execute(sql)
+        if 'cameras_snapshot' in sql:
+            raise RuntimeError('permission denied')
+
+def test_video_query_failure_degrades_instead_of_503():
+    conn=Conn(DegradedCursor())
+    result=read_map_spatial(dsn='postgresql://readonly:test@map/db',
+        connect=lambda dsn,connect_timeout:conn)
+    assert result['counts']['with_video']==0
+    assert all(c['has_video'] is False for c in result['cameras'])
+    assert any('ROLLBACK TO SAVEPOINT' in x for x in conn.cur.calls)
 
 def test_queries_are_readonly_and_one_repeatable_read_transaction():
     conn=Conn()
@@ -82,9 +112,12 @@ def test_queries_are_readonly_and_one_repeatable_read_transaction():
         connect=lambda dsn,connect_timeout:conn)
     calls=conn.cur.calls
     assert calls[0].startswith('SET TRANSACTION') and 'READ ONLY' in calls[0]
-    assert len([x for x in calls if x.lstrip().startswith('SELECT')])==2
-    assert 'ST_AsGeoJSON' in calls[-1]
+    selects=[x for x in calls if x.lstrip().startswith('SELECT')]
+    assert len(selects)==3
+    assert 'ST_AsGeoJSON' in selects[1]
+    assert 'cameras_snapshot' in selects[2]
     assert result['cameras'][0]['fov_levels'][0]['occlusion_applied'] is True
+    assert result['cameras'][0]['has_video'] is True
 
 def test_database_exception_is_sanitized():
     def bad(*a,**k):raise RuntimeError('private_password')

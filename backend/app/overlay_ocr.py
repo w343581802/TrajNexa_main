@@ -30,6 +30,14 @@ _DEVICE_CODE = re.compile(
     r'[\u4e00-\u9fff\w ]{2,60}\s*[-—－]\s*'
     r'[\u4e00-\u9fffA-Z0-9]{1,20}$'
 )
+# 角标名称牌并不总带结尾段：YD-中仁路都市丽景正门1、YD-桂康路一巷中仁路居民区19栋东。
+# 仍要求「设备前缀 + 中文地名」，且以数字 / 朝向 / 机型 / 门口收尾，
+# 这样 3-DX-电仁路孔明园E40东庭街北工 这种整段糊掉的识别结果不会被当成名称。
+_DEVICE_PLATE = re.compile(
+    r'(?i)^(?:\d{1,4}\s*[-—－]\s*)?[A-Z]{1,6}\s*[-—－]\s*'
+    r'[\u4e00-\u9fff][\u4e00-\u9fff\w \-—－]{1,58}'
+    r'(?:\d|[东南西北]|球|枪|机|门|口)$'
+)
 _TIMESTAMP_TOLERANCE_SECONDS = 3.0
 
 # 显式钉住识别模型版本：PaddleOCR 3.x 的默认值随版本变化（3.2/3.3 默认 PP-OCRv5，
@@ -174,7 +182,8 @@ def _parse_name(rows: list[dict]) -> tuple[str | None, str]:
                         for i in range(len(bottom)-1)]
     for raw in options:
         candidate = re.sub(r'\s*[-—－]\s*', '-', raw).strip()
-        if _DEVICE_CODE.fullmatch(candidate) and not _DATE_TIME.search(candidate):
+        if ((_DEVICE_CODE.fullmatch(candidate) or _DEVICE_PLATE.fullmatch(candidate))
+                and not _DATE_TIME.search(candidate)):
             return candidate[:96], 'structured_osd_candidate'
     return None, 'no_camera_name_pattern'
 
@@ -190,16 +199,93 @@ def _sample_offsets(duration_raw) -> list[float]:
                       (min(0.5, duration * 0.1), duration / 2, max(0.0, duration - 0.5))))
 
 
-def _video_frame(path: Path, offset: float) -> np.ndarray | None:
-    cmd = ['ffmpeg', '-nostdin', '-v', 'error', '-ss', str(offset), '-i', str(path),
-           '-map', '0:v:0', '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-']
+_FRAME_TIMEOUT_SECONDS = 20
+# 快速 seek（-ss 放在 -i 前面）只跳关键帧：长 HEVC 录像上 ffmpeg 可能找不到参考帧
+# （"Could not find ref with POC"），它不报错，而是输出一张 #808080 的全灰占位图。
+# 这种帧 OCR 一个字都读不出来，却会被上层当成「已取到帧」：于是既没有名称/时间，
+# 证据截图也是灰的，界面上还显示「已识别」。这里把它显式判成坏帧并退回精确 seek。
+FRAME_BLANK_STD = 6.0
+# 只看标准差不够：实测有灰占位图 std 恰好 6.0 卡在阈值上（3040x2160 全 #808080）。
+# 更稳的特征是「几乎所有像素挤在同一个灰阶窗口里」——实测灰占位图 96% 的像素落在
+# 众数 ±10 内，而真实监控画面最高只有 40%。用集中度作主判据、标准差兜底。
+FRAME_BLANK_WINDOW = 10
+FRAME_BLANK_FLAT = 0.9
+
+
+def frame_is_blank(frame) -> bool:
+    """近纯色帧（典型是 ffmpeg 的灰占位图）对 OCR 没有任何价值。"""
+    if not isinstance(frame, np.ndarray) or frame.size == 0:
+        return True
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    if float(gray.std()) < FRAME_BLANK_STD:
+        return True
+    hist = np.bincount(gray.ravel(), minlength=256)
+    mode = int(hist.argmax())
+    near = hist[max(0, mode - FRAME_BLANK_WINDOW):mode + FRAME_BLANK_WINDOW + 1].sum()
+    return near / float(gray.size) >= FRAME_BLANK_FLAT
+
+
+# 花屏帧（解码缺参考帧）与「灰占位帧」不是一回事：它标准差正常、画面有内容，
+# 但整片由大块纯色三角形拼接、且普遍丢色度（彩色通道几乎为 0）。这种帧既不能当
+# 证据截图，也会让 OCR 读出乱码名称，所以单独判一类，命中就换下一个时刻。
+FRAME_BROKEN_FLAT = 0.45
+FRAME_BROKEN_FLAT_HARD = 0.60
+FRAME_BROKEN_SAT = 8.0
+FRAME_BLOCK_SIZE = 16
+
+
+def frame_is_broken(frame) -> bool:
+    """花屏/解码损坏帧：大片 16×16 纯色块，且多半同时丢了色度。
+
+    判据来自真实录像实测（2560×1440 / 3840×2160 的 HEVC 导出）：
+    健康画面「纯色块占比」≤ 0.27、饱和度 35~71；花屏帧块占比 0.45~0.95、饱和度 0~0.7。
+    """
+    if not isinstance(frame, np.ndarray) or frame.size == 0:
+        return True
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    height, width = gray.shape[:2]
+    size = FRAME_BLOCK_SIZE
+    rows, cols = height // size, width // size
+    if rows < 1 or cols < 1:
+        return False
+    grid = gray[: rows * size, : cols * size].astype(np.float32)
+    blocks = grid.reshape(rows, size, cols, size).transpose(0, 2, 1, 3).reshape(-1, size * size)
+    flat = float((blocks.std(axis=1) < 2.0).mean())
+    if flat >= FRAME_BROKEN_FLAT_HARD:
+        return True
+    if flat < FRAME_BROKEN_FLAT or frame.ndim != 3:
+        return False
+    saturation = float(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 1].mean())
+    return saturation < FRAME_BROKEN_SAT
+
+def _ffmpeg_frame(path: Path, offset: float, accurate: bool = False) -> np.ndarray | None:
+    moment = f'{max(0.0, float(offset)):.3f}'
+    if accurate:
+        # -ss 放在 -i 之后是精确 seek：从头解码到目标时刻，参考帧齐全（慢但可靠）
+        cmd = ['ffmpeg', '-nostdin', '-v', 'error', '-i', str(path), '-ss', moment]
+    else:
+        # -ss 放在 -i 之前是快速 seek：只跳关键帧，长录像上快得多
+        cmd = ['ffmpeg', '-nostdin', '-v', 'error', '-ss', moment, '-i', str(path)]
+    cmd += ['-map', '0:v:0', '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-']
     try:
-        proc = subprocess.run(cmd, capture_output=True, timeout=12, check=False)
+        proc = subprocess.run(cmd, capture_output=True,
+                              timeout=_FRAME_TIMEOUT_SECONDS, check=False)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     if proc.returncode != 0 or not proc.stdout or len(proc.stdout) > 24 * 1024 * 1024:
         return None
     return cv2.imdecode(np.frombuffer(proc.stdout, np.uint8), cv2.IMREAD_COLOR)
+
+
+def _video_frame(path: Path, offset: float) -> np.ndarray | None:
+    """读指定时刻的单帧：快速 seek 拿到灰占位帧/花屏帧就退回精确 seek，仍不对就算没取到。"""
+    frame = _ffmpeg_frame(path, offset)
+    if frame is not None and not frame_is_blank(frame) and not frame_is_broken(frame):
+        return frame
+    frame = _ffmpeg_frame(path, offset, accurate=True)
+    if frame is not None and not frame_is_blank(frame) and not frame_is_broken(frame):
+        return frame
+    return None
 
 
 def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_reader=None, name_roi_recognizer=None) -> None:
@@ -315,3 +401,26 @@ def analyze_overlay(media, path: Path, result: dict, recognizer=None, frame_read
 
     if name_roi_result is not None:
         apply_quality_to_camera(camera, name_roi_result)
+
+
+
+# ---------------------------------------------------------------------------
+# 录像资源扫描复用接口（只读画面，不写任何文件）
+# ---------------------------------------------------------------------------
+
+def read_frame(path: Path, offset: float):
+    """读取视频指定时刻的单帧；失败返回 None。"""
+    return _video_frame(path, offset)
+
+
+def read_overlay_texts(frame, recognizer=None) -> list[dict]:
+    """读取画面上下条带的角标文本行（时间条/设备名条）。"""
+    return _read_overlay_strips(frame, recognizer or _recognize)
+
+
+def parse_overlay_rows(rows: list[dict]) -> dict:
+    """把角标文本行解析成「时间候选 + 名称候选」，只解析、不判定身份。"""
+    local_time, time_text = _parse_time(rows)
+    name, name_status = _parse_name(rows)
+    return {'local_time': local_time, 'time_text': time_text,
+            'name': name, 'name_status': name_status}

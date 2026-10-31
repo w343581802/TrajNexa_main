@@ -6,6 +6,7 @@ forensic validity, camera authenticity, or an actual capture timestamp.
 from __future__ import annotations
 
 from pathlib import Path
+from app.overlay_identity import identity_from_report
 from app.overlay_ocr import analyze_overlay
 from app.camera_catalog import annotate_camera_report
 from app.filename_hints import add_filename_hints, compare_ocr_with_filename
@@ -141,4 +142,7 @@ def inspect_media(media, path: Path) -> dict:
     add_filename_hints(result, getattr(media, 'original_name', None))
     compare_ocr_with_filename(result)
     annotate_camera_report(result)
+    # 与录像扫描 / 视频命名同一份结论：截图里读到的「时间 + 摄像头名称」候选。
+    # 只做候选，不写 camera_uuid；前端（添加要素）用它预填，人工确认后才采用。
+    result['identity'] = identity_from_report(result)
     return result

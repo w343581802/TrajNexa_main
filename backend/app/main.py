@@ -4,14 +4,17 @@ from datetime import datetime
 from uuid import uuid4
 import os
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision, CameraViewReference, ViewComparisonRecord
+from app.models import Case, MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision, CameraViewReference, ViewComparisonRecord
+from app import case_service
+from app import recording_api
+from app import video_naming_api
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
@@ -20,10 +23,14 @@ from app import map_db_gis
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
+# 录像资源：只读目录浏览 + 目录登记 + 扫描结果（见 app/recording_api.py）
+app.include_router(recording_api.router)
+app.include_router(video_naming_api.router)
 
 class MediaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
+    case_id: str | None
     kind: str
     original_name: str
     mime_detected: str
@@ -75,9 +82,91 @@ def health(db: Session = Depends(get_db)):
     except Exception:
         return JSONResponse(status_code=503, content={'status': 'degraded'})
 
+
+# ---------------------------- 案件（Case） ----------------------------
+# 案件是主系统组织研判的入口：只持有「上传后的要素文件」。
+# 录像资源不在主系统内，删除案件时不会删除录像（见 case_service.release_recording_resources）。
+
+class CaseInput(BaseModel):
+    name: str
+    description: str = ''
+
+class CaseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    code: str
+    name: str
+    description: str
+    created_at: datetime
+    updated_at: datetime
+    media_count: int = 0
+    media_bytes: int = 0
+
+class CaseDeleteOut(BaseModel):
+    id: str
+    code: str
+    name: str
+    media_files_removed: int
+    bytes_removed: int
+    media_files_missing: int
+    recordings_preserved: bool
+    message: str
+
+@app.get('/api/v1/cases', response_model=list[CaseOut])
+def list_cases(db: Session = Depends(get_db)):
+    """案件列表，按创建时间倒序；附带归属素材数量与占用字节数。"""
+    rows = db.execute(
+        select(Case, func.count(MediaAsset.id), func.coalesce(func.sum(MediaAsset.size_bytes), 0))
+        .outerjoin(MediaAsset, MediaAsset.case_id == Case.id)
+        .group_by(Case.id)
+        .order_by(Case.created_at.desc())
+    ).all()
+    return [
+        CaseOut(id=case.id, code=case.code, name=case.name, description=case.description,
+                created_at=case.created_at, updated_at=case.updated_at,
+                media_count=int(count), media_bytes=int(total))
+        for case, count, total in rows
+    ]
+
+@app.post('/api/v1/cases', response_model=CaseOut, status_code=201)
+def create_case(body: CaseInput, db: Session = Depends(get_db)):
+    name = body.name.strip()
+    description = body.description.strip()
+    if not case_service.NAME_MIN <= len(name) <= case_service.NAME_MAX:
+        fail(422, 'case_name_invalid',
+             f'案件名称需为 {case_service.NAME_MIN}–{case_service.NAME_MAX} 个字符')
+    if len(description) > case_service.DESCRIPTION_MAX:
+        fail(422, 'case_description_too_long',
+             f'案件说明最多 {case_service.DESCRIPTION_MAX} 个字符')
+    case = case_service.create_case(db, name=name, description=description)
+    return CaseOut(id=case.id, code=case.code, name=case.name, description=case.description,
+                   created_at=case.created_at, updated_at=case.updated_at,
+                   media_count=0, media_bytes=0)
+
+@app.delete('/api/v1/cases/{case_id}', response_model=CaseDeleteOut)
+def delete_case(case_id: str, db: Session = Depends(get_db)):
+    """删除案件：只清理该案件上传后的要素文件；录像资源保持不动。"""
+    case = db.get(Case, case_id)
+    if case is None:
+        fail(404, 'not_found', '案件不存在')
+    snapshot = {'id': case.id, 'code': case.code, 'name': case.name}
+    stats = case_service.purge_case_media(db, case)
+    message = '已删除案件并清理该案件上传的要素文件；录像资源未做任何改动'
+    if stats['media_files_missing']:
+        message += f"（{stats['media_files_missing']} 个文件在磁盘上已不存在）"
+    return CaseDeleteOut(**snapshot, media_files_removed=stats['media_files_removed'],
+                         bytes_removed=stats['bytes_removed'],
+                         media_files_missing=stats['media_files_missing'],
+                         recordings_preserved=True, message=message)
+
 @app.post('/api/v1/media', response_model=MediaOut, status_code=201)
-async def upload_media(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_media(file: UploadFile = File(...), case_id: str | None = Form(None),
+                       db: Session = Depends(get_db)):
     media_id = str(uuid4())
+    if case_id:
+        if db.get(Case, case_id) is None:
+            await file.close()
+            fail(422, 'unknown_case', '上传素材需要归属到已存在的案件')
     storage_root = settings.storage_root.resolve()
     storage_dir = storage_root / 'originals'
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -109,7 +198,7 @@ async def upload_media(file: UploadFile = File(...), db: Session = Depends(get_d
         final = storage_dir / f'{media_id}{suffix}'
         temporary.replace(final)
         relpath = final.relative_to(storage_root).as_posix()
-        asset = MediaAsset(id=media_id, kind=kind,
+        asset = MediaAsset(id=media_id, case_id=case_id or None, kind=kind,
                            original_name=safe_basename(file.filename),
                            mime_detected=mime, sha256=digest.hexdigest(),
                            storage_relpath=relpath, size_bytes=length)
@@ -127,8 +216,12 @@ async def upload_media(file: UploadFile = File(...), db: Session = Depends(get_d
         await file.close()
 
 @app.get('/api/v1/media', response_model=list[MediaOut])
-def list_media(db: Session = Depends(get_db)):
-    return list(db.scalars(select(MediaAsset).order_by(MediaAsset.ingested_at.desc()).limit(100)))
+def list_media(case_id: str | None = None, db: Session = Depends(get_db)):
+    """列出素材；传入 case_id 只看该案件的要素文件，不传则看全部（含未归属）。"""
+    query = select(MediaAsset)
+    if case_id:
+        query = query.where(MediaAsset.case_id == case_id)
+    return list(db.scalars(query.order_by(MediaAsset.ingested_at.desc()).limit(100)))
 
 @app.get('/api/v1/media/{media_id}', response_model=MediaOut)
 def get_media(media_id: str, db: Session = Depends(get_db)):

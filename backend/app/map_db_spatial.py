@@ -34,6 +34,16 @@ FROM public.cameras_camerafocus
 WHERE scenario = 'mean' AND geom IS NOT NULL
 ORDER BY camera_id_id, level LIMIT 9001
 """
+VIDEO_SQL = """
+SELECT DISTINCT r.map_camera_id
+FROM public.cameras_snapshot AS s
+JOIN public.cameras_registry AS r ON r.id = s.camera_id
+WHERE s.source_type = 'video_frame'
+  AND s.image <> ''
+  AND r.deleted_at IS NULL
+  AND r.map_camera_id IS NOT NULL
+LIMIT 3001
+"""
 LEVELS = ('identification', 'recognition', 'observation')
 
 
@@ -82,11 +92,18 @@ def _geometry(raw):
     return geom
 
 
-def build_spatial_payload(point_rows, fov_rows):
+def build_spatial_payload(point_rows, fov_rows, video_rows=()):
     if len(point_rows)>MAX_CAMERAS:
         raise SpatialReadError('map_spatial_too_many_cameras')
     if len(fov_rows)>MAX_FOV_ROWS:
         raise SpatialReadError('map_spatial_too_many_fov_rows')
+    if len(video_rows)>MAX_CAMERAS:
+        raise SpatialReadError('map_spatial_too_many_camera_videos')
+    video_ids=set()
+    for row in video_rows:
+        if len(row)!=1 or not isinstance(row[0],int):
+            raise SpatialReadError('map_spatial_unexpected_video_row')
+        video_ids.add(row[0])
     cameras=[]; lookup={}; seen_uuid=set(); unlinked=0; null_points=0
     for row in point_rows:
         if len(row)!=13:
@@ -131,6 +148,7 @@ def build_spatial_payload(point_rows, fov_rows):
             'position_quality':position_quality if position_quality in
                 ('reported','verified','unknown') else 'unknown',
             'enabled':enabled if isinstance(enabled,bool) else None,
+            'has_video':map_id in video_ids,
             'fov_levels':[],
             'fov_provenance':'map_model_geometry_not_verified_coverage',
             'map_registry_link':'linked' if uuid else 'map_only_unbound',
@@ -170,7 +188,8 @@ def build_spatial_payload(point_rows, fov_rows):
                       'registry_linked':len(cameras)-unlinked,
                       'unlinked_map_cameras':unlinked,
                       'missing_position':null_points,
-                      'with_fov':sum(bool(c['fov_levels']) for c in cameras)},
+                      'with_fov':sum(bool(c['fov_levels']) for c in cameras),
+                      'with_video':sum(bool(c['has_video']) for c in cameras)},
             'cameras':cameras,
             'disclaimer':'Modelled FOV is not verified surveillance coverage; unknown map registry links remain unbound.'}
 
@@ -196,8 +215,35 @@ def read_map_spatial(*, dsn, connect=None):
                 fov=cursor.fetchall()
                 if len(fov)>MAX_FOV_ROWS:
                     raise SpatialReadError('map_spatial_too_many_fov_rows')
+                # has_video 是增量字段：旧部署可能还没给只读账号授权 cameras_snapshot。
+                # 用 savepoint 降级为「全部无视频」，不能因为一个可选字段让整张地图 503。
+                has_savepoint = False
+                try:
+                    cursor.execute('SAVEPOINT map_video')
+                    has_savepoint = True
+                except Exception:
+                    pass
+                try:
+                    cursor.execute(VIDEO_SQL)
+                    video = cursor.fetchall()
+                except Exception:
+                    video = []
+                    if has_savepoint:
+                        try:
+                            cursor.execute('ROLLBACK TO SAVEPOINT map_video')
+                        except Exception:
+                            pass
+                else:
+                    if has_savepoint:
+                        try:
+                            cursor.execute('RELEASE SAVEPOINT map_video')
+                        except Exception:
+                            pass
+                if len(video) > MAX_CAMERAS:
+                    # 可选字段超限时截断并保持地图可用，不升级成整页 503
+                    video = video[:MAX_CAMERAS]
     except SpatialReadError:
         raise
     except Exception:
         raise SpatialReadError('map_spatial_query_unavailable') from None
-    return build_spatial_payload(points,fov)
+    return build_spatial_payload(points,fov,video)
