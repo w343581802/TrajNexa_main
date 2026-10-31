@@ -20,6 +20,7 @@ export type M4Observation = {
   media_id: string;
   object_class: "person" | "vehicle" | "other";
   review_state: "pending" | string;
+  created_at: string;
   review_note: string;
   source_inspection_id: string | null;
   analysis_json: {

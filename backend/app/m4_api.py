@@ -5,6 +5,7 @@ The existing image and OCR report remain immutable.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -38,6 +39,7 @@ class ObservationOut(BaseModel):
     analysis_json: dict
     review_note: str
     review_state: str
+    created_at: datetime
     source_inspection_id: str | None
 
 
