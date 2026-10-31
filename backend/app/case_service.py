@@ -11,7 +11,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -114,16 +114,29 @@ def purge_case_media(db: Session, case: Case) -> dict:
         reference_ids = list(db.scalars(
             select(CameraViewReference.id).where(CameraViewReference.media_id.in_(media_ids))
         ))
-        if report_ids or reference_ids:
-            conditions = []
-            if report_ids:
-                conditions.append(ViewComparisonRecord.inspection_id.in_(report_ids))
-            if reference_ids:
-                conditions.append(ViewComparisonRecord.reference_id.in_(reference_ids))
-            db.execute(delete(ViewComparisonRecord).where(*conditions))
         if report_ids:
+            decision_ids = list(db.scalars(
+                select(CameraBindingDecision.id).where(
+                    CameraBindingDecision.inspection_id.in_(report_ids))
+            ))
+        else:
+            decision_ids = []
+        # 比对记录有三个外键（报告 / 参考图 / 绑定决策），可能跨案件：只要命中任意
+        # 一个就要删掉，否则后面删父行会撞外键。这里必须是 OR；写成 AND 时，
+        # 「参考图属于本案、报告属于别的案件」这类行会被漏掉，PG 上整案删不掉。
+        conditions = []
+        if report_ids:
+            conditions.append(ViewComparisonRecord.inspection_id.in_(report_ids))
+        if reference_ids:
+            conditions.append(ViewComparisonRecord.reference_id.in_(reference_ids))
+        if decision_ids:
+            conditions.append(ViewComparisonRecord.binding_decision_id.in_(decision_ids))
+        if conditions:
+            db.execute(delete(ViewComparisonRecord).where(or_(*conditions)))
+        if decision_ids:
             db.execute(delete(CameraBindingDecision).where(
-                CameraBindingDecision.inspection_id.in_(report_ids)))
+                CameraBindingDecision.id.in_(decision_ids)))
+        if report_ids:
             db.execute(delete(InspectionReport).where(InspectionReport.id.in_(report_ids)))
         db.execute(delete(CameraViewReference).where(CameraViewReference.id.in_(reference_ids)))
         db.execute(delete(AnalysisJob).where(AnalysisJob.media_id.in_(media_ids)))

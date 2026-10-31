@@ -1,4 +1,16 @@
-from app.models import AnalysisJob, InspectionReport, MediaAsset
+from uuid import uuid4
+
+from sqlalchemy import select
+
+from app.models import (
+    AnalysisJob,
+    CameraBindingDecision,
+    CameraViewReference,
+    Case,
+    InspectionReport,
+    MediaAsset,
+    ViewComparisonRecord,
+)
 from app.worker import run_once
 
 PNG = b'\x89PNG\r\n\x1a\n' + b'case-demo-content'
@@ -84,6 +96,67 @@ def test_delete_case_without_media_is_safe(env):
     body = client.delete(f"/api/v1/cases/{case['id']}").json()
     assert body['media_files_removed'] == 0 and body['bytes_removed'] == 0
     assert client.get('/api/v1/cases').json() == []
+
+
+def test_delete_case_purges_cross_case_comparison_records(env):
+    """比对记录有三个外键且可能跨案件：删案时必须按 OR 命中，漏一行就会撞外键。
+
+    回归的是 `where(*conditions)` 被当成 AND 的写法：只要某行只命中「参考图属于本案」
+    或只命中「报告属于本案」，旧写法就漏删，PG 上随后删父行直接 500。
+    """
+    client, Session, _ = env
+    case_a = _create_case(client, name='案件A')
+    case_b = _create_case(client, name='案件B')
+    media_a = client.post('/api/v1/media', files={'file': ('a.png', PNG, 'image/png')},
+                          data={'case_id': case_a['id']}).json()
+    media_b = client.post('/api/v1/media', files={'file': ('b.png', PNG, 'image/png')},
+                          data={'case_id': case_b['id']}).json()
+    client.post(f"/api/v1/media/{media_a['id']}/inspect")
+    client.post(f"/api/v1/media/{media_b['id']}/inspect")
+
+    with Session() as db:
+        assert run_once(db)
+        assert run_once(db)
+        report_a = db.scalars(select(InspectionReport).where(
+            InspectionReport.media_id == media_a['id'])).one()
+        report_b = db.scalars(select(InspectionReport).where(
+            InspectionReport.media_id == media_b['id'])).one()
+        ref_a = CameraViewReference(
+            id=str(uuid4()), camera_uuid='cam-a', media_id=media_a['id'],
+            catalog_revision='rev-1', catalog_sha256='0' * 64, media_sha256='1' * 64,
+            note='A 的参考图')
+        ref_b = CameraViewReference(
+            id=str(uuid4()), camera_uuid='cam-b', media_id=media_b['id'],
+            catalog_revision='rev-1', catalog_sha256='0' * 64, media_sha256='2' * 64,
+            note='B 的参考图')
+        dec_a = CameraBindingDecision(id=str(uuid4()), inspection_id=report_a.id,
+                                      decision='confirm', note='A 的决策')
+        dec_b = CameraBindingDecision(id=str(uuid4()), inspection_id=report_b.id,
+                                      decision='confirm', note='B 的决策')
+        db.add_all([ref_a, ref_b, dec_a, dec_b])
+        db.flush()
+        db.add_all([
+            # 参考图属于 A、报告与决策属于 B：删 A 时只能靠 reference_id 命中
+            ViewComparisonRecord(id=str(uuid4()), inspection_id=report_b.id,
+                                 reference_id=ref_a.id, camera_uuid='cam-a',
+                                 catalog_revision='rev-1', binding_decision_id=dec_b.id,
+                                 result_json={}),
+            # 报告与决策属于 A、参考图属于 B：删 A 时只能靠 inspection_id 命中
+            ViewComparisonRecord(id=str(uuid4()), inspection_id=report_a.id,
+                                 reference_id=ref_b.id, camera_uuid='cam-b',
+                                 catalog_revision='rev-1', binding_decision_id=dec_a.id,
+                                 result_json={}),
+        ])
+        db.commit()
+
+    assert client.delete(f"/api/v1/cases/{case_a['id']}").status_code == 200
+
+    with Session() as db:
+        assert db.query(ViewComparisonRecord).count() == 0
+        assert [r.note for r in db.scalars(select(CameraViewReference))] == ['B 的参考图']
+        assert db.query(InspectionReport).count() == 1
+        assert [d.note for d in db.scalars(select(CameraBindingDecision))] == ['B 的决策']
+        assert db.get(Case, case_b['id']) is not None
 
 
 def test_case_validation_and_unknown_upload_target(env):
