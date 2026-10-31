@@ -126,25 +126,27 @@ const m4HistoryError = ref<string | null>(null);
 const m4Restoring = ref(false);
 const m4PageSize = 25;
 let m4Session = 0;
+let m4HistoryEpoch = 0;
 
 /** The database history remains available after a browser refresh. */
 async function loadM4History(reset = false) {
   const caseId = currentCase.value?.id;
   if (!caseId || (m4HistoryBusy.value && !reset)) return;
-  if (reset) { m4History.value = []; m4HistoryMore.value = false; }
+  if (reset) { m4HistoryEpoch += 1; m4History.value = []; m4HistoryMore.value = false; }
+  const epoch = m4HistoryEpoch;
   const session = m4Session;
   const offset = m4History.value.length;
   m4HistoryBusy.value = true; m4HistoryError.value = null;
   try {
     const records = await mainApi.listCaseM4Observations(caseId, m4PageSize, offset);
-    if (session !== m4Session || currentCase.value?.id !== caseId || !ui.addElementOpen) return;
+    if (session !== m4Session || epoch !== m4HistoryEpoch || currentCase.value?.id !== caseId || !ui.addElementOpen) return;
     const known = new Set(m4History.value.map(r => r.id));
     m4History.value = [...m4History.value, ...records.filter(r => !known.has(r.id))];
     m4HistoryMore.value = records.length === m4PageSize;
   } catch (error) {
-    if (session === m4Session) m4HistoryError.value = error instanceof Error ? error.message : String(error);
+    if (session === m4Session && epoch === m4HistoryEpoch) m4HistoryError.value = error instanceof Error ? error.message : String(error);
   } finally {
-    if (session === m4Session) m4HistoryBusy.value = false;
+    if (session === m4Session && epoch === m4HistoryEpoch) m4HistoryBusy.value = false;
   }
 }
 
@@ -230,6 +232,7 @@ async function upload(file: File) {
   mediaError.value = null;
   recognizeError.value = null;
   report.value = null;
+  m4Session += 1; // Invalidate pending recovery/history for the previous image.
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
   m4Authorized.value = false; m4Note.value = '';
   try {
@@ -535,7 +538,7 @@ function fillFromElement() {
 watch(
   () => ui.addElementOpen,
   (open) => {
-    if (!open) return;
+    if (!open) { m4Session += 1; m4HistoryEpoch += 1; return; }
     m4Session += 1;
     resetForm();
     fillFromElement();
@@ -560,6 +563,13 @@ watch(
   },
 );
 
+watch(() => currentCase.value?.id, (now, old) => {
+  if (!ui.addElementOpen || now === old) return;
+  m4Session += 1;
+  m4HistoryEpoch += 1;
+  resetForm();
+  void loadM4History(true);
+});
 function save(keepOpen: boolean) {
   // A selected ROI must have a durable, matching observation record.
   // Never place the synthetic "manual-unsaved" marker on the task timeline.
