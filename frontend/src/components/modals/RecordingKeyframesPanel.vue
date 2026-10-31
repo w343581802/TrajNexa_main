@@ -5,7 +5,6 @@ import { wb } from "../../store/workbench";
 
 /** Model proposals and requested video offsets are evidence candidates, not a tracklet. */
 const props = defineProps<{ clip: RecordingClip }>();
-const authorized = ref(false);
 const detect = ref(false);
 const offsetsInput = ref("0.5,2,8");
 const loading = ref(false);
@@ -17,7 +16,7 @@ let requestEpoch = 0;
 
 watch(() => [props.clip.id, wb.caseId], () => {
   requestEpoch += 1;
-  authorized.value = false; detect.value = false;
+  detect.value = false;
   offsetsInput.value = "0.5,2,8"; error.value = "";
   result.value = null; selectedOffset.value = null; frameFailed.value = false;
 });
@@ -42,8 +41,8 @@ function choose(offset: number) {
 async function inspect() {
   const caseId = wb.caseId;
   const clipId = props.clip.id;
-  if (!caseId || !authorized.value || loading.value) {
-    error.value = "请先选择案件并确认录像已获授权使用";
+  if (!caseId || loading.value) {
+    error.value = "请先选择案件";
     return;
   }
   const parts = offsetsInput.value.split(",").map(s => Number(s.trim()));
@@ -57,7 +56,7 @@ async function inspect() {
   result.value = null; selectedOffset.value = null;
   try {
     const response = await mainApi.previewRecordingKeyframes(caseId,clipId,{
-      authorized: true, offsets_seconds: parts, include_detection: detect.value,
+      offsets_seconds: parts, include_detection: detect.value,
     });
     if (ticket !== requestEpoch || wb.caseId !== caseId || props.clip.id !== clipId) return;
     if (response.case_id !== caseId || response.clip_id !== clipId ||
@@ -80,9 +79,6 @@ async function inspect() {
   <section class="m4c-panel">
     <strong>M4c · 视频关键帧检查（只读）</strong>
     <p>从已扫描录像请求少量画面。指定秒数为请求偏移，不保证等于实际呈现帧 PTS；设备时间、身份及地图位置均需核实。</p>
-    <label class="m4c-permission">
-      <input v-model="authorized" type="checkbox" /> 确认本次案件录像处理已获授权
-    </label>
     <label class="m4c-input">
       请求时间偏移（秒）
       <input v-model="offsetsInput" placeholder="0.5,2,8" spellcheck="false" />
@@ -90,7 +86,7 @@ async function inspect() {
     <label class="m4c-permission">
       <input v-model="detect" type="checkbox" /> 附加 D-FINE 检测候选（须已配置真实 ONNX）
     </label>
-    <button type="button" class="btn btn--outline" :disabled="loading || !authorized" @click="inspect">
+    <button type="button" class="btn btn--outline" :disabled="loading" @click="inspect">
       {{ loading ? "正在读取录像…" : "读取关键帧" }}
     </button>
     <p v-if="error" class="m4c-error">{{ error }}</p>
