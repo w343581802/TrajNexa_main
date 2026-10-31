@@ -4,10 +4,11 @@
  * 开发环境经 Vite 代理 `/api` → API_PROXY_TARGET（默认 http://localhost:8000），
  * 生产环境由网关提供同路径，因此这里始终用相对路径，避免浏览器跨域。
  *
- * 当前只消费「添加目标要素」需要的三段能力：
- *   1. 媒体入库（图片/视频）
- *   2. 媒体预检作业（M1b/M1c：角标时间 OCR + 摄像头名称识别）
- *   3. 预检报告（时间候选、摄像头候选、质量与冲突标记）
+ * 当前消费「案件」与「添加目标要素」需要的接口：
+ *   1. 案件（案件列表 / 新建 / 删除；删除只清理该案件上传的要素文件）
+ *   2. 媒体入库（图片/视频，可归属到案件）
+ *   3. 媒体预检作业（M1b/M1c：角标时间 OCR + 摄像头名称识别）
+ *   4. 预检报告（时间候选、摄像头候选、质量与冲突标记）
  * 目标检测（人体 / 人脸 / 车辆）尚未接入，接口层不提供。
  */
 
@@ -15,12 +16,37 @@ const BASE = "/api/v1";
 
 export type MediaItem = {
   id: string;
+  /** 归属案件；未归属（历史素材）时为 null */
+  case_id: string | null;
   kind: "image" | "video" | string;
   original_name: string;
   mime_detected: string;
   sha256: string;
   size_bytes: number;
   ingested_at: string;
+};
+
+/** 案件：主系统组织研判的入口，只持有上传的要素文件 */
+export type CaseItem = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  media_count: number;
+  media_bytes: number;
+};
+
+export type CaseDeleteResult = {
+  id: string;
+  code: string;
+  name: string;
+  media_files_removed: number;
+  bytes_removed: number;
+  media_files_missing: number;
+  recordings_preserved: boolean;
+  message: string;
 };
 
 export type InspectJob = {
@@ -81,7 +107,27 @@ export type CameraBlock = {
   } | null;
 };
 
+/**
+ * 后端 overlay_identity 的归一结论：录像资源扫描、视频命名工具、添加要素截图识别
+ * 三处共用同一份形状，前端只认这一份，不再各自解析 time/camera 原始字段。
+ */
+export type OverlayIdentity = {
+  capture_time: string | null;
+  /** ocr=画面角标读到；filename=角标读不出、用文件名 14 位时间戳兜底 */
+  time_source: string;
+  camera_name: string | null;
+  name_status: string;
+  names: string[];
+  /** ran / disabled / unavailable / error / no_frame / not_checked */
+  ocr_status: string;
+  duration_seconds: number | null;
+  frame_offset: number | null;
+  warnings: string[];
+};
+
 export type InspectionResult = {
+  /** 归一结论；老报告可能没有这个字段 */
+  identity?: OverlayIdentity;
   schema_version: string;
   processing_stage: string;
   media: {
@@ -135,6 +181,81 @@ export type CameraCatalog = {
   cameras: CameraCatalogEntry[];
 };
 
+/* ------------------------------ 录像资源 ------------------------------ */
+
+export type RecordingDirEntry = { name: string; path: string; video_count: number };
+export type RecordingBrowse = {
+  root: string;
+  path: string;
+  parent: string;
+  dirs: RecordingDirEntry[];
+  videos: { name: string; path: string; size_bytes: number }[];
+};
+
+export type RecordingScanJob = {
+  id: string;
+  source_id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | string;
+  total_files: number;
+  processed_files: number;
+  added_files: number;
+  updated_files: number;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error_message: string | null;
+};
+
+export type RecordingSource = {
+  id: string;
+  case_id: string;
+  /** 相对录像根目录的路径；空串表示根目录本身 */
+  path: string;
+  label: string;
+  auto_scan: boolean;
+  created_at: string;
+  last_scan_at: string | null;
+  last_status: string;
+  last_error: string | null;
+  file_count: number;
+  time_count: number;
+  matched_count: number;
+  scanning: boolean;
+  job: RecordingScanJob | null;
+};
+
+/** 扫描到的一段录像：只有开始时间，不推断结束时间 */
+export type RecordingClip = {
+  id: string;
+  source_id: string;
+  relpath: string;
+  file_name: string;
+  duration_seconds: number | null;
+  start_local: string | null;
+  start_source: "ocr" | "filename" | string;
+  camera_name: string | null;
+  camera_uuid: string | null;
+  name_source: "ocr" | "filename" | "none" | string;
+  match_status: string;
+  ocr_status: string;
+  review_kind: "none" | "confirmed" | "rejected" | string;
+  reviewer_note: string | null;
+  suggestions: { camera_uuid: string; display_name: string; score: number; reviewed?: boolean }[];
+  scanned_at: string;
+};
+
+export type RecordingSummary = {
+  case_id: string;
+  source_count: number;
+  file_count: number;
+  time_count: number;
+  name_count: number;
+  matched_count: number;
+  camera_uuids: string[];
+  last_scan_at: string | null;
+  scanning: boolean;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -145,8 +266,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let message = `请求失败（HTTP ${response.status}）`;
     try {
-      const body = (await response.json()) as { detail?: unknown; message?: unknown };
-      const detail = body?.detail ?? body?.message;
+      const body = (await response.json()) as {
+        detail?: unknown;
+        message?: unknown;
+        error?: { message?: unknown };
+      };
+      // 后端统一错误体是 { error: { code, message } }，旧接口也可能只给 detail
+      const detail = body?.error?.message ?? body?.detail ?? body?.message;
       if (typeof detail === "string") message = detail;
       else if (detail) message = JSON.stringify(detail);
     } catch {
@@ -158,14 +284,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const mainApi = {
-  listMedia: () => request<MediaItem[]>("/media"),
+  /* ------------------------------ 案件 ------------------------------ */
+
+  listCases: () => request<CaseItem[]>("/cases"),
+
+  createCase: (name: string, description = "") =>
+    request<CaseItem>("/cases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description }),
+    }),
+
+  /** 删除案件：后端只清理该案件上传的要素文件，录像资源保持不动 */
+  deleteCase: (caseId: string) =>
+    request<CaseDeleteResult>(`/cases/${encodeURIComponent(caseId)}`, { method: "DELETE" }),
+
+  /* ------------------------------ 媒体 ------------------------------ */
+
+  /** 传 caseId 只看该案件的要素文件；不传则看全部（含未归属） */
+  listMedia: (caseId?: string | null) =>
+    request<MediaItem[]>(caseId ? `/media?case_id=${encodeURIComponent(caseId)}` : "/media"),
 
   /** 原始画面（只读）：用于预览与人工核对角标证据 */
   mediaContentUrl: (mediaId: string) => `${BASE}/media/${encodeURIComponent(mediaId)}/content`,
 
-  uploadMedia(file: File) {
+  uploadMedia(file: File, caseId?: string | null) {
     const body = new FormData();
     body.append("file", file);
+    if (caseId) body.append("case_id", caseId);
     return request<MediaItem>("/media", { method: "POST", body });
   },
 
@@ -178,6 +324,70 @@ export const mainApi = {
     request<InspectionReport>(`/jobs/${encodeURIComponent(jobId)}/report`),
 
   listCameras: () => request<CameraCatalog>("/cameras/catalog"),
+
+  /* ------------------------------ 录像资源（只读目录） ------------------------------ */
+
+  recordingRoot: () =>
+    request<{ root: string; exists: boolean; scan_interval_seconds: number }>("/recordings/root"),
+
+  browseRecordingDirs: (path = "") =>
+    request<RecordingBrowse>(`/recordings/browse?path=${encodeURIComponent(path)}`),
+
+  listRecordingSources: (caseId: string) =>
+    request<RecordingSource[]>(`/recordings/sources?case_id=${encodeURIComponent(caseId)}`),
+
+  addRecordingSource: (caseId: string, path: string, autoScan = false) =>
+    request<RecordingSource>("/recordings/sources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ case_id: caseId, path, auto_scan: autoScan }),
+    }),
+
+  setRecordingAutoScan: (sourceId: string, autoScan: boolean) =>
+    request<RecordingSource>(`/recordings/sources/${encodeURIComponent(sourceId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_scan: autoScan }),
+    }),
+
+  removeRecordingSource: (sourceId: string) =>
+    request<{ id: string; recordings_preserved: boolean; message: string }>(
+      `/recordings/sources/${encodeURIComponent(sourceId)}`,
+      { method: "DELETE" },
+    ),
+
+  scanRecordingSource: (sourceId: string) =>
+    request<{ source: RecordingSource; job: RecordingScanJob; already_running: boolean }>(
+      `/recordings/sources/${encodeURIComponent(sourceId)}/scan`,
+      { method: "POST" },
+    ),
+
+  getRecordingSourceJob: (sourceId: string) =>
+    request<RecordingScanJob | null>(`/recordings/sources/${encodeURIComponent(sourceId)}/job`),
+
+  listRecordingClips: (caseId: string) =>
+    request<RecordingClip[]>(`/recordings/clips?case_id=${encodeURIComponent(caseId)}`),
+
+  recordingSummary: (caseId: string) =>
+    request<RecordingSummary>(`/recordings/summary?case_id=${encodeURIComponent(caseId)}`),
+
+  /** 这段录像的开头截图：人工核对摄像头名称时看左边那张图 */
+  recordingClipFrameUrl: (clipId: string) =>
+    `/api/v1/recordings/clips/${encodeURIComponent(clipId)}/frame`,
+
+  /** 人工核对后写入识别名称，后端立即按台账重新匹配摄像头 */
+  setRecordingClipName: (clipId: string, name: string, note?: string) =>
+    request<RecordingClip>(`/recordings/clips/${encodeURIComponent(clipId)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, note: note ?? null }),
+    }),
+
+  rematchRecordingSource: (sourceId: string) =>
+    request<{ source_id: string; updated: number; unchanged: number; human_kept: number }>(
+      `/recordings/sources/${encodeURIComponent(sourceId)}/rematch`,
+      { method: "POST" },
+    ),
 };
 
 /** 轮询预检作业直到结束；成功返回报告，失败抛错 */
@@ -218,6 +428,29 @@ export function parseOverlayTime(text: string): { date: string | null; time: str
 }
 
 /** 时间候选：优先结构化样本，其次 OCR 原始行里能解析出时间的文本，同值去重 */
+/** 归一结论：优先用后端 identity，老报告没有就按原始字段就地推一份等价的 */
+export function overlayIdentity(result: InspectionResult): OverlayIdentity {
+  if (result.identity) return result.identity;
+  const samples = result.time.overlay_time_samples ?? [];
+  const capture = samples.find((sample) => sample.local_time)?.local_time ?? null;
+  const named = samples.find((sample) => sample.name_candidate);
+  const engine = result.time.ocr_engine_status ?? "";
+  let ocrStatus = "ran";
+  if (engine === "disabled" || engine === "unavailable" || engine === "error") ocrStatus = engine;
+  else if (!samples.length || result.time.time_status === "frame_unavailable") ocrStatus = "no_frame";
+  return {
+    capture_time: capture,
+    time_source: capture ? "ocr" : "",
+    camera_name: named?.name_candidate ?? result.camera.overlay_name_raw ?? null,
+    name_status: named?.name_status ?? "",
+    names: samples.map((sample) => sample.name_candidate).filter((v): v is string => Boolean(v)),
+    ocr_status: ocrStatus,
+    duration_seconds: result.media.technical_metadata?.duration_seconds ?? null,
+    frame_offset: null,
+    warnings: [],
+  };
+}
+
 export function timeCandidates(result: InspectionResult): TimeCandidate[] {
   const out: TimeCandidate[] = [];
   const push = (text: string, confidence: number) => {

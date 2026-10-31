@@ -17,7 +17,7 @@ const refs = computed(() => {
   return head;
 });
 
-const updatedAt = computed(() => (wb.emptyMode ? "—" : "2026-10-25 20:29"));
+const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.at(-1)?.time ?? "—")));
 </script>
 
 <template>

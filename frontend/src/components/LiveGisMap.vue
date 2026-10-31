@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FeatureCollection, GeoJsonObject } from "geojson";
+import { mapTiles } from "../services/basemapTiles";
 
 /** M2c: separate live GIS map. Never reuse demo coordinates as real GIS data. */
 type Camera = {
@@ -201,18 +202,15 @@ function pickCamera(camera: Camera) {
 
 function setExternalTiles() {
   if (!map) return;
-  if (useExternalTiles.value) {
-    if (!externalTiles) {
-      externalTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-        maxZoom:19,
-        attribution:"© OpenStreetMap contributors · ODbL",
-      });
-    }
-    externalTiles.addTo(map);
-    externalTiles.bringToBack();
-  } else if (externalTiles) {
+  if (externalTiles) {
     map.removeLayer(externalTiles);
+    externalTiles = null;
   }
+  if (!useExternalTiles.value) return;
+  // OSM 原色瓦片，靠 .is-dark-base（styles/map.css）压暗，和业务示意图保持一致
+  externalTiles = mapTiles();
+  externalTiles.addTo(map);
+  externalTiles.bringToBack();
 }
 onMounted(() => {
   if (!host.value) return;
@@ -279,7 +277,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="gis-live">
+  <section class="gis-live" :class="{ 'is-dark-base': useExternalTiles }">
     <div class="gis-status">
       <b>TrajNexa · 真实 GIS</b>
       <span>{{ loading ? "加载视野中…" : status }}</span>
@@ -303,9 +301,9 @@ onUnmounted(() => {
           </li>
         </ul>
       </div>
-      <label title="启用后浏览器将直接请求外部 OpenStreetMap 瓦片服务器">
+      <label title="启用后浏览器将直接请求外部暗色瓦片服务器">
         <input v-model="useExternalTiles" type="checkbox" @change="setExternalTiles" />
-        在线 OSM 瓦片（可选）
+        在线暗色瓦片（可选）
       </label>
       <button type="button" :disabled="locating" @click="userMoved = false; locateFirstMapCamera()">定位 Map 镜头</button>
       <button type="button" :disabled="loading" @click="refresh">刷新</button>
@@ -316,7 +314,7 @@ onUnmounted(() => {
       <span>● 蓝：关联台账 UUID</span><span>● 橙：仅地图点位</span>
       <span>紫：人工编辑要素</span><span>FOV 是模型推算，非实测覆盖</span>
       <span v-if="libraryTotal">库内 {{ libraryTotal }} 个镜头 · {{ libraryFov }} 个有模型 FOV</span>
-      <span>OSM 数据 © OpenStreetMap 贡献者 · ODbL</span>
+      <span>底图 © OpenStreetMap 贡献者 · ODbL</span>
     </div>
   </section>
 </template>
@@ -336,5 +334,12 @@ onUnmounted(() => {
 .gis-search .dim{color:#8fa9bf;font-size:10px;margin-left:auto}
 .gis-error{color:#fac57e;font-weight:600}
 .gis-legend{display:flex;gap:15px;flex-wrap:wrap;padding:7px 12px;z-index:400;font-size:10px;background:#102136;color:#b5c7d7}
+/* Leaflet 自带的控件是浅色的，放在暗色底图上会亮成几个白块 */
+.leaflet-canvas :deep(.leaflet-control-zoom a){background:#102136;color:#dbe9f6;border-color:#35506a}
+.leaflet-canvas :deep(.leaflet-control-zoom a:hover){background:#1b3a55}
+.leaflet-canvas :deep(.leaflet-control-layers){background:rgba(11,23,36,.94);color:#dbe9f6;border:1px solid #35506a;box-shadow:0 6px 18px rgba(3,9,16,.55)}
+.leaflet-canvas :deep(.leaflet-control-layers-separator){border-top-color:#2b4257}
+.leaflet-canvas :deep(.leaflet-control-attribution){background:rgba(11,23,36,.85);color:#9fb4c8}
+.leaflet-canvas :deep(.leaflet-control-attribution a){color:#8fb6d8}
 @media(max-width:900px){.gis-status{gap:6px}.gis-legend{gap:8px}}
 </style>

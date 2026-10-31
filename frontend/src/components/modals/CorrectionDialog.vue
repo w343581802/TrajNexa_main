@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
-import { cameras } from "../../data/mock";
+import { cameraCode, cameraLabel, loadMapSnapshot, type SnapshotCamera } from "../../services/mapSnapshot";
 import { toast, ui, wb } from "../../store/workbench";
 
 const target = ref("fov");
-const cameraId = ref(wb.selectedCameraId ?? "CAM-01");
+const cameraId = ref(wb.selectedCameraId ?? "");
 const description = ref("");
 const basis = ref("实测画面与 Map 发布视域明显不一致");
+const cameras = ref<SnapshotCamera[]>([]);
+
+onMounted(async () => {
+  try {
+    cameras.value = (await loadMapSnapshot()).cameras;
+  } catch {
+    cameras.value = [];
+  }
+  if (!cameraId.value) cameraId.value = cameras.value[0]?.camera_uuid ?? "";
+});
 
 function submit() {
   if (!description.value.trim()) {
@@ -42,7 +52,7 @@ function submit() {
       <label class="field">
         <span class="field-label">摄像头</span>
         <select v-model="cameraId" class="select">
-          <option v-for="camera in cameras" :key="camera.id" :value="camera.id">{{ camera.id }} · {{ camera.name }}</option>
+          <option v-for="camera in cameras" :key="camera.camera_uuid ?? camera.camera_id" :value="camera.camera_uuid ?? ''">{{ cameraLabel(camera) }} · {{ cameraCode(camera) }}</option>
         </select>
       </label>
 

@@ -15,6 +15,7 @@ export type FovLevelRings = { level: FovLevel; rings: [number, number][][] };
 
 export type SnapshotCamera = {
   camera_id: number;
+  camera_uuid: string | null;
   index_code: string;
   external_index_code: string;
   display_name: string;
@@ -30,6 +31,8 @@ export type SnapshotCamera = {
   range_m: number | null;
   height_m: number | null;
   pose_quality: PoseQuality;
+  /** Map 侧是否有录像参考帧（source_type=video_frame）；没有时主系统保持灰色。 */
+  has_video: boolean;
   fov_rings: [number, number][][] | null;
   fov_levels: FovLevelRings[] | null;
 };
@@ -39,7 +42,7 @@ export type MapSnapshot = {
   crs: string;
   spatial_revision: string;
   generated_at: string;
-  counts: { cameras: number; with_pose: number; with_focus: number; with_fov_levels?: number };
+  counts: { cameras: number; with_pose: number; with_focus: number; with_fov_levels?: number; with_video?: number };
   cameras: SnapshotCamera[];
 };
 
@@ -55,6 +58,7 @@ type SpatialCamera = {
   range_m: number | null;
   camera_type: string;
   pose_quality: string;
+  has_video?: boolean;
   fov_levels: { level: string; geometry: { type: string; coordinates: unknown } }[];
 };
 
@@ -85,6 +89,7 @@ function toSnapshotCamera(camera: SpatialCamera): SnapshotCamera | null {
     .map((level) => ({ level: level.level as FovLevel, rings: ringsOf(level.geometry) }));
   return {
     camera_id: id,
+    camera_uuid: camera.camera_uuid,
     index_code: "",
     external_index_code: "",
     display_name: camera.display_name ?? "",
@@ -101,6 +106,7 @@ function toSnapshotCamera(camera: SpatialCamera): SnapshotCamera | null {
     height_m: null,
     // 只有台账标明 calibrated 才允许画视域；其余一律按未知姿态处理，不臆造扇形
     pose_quality: calibrated ? "calibrated" : "unknown",
+    has_video: Boolean(camera.has_video),
     fov_rings: null,
     fov_levels: calibrated && levels.length ? levels : null,
   };
@@ -129,6 +135,7 @@ export async function loadMapSnapshot(force = false): Promise<MapSnapshot> {
       with_pose: cameras.filter((camera) => camera.pose_quality === "calibrated").length,
       with_focus: withFov,
       with_fov_levels: withFov,
+      with_video: cameras.filter((camera) => camera.has_video).length,
     },
     cameras,
   };

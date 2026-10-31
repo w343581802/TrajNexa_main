@@ -19,7 +19,7 @@ const evidence = [
 
 const history = [
   { actor: "系统", action: "提取特征候选", time: "20:12:12", note: "模型 v0.9 · 上限为候选" },
-  { actor: "李调查员", action: "确认「深色长款外套」", time: "20:18:40", note: "核对 E01 原始裁剪" },
+  { actor: "李调查员", action: "确认「深色长款外套」", time: "20:18:40", note: "核对原始裁剪" },
   { actor: "系统", action: "新增冲突候选「浅灰色外套」", time: "20:33:16", note: "来源：夜间灰度画面" },
   { actor: "李调查员", action: "保留原值，冲突待复核", time: "20:35:02", note: "颜色证据不可靠" },
 ];
@@ -116,7 +116,7 @@ function jumpToObservation() {
 
       <section class="block">
         <h3 class="block-title">审核理由（关键修正需记录）</h3>
-        <textarea v-model="reason" class="textarea" rows="3" placeholder="例如：核对 E01 原始裁剪，外套颜色与夜间灰度画面冲突，保留原值" />
+        <textarea v-model="reason" class="textarea" rows="3" placeholder="例如：核对原始裁剪，外套颜色与夜间灰度画面冲突，保留原值" />
         <p class="hint">理由随审核记录留档；操作人：李调查员（可审核）。</p>
       </section>
     </template>

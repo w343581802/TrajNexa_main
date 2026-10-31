@@ -1,0 +1,9 @@
+# 构建上下文里排除本机依赖与产物：
+# 否则 COPY . . 会把宿主机的 node_modules（pnpm 的符号链接目录）盖到镜像里
+# npm install 装好的 node_modules 上，出现
+# "cannot replace to directory .../node_modules/@types/geojson with file" 构建失败。
+node_modules
+dist
+.vite
+npm-debug.log*
+*.log

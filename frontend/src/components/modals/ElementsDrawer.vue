@@ -51,7 +51,6 @@ function trace(elementId: string) {
         </div>
         <div class="element-info">
           <div class="element-top">
-            <span class="element-id">{{ element.id }}</span>
             <span class="num element-time">{{ element.timeLabel }}</span>
             <span class="chip" :data-tone="element.status === 'confirmed' ? 'ok' : element.status === 'candidate' ? 'warn' : 'muted'">
               {{ element.statusLabel }}

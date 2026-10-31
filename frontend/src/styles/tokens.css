@@ -46,7 +46,7 @@
   --cyan-soft: rgba(79, 209, 217, 0.12);
 
   /* 地图专用 */
-  --map-bg: #070c12;
+  --map-bg: #b1afab;      /* 瓦片底下的容器色：与压暗后的 OSM 陆地同色，加载时不闪色 */
   --map-land: #0c131c;
   --map-block: #111a26;
   --map-building: #16202e;

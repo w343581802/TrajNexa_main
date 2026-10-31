@@ -4,22 +4,15 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
-import {
-  cameras,
-  coverageDate,
-  coverageMinutes,
-  hasCoverage,
-  minutesToLabel,
-  timeWindowPresets,
-  type Camera,
-} from "../data/mock";
-import { actions, layers, observationList, timeWindow, visibleElements, wb } from "../store/workbench";
+import { minutesToLabel, timeWindowPresets } from "../data/mock";
+import { actions, layers, observationList, recordingCameraUuids, timeWindow, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
+import { basemapTiles } from "../services/basemapTiles";
 
 /* ---------------------------- 地理投影 ----------------------------
- * 底图为真实 OSM 瓦片（WGS84）。默认视野对准桂林临桂（Map 库中两台已标定
- * 镜头的所在片区）。演示业务层沿用 1400×430 的世界坐标，以固定仿射关系
- * 投影到该片区，仅用于界面演示，不代表真实轨迹。
+ * 底图为 OSM 瓦片（WGS84），进界面后被 styles/map.css 压成暗色。镜头点位直接使用 Map 发布经纬度；
+ * 1400×430 的世界坐标只用于「区域锚点」这类未绑定镜头的占位，
+ * 以固定仿射关系投影到当前片区，仅表示待定位区域，不代表真实轨迹。
  * ------------------------------------------------------------------ */
 
 const WORLD = { w: 1400, h: 430 };
@@ -45,12 +38,9 @@ const zoom = ref(16);
 const cursor = ref<{ lat: number; lng: number } | null>(null);
 let map: L.Map | null = null;
 
-const lMock = L.layerGroup();
 const lReal = L.layerGroup();
 const lFocus = L.layerGroup();
-const lTracks = L.layerGroup();
 const lAnchors = L.layerGroup();
-const lLabels = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -59,30 +49,28 @@ const FOV_COLORS: Record<string, string> = {
   observation: "#00b300",
 };
 
-function baseTiles(): L.TileLayer {
-  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors · 镜头数据 TrajNexa_Map",
-  });
-}
-
-function satelliteTiles(): L.TileLayer {
-  return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-    maxZoom: 19,
-    attribution: "影像 © Esri · Maxar · Earthstar Geographics",
-  });
-}
-
 type Basemap = "map" | "satellite";
 const basemap = ref<Basemap>("map");
 let tileLayer: L.TileLayer | null = null;
 
+/** 换底图：地图 = OSM 瓦片（由 .is-dark-base 压暗），卫星 = Esri 真实影像 */
+function swapBasemap() {
+  if (!map) return;
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = basemapTiles(basemap.value).addTo(map);
+}
+
 function setBasemap(kind: Basemap) {
   if (!map || basemap.value === kind) return;
   basemap.value = kind;
-  if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = (kind === "satellite" ? satelliteTiles() : baseTiles()).addTo(map);
+  swapBasemap();
 }
+
+// 暗色做法和 TrajNexa_Map 一致：styles/map.css 的 .is-dark-base 对瓦片层做 brightness(.7) contrast(1.2)
+/** 状态栏的底图署名：卫星是 Esri 影像，地图是 OSM 瓦片（暗色只是滤镜） */
+const basemapCredit = computed(() =>
+  basemap.value === "satellite" ? "影像 © Esri · Maxar · Earthstar Geographics" : "底图 © OpenStreetMap contributors",
+);
 
 const query = ref("");
 const hits = ref<{ id: number; label: string; lat: number; lon: number }[]>([]);
@@ -118,8 +106,8 @@ function initMap() {
     attributionControl: false,
     preferCanvas: true,
   });
-  tileLayer = baseTiles().addTo(map);
-  [lFocus, lReal, lMock, lTracks, lAnchors, lLabels].forEach((group) => group.addTo(map!));
+  tileLayer = basemapTiles(basemap.value).addTo(map);
+  [lFocus, lReal, lAnchors].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -210,16 +198,17 @@ function applyCustomWindow() {
 
 /* ---------------------------- 摄像头状态 ---------------------------- */
 
-const isActive = (camera: Camera) => hasCoverage(camera, timeWindow);
-const activeCount = computed(() => cameras.filter((c) => isActive(c)).length);
+/**
+ * 只有「录像资源里扫描到名称、且唯一匹配到台账」的镜头才取消灰色。
+ * 添加要素（截图）不再影响点灯；没有扫描结果时一律灰色。
+ */
+const isRealLit = (camera: SnapshotCamera) => recordingCameraUuids.value.has(camera.camera_uuid ?? "");
 const windowLabel = computed(
   () => `${minutesToLabel(timeWindow.start)}–${timeWindow.end >= 1440 ? "24:00" : minutesToLabel(timeWindow.end)}`,
 );
 
 /* ---------------------------- 选中态 ---------------------------- */
 
-const selectedCamera = computed(() => cameras.find((c) => c.id === wb.selectedCameraId) ?? null);
-const camCardOpen = ref(false);
 const anchorCardOpen = ref(false);
 const realCardOpen = ref(false);
 
@@ -246,19 +235,21 @@ const cardStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
 });
 
-function pickCamera(camera: Camera) {
-  actions.selectCamera(camera.id);
-  camCardOpen.value = true;
-  anchorCardOpen.value = false;
-  realCardOpen.value = false;
-  cardLatLng.value = toLatLng(camera.x, camera.y);
-  placeCard();
+/** 目标要素绑定的 Map 镜头（cameraId 存的是 Map 的 camera_uuid） */
+const snapshotCamera = (uuid: string | null) =>
+  uuid ? snapshot.value?.cameras.find((item) => item.camera_uuid === uuid) ?? null : null;
+
+/** 区域锚点占位点：没有绑定镜头时只表示「待定位区域」，不是某台真实镜头 */
+const REGION_ANCHOR = { x: 800, y: 330, r: 62 };
+
+function anchorLatLng(element: { cameraId: string | null } | null | undefined) {
+  const camera = snapshotCamera(element?.cameraId ?? null);
+  return camera ? L.latLng(camera.lat, camera.lon) : toLatLng(REGION_ANCHOR.x, REGION_ANCHOR.y);
 }
 
 function pickReal(camera: SnapshotCamera) {
   selectedRealId.value = camera.camera_id;
   realCardOpen.value = true;
-  camCardOpen.value = false;
   anchorCardOpen.value = false;
   cardLatLng.value = L.latLng(camera.lat, camera.lon);
   placeCard();
@@ -267,11 +258,9 @@ function pickReal(camera: SnapshotCamera) {
 function pickAnchor(elementId: string) {
   actions.selectAnchor(elementId);
   anchorCardOpen.value = true;
-  camCardOpen.value = false;
   realCardOpen.value = false;
   const element = visibleElements.value.find((item) => item.id === elementId);
-  const camera = cameras.find((item) => item.id === element?.cameraId);
-  cardLatLng.value = camera ? toLatLng(camera.x, camera.y) : toLatLng(800, 330);
+  cardLatLng.value = anchorLatLng(element);
   placeCard();
 }
 
@@ -281,85 +270,34 @@ watch(
     const obs = observationList.value.find((o) => o.id === id);
     if (obs?.kind === "anchor" && obs.elementId) {
       anchorCardOpen.value = true;
-      camCardOpen.value = false;
       realCardOpen.value = false;
       const element = visibleElements.value.find((item) => item.id === obs.elementId);
-      const camera = cameras.find((item) => item.id === element?.cameraId);
-      cardLatLng.value = camera ? toLatLng(camera.x, camera.y) : toLatLng(800, 330);
+      cardLatLng.value = anchorLatLng(element);
       placeCard();
-    } else if (obs && obs.kind !== "gap" && obs.cameraId) {
-      const camera = cameras.find((item) => item.id === obs.cameraId);
+    } else if (obs && obs.kind !== "gap") {
+      const camera = snapshotCamera(obs.cameraId);
       if (camera) {
-        camCardOpen.value = true;
+        realCardOpen.value = true;
+        selectedRealId.value = camera.camera_id;
         anchorCardOpen.value = false;
-        realCardOpen.value = false;
-        cardLatLng.value = toLatLng(camera.x, camera.y);
+        cardLatLng.value = L.latLng(camera.lat, camera.lon);
         placeCard();
       }
     }
   },
 );
 
-const coverageWindowMinutes = computed(() => (selectedCamera.value ? coverageMinutes(selectedCamera.value, timeWindow) : 0));
-
-const linkedCameraId = computed(() => {
-  const obs = observationList.value.find((o) => o.id === wb.selectedObservationId);
-  if (!obs || obs.kind === "anchor" || obs.kind === "gap") return null;
-  return obs.cameraId;
-});
-
 const anchorChips = computed(() => visibleElements.value.find((e) => e.id === wb.selectedAnchorId) ?? null);
 
-/* 锚点坐标：有摄像头则贴镜头，仅有区域则画区域圈 */
-const regionAnchor = { x: 800, y: 330, r: 62 };
+/* 锚点坐标：绑定到 Map 镜头就贴镜头，否则画「待定位区域」圈 */
 const cameraAnchors = computed(() =>
   visibleElements.value
-    .map((element) => ({ element, camera: cameras.find((c) => c.id === element.cameraId) ?? null }))
-    .filter((item): item is { element: (typeof visibleElements.value)[number]; camera: Camera } => item.camera !== null),
+    .map((element) => ({ element, camera: snapshotCamera(element.cameraId) }))
+    .filter((item) => item.camera !== null),
 );
-const regionAnchors = computed(() => visibleElements.value.filter((element) => !element.cameraId));
-
-const tracks = [
-  { id: "verified", tone: "verified", dash: "", label: "已核验片段", labelAt: [470, 206], points: "302,198 400,216 500,228 620,236" },
-  { id: "gap", tone: "gap", dash: "5 7", label: "未知盲区", labelAt: [676, 286], points: "620,236 684,268 736,300 790,318" },
-  { id: "candidate", tone: "candidate", dash: "8 7", label: "待验证连接", labelAt: [884, 372], points: "790,318 856,344 936,372 1010,392" },
-  { id: "branch", tone: "branch", dash: "2 8", label: "多分支", labelAt: [948, 250], points: "856,344 902,314 962,282 1032,246" },
-];
+const regionAnchors = computed(() => visibleElements.value.filter((element) => !snapshotCamera(element.cameraId)));
 
 /* ---------------------------- 图层渲染 ---------------------------- */
-
-const TRACK_COLOR: Record<string, string> = {
-  verified: "rgba(47,207,146,0.92)",
-  candidate: "rgba(240,180,90,0.85)",
-  branch: "rgba(240,180,90,0.45)",
-  gap: "rgba(140,158,180,0.45)",
-};
-
-const parseWorldPoints = (raw: string): L.LatLng[] =>
-  raw
-    .split(" ")
-    .map((pair) => pair.split(",").map(Number))
-    .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]))
-    .map(([x, y]) => toLatLng(x, y));
-
-function mockCameraIcon(camera: Camera): L.DivIcon {
-  const classes = [
-    "mk",
-    wb.selectedCameraId === camera.id ? "is-selected" : "",
-    linkedCameraId.value === camera.id ? "is-linked" : "",
-    camera.analyzing ? "is-analyzing" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return L.divIcon({
-    className: "mk-wrap",
-    html: `<span class="${classes}" data-tone="${isActive(camera) ? "ok" : "idle"}"><i></i>${
-      camera.notice ? '<b class="mk-note">!</b>' : ""
-    }</span>`,
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  });
-}
 
 function textIcon(text: string, className: string, offset: [number, number] = [0, 0]): L.DivIcon {
   return L.divIcon({
@@ -370,10 +308,14 @@ function textIcon(text: string, className: string, offset: [number, number] = [0
   });
 }
 
-function anchorIcon(elementId: string, selected: boolean): L.DivIcon {
+/** 锚点标签用时间/摄像头名称，不再显示 E01 这类内部编号；拼进 innerHTML 前先转义。 */
+const escapeLabel = (value: string) =>
+  value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+
+function anchorIcon(label: string, selected: boolean): L.DivIcon {
   return L.divIcon({
     className: "mk-wrap",
-    html: `<span class="anchor-pin${selected ? " is-selected" : ""}"><svg viewBox="0 0 24 34" width="22" height="30" aria-hidden="true"><path d="M12 33C12 33 22 21.5 22 13A10 10 0 1 0 2 13C2 21.5 12 33 12 33Z" fill="#7c5cf0" stroke="#c3aeff" stroke-width="1.4"/><circle cx="12" cy="12.6" r="4" fill="#f0ecff"/></svg><em>${elementId}</em></span>`,
+    html: `<span class="anchor-pin${selected ? " is-selected" : ""}"><svg viewBox="0 0 24 34" width="22" height="30" aria-hidden="true"><path d="M12 33C12 33 22 21.5 22 13A10 10 0 1 0 2 13C2 21.5 12 33 12 33Z" fill="#7c5cf0" stroke="#c3aeff" stroke-width="1.4"/><circle cx="12" cy="12.6" r="4" fill="#f0ecff"/></svg><em>${escapeLabel(label)}</em></span>`,
     iconSize: [22, 30],
     iconAnchor: [11, 30],
   });
@@ -381,21 +323,23 @@ function anchorIcon(elementId: string, selected: boolean): L.DivIcon {
 
 function render() {
   if (!map) return;
-  [lMock, lReal, lFocus, lTracks, lAnchors, lLabels].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
     for (const camera of snapshot.value?.cameras ?? []) {
       const calibrated = camera.pose_quality === "calibrated";
+      // 录像资源没识别到的镜头/视域保持灰色；扫描到名称并匹配台账后才点亮。
+      const lit = isRealLit(camera);
       if (layers.fov) {
         if (camera.fov_levels?.length) {
           // 与 TrajNexa_Map 同一套等级配色：辨识 #ff3131 / 识别 #ffbf00 / 观察 #00b300
           for (const group of camera.fov_levels) {
-            const color = FOV_COLORS[group.level] ?? FOV_COLORS.observation;
+            const color = lit ? (FOV_COLORS[group.level] ?? FOV_COLORS.observation) : "#6b7787";
             for (const ring of group.rings) {
               L.polygon(
                 ring.map(([lng, lat]) => [lat, lng] as [number, number]),
-                { stroke: false, fillColor: color, fillOpacity: 0.4, interactive: false },
+                { stroke: false, fillColor: color, fillOpacity: lit ? 0.4 : 0.22, interactive: false },
               ).addTo(lFocus);
             }
           }
@@ -403,7 +347,12 @@ function render() {
           for (const ring of camera.fov_rings) {
             L.polygon(
               ring.map(([lng, lat]) => [lat, lng] as [number, number]),
-              { stroke: false, fillColor: FOV_COLORS.observation, fillOpacity: 0.4, interactive: false },
+              {
+                stroke: false,
+                fillColor: lit ? FOV_COLORS.observation : "#6b7787",
+                fillOpacity: lit ? 0.4 : 0.22,
+                interactive: false,
+              },
             ).addTo(lFocus);
           }
         }
@@ -413,67 +362,35 @@ function render() {
         radius: selected ? 7.5 : calibrated ? 5.2 : 4.6,
         color: selected ? "#d8f6ff" : "#060a0f",
         weight: selected ? 2 : 1.4,
-        fillColor: calibrated ? "#4fd1d9" : "#8b9bb0",
+        fillColor: !lit ? "#7b8798" : calibrated ? "#4fd1d9" : "#8b9bb0",
         fillOpacity: 0.92,
       }).addTo(lReal);
       marker.bindTooltip(
-        `${cameraLabel(camera)} · ${calibrated ? "已标定姿态" : "姿态未知（不画扇形）"}`,
+        `${cameraLabel(camera)} · ${
+          !lit ? "录像资源里未识别到这台镜头（灰）" : calibrated ? "已识别到录像" : "姿态未知（不画扇形）"
+        }`,
         { direction: "top", offset: [0, -6], className: "map-tip" },
       );
       marker.on("click", () => pickReal(camera));
     }
   }
 
-  /* 演示业务层：摄像头 */
-  if (layers.cameras) {
-    for (const camera of cameras) {
-      L.marker(toLatLng(camera.x, camera.y), { icon: mockCameraIcon(camera), keyboard: false })
-        .addTo(lMock)
-        .on("click", () => pickCamera(camera));
-      if (layers.labels) {
-        L.marker(toLatLng(camera.x, camera.y), {
-          icon: textIcon(camera.name, `mk-label${isActive(camera) ? " is-on" : ""}`),
-          interactive: false,
-          keyboard: false,
-        }).addTo(lLabels);
-      }
-    }
-  }
-
-  /* 演示业务层：轨迹 */
-  if (layers.tracks) {
-    for (const track of tracks) {
-      L.polyline(parseWorldPoints(track.points), {
-        color: TRACK_COLOR[track.tone] ?? TRACK_COLOR.gap,
-        weight: track.tone === "verified" ? 2.6 : 1.8,
-        dashArray: track.dash || undefined,
-        lineCap: "round",
-        interactive: false,
-      }).addTo(lTracks);
-      if (layers.labels) {
-        L.marker(toLatLng(track.labelAt[0], track.labelAt[1]), {
-          icon: textIcon(track.label, `track-label is-${track.tone}`),
-          interactive: false,
-          keyboard: false,
-        }).addTo(lTracks);
-      }
-    }
-  }
-
-  /* 演示业务层：锚点 */
+  /* 目标要素锚点：绑定 Map 镜头就贴镜头坐标，否则只画「待定位区域」圈 */
   if (layers.anchors) {
     for (const item of cameraAnchors.value) {
-      L.marker(toLatLng(item.camera.x, item.camera.y - 8), {
-        icon: anchorIcon(item.element.id, wb.selectedAnchorId === item.element.id),
+      const camera = item.camera;
+      if (!camera) continue;
+      L.marker([camera.lat, camera.lon], {
+        icon: anchorIcon(item.element.cameraLabel || item.element.timeLabel, wb.selectedAnchorId === item.element.id),
         keyboard: false,
       })
         .addTo(lAnchors)
         .on("click", () => pickAnchor(item.element.id));
     }
     for (const element of regionAnchors.value) {
-      const center = toLatLng(regionAnchor.x, regionAnchor.y);
+      const center = toLatLng(REGION_ANCHOR.x, REGION_ANCHOR.y);
       L.circle(center, {
-        radius: worldRadiusMeters(regionAnchor.r),
+        radius: worldRadiusMeters(REGION_ANCHOR.r),
         color: "rgba(169,139,255,0.55)",
         weight: 1.2,
         dashArray: "5 5",
@@ -483,7 +400,7 @@ function render() {
         .addTo(lAnchors)
         .on("click", () => pickAnchor(element.id));
       L.marker(center, {
-        icon: textIcon(`${element.id} · 区域锚点（待定位）`, "region-label"),
+        icon: textIcon("区域锚点（待定位）", "region-label"),
         interactive: false,
         keyboard: false,
       }).addTo(lAnchors);
@@ -492,7 +409,7 @@ function render() {
 }
 
 watch(
-  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot],
+  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids],
   () => render(),
   { deep: true },
 );
@@ -501,12 +418,19 @@ onMounted(() => {
   initMap();
   render();
   void reloadSnapshot();
+  window.addEventListener("focus", refreshSnapshotOnFocus);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("focus", refreshSnapshotOnFocus);
   map?.remove();
   map = null;
 });
+
+/** 从 CameraMap 导入视频后切回主系统：重新取快照，点亮刚有视频的镜头。 */
+function refreshSnapshotOnFocus() {
+  if (document.visibilityState === "visible" && snapshotState.value !== "loading") void reloadSnapshot();
+}
 
 function focusAnchor() {
   resetView();
@@ -518,12 +442,12 @@ function focusAnchor() {
 
 <template>
   <section class="map-region">
-    <div class="map-canvas">
+    <div class="map-canvas" :class="{ 'is-dark-base': basemap === 'map' }">
       <div
         ref="mapEl"
         class="map-leaflet"
         role="img"
-        aria-label="业务地图：TrajNexa_Map 发布的摄像头点位与标定视域，叠加演示业务层"
+        aria-label="业务地图：TrajNexa_Map 发布的摄像头点位与标定视域，叠加目标要素锚点"
       />
 
       <div class="map-compass" aria-hidden="true">
@@ -536,7 +460,7 @@ function focusAnchor() {
 
       <div v-if="snapshotState !== 'ready'" class="map-snapshot-hint" :data-tone="snapshotState">
         <AppIcon :name="snapshotState === 'error' ? 'warning' : 'refresh'" :size="13" />
-        <span>{{ snapshotState === "error" ? "Map 空间数据不可用：仅显示演示业务层" : "正在加载 Map 空间数据…" }}</span>
+        <span>{{ snapshotState === "error" ? "Map 空间数据不可用：暂时没有镜头点位与视域" : "正在加载 Map 空间数据…" }}</span>
         <button v-if="snapshotState === 'error'" class="btn btn--sm btn--outline" @click="reloadSnapshot">重试</button>
       </div>
     </div>
@@ -586,8 +510,6 @@ function focusAnchor() {
     <!-- 图层开关 -->
     <div class="map-chips popover" @click.stop>
       <label class="map-chip"><input v-model="layers.fov" type="checkbox" /><span>摄像头视域</span></label>
-      <label class="map-chip"><input v-model="layers.tracks" type="checkbox" /><span>轨迹图层</span></label>
-      <label class="map-chip"><input v-model="layers.labels" type="checkbox" /><span>名称标注</span></label>
       <label class="map-chip"><input v-model="layers.anchors" type="checkbox" /><span>起始锚点</span></label>
       <button class="map-chip map-chip--more" :class="{ 'is-open': openPanel === 'layers' }" @click="togglePanel('layers')">
         更多图层
@@ -606,11 +528,8 @@ function focusAnchor() {
       <label class="layer-row">
         <input v-model="layers.fov" type="checkbox" /><span>标定视域 FOV</span><em>{{ snapshot?.counts.with_focus ?? 0 }}</em>
       </label>
-      <label class="layer-row"><input v-model="layers.cameras" type="checkbox" /><span>任务镜头（演示）</span><em>{{ cameras.length }}</em></label>
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
-      <label class="layer-row"><input v-model="layers.tracks" type="checkbox" /><span>轨迹与盲区</span><em>{{ tracks.length }}</em></label>
-      <label class="layer-row"><input v-model="layers.labels" type="checkbox" /><span>名称标注</span><em>—</em></label>
-      <p class="panel-note">Map 镜头与视域来自 TrajNexa_Map 只读空间数据（主系统直连 Map 只读库）；任务镜头与轨迹为演示数据，按示意投影落图。</p>
+      <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
 
     <div v-if="openPanel === 'legend'" class="map-panel map-panel--legend popover" @click.stop>
@@ -618,31 +537,23 @@ function focusAnchor() {
       <p class="legend-title">Map 镜头（TrajNexa_Map）</p>
       <ul class="legend">
         <li><i class="sw sw--real" />已标定姿态</li>
+        <li><i class="sw sw--real-idle" />录像资源未识别到（灰，未点亮）</li>
         <li><i class="sw sw--real-unknown" />姿态未知，仅点位（不虚构扇形）</li>
         <li><i class="sw sw--fov-ident" />视域 辨识（identification）</li>
         <li><i class="sw sw--fov-recog" />视域 识别（recognition）</li>
         <li><i class="sw sw--fov-obs" />视域 观察（observation）</li>
       </ul>
-      <p class="legend-title">任务层录像可用性（演示）</p>
+      <p class="legend-title">目标要素</p>
       <ul class="legend">
-        <li><i class="sw sw--ok" />当前查询窗内有已索引录像</li>
-        <li><i class="sw sw--idle" />当前窗内无已索引录像（<b>非离线</b>）</li>
-        <li><i class="sw sw--warn">!</i>解析 / 映射异常，需人工核查</li>
-        <li><i class="sw sw--pulse" />后台正在处理该摄像头</li>
-      </ul>
-      <p class="legend-title">轨迹可信度</p>
-      <ul class="legend">
-        <li><i class="ln ln--ok" />已核验且有直接录像支持</li>
-        <li><i class="ln ln--cand" />待验证连接（虚线）</li>
-        <li><i class="ln ln--gap" />未知盲区，不默认连通</li>
-        <li><i class="ln ln--anchor" />起始锚点（独立编号）</li>
+        <li><i class="ln ln--anchor" />起始锚点（标签显示时间 / 摄像头名称）</li>
+        <li><i class="sw sw--idle" />区域锚点：未绑定镜头，仅示意待定位区域</li>
       </ul>
     </div>
 
     <div v-if="openPanel === 'time'" class="map-panel map-panel--time popover" @click.stop>
       <header class="panel-head">
         <span>地图查询时间窗</span>
-        <span class="dim">{{ coverageDate }}</span>
+        <span class="dim">{{ windowLabel }}</span>
       </header>
       <label v-for="preset in timeWindowPresets" :key="preset.id" class="time-row" :class="{ 'is-on': timeWindow.preset === preset.id }">
         <input type="radio" name="tw" :checked="timeWindow.preset === preset.id" @change="actions.applyPreset(preset.id)" />
@@ -660,7 +571,7 @@ function focusAnchor() {
 
     <div v-if="wb.emptyMode" class="map-empty-hint">
       <AppIcon name="info" :size="14" />
-      <span>未选择录像目录：摄像头录像可用性为灰色（不代表离线）</span>
+      <span>还没有要素或录像：镜头保持灰色（灰色只表示「没有识别到录像」，不代表离线）</span>
       <button class="btn btn--sm btn--outline" @click="actions.openCoverage()">查看覆盖说明</button>
     </div>
 
@@ -682,7 +593,6 @@ function focusAnchor() {
           </div>
           <div class="anchor-info">
             <div class="anchor-line">
-              <span class="anchor-id">{{ anchorChips.id }}</span>
               <span class="num anchor-time">{{ anchorChips.timeLabel }}</span>
               <button class="icon-btn anchor-close" aria-label="收起锚点操作卡" @click="anchorCardOpen = false">
                 <AppIcon name="close" :size="13" />
@@ -729,44 +639,6 @@ function focusAnchor() {
       </aside>
     </Transition>
 
-    <!-- 摄像头概览卡 -->
-    <Transition name="slide">
-      <aside v-if="camCardOpen && selectedCamera" class="cam-card popover" :style="cardStyle">
-        <header class="cam-head">
-          <span class="mono cam-id">{{ selectedCamera.id }}</span>
-          <span class="chip" :data-tone="isActive(selectedCamera) ? 'ok' : 'muted'">
-            <i class="dot" />{{ isActive(selectedCamera) ? "有已索引录像" : "无已索引录像" }}
-          </span>
-          <button class="icon-btn" aria-label="关闭摄像头卡片" @click="camCardOpen = false"><AppIcon name="close" :size="13" /></button>
-        </header>
-        <h3 class="cam-name">{{ selectedCamera.name }}</h3>
-        <p class="cam-sub">
-          {{ selectedCamera.site }} · {{ selectedCamera.channel }}
-          <span class="dim mono">{{ selectedCamera.uuid }}</span>
-        </p>
-        <dl class="cam-kv">
-          <div><dt>朝向</dt><dd class="num">{{ selectedCamera.heading }}°</dd></div>
-          <div><dt>视域</dt><dd class="num">{{ selectedCamera.fov }}° · {{ selectedCamera.fovType }}</dd></div>
-          <div><dt>标定</dt><dd>{{ selectedCamera.quality }}</dd></div>
-          <div><dt>快照</dt><dd class="mono">{{ selectedCamera.source }}</dd></div>
-        </dl>
-        <div class="cam-cov">
-          <span>当前窗内已索引 <b class="num">{{ coverageWindowMinutes }}</b> 分钟</span>
-          <span v-if="selectedCamera.notice === 'mapping'" class="chip" data-tone="warn">映射歧义</span>
-          <span v-if="selectedCamera.analyzing" class="chip" data-tone="info"><i class="dot" />处理中</span>
-        </div>
-        <div class="cam-actions">
-          <button class="btn btn--sm btn--primary" @click="actions.openCoverage(selectedCamera.id)">
-            <AppIcon name="video" :size="12" />查看录像时间
-          </button>
-          <button class="btn btn--sm btn--outline" @click="actions.openCorrection()">
-            <AppIcon name="edit" :size="12" />修正工单
-          </button>
-        </div>
-        <p class="cam-note">点位与 FOV 为 Map 发布数据；主系统只读，不回写 GIS。</p>
-      </aside>
-    </Transition>
-
     <!-- TrajNexa_Map 镜头卡 -->
     <Transition name="slide">
       <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="cardStyle">
@@ -774,6 +646,9 @@ function focusAnchor() {
           <span class="mono cam-id">{{ cameraLabel(selectedReal) }}</span>
           <span class="chip" :data-tone="selectedReal.pose_quality === 'calibrated' ? 'info' : 'muted'">
             <i class="dot" />{{ selectedReal.pose_quality === "calibrated" ? "已标定姿态" : "姿态未知" }}
+          </span>
+          <span class="chip" :data-tone="isRealLit(selectedReal) ? 'ok' : 'muted'">
+            <i class="dot" />{{ isRealLit(selectedReal) ? "录像资源已识别到" : "录像资源未识别到" }}
           </span>
           <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
         </header>
@@ -801,13 +676,13 @@ function focusAnchor() {
       <span class="sep">·</span>
       <span>{{ snapshot?.cameras.length ?? 0 }} 台 Map 镜头</span>
       <span class="sep">·</span>
-      <span class="ok">{{ activeCount }}/{{ cameras.length }} 台任务镜头窗内有索引</span>
+      <span class="ok">{{ recordingCameraUuids.size }} 台镜头已识别到录像</span>
       <span class="grow" />
-      <span class="dim">查询窗 {{ coverageDate }} {{ windowLabel }}</span>
+      <span class="dim">查询窗 {{ windowLabel }}</span>
       <span class="sep">·</span>
       <span v-if="cursor" class="dim num">坐标 {{ cursor.lat.toFixed(5) }}, {{ cursor.lng.toFixed(5) }}</span>
       <span class="sep">·</span>
-      <span class="dim">底图 © OpenStreetMap</span>
+      <span class="dim">{{ basemapCredit }}</span>
     </footer>
   </section>
 </template>
@@ -1542,18 +1417,26 @@ function focusAnchor() {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: #eef1f4;
+  background: var(--map-bg);
 }
 
 .map-leaflet :deep(.leaflet-container) {
-  background: #eef1f4;
+  background: var(--map-bg);
   font-family: var(--font);
   outline: none;
 }
 
-/* 底图与 TrajNexa_Map 完全一致：OSM 原色，不加反相/滤色，避免语义色被翻掉 */
-.map-leaflet :deep(.leaflet-tile-pane) {
-  filter: none;
+/* 底图压暗的滤镜统一放在 styles/map.css（.is-dark-base），
+   这里不能再写 .leaflet-tile-pane 的 filter，否则 scoped 优先级会盖掉它 */
+
+/* 底图边缘压一道很淡的内阴影，瓦片不会硬贴在工具条和状态栏下面 */
+.map-leaflet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 450;
+  pointer-events: none;
+  box-shadow: inset 0 0 26px rgba(23, 32, 42, 0.14);
 }
 
 .map-leaflet :deep(.leaflet-control-container) {
@@ -1740,12 +1623,12 @@ function focusAnchor() {
 
 .map-leaflet :deep(.map-tip) {
   padding: 3px 6px;
-  border: 1px solid #d5dde6;
+  border: 1px solid #b9c2cc;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.97);
   color: #1b2733;
   font-size: 10px;
-  box-shadow: 0 2px 8px rgba(15, 26, 38, 0.16);
+  box-shadow: 0 2px 8px rgba(15, 26, 38, 0.18);
 }
 
 .map-leaflet :deep(.map-tip::before) {
@@ -1759,6 +1642,10 @@ function focusAnchor() {
 
 .sw--real-unknown {
   background: #8b9bb0;
+}
+
+.sw--real-idle {
+  background: #6b7787;
 }
 
 .sw--fov-ident,

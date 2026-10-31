@@ -8,15 +8,23 @@ import WorkspaceMap from "./components/WorkspaceMap.vue";
 import SpatialDataPreview from "./components/SpatialDataPreview.vue";
 import LiveGisMap from "./components/LiveGisMap.vue";
 import AddElementModal from "./components/modals/AddElementModal.vue";
+import CaseManageModal from "./components/modals/CaseManageModal.vue";
 import CorrectionDialog from "./components/modals/CorrectionDialog.vue";
 import CoverageModal from "./components/modals/CoverageModal.vue";
 import ElementsDrawer from "./components/modals/ElementsDrawer.vue";
 import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
+import RecordingDirModal from "./components/modals/RecordingDirModal.vue";
+import VideoNamingModal from "./components/modals/VideoNamingModal.vue";
+import ClipReviewModal from "./components/modals/ClipReviewModal.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
-import { applyDemoHash } from "./store/workbench";
+import { applyDemoHash, loadCases } from "./store/workbench";
 
 const mapView = ref<"demo" | "preview" | "gis">("demo");
-onMounted(applyDemoHash);
+onMounted(() => {
+  applyDemoHash();
+  // 首次进入读取案件；有案件时默认选中最近创建的一个，保持原来的工作台视图
+  void loadCases(true);
+});
 </script>
 
 <template>
@@ -61,6 +69,11 @@ onMounted(applyDemoHash);
 
     <CoverageModal />
     <AddElementModal />
+    <RecordingDirModal />
+    <VideoNamingModal />
+    <ClipReviewModal />
+    <!-- 放在添加要素之后：从添加要素弹窗里打开案件管理时叠在它上面 -->
+    <CaseManageModal />
     <FeatureDetailSheet />
     <ElementsDrawer />
     <CorrectionDialog />

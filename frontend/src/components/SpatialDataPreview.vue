@@ -38,6 +38,8 @@ async function reload() {
 onMounted(reload);
 onUnmounted(() => controller?.abort());
 const selected = computed(() => data.value?.cameras.find((c) => c.map_camera_id === selectedId.value) ?? null);
+/** 视域等级文案：模板里不再用箭头函数，避免旧版 vue-tsc 推不出参数类型 */
+const fovLevelText = computed(() => (selected.value?.fov_levels ?? []).map((level) => level.level).join(" / ") || "无");
 const WIDTH = 1300, HEIGHT = 570;
 const project = computed(() => {
   const cams = data.value?.cameras ?? [];
@@ -129,7 +131,7 @@ function angle(v: number | null) { return v === null ? "未知" : String(v)+"°"
           <p>朝向：{{ angle(selected.bearing_deg) }} / 俯角：{{ angle(selected.tilt_deg) }}</p>
           <p>水平 FOV 参数：{{ angle(selected.horizontal_fov_deg) }}</p>
           <p>台账位姿质量：{{ selected.pose_quality }}</p>
-          <p>视域等级：{{ selected.fov_levels.map((f) => f.level).join(' / ') || '无' }}</p>
+          <p>视域等级：{{ fovLevelText }}</p>
         </div>
         <p v-else class="dim">点击摄像头点位查看元数据。蓝色代表有关联 UUID，橙色代表仅存在 GIS 点位。</p>
         <p class="warn">注意：FOV 是 Map 的模型计算几何，不能证明真实画面覆盖、录像可用性或对人员的辨识能力。</p>

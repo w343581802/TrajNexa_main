@@ -1,8 +1,20 @@
 <script setup lang="ts">
+import { onMounted, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import StatusChip from "./ui/StatusChip.vue";
-import { snapshot } from "../data/mock";
-import { actions, roundView, wb } from "../store/workbench";
+import ToolBar from "./ToolBar.vue";
+import { loadMapSnapshot } from "../services/mapSnapshot";
+import { actions, currentCase, currentCaseName, roundView, wb } from "../store/workbench";
+
+/** 顶栏显示的 Map 快照版本：取真实只读快照，不再用 mock 里的假版本号 */
+const mapRevision = ref<string>("—");
+onMounted(async () => {
+  try {
+    mapRevision.value = (await loadMapSnapshot()).spatial_revision || "—";
+  } catch {
+    mapRevision.value = "—";
+  }
+});
 </script>
 
 <template>
@@ -30,45 +42,51 @@ import { actions, roundView, wb } from "../store/workbench";
 
     <div class="topbar-sep" />
 
-    <div class="task">
+    <button
+      class="task"
+      type="button"
+      aria-haspopup="dialog"
+      :aria-label="`案件管理：当前案件 ${currentCaseName}`"
+      title="案件管理：新建 / 切换 / 删除案件"
+      @click="actions.openCases()"
+    >
       <span class="task-label">案件</span>
-      <span class="task-name truncate" :title="wb.taskName">{{ wb.taskName }}</span>
-      <AppIcon name="chevron-down" :size="12" class="task-caret" />
-      <span v-if="!wb.emptyMode" class="round-chip">
-        <b class="num">{{ roundView.id }}</b>
-        <span>{{ roundView.directionLabel }}</span>
-        <span class="round-win num">（18:00–20:12）</span>
+      <span v-if="currentCase" class="task-name truncate" :title="`${currentCase.name} · ${currentCase.code}`">
+        {{ currentCase.name }}
       </span>
-      <StatusChip v-else label="空任务" tone="muted" dot />
-    </div>
+      <span v-else class="task-name task-name--empty truncate" title="还没有选择案件，点击新建或切换案件">
+        未选择案件
+      </span>
+      <span v-if="!currentCase" class="task-new"><AppIcon name="plus" :size="10" />新建</span>
+      <span v-if="currentCase" class="task-code mono">{{ currentCase.code }}</span>
+      <span class="task-caret"><AppIcon name="chevron-down" :size="12" /></span>
+    </button>
 
-    <div class="topbar-grow" />
+    <span v-if="!wb.emptyMode" class="round-chip">
+      <b class="num">{{ roundView.id }}</b>
+      <span>{{ roundView.directionLabel }}</span>
+      <span class="round-win num">（{{ wb.from }}–{{ wb.to }}）</span>
+    </span>
+    <StatusChip v-else label="空任务" tone="muted" dot />
+
+    <div class="topbar-grow">
+      <ToolBar />
+    </div>
 
     <div class="meta meta--snapshot" title="空间点位 / FOV 均来自 TrajNexa_Map 已发布快照，主系统只读消费">
       <AppIcon name="map" :size="14" />
-      <span>Map 数据 <b class="mono">{{ snapshot.revision }}</b></span>
+      <span>Map 数据 <b class="mono">{{ mapRevision }}</b></span>
       <span class="meta-sub">只读</span>
     </div>
 
     <div class="meta meta--window" title="本次研判使用的真实时间窗">
       <AppIcon name="clock" :size="14" />
-      <span>时间范围 <b class="num">2026-10-25 18:00–24:00</b></span>
+      <span>时间范围 <b class="num">{{ wb.from }}–{{ wb.to }}</b></span>
     </div>
 
     <button class="meta meta--link" title="查看录像覆盖情况" @click="actions.openCoverage()">
       <AppIcon name="video" :size="14" />
       <span>录像覆盖</span>
-    </button>
-
-    <button
-      class="scene-switch"
-      :class="{ 'is-on': wb.emptyMode }"
-      :aria-pressed="wb.emptyMode"
-      title="切换为「未选择录像目录」的空任务工作台，用于核对空态"
-      @click="actions.switchScene(!wb.emptyMode)"
-    >
-      <span class="scene-track"><i /></span>
-      {{ wb.emptyMode ? "示例任务" : "空任务态" }}
     </button>
 
     <div class="user">
@@ -155,6 +173,16 @@ import { actions, roundView, wb } from "../store/workbench";
   align-items: center;
   gap: 9px;
   min-width: 0;
+  height: 30px;
+  padding: 0 7px 0 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.task:hover {
+  background: var(--bg-2);
+  border-color: var(--line-2);
 }
 
 .task-label {
@@ -168,7 +196,41 @@ import { actions, roundView, wb } from "../store/workbench";
   font-size: var(--fs-strong);
   font-weight: 600;
   color: var(--text-0);
-  max-width: 26ch;
+  max-width: 24ch;
+}
+
+.task-name--empty {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.task-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.task-code {
+  flex: none;
+  padding: 0 5px;
+  height: 17px;
+  line-height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-3);
+  font-size: 9.5px;
+  letter-spacing: 0.01em;
 }
 
 .task-id {
@@ -178,8 +240,13 @@ import { actions, roundView, wb } from "../store/workbench";
 }
 
 .task-caret {
+  display: flex;
   color: var(--text-4);
   flex: none;
+}
+
+.task:hover .task-caret {
+  color: var(--text-2);
 }
 
 .round-chip {
@@ -220,6 +287,8 @@ import { actions, roundView, wb } from "../store/workbench";
 .topbar-grow {
   flex: 1;
   min-width: 6px;
+  display: flex;
+  align-items: center;
 }
 
 .meta {
@@ -356,6 +425,7 @@ import { actions, roundView, wb } from "../store/workbench";
 
 @media (max-width: 1180px) {
   .task-id,
+  .task-code,
   .scene-switch {
     display: none;
   }

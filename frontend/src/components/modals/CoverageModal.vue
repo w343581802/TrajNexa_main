@@ -3,23 +3,26 @@ import { computed, reactive, ref } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
-import {
-  cameras,
-  coverageDate,
-  coverageSummary,
-  minutesToLabel,
-  type Camera,
-  type CoverageInterval,
-} from "../../data/mock";
-import { toast, ui, wb } from "../../store/workbench";
+import RecordingClipNameModal from "./RecordingClipNameModal.vue";
+import type { RecordingClip } from "../../services/mainApi";
+import { minutesToLabel } from "../../data/mock";
+import { actions, recordingClips, recordingSummary, toast, ui, wb } from "../../store/workbench";
+
+type CovStatus = "indexed" | "unknown" | "scanning" | "error";
+type CovInterval = { id: string; s: number; e: number; status: CovStatus; files: string[]; note?: string };
+type CovCamera = { id: string; name: string; channel: string; analyzing: boolean; notice: boolean; intervals: CovInterval[] };
 
 const query = ref("");
 const filter = ref<"all" | "with" | "issues">("all");
-const date = ref(coverageDate);
+/** 空串 = 不按日期过滤（扫描结果里可能跨天） */
+const date = ref("");
 
-const windowState = reactive({ start: 0, span: 1440, label: "全天" });
+const windowState = reactive({ start: 0, span: 1440 });
+/** 默认自动贴合数据范围；用户选固定区间或平移后改为 custom */
+const rangeId = ref<"auto" | "day" | "night" | "evening" | "hour" | "custom">("auto");
 
 const rangeOptions = [
+  { id: "auto", label: "自动（贴合录像范围）", start: 0, span: 0 },
   { id: "day", label: "全天 00:00–24:00", start: 0, span: 1440 },
   { id: "night", label: "当夜 18:00–24:00", start: 1080, span: 360 },
   { id: "evening", label: "20:00–22:00", start: 1200, span: 120 },
@@ -27,79 +30,204 @@ const rangeOptions = [
 ];
 
 function setRange(id: string) {
+  if (id === "auto") {
+    rangeId.value = "auto";
+    return;
+  }
   const option = rangeOptions.find((item) => item.id === id);
   if (!option) return;
   windowState.start = option.start;
   windowState.span = option.span;
-  windowState.label = option.label;
+  rangeId.value = option.id as typeof rangeId.value;
 }
 
 function shiftWindow(direction: -1 | 1) {
-  const step = windowState.span / 2;
-  windowState.start = Math.min(1440 - windowState.span, Math.max(0, windowState.start + direction * step));
-  windowState.label = "自定义区间";
+  const step = viewSpan.value / 2;
+  windowState.start = Math.min(Math.max(0, 1440 - viewSpan.value), Math.max(0, viewStart.value + direction * step));
+  windowState.span = viewSpan.value;
+  rangeId.value = "custom";
 }
 
-const pct = (minutes: number) => ((minutes - windowState.start) / windowState.span) * 100;
+const viewStart = computed(() => (rangeId.value === "auto" ? autoWindow.value.start : windowState.start));
+const viewSpan = computed(() => (rangeId.value === "auto" ? autoWindow.value.span : windowState.span));
+
+const pct = (minutes: number) => ((minutes - viewStart.value) / viewSpan.value) * 100;
+
+/** 自动区间：贴合实际录像的起止，留一点边距，并对齐到易读刻度 */
+const autoWindow = computed(() => {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const row of rows.value) {
+    for (const interval of row.intervals) {
+      min = Math.min(min, interval.s);
+      max = Math.max(max, interval.e);
+    }
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return { start: 0, span: 1440 };
+  }
+  const pad = Math.max(2, (max - min) * 0.08);
+  let start = Math.max(0, min - pad);
+  let end = Math.min(1440, max + pad);
+  if (end - start < 1) {
+    start = Math.max(0, start - 1);
+    end = Math.min(1440, end + 1);
+  }
+  const step = pickStep(end - start);
+  start = Math.max(0, Math.floor(start / step) * step);
+  end = Math.min(1440, Math.ceil(end / step) * step);
+  if (end - start < step) end = Math.min(1440, start + step);
+  if (start >= 1440) start = Math.max(0, 1440 - step);
+  return { start, span: Math.max(1, end - start) };
+});
+
+function pickStep(span: number) {
+  for (const step of [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360]) {
+    if (span / step <= 8) return step;
+  }
+  return 360;
+}
 
 const ticks = computed(() => {
-  const step = windowState.span <= 60 ? 10 : windowState.span <= 120 ? 20 : windowState.span <= 360 ? 30 : 120;
+  const span = viewSpan.value;
+  const step = span <= 6 ? 1 : span <= 12 ? 2 : span <= 30 ? 5 : span <= 60 ? 10 : span <= 120 ? 20 : span <= 360 ? 30 : 120;
+  const start = viewStart.value;
+  const end = start + span;
   const list: number[] = [];
-  for (let m = windowState.start; m <= windowState.start + windowState.span; m += step) list.push(m);
+  for (let m = start; m <= end; m += step) list.push(m);
+  if (list[list.length - 1] < end) list.push(end);
   return list;
 });
 
 const tickLabel = (minutes: number) => (minutes >= 1440 ? "24:00" : minutesToLabel(minutes));
 
 const tableWidth = computed(() => {
+  if (rangeId.value === "auto") return "100%";
   const factor = windowState.span >= 1440 ? 1 : windowState.span <= 60 ? 6 : windowState.span <= 120 ? 4 : 3;
   return `${factor * 100}%`;
 });
 
-const hasIndexed = (camera: Camera) => camera.intervals.some((i) => i.status === "indexed");
+/** 当前时间窗对应的预设 id（自定义区间时为 custom） */
+const currentRangeId = computed(() => rangeId.value);
+
+/** 从 `start_local` 取当天的分钟数；只读到开始时间，结尾时间不推断 */
+function startMinutes(iso: string | null): number | null {
+  if (!iso) return null;
+  const match = /T(\d{2}):(\d{2}):(\d{2})/.exec(iso);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]) + Number(match[3]) / 60;
+}
+
+const hasIndexed = (camera: CovCamera) => camera.intervals.some((i) => i.status === "indexed");
+
+/** 真实录像资源扫描结果：按「匹配到的镜头 / 识别到的名称」归行，不再有演示数据 */
+const rows = computed<CovCamera[]>(() => {
+  const groups = new Map<string, CovCamera>();
+  for (const clip of recordingClips.value) {
+    if (date.value && !(clip.start_local ?? "").startsWith(date.value)) continue;
+    const start = startMinutes(clip.start_local);
+    if (start === null) continue;
+    const key = clip.camera_uuid || clip.camera_name || "(名称未识别)";
+    let row = groups.get(key);
+    if (!row) {
+      row = {
+        id: key,
+        name: clip.camera_name ?? "名称未识别",
+        channel: "",
+        analyzing: false,
+        notice: clip.match_status !== "matched",
+        intervals: [],
+      };
+      groups.set(key, row);
+    }
+    const duration = Math.max(0.5, (clip.duration_seconds ?? 0) / 60);
+    row.intervals.push({
+      id: clip.id,
+      s: start,
+      e: Math.min(1440, start + duration),
+      status: clip.match_status === "matched" ? "indexed" : "unknown",
+      files: [clip.file_name],
+      note: clip.match_status === "matched" ? undefined : "未唯一匹配到台账镜头",
+    });
+  }
+  const list = [...groups.values()];
+  for (const row of list) {
+    row.intervals.sort((a, b) => a.s - b.s);
+    row.channel = `${row.intervals.length} 段录像`;
+  }
+  return list.sort((a, b) => a.name.localeCompare(b.name, "zh"));
+});
 
 const filteredCameras = computed(() => {
   const keyword = query.value.trim().toLowerCase();
-  return cameras.filter((camera) => {
-    if (keyword && !`${camera.name} ${camera.id} ${camera.site} ${camera.uuid}`.toLowerCase().includes(keyword)) return false;
-    if (filter.value === "with") return hasIndexed(camera);
-    if (filter.value === "issues") return camera.intervals.some((i) => i.status === "error" || i.status === "unknown");
+  return rows.value.filter((camera) => {
+    if (keyword && !`${camera.name} ${camera.id}`.toLowerCase().includes(keyword)) return false;
+    if (filter.value === "with") return !camera.notice;
+    if (filter.value === "issues") return camera.notice;
     return true;
   });
 });
 
-const selected = ref<{ cameraId: string; interval: CoverageInterval } | null>(null);
+const covSummary = computed(() => {
+  const summary = recordingSummary.value;
+  const last = summary?.last_scan_at ? summary.last_scan_at.replace("T", " ").slice(5, 16) : "—";
+  return {
+    cameras: rows.value.length,
+    scanned: summary?.file_count ?? recordingClips.value.length,
+    timed: summary?.time_count ?? 0,
+    matched: summary?.matched_count ?? 0,
+    issues: rows.value.filter((row) => row.notice).length,
+    unknownFiles: recordingClips.value.filter((clip) => !clip.start_local).length,
+    last,
+  };
+});
 
-function selectInterval(camera: Camera, interval: CoverageInterval) {
+const selected = ref<{ cameraId: string; interval: CovInterval } | null>(null);
+const reviewClip = ref<RecordingClip | null>(null);
+
+function reviewInterval(interval: CovInterval) {
+  const clip = recordingClips.value.find((item) => item.id === interval.id);
+  if (clip) reviewClip.value = clip;
+}
+
+function selectInterval(camera: CovCamera, interval: CovInterval) {
   selected.value = { cameraId: camera.id, interval };
   wb.selectedCameraId = camera.id;
   wb.selectedIntervalId = interval.id;
+  reviewInterval(interval);
 }
 
-function isSelected(camera: Camera, interval: CoverageInterval) {
+async function saveReview(name: string, note: string) {
+  const clip = reviewClip.value;
+  if (!clip) return;
+  const saved = await actions.setRecordingClipName(clip.id, name, note || undefined);
+  if (saved) reviewClip.value = null;
+}
+
+function isSelected(camera: CovCamera, interval: CovInterval) {
   return selected.value?.cameraId === camera.id && selected.value.interval.id === interval.id;
 }
 
-function barStyle(interval: CoverageInterval) {
-  const start = Math.max(interval.s, windowState.start);
-  const end = Math.min(interval.e, windowState.start + windowState.span);
-  return { left: `${pct(start)}%`, width: `${Math.max(0.4, pct(end) - pct(start))}%` };
+function barStyle(interval: CovInterval) {
+  const start = Math.max(interval.s, viewStart.value);
+  const end = Math.min(interval.e, viewStart.value + viewSpan.value);
+  return { left: `${pct(start)}%`, width: `${Math.max(0.6, pct(end) - pct(start))}%` };
 }
 
-const intervalStatusText = (status: CoverageInterval["status"]) =>
-  status === "indexed" ? "已索引录像" : status === "scanning" ? "扫描中（未知）" : status === "unknown" ? "时间未知" : "读取 / 解析异常";
+const intervalStatusText = (status: CovStatus) =>
+  status === "indexed" ? "已匹配到镜头，读到开始时间" : status === "unknown" ? "未匹配到镜头 / 时间未知" : status === "scanning" ? "扫描中（未知）" : "读取 / 解析异常";
 
-const selectedCamera = computed(() => cameras.find((c) => c.id === selected.value?.cameraId) ?? null);
+const selectedCamera = computed(() => rows.value.find((c) => c.id === selected.value?.cameraId) ?? null);
 
 function locateOnMap() {
   if (!selected.value) return;
   wb.selectedCameraId = selected.value.cameraId;
   ui.coverageOpen = false;
-  toast("已在地图定位该摄像头", "ok");
+  toast("已选中该镜头；Map 上按名称查看它的点位", "ok");
 }
 
 function refresh() {
-  toast("已触发增量索引：只重算受影响摄像头与时间段（演示）", "ok");
+  toast("录像目录扫描请在底部「录像资源」里发起", "info");
 }
 </script>
 
@@ -107,31 +235,31 @@ function refresh() {
   <BaseModal
     :open="ui.coverageOpen"
     title="摄像头录像覆盖时间轴"
-    subtitle="绿色区段严格按录像起止绘制；灰色只表示当前目录、已完成索引范围内未发现录像，不代表摄像头离线。"
+    subtitle="区段来自录像资源扫描结果：只读到开始时间，结尾时间不推断（留给研判读取视频时补充）。"
     width="xl"
     height="88vh"
     @close="ui.coverageOpen = false"
   >
     <div class="cov">
       <div class="cov-summary">
-        <div class="cov-metric"><span>摄像头</span><b class="num">{{ coverageSummary.cameras }}</b></div>
-        <div class="cov-metric"><span>当前窗内有录像</span><b class="num ok">{{ coverageSummary.withRecording }}</b></div>
-        <div class="cov-metric"><span>未发现录像</span><b class="num">{{ coverageSummary.noRecording }}</b></div>
-        <div class="cov-metric"><span>映射异常</span><b class="num warn">{{ coverageSummary.mappingIssues }}</b></div>
-        <div class="cov-metric"><span>时间未知文件</span><b class="num warn">{{ coverageSummary.unknownFiles }}</b></div>
-        <div class="cov-metric"><span>上次索引</span><b class="num">{{ coverageSummary.lastIndex }}</b></div>
+        <div class="cov-metric"><span>已扫描文件</span><b class="num ok">{{ covSummary.scanned }}</b></div>
+        <div class="cov-metric"><span>读到开始时间</span><b class="num">{{ covSummary.timed }}</b></div>
+        <div class="cov-metric"><span>匹配到镜头</span><b class="num ok">{{ covSummary.matched }}</b></div>
+        <div class="cov-metric"><span>未匹配（需人工核查）</span><b class="num warn">{{ covSummary.issues }}</b></div>
+        <div class="cov-metric"><span>时间未知文件</span><b class="num warn">{{ covSummary.unknownFiles }}</b></div>
+        <div class="cov-metric"><span>上次扫描</span><b class="num">{{ covSummary.last }}</b></div>
         <span class="grow" />
-        <StatusChip label="增量刷新中 · 部分可用" tone="warn" dot />
+        <StatusChip :label="recordingSummary?.scanning ? '扫描中' : '只读扫描结果'" :tone="recordingSummary?.scanning ? 'warn' : 'info'" dot />
       </div>
 
       <div class="cov-toolbar">
-        <label class="tb-field">
+        <label class="tb-field" title="留空表示全部日期">
           <span>日期</span>
           <input v-model="date" class="input input--date num" type="date" />
         </label>
         <label class="tb-field">
           <span>范围</span>
-          <select class="select select--sm" :value="rangeOptions.find((r) => r.span === windowState.span && r.start === windowState.start)?.id ?? 'custom'" @change="setRange(($event.target as HTMLSelectElement).value)">
+          <select class="select select--sm" :value="currentRangeId" @change="setRange(($event.target as HTMLSelectElement).value)">
             <option v-for="option in rangeOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
             <option value="custom" disabled>自定义区间</option>
           </select>
@@ -139,7 +267,7 @@ function refresh() {
 
         <div class="cov-nav">
           <button class="icon-btn" aria-label="向前平移时间窗" title="向前平移" @click="shiftWindow(-1)"><AppIcon name="chevron-left" :size="14" /></button>
-          <span class="cov-nav-label num">{{ tickLabel(windowState.start) }} – {{ tickLabel(Math.min(1440, windowState.start + windowState.span)) }}</span>
+          <span class="cov-nav-label num">{{ tickLabel(viewStart) }} – {{ tickLabel(Math.min(1440, viewStart + viewSpan)) }}</span>
           <button class="icon-btn" aria-label="向后平移时间窗" title="向后平移" @click="shiftWindow(1)"><AppIcon name="chevron-right" :size="14" /></button>
         </div>
 
@@ -151,8 +279,8 @@ function refresh() {
         <div class="cov-seg">
           <button v-for="item in ([
             { id: 'all', label: '全部' },
-            { id: 'with', label: '有录像' },
-            { id: 'issues', label: '异常' }
+            { id: 'with', label: '已匹配' },
+            { id: 'issues', label: '未匹配' }
           ] as const)" :key="item.id" :class="{ 'is-on': filter === item.id }" @click="filter = item.id">
             {{ item.label }}
           </button>
@@ -184,14 +312,14 @@ function refresh() {
             class="cov-row"
             :class="{ 'is-selected': wb.selectedCameraId === camera.id }"
           >
-            <button class="cov-cam cov-sticky" @click="wb.selectedCameraId = camera.id">
+            <button class="cov-cam cov-sticky" :title="camera.name" @click="wb.selectedCameraId = camera.id">
               <i class="cov-dot" :data-state="camera.analyzing ? 'busy' : hasIndexed(camera) ? 'ok' : 'idle'" />
               <span class="cov-cam-text">
                 <strong>{{ camera.name }}</strong>
-                <span class="mono">{{ camera.id }} · {{ camera.channel }}</span>
+                <span class="mono">{{ camera.channel }}</span>
               </span>
-              <span v-if="camera.notice" class="cov-alert" title="文件映射 / 时间解析异常，需人工核查">!</span>
-              <span class="cov-cam-count num">{{ camera.intervals.filter((i) => i.status === "indexed").length }}</span>
+              <span v-if="camera.notice" class="cov-alert" title="未唯一匹配到台账镜头，需人工核查">!</span>
+              <span class="cov-cam-count num">{{ camera.intervals.length }}</span>
             </button>
 
             <div class="cov-track">
@@ -210,14 +338,15 @@ function refresh() {
             </div>
           </div>
 
-          <div v-if="!filteredCameras.length" class="cov-empty">没有匹配的摄像头或筛选条件</div>
+          <div v-if="!filteredCameras.length" class="cov-empty">
+            {{ recordingClips.length ? "没有匹配的镜头或筛选条件" : "该案件还没有扫描到录像：先在底部「录像资源」里添加视频目录并扫描" }}
+          </div>
         </div>
       </div>
 
       <div class="cov-detail">
         <template v-if="selected && selectedCamera">
           <div class="detail-head">
-            <span class="mono chip" data-tone="info">{{ selected.cameraId }}</span>
             <strong>{{ selectedCamera.name }}</strong>
             <span class="num">{{ minutesToLabel(selected.interval.s) }} – {{ minutesToLabel(selected.interval.e) }}</span>
             <span class="dim">时长 {{ selected.interval.e - selected.interval.s }} 分钟 · {{ selected.interval.files.length }} 个文件 · {{ intervalStatusText(selected.interval.status) }}</span>
@@ -227,8 +356,8 @@ function refresh() {
             <span v-if="!selected.interval.files.length" class="dim">{{ selected.interval.note ?? "该区间尚无已索引文件" }}</span>
           </div>
           <div class="detail-actions">
-            <button class="btn btn--sm btn--outline" @click="toast('按需预览需要后端授权片段接口（演示）', 'info')">
-              <AppIcon name="play" :size="12" />打开按需预览
+            <button class="btn btn--sm btn--outline" @click="reviewInterval(selected.interval)">
+              <AppIcon name="check" :size="12" />审核 / 命名
             </button>
             <button class="btn btn--sm btn--primary" @click="locateOnMap">
               <AppIcon name="target" :size="12" />定位到地图
@@ -236,20 +365,27 @@ function refresh() {
           </div>
         </template>
         <p v-else class="detail-empty dim">
-          点击绿色区段查看文件、实际起止时间与读取状态。灰色区段不能凭空播放；未知 / 扫描中区间使用斜纹标记，不假装“确定无录像”。
+          点击区段查看文件名、开始时间与匹配状态。扫描只读开始时间；段长按视频技术时长绘制，不代表已确认结束时间。
         </p>
       </div>
 
       <div class="cov-legend">
-        <span><i class="lg lg--ok" />绿色：已索引录像（可并集叠加多个文件）</span>
-        <span><i class="lg lg--idle" />灰色：已完成索引范围内未发现录像</span>
-        <span><i class="lg lg--unknown" />斜纹：时间未知 / 扫描中</span>
+        <span><i class="lg lg--ok" />绿色：匹配到台账镜头（已读到开始时间）</span>
+        <span><i class="lg lg--unknown" />斜纹：未唯一匹配到镜头，名称待人工核对</span>
+        <span><i class="lg lg--idle" />灰：该镜头暂无扫描到的录像</span>
         <span><i class="lg lg--error" />红：文件读取或解析异常</span>
         <span class="grow" />
-        <span class="dim">单行与地图摄像头一一对应，行高严格对齐</span>
+        <span class="dim">一段视频一行区段；段长按技术时长绘制，不推断结束时间</span>
       </div>
     </div>
   </BaseModal>
+
+  <RecordingClipNameModal
+    :open="Boolean(reviewClip)"
+    :clip="reviewClip"
+    @close="reviewClip = null"
+    @save="saveReview"
+  />
 </template>
 
 <style scoped>
@@ -258,15 +394,15 @@ function refresh() {
   flex-direction: column;
   min-height: 0;
   flex: 1;
-  padding: 10px 14px 12px;
-  gap: 8px;
+  padding: 12px 16px 14px;
+  gap: 10px;
 }
 
 .cov-summary {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 8px 12px;
+  gap: 20px;
+  padding: 10px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--bg-2);
@@ -279,13 +415,13 @@ function refresh() {
 }
 
 .cov-metric span {
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-3);
   white-space: nowrap;
 }
 
 .cov-metric b {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 650;
   color: var(--text-0);
   line-height: 1.1;
@@ -306,7 +442,7 @@ function refresh() {
 .cov-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: none;
   flex-wrap: wrap;
 }
@@ -314,21 +450,21 @@ function refresh() {
 .tb-field {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 11.5px;
   color: var(--text-3);
 }
 
 .input--date {
-  width: 130px;
-  height: 26px;
-  font-size: 11px;
-  padding: 0 7px;
+  width: 145px;
+  height: 30px;
+  font-size: 12px;
+  padding: 0 8px;
 }
 
 .select--sm {
-  height: 26px;
-  font-size: 10.5px;
+  height: 30px;
+  font-size: 12px;
   width: auto;
 }
 
@@ -343,14 +479,14 @@ function refresh() {
 }
 
 .cov-nav .icon-btn {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .cov-nav-label {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--text-1);
-  padding: 0 4px;
+  padding: 0 6px;
   white-space: nowrap;
 }
 
@@ -358,20 +494,20 @@ function refresh() {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 8px;
+  height: 30px;
+  padding: 0 9px;
   border-radius: 6px;
   border: 1px solid var(--line-2);
   background: var(--bg-input);
   color: var(--text-3);
-  width: 210px;
+  width: 230px;
 }
 
 .cov-search input {
   border: 0;
   background: transparent;
   outline: none;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-1);
   width: 100%;
 }
@@ -389,10 +525,10 @@ function refresh() {
 }
 
 .cov-seg button {
-  height: 20px;
-  padding: 0 8px;
+  height: 24px;
+  padding: 0 10px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--text-2);
 }
 
@@ -427,8 +563,8 @@ function refresh() {
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: 236px minmax(600px, 1fr);
-  height: 28px;
+  grid-template-columns: 260px minmax(600px, 1fr);
+  height: 32px;
   background: #0b121b;
   border-bottom: 1px solid var(--line-2);
 }
@@ -437,8 +573,8 @@ function refresh() {
   display: flex;
   align-items: center;
   padding-left: 12px;
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--text-3);
 }
 
@@ -458,7 +594,7 @@ function refresh() {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-4);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -474,8 +610,8 @@ function refresh() {
 
 .cov-row {
   display: grid;
-  grid-template-columns: 236px minmax(600px, 1fr);
-  height: 30px;
+  grid-template-columns: 260px minmax(600px, 1fr);
+  height: 36px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
 }
 
@@ -522,7 +658,7 @@ function refresh() {
 }
 
 .cov-cam-text strong {
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-1);
   overflow: hidden;
@@ -531,7 +667,7 @@ function refresh() {
 }
 
 .cov-cam-text span {
-  font-size: 8.5px;
+  font-size: 9.5px;
   color: var(--text-4);
 }
 
@@ -550,12 +686,12 @@ function refresh() {
 
 .cov-cam-count {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--text-3);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 99px;
-  padding: 0 5px;
-  line-height: 14px;
+  padding: 0 6px;
+  line-height: 16px;
 }
 
 .cov-track {
@@ -577,15 +713,15 @@ function refresh() {
 
 .cov-bar {
   position: absolute;
-  top: 8px;
-  height: 14px;
+  top: 9px;
+  height: 18px;
   border-radius: 3px;
   border: 1px solid rgba(47, 207, 146, 0.4);
   background: linear-gradient(180deg, rgba(47, 207, 146, 0.55), rgba(47, 207, 146, 0.3));
   color: #d8fff0;
-  font-size: 8px;
-  line-height: 12px;
-  padding: 0 3px;
+  font-size: 9.5px;
+  line-height: 16px;
+  padding: 0 4px;
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
@@ -629,9 +765,9 @@ function refresh() {
 .cov-detail {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 42px;
-  padding: 6px 10px;
+  gap: 14px;
+  min-height: 48px;
+  padding: 8px 12px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--bg-2);
@@ -647,18 +783,18 @@ function refresh() {
 }
 
 .detail-head strong {
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--text-0);
   font-weight: 600;
 }
 
 .detail-head .num {
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--text-1);
 }
 
 .detail-head .dim {
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
 .detail-files {
@@ -670,9 +806,9 @@ function refresh() {
 }
 
 .detail-file {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--text-2);
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-radius: 4px;
   border: 1px solid var(--line);
   background: var(--bg-input);
@@ -681,19 +817,19 @@ function refresh() {
 
 .detail-actions {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   flex: none;
 }
 
 .detail-empty {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .cov-legend {
   display: flex;
   align-items: center;
-  gap: 16px;
-  font-size: 9.5px;
+  gap: 18px;
+  font-size: 11px;
   color: var(--text-3);
   flex: none;
   padding: 0 2px;

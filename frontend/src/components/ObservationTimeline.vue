@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
-import { cameras, type Observation } from "../data/mock";
+import { type Observation } from "../data/mock";
 import { actions, elementList, filteredObservations, timelineCounts, wb, type TimelineFilter } from "../store/workbench";
 
 const statusOptions: { id: TimelineFilter; label: string }[] = [
@@ -15,13 +15,11 @@ const statusOptions: { id: TimelineFilter; label: string }[] = [
 
 const order = ref<"asc" | "desc">("asc");
 
-const cameraName = (id: string | null) => cameras.find((camera) => camera.id === id)?.name ?? "";
-
-/** 用户添加但未绑定镜头目录的要素：显示识别到的角标名，而不是退回「未知盲区」 */
+/** 时间轴主标签：优先要素里记录的摄像头名称，其次镜头 id；盲区不编造名称 */
 function camLabel(obs: Observation) {
-  if (obs.cameraId) return `${obs.cameraId} ${cameraName(obs.cameraId)}`;
   const element = obs.elementId ? elementList.value.find((item) => item.id === obs.elementId) : undefined;
   if (element?.cameraLabel) return element.cameraLabel;
+  if (obs.cameraId) return obs.cameraId;
   return `未知盲区 ${obs.title.replace(/^未知盲区\s*·\s*/, "")}`;
 }
 
@@ -31,6 +29,12 @@ const list = computed(() => {
 });
 
 const total = computed(() => timelineCounts.value);
+
+/** 日分组标签取要素里记录的实际日期，没有就显示「本日」 */
+const dayLabel = computed(() => {
+  const element = elementList.value.find((item) => /^\d{4}-\d{2}-\d{2}/.test(item.time));
+  return element ? element.time.slice(0, 10) : "本日";
+});
 
 function statusOf(obs: Observation) {
   if (obs.kind === "anchor") return { label: "起始锚点", tone: "anchor" };
@@ -105,7 +109,7 @@ const dotTone = (obs: Observation) => statusOf(obs).tone;
           <button class="day-toggle" title="本日分组">
             <AppIcon name="chevron-down" :size="12" />
           </button>
-          <span class="day-label num">2026-10-25</span>
+          <span class="day-label num">{{ dayLabel }}</span>
         </div>
 
         <div class="tl">
@@ -120,14 +124,13 @@ const dotTone = (obs: Observation) => statusOf(obs).tone;
               <div class="tl-top">
                 <span class="tl-time num">{{ obs.timeLabel }}</span>
                 <span class="tl-cam">{{ camLabel(obs) }}</span>
-                <span v-if="obs.elementId" class="tl-el num">{{ obs.elementId }}</span>
                 <span v-if="obs.round" class="tl-round num">{{ obs.round }}</span>
               </div>
               <div class="tl-mid">
                 <span class="tl-thumb">
                   <MockFrame
                     :chrome="false"
-                    :label="obs.cameraId ?? (obs.elementId ? '候选来源' : '未知盲区')"
+                    :label="camLabel(obs)"
                     :time="obs.timeLabel"
                     :tone="obs.kind === 'anchor' ? 'gray' : 'color'"
                     :quality="obs.reliability === 'invalid' ? 'low' : 'good'"

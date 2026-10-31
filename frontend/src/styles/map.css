@@ -1,0 +1,21 @@
+/* ------------------------------------------------------------------
+ * 地图底图：暗色
+ *
+ * 做法直接对齐 TrajNexa_Map（`front-end/src/js/map.js` + `css/main.css`）：
+ * 瓦片图层带 `.dark-map-tiles`，暗色主题下 `--dark-map-filter: brightness(0.7) contrast(1.2)`，
+ * 亮色主题下是 `none`。这里用同一个值，只把它挂在瓦片层上。
+ *
+ * 效果：OSM 的米白陆地压成浅灰（约 #b1afab）、米色建筑压成灰米、主干道橙色压暗，
+ * 注记仍是深灰、路网仍是白线，层级不变——和 TrajNexa_Map 暗色模式一模一样。
+ * 曾经试过 `invert(1) hue-rotate(180deg)`：颜色看着更"夜"，但 OSM 的路面是白色，
+ * 反相后路面比底色还暗，路网层级整个翻过来，城市尺度上糊成一片，弃用。
+ *
+ * 只作用在瓦片层：标记（markerPane）、矢量视域（overlayPane）、弹窗（popupPane）
+ * 都在别的 pane，辨识/识别/观察三色不受影响。
+ * 卫星影像不加这个类：影像要当人工判读依据，不做调色。
+ * 用到的地方：WorkspaceMap（地图模式）、LiveGisMap（勾选在线瓦片时）。
+ * ------------------------------------------------------------------ */
+.is-dark-base .leaflet-tile-pane {
+  filter: brightness(0.7) contrast(1.2);
+  transition: filter 0.25s ease;
+}

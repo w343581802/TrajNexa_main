@@ -3,12 +3,13 @@ import { computed, reactive, ref, watch } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
-import { actions, elementList, toast, ui, type ElementPayload } from "../../store/workbench";
+import { actions, currentCase, elementList, pendingElementFile, toast, ui, type ElementPayload } from "../../store/workbench";
 import {
   CAMERA_STATUS_TEXT,
   TIME_STATUS_TEXT,
   cameraNameCandidates,
   mainApi,
+  overlayIdentity,
   runInspect,
   timeCandidates,
   type CameraCatalogEntry,
@@ -16,31 +17,20 @@ import {
   type MediaItem,
 } from "../../services/mainApi";
 
-const CEILING_EVENT_DATE = "2026-10-25";
+/** 新建要素的默认日期 = 本机今天（不再写死演示日期） */
+const DEFAULT_EVENT_DATE = (() => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+})();
 
-/* ------------------------------ 媒体 ------------------------------ */
+/* ------------------------------ 截图（添加要素只收截图） ------------------------------ */
 
-const mediaList = ref<MediaItem[]>([]);
-const mediaQuery = ref("");
+/** 本次添加要素上传的截图；不再从媒体库挑多个素材，一张图走一次识别 */
+const selectedMedia = ref<MediaItem | null>(null);
+const selectedMediaId = computed(() => selectedMedia.value?.id ?? null);
 const mediaLoading = ref(false);
 const mediaError = ref<string | null>(null);
-const selectedMediaId = ref<string | null>(null);
-
-const selectedMedia = computed(() => mediaList.value.find((item) => item.id === selectedMediaId.value) ?? null);
-
-const filteredMedia = computed(() => {
-  const keyword = mediaQuery.value.trim().toLowerCase();
-  const seen = new Set<string>();
-  const unique = [...mediaList.value]
-    .sort((a, b) => b.ingested_at.localeCompare(a.ingested_at))
-    .filter((item) => {
-      if (seen.has(item.sha256)) return false;
-      seen.add(item.sha256);
-      return true;
-    });
-  if (!keyword) return unique.slice(0, 12);
-  return unique.filter((item) => item.original_name.toLowerCase().includes(keyword)).slice(0, 12);
-});
 
 function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
@@ -48,12 +38,25 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
 }
 
-async function loadMedia() {
+/** 选图 → 上传到当前案件 → 自动识别画面角标时间与摄像头名称 */
+async function upload(file: File) {
+  if (!currentCase.value) {
+    toast("请先在「案件」中新建或选择案件，截图才会归属案件", "warn");
+    return;
+  }
+  if (!file.type.startsWith("image/")) {
+    toast("添加要素只接受截图（图片）；录像请在「录像资源」里添加目录", "warn");
+    return;
+  }
   mediaLoading.value = true;
   mediaError.value = null;
+  recognizeError.value = null;
+  report.value = null;
   try {
-    mediaList.value = await mainApi.listMedia();
-    if (!selectedMediaId.value && mediaList.value.length) selectedMediaId.value = mediaList.value[0].id;
+    const media = await mainApi.uploadMedia(file, currentCase.value.id);
+    selectedMedia.value = media;
+    toast(`已上传 ${media.original_name}，正在识别画面角标`, "info");
+    await recognize();
   } catch (error) {
     mediaError.value = error instanceof Error ? error.message : String(error);
   } finally {
@@ -61,23 +64,11 @@ async function loadMedia() {
   }
 }
 
-async function uploadFile(event: Event) {
+function uploadFile(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
-  if (!file) return;
-  mediaLoading.value = true;
-  mediaError.value = null;
-  try {
-    const media = await mainApi.uploadMedia(file);
-    await loadMedia();
-    selectedMediaId.value = media.id;
-    toast(`已上传 ${media.original_name}，可以开始识别`, "ok");
-  } catch (error) {
-    mediaError.value = error instanceof Error ? error.message : String(error);
-  } finally {
-    mediaLoading.value = false;
-    input.value = "";
-  }
+  input.value = "";
+  if (file) void upload(file);
 }
 
 /* ------------------------------ 识别作业 ------------------------------ */
@@ -91,6 +82,16 @@ const recognizeError = ref<string | null>(null);
 
 const timeList = computed(() => (report.value ? timeCandidates(report.value.result_json) : []));
 const nameList = computed(() => (report.value ? cameraNameCandidates(report.value.result_json) : []));
+/** 与录像资源扫描 / 视频命名工具同一份结论：读到什么、从哪儿读到的、还缺什么 */
+const identity = computed(() => (report.value ? overlayIdentity(report.value.result_json) : null));
+/** 时间来自文件名兜底时必须显式说明，不能让人以为角标确认过 */
+const identityNotes = computed(() => {
+  const value = identity.value;
+  if (!value) return [] as string[];
+  const notes: string[] = [...value.warnings];
+  if (value.time_source === "filename") notes.push("拍摄时间来自文件名兜底，未由画面角标确认");
+  return [...new Set(notes)];
+});
 /** 报告里记录的识别引擎版本，用来核对是否真的跑在 PP-OCRv6 上 */
 const engineLabel = computed(() => {
   const engine = report.value?.result_json.time.ocr_engine;
@@ -140,12 +141,19 @@ async function recognize() {
 
 /** 把识别结果写进表单：只填不替，人工仍可改 */
 function applyRecognition(result: InspectionReport) {
+  const normalized = overlayIdentity(result.result_json);
   const best = timeCandidates(result.result_json)[0];
   if (best) {
     timeUnknown.value = false;
-    date.value = best.date ?? CEILING_EVENT_DATE;
+    date.value = best.date ?? DEFAULT_EVENT_DATE;
     timeLabel.value = best.time ?? "";
     timeIndex.value = 0;
+  } else if (normalized.capture_time) {
+    // 角标读不到时间、但文件名里有时间戳：按后端同一口径兜底填入，界面标「文件名兜底」
+    timeUnknown.value = false;
+    date.value = normalized.capture_time.slice(0, 10);
+    timeLabel.value = normalized.capture_time.slice(11, 16);
+    timeIndex.value = -1;
   } else {
     timeIndex.value = -1;
   }
@@ -164,7 +172,7 @@ function applyRecognition(result: InspectionReport) {
 
 const timeIndex = ref(-1);
 const nameIndex = ref(-1);
-const date = ref(CEILING_EVENT_DATE);
+const date = ref(DEFAULT_EVENT_DATE);
 const timeLabel = ref("");
 const timeUnknown = ref(false);
 const cameraName = ref<string | null>(null);
@@ -295,7 +303,6 @@ const cameraNameInput = computed({
   },
 });
 
-const nextElementId = computed(() => `E${String(ui.nextElementSeq).padStart(2, "0")}`);
 const editingElement = computed(() =>
   ui.editingElementId ? elementList.value.find((item) => item.id === ui.editingElementId) ?? null : null,
 );
@@ -303,8 +310,9 @@ const editingElement = computed(() =>
 function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
-  selectedMediaId.value = mediaList.value[0]?.id ?? null;
-  date.value = CEILING_EVENT_DATE;
+  selectedMedia.value = null;
+  mediaError.value = null;
+  date.value = DEFAULT_EVENT_DATE;
   timeLabel.value = "";
   timeUnknown.value = false;
   cameraName.value = null;
@@ -326,7 +334,7 @@ function resetForm() {
 function fillFromElement() {
   const element = editingElement.value;
   if (!element) return;
-  date.value = element.time.slice(0, 10) || CEILING_EVENT_DATE;
+  date.value = element.time.slice(0, 10) || DEFAULT_EVENT_DATE;
   timeUnknown.value = Boolean(element.timeUnknown);
   timeLabel.value = element.timeUnknown ? "" : element.timeLabel;
   cameraName.value = element.cameraId ? element.cameraLabel : null;
@@ -348,7 +356,6 @@ watch(
     if (!open) return;
     resetForm();
     fillFromElement();
-    void loadMedia();
     void mainApi
       .listCameras()
       .then((catalogPage) => {
@@ -358,6 +365,12 @@ watch(
       .catch(() => {
         catalog.value = [];
       });
+    // 「添加要素」已经先弹过系统选图框：拿到文件后进弹窗就直接上传+识别
+    const pending = pendingElementFile.value;
+    if (pending) {
+      pendingElementFile.value = null;
+      void upload(pending);
+    }
   },
 );
 
@@ -395,50 +408,57 @@ function save(keepOpen: boolean) {
 <template>
   <BaseModal
     :open="ui.addElementOpen"
-    :title="editingElement ? `编辑目标要素 · ${editingElement.id}` : `添加目标要素 · ${nextElementId}`"
-    subtitle="先识别画面角标时间与摄像头名称，人工确认后再保存；人体 / 人脸 / 车辆识别尚未接入，不做自动检测。"
+    :title="editingElement ? '编辑目标要素' : '添加目标要素'"
+    subtitle="添加要素只接受截图：选图后自动识别画面角标时间与摄像头名称，人工确认后再保存；人体 / 人脸 / 车辆识别尚未接入。"
     width="xl"
     height="92vh"
     @close="ui.addElementOpen = false"
   >
     <div class="ae">
-      <!-- 左：媒体与识别依据 -->
+      <!-- 左：截图与识别依据 -->
       <section class="ae-left">
         <div class="ae-bar">
-          <div class="ae-search">
-            <AppIcon name="search" :size="13" />
-            <input v-model="mediaQuery" type="text" placeholder="搜索已入库媒体" aria-label="搜索媒体" />
-          </div>
-          <select v-model="selectedMediaId" class="ae-select" aria-label="选择画面">
-            <option v-if="!filteredMedia.length" value="">没有匹配的媒体</option>
-            <option v-for="media in filteredMedia" :key="media.id" :value="media.id">
-              {{ media.kind === "video" ? "视频" : "图片" }} · {{ media.original_name }}
-            </option>
-          </select>
-          <button class="btn btn--sm btn--ghost" :disabled="mediaLoading" @click="loadMedia">
-            <AppIcon name="refresh" :size="12" />刷新
-          </button>
-          <label class="btn btn--sm btn--outline">
-            <AppIcon name="plus" :size="12" />上传
-            <input type="file" accept="image/*,video/*" hidden @change="uploadFile" />
+          <label v-if="currentCase" class="btn btn--sm btn--primary">
+            <AppIcon name="plus" :size="12" />选择截图并识别
+            <input type="file" accept="image/png,image/jpeg,image/webp" hidden @change="uploadFile" />
           </label>
-          <span class="grow" />
-          <button class="btn btn--sm btn--primary ae-run" :disabled="!selectedMediaId || inspecting" @click="recognize">
-            <AppIcon name="scan" :size="12" />{{ inspecting ? "识别中…" : report ? "重新识别" : "开始识别" }}
+          <button v-else class="btn btn--sm btn--primary" disabled title="请先在「案件」中新建或选择案件">
+            <AppIcon name="plus" :size="12" />选择截图并识别
           </button>
+          <span v-if="mediaLoading" class="ae-progress">
+            <span class="ae-progress-bar"><i :style="{ width: `${jobProgress}%` }" /></span>
+            <span class="num dim">{{ jobProgress }}%</span>
+          </span>
+          <span class="grow" />
+          <span class="ae-block-hint">{{ mediaLoading ? "上传并识别中…" : "只接受截图；选图后自动识别角标，不再从媒体库挑多要素" }}</span>
+        </div>
+
+        <div class="ae-scope" :class="{ 'is-empty': !currentCase }">
+          <AppIcon name="folder" :size="12" />
+          <template v-if="currentCase">
+            <span class="ae-scope-text">
+              当前案件 <b>{{ currentCase.name }}</b><span class="mono dim"> · {{ currentCase.code }}</span>
+            </span>
+            <span class="grow" />
+            <span class="ae-scope-note">上传的要素文件归属该案件；删除案件只清理这些文件</span>
+          </template>
+          <template v-else>
+            <span class="ae-scope-text">未选择案件</span>
+            <span class="grow" />
+            <span class="ae-scope-note">未选择案件：先新建或选择案件，截图才会归属该案件</span>
+            <button class="chip-btn" @click="actions.openCases()">选择案件</button>
+          </template>
         </div>
 
         <div class="preview">
           <template v-if="selectedMedia">
             <img
-              v-if="selectedMedia.kind === 'image'"
               :src="mainApi.mediaContentUrl(selectedMedia.id)"
               :alt="selectedMedia.original_name"
             />
-            <video v-else :src="mainApi.mediaContentUrl(selectedMedia.id)" controls preload="metadata" />
             <span class="preview-tag">只读原始画面 · 未做任何改写</span>
           </template>
-          <p v-else class="preview-empty">从上方选择或上传一张画面，识别角标时间与摄像头名称</p>
+          <p v-else class="preview-empty">选择一张截图，自动识别画面角标时间与摄像头名称</p>
         </div>
 
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
@@ -489,6 +509,19 @@ function save(keepOpen: boolean) {
                 <span class="evidence-key">识别引擎</span>
                 <span class="mono">{{ engineLabel }}</span>
               </div>
+              <div v-if="identity" class="evidence-row">
+                <span class="evidence-key">归一结论</span>
+                <span>
+                  时间 {{ identity.capture_time ?? "未识别" }}
+                  <template v-if="identity.time_source === 'filename'">（文件名兜底）</template>
+                  · 名称 {{ identity.camera_name ?? "未识别" }}
+                  <template v-if="identity.names.length > 1"> · 候选 {{ identity.names.length }} 个</template>
+                </span>
+              </div>
+              <div v-if="identityNotes.length" class="evidence-row">
+                <span class="evidence-key">提示</span>
+                <span class="dim">{{ identityNotes.join("；") }}</span>
+              </div>
               <div class="evidence-rows">
                 <span class="evidence-key">OCR 原始行</span>
                 <div class="ocr-rows">
@@ -501,7 +534,7 @@ function save(keepOpen: boolean) {
                 </div>
               </div>
             </div>
-            <p v-else-if="!inspecting" class="ae-placeholder">选择媒体后点「开始识别」，识别结果只做候选，保存前需要人工确认。</p>
+            <p v-else-if="!inspecting" class="ae-placeholder">选择截图后会自动识别；识别结果只做候选，保存前需要人工确认。</p>
           </template>
         </div>
       </section>
@@ -638,7 +671,7 @@ function save(keepOpen: boolean) {
       <button class="btn btn--ghost" @click="ui.addElementOpen = false">取消</button>
       <button v-if="!editingElement" class="btn btn--outline" @click="save(true)">保存并继续添加</button>
       <button class="btn btn--primary" @click="save(false)">
-        {{ editingElement ? "保存修改" : `保存为目标要素 ${nextElementId}` }}
+        {{ editingElement ? "保存修改" : "保存为目标要素" }}
       </button>
     </template>
   </BaseModal>
@@ -683,6 +716,62 @@ function save(keepOpen: boolean) {
 
 .ae-run {
   margin-left: auto;
+  flex: none;
+}
+
+/* 案件上下文：上传的要素文件归属当前案件，决定删除案件时清理哪些文件 */
+.ae-scope {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  min-height: 24px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-1);
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+.ae-scope :deep(svg) {
+  flex: none;
+  color: var(--ok);
+}
+
+.ae-scope.is-empty {
+  border-color: rgba(240, 180, 90, 0.32);
+  background: var(--warn-soft);
+}
+
+.ae-scope.is-empty :deep(svg) {
+  color: var(--warn);
+}
+
+.ae-scope-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: none;
+}
+
+.ae-scope-text b {
+  color: var(--text-0);
+  font-weight: 600;
+}
+
+.ae-scope-note {
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ae-scope .chip-btn {
+  height: 19px;
+  font-size: 10px;
   flex: none;
 }
 
