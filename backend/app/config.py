@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
     m4a_enabled: bool = False  # explicit opt-in until access-control deployment
+    m4c_enabled: bool = False  # opt-in read-only sampled frames of registered clips
     m4b_enabled: bool = False  # opt-in D-FINE ONNX proposal preview
     m4b_model_path: Path = Path('/models/dfine.onnx')
     m4b_model_sha256: str = ''  # must be configured; prevents silent weight changes
