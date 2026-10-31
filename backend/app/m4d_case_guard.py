@@ -1,34 +1,23 @@
-"""Trusted-server-side case/clip guard for future M4d integration.
+"""Case/clip association and unchanged-file guard for the TrajNexa demo.
 
-Does not authenticate a user. The caller must provide a real authorization
-function bound to the authenticated principal; never accept client booleans.
+This is not a user authorization layer; no login, RBAC or consent checkbox.
 """
 from __future__ import annotations
-
-from typing import Callable
 
 from app import m4_video
 
 
-class M4dAccessError(ValueError):
+class M4dClipError(ValueError):
     pass
 
 
-def resolve_authorized_clip(db, *, case_id: str, clip_id: str,
-                            can_read_case: Callable[[str], bool]):
-    """Check authorization before resolving a case-owned, unchanged clip.
-
-    Return (clip, path); never expose existence of unauthorized clips.
-    """
-    if not callable(can_read_case) or not isinstance(case_id, str) or not case_id:
-        raise M4dAccessError("access_denied")
-    try:
-        allowed = can_read_case(case_id)
-    except Exception:
-        raise M4dAccessError("access_denied") from None
-    if allowed is not True:
-        raise M4dAccessError("access_denied")
+def resolve_case_clip(db, *, case_id: str, clip_id: str):
+    """Reuse M4c's case ownership, path containment and file-change checks."""
+    if not isinstance(case_id, str) or not case_id.strip():
+        raise M4dClipError("case_required")
+    if not isinstance(clip_id, str) or not clip_id.strip():
+        raise M4dClipError("clip_required")
     try:
         return m4_video.resolve_case_clip(db, case_id=case_id, clip_id=clip_id)
     except m4_video.KeyframeError:
-        raise M4dAccessError("clip_unavailable") from None
+        raise M4dClipError("clip_unavailable") from None
