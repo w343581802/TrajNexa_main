@@ -116,6 +116,7 @@ function m4MatchesStored(): boolean {
   const b = m4Box.value, record = m4Observation.value;
   const original = record?.analysis_json.bbox_normalized;
   return !!b && !!record && record.media_id === selectedMediaId.value &&
+    record.object_class === category.value &&
     !!original && original.length === 4 &&
     original.every((value, index) => Math.abs(value - b[index]) < 0.000001);
 }
