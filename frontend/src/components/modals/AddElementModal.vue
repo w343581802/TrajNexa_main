@@ -699,6 +699,28 @@ function save(keepOpen: boolean) {
             <span>摄像头、地理位置、身份关联：未建立；不自动填入语义属性。</span>
           </div>
         </div>
+        <section v-if="currentCase" class="m4a-history">
+          <div class="m4a-history-head">
+            <b>M4a · 本案件已保存的区域观测</b>
+            <button type="button" class="chip-btn" :disabled="m4HistoryBusy" @click="loadM4History(true)">刷新历史</button>
+          </div>
+          <p class="m4a-history-hint">数据库持久化记录。点击后恢复原图和框选；不会重新识别时间或自动确认设备。</p>
+          <p v-if="m4HistoryError" class="ae-error">{{ m4HistoryError }}</p>
+          <div v-for="item in m4History" :key="item.id" class="m4a-history-item">
+            <button type="button" class="chip-btn" :disabled="m4Restoring" @click="reopenM4Record(item.id)">
+              恢复 · {{ item.object_class }} · {{ item.created_at.slice(0, 16).replace("T", " ") }}
+              <span class="mono">· {{ item.id.slice(0, 8) }}</span>
+            </button>
+            <span :title="item.review_note">{{ item.review_note }}</span>
+          </div>
+          <div v-if="m4HistoryMore" class="m4a-history-more">
+            <button type="button" class="chip-btn" :disabled="m4HistoryBusy" @click="loadM4History(false)">
+              {{ m4HistoryBusy ? "正在加载…" : "加载更多历史观测" }}
+            </button>
+          </div>
+          <p v-else-if="m4HistoryBusy" class="m4a-history-hint">正在读取历史记录…</p>
+          <p v-else-if="!m4History.length && !m4HistoryError" class="m4a-history-hint">本案件尚无持久化区域观测。</p>
+        </section>
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
 
         <div class="ae-evidence" :class="{ 'is-open': evidenceOpen }">
@@ -1122,6 +1144,13 @@ function save(keepOpen: boolean) {
 .m4a-panel-form label { white-space: nowrap; }
 .m4a-result { display: grid; gap: 3px; padding: 7px; border-radius: 5px;
   border: 1px solid rgba(47,207,146,.3); color: var(--text-2); }
+.m4a-history { flex: none; display: grid; gap: 6px; max-height: 165px; overflow-y: auto;
+  padding: 8px; border: 1px solid var(--line-2); border-radius: 6px; font-size: 11px; }
+.m4a-history-head { display: flex; align-items: center; justify-content: space-between; }
+.m4a-history-item { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.m4a-history-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m4a-history-hint { color: var(--text-3); font-size: 10px; margin: 0; }
+.m4a-history-more { display: flex; justify-content: flex-end; }
 .preview-tag { z-index: 3; pointer-events: none;
   position: absolute;
   left: 6px;
