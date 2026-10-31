@@ -16,6 +16,7 @@ import {
   type InspectionReport,
   type MediaItem,
   type M4Observation,
+  type M4DetectionProposal,
 } from "../../services/mainApi";
 
 /** 新建要素的默认日期 = 本机今天（不再写死演示日期） */
@@ -170,6 +171,7 @@ async function reopenM4Record(id: string) {
         !(0 <= b[0] && b[0] < b[2] && b[2] <= 1 &&
           0 <= b[1] && b[1] < b[3] && b[3] <= 1)) throw new Error('观测的框选坐标无效');
     m4Layout.value = null;
+    m4DetectRequest += 1; m4Proposals.value = [];
     selectedMedia.value = source;
     m4Box.value = [b[0], b[1], b[2], b[3]];
     m4Observation.value = record;
@@ -183,6 +185,63 @@ async function reopenM4Record(id: string) {
     if (session === m4Session) m4Error.value = error instanceof Error ? error.message : String(error);
   } finally { if (session === m4Session) m4Restoring.value = false; }
 }
+
+// M4b: model proposals are disposable until an operator explicitly selects
+// and saves a separate M4a evidence observation.
+const m4Proposals = ref<M4DetectionProposal[]>([]);
+const m4DetectBusy = ref(false);
+const m4DetectError = ref<string | null>(null);
+const m4DetectModel = ref<string | null>(null);
+let m4DetectRequest = 0;
+
+async function requestM4Detections() {
+  const source = selectedMedia.value;
+  const caseId = currentCase.value?.id;
+  if (!source || !caseId || !m4Authorized.value || m4DetectBusy.value) {
+    m4DetectError.value = "请先选中案件截图并确认授权";
+    return;
+  }
+  const ticket = ++m4DetectRequest;
+  const session = m4Session;
+  m4DetectBusy.value = true;
+  m4DetectError.value = null; m4Proposals.value = [];
+  m4DetectModel.value = null;
+  try {
+    const response = await mainApi.previewM4Detections(source.id, true, .4);
+    if (ticket !== m4DetectRequest || session !== m4Session ||
+        selectedMediaId.value !== source.id || currentCase.value?.id !== caseId ||
+        !ui.addElementOpen) return;
+    if (response.media_id !== source.id || response.case_id !== caseId ||
+        response.source_sha256 !== source.sha256 ||
+        response.status !== "candidates_unverified") {
+      throw new Error("检测结果来源不一致，已拒绝显示");
+    }
+    m4Proposals.value = response.candidates;
+    m4DetectModel.value = response.model_family + " · SHA256 " + response.model_sha256.slice(0, 12);
+    if (!response.candidates.length) m4DetectError.value = "模型未找到达到阈值的候选；不代表截图中没有目标";
+  } catch (error) {
+    if (ticket === m4DetectRequest && session === m4Session)
+      m4DetectError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    if (ticket === m4DetectRequest) m4DetectBusy.value = false;
+  }
+}
+
+function selectM4Proposal(proposal: M4DetectionProposal) {
+  const b = proposal.bbox_normalized;
+  if (!selectedMedia.value || b.length !== 4 || b.some(v => !Number.isFinite(v)) ||
+      !(0 <= b[0] && b[0] < b[2] && b[2] <= 1 &&
+        0 <= b[1] && b[1] < b[3] && b[3] <= 1)) {
+    m4DetectError.value = "模型候选坐标异常，已拒绝";
+    return;
+  }
+  m4Box.value = [b[0], b[1], b[2], b[3]];
+  m4Observation.value = null;
+  category.value = proposal.object_class;
+  m4Note.value = "人工选择 D-FINE 建议框，目标类别与框选范围仍需核查";
+  m4Error.value = null;
+}
+
 async function analyzeM4Selection() {
   if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
     m4Error.value = "请先在截图中拖拽框选目标区域";
@@ -236,6 +295,8 @@ async function upload(file: File) {
   report.value = null;
   m4Session += 1; // Invalidate pending recovery/history for the previous image.
   if (ui.addElementOpen) void loadM4History(true);
+  m4DetectRequest += 1; m4Proposals.value = [];
+  m4DetectModel.value = null; m4DetectError.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
   m4Authorized.value = false; m4Note.value = '';
   try {
@@ -498,6 +559,8 @@ function resetForm() {
   nameIndex.value = -1;
   selectedMedia.value = null;
   m4Box.value = null; m4Observation.value = null; m4Authorized.value = false;
+  m4DetectRequest += 1; m4Proposals.value = []; m4DetectModel.value = null;
+  m4DetectError.value = null;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
   m4Restoring.value = false; m4Busy.value = false; m4HistoryBusy.value = false;
   mediaError.value = null;
@@ -693,6 +756,21 @@ function save(keepOpen: boolean) {
           <p v-else class="preview-empty">选择一张截图，自动识别画面角标时间与摄像头名称</p>
         </div>
 
+        
+        <section v-if="selectedMedia" class="m4b-panel">
+          <div class="m4a-panel-title">M4b · D-FINE 自动检测建议（需人工复核）</div>
+          <p>可选本地 ONNX 模型，默认关闭。不会自动确认人员身份，也不自动保存目标观测。</p>
+          <button type="button" class="btn btn--sm btn--primary"
+            :disabled="m4DetectBusy || !m4Authorized" @click="requestM4Detections">
+            {{ m4DetectBusy ? "正在检测…" : "生成自动检测候选框" }}
+          </button>
+          <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
+          <small v-if="m4DetectModel" class="m4a-history-hint">模型：{{ m4DetectModel }}</small>
+          <div v-for="proposal in m4Proposals" :key="proposal.proposal_index" class="m4b-proposal">
+            <span>{{ proposal.detector_label }} · {{ Math.round(proposal.confidence * 100) }}% · 待人工复核</span>
+            <button type="button" class="chip-btn" @click="selectM4Proposal(proposal)">采用此框（可重新拖框）</button>
+          </div>
+        </section>
         <div v-if="selectedMedia" class="m4a-panel">
           <div class="m4a-panel-title">M4a · 目标区域画质与外观线索（人工框选）</div>
           <p>拖动鼠标框选目标。统计结果可能混有背景，不能代表目标身份、衣物或地理坐标。</p>
@@ -1152,6 +1230,11 @@ function save(keepOpen: boolean) {
 .m4a-selected-box { position: absolute; border: 2px solid #54cfff;
   box-shadow: 0 0 0 9999px rgba(0,0,0,.12); pointer-events: none;
   background: rgba(84,207,255,.11); }
+.m4b-panel { display: grid; gap: 7px; padding: 9px;
+  border: 1px dashed var(--line-2); border-radius: 6px; font-size: 11px; }
+.m4b-panel p { margin: 0; color: var(--text-3); }
+.m4b-proposal { display: flex; justify-content: space-between; flex-wrap: wrap;
+  align-items: center; gap: 8px; border-top: 1px solid var(--line-2); padding-top: 5px; }
 .m4a-panel { border: 1px solid var(--line-2); border-radius: 6px; padding: 9px;
   display: grid; gap: 6px; background: var(--bg-1); font-size: 11px; }
 .m4a-panel-title { font-size: 12px; font-weight: 600; color: var(--text-1); }

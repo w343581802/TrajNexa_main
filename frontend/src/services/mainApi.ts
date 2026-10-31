@@ -14,6 +14,26 @@
 
 const BASE = "/api/v1";
 
+export type M4DetectionProposal = {
+  proposal_index: number;
+  object_class: "person" | "vehicle";
+  detector_label: string;
+  confidence: number;
+  bbox_normalized: [number, number, number, number];
+  status: "unverified_detection_proposal";
+};
+export type M4DetectionPreview = {
+  schema_version: string;
+  status: "candidates_unverified";
+  media_id: string;
+  case_id: string;
+  model_family: string;
+  model_sha256: string;
+  source_sha256: string;
+  candidate_count: number;
+  candidates: M4DetectionProposal[];
+};
+
 export type M4Observation = {
   id: string;
   case_id: string;
@@ -361,6 +381,12 @@ export const mainApi = {
     request<M4Observation[]>(`/media/${encodeURIComponent(mediaId)}/observations?limit=${limit}&offset=${offset}`),
   listCaseM4Observations: (caseId: string, limit = 50, offset = 0) =>
     request<M4Observation[]>(`/cases/${encodeURIComponent(caseId)}/observations?limit=${limit}&offset=${offset}`),
+  /** M4b: candidates only; model is optional, no automatic identity binding. */
+  previewM4Detections: (mediaId: string, authorized: boolean, minConfidence = .4) =>
+    request<M4DetectionPreview>(`/media/${encodeURIComponent(mediaId)}/detections/preview`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorized, min_confidence: minConfidence }),
+    }),
   getM4Observation: (id: string) =>
     request<M4Observation>(`/observations/${encodeURIComponent(id)}`),
 
