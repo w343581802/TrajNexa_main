@@ -82,3 +82,5 @@
 | [30_Rebucca技术验证与集成决策.md](30_Rebucca技术验证与集成决策.md) | 技术验证优先决策、Rebucca 第一轮审计、实验分期、证据等级和文档治理 |
 
 | [31_M4d_Rebucca源码提取审计清单.md](31_M4d_Rebucca源码提取审计清单.md) | M4d 源码调用关系、可提取模块、验证门槛及移植来源台账要求 |
+
+| [32_M4d_Rebucca模块依赖与风险审计.md](32_M4d_Rebucca模块依赖与风险审计.md) | LLMUtils、ONNX 引擎、IoUTracker、pipeline 的依赖、提取优先级与源码风险 |
