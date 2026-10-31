@@ -4,6 +4,19 @@
 
 M0 实现“上传 → 素材持久化 → 排队 → 独立 Worker → 报告 → 前端查看”；M1a 提供基础媒体信息/画质指标，M1b 提供可选角标 OCR，M1c 提供只读摄像头目录候选与手动绑定记录；M1d 可登记人工核实的静态参考画面，并在绑定后比较背景几何。**不执行身份识别或跨镜头追踪。**Map 仅在未来通过独立只读 API 接入。请不要把此项目代码覆盖到原先的地图项目源码上。
 
+## 写新功能前必读：能力地图与复用契约
+
+仓库里的人已经有三套共用管线（视频命名 / 添加要素 / 录像资源），它们共用**同一条取帧与识别链路**。
+开工前先看 [`design/26_能力地图与复用契约.md`](design/26_能力地图与复用契约.md)：那里有
+
+- 能力地图：每项能力放在哪个文件、该复用哪个函数、**不要新建什么**；
+- 12 条契约（C1~C12）：取帧唯一入口、识别结论唯一结构、匹配唯一口径、人工结论只进不退、录像只读、截图必须过滤坏帧、核对窗只有一个……
+- 新增功能前的 7 条检查清单。
+
+这些契约有自动化守卫：`backend/tests/test_architecture_contracts.py`。它会检查「取帧/匹配/坏帧判定只有一个实现」
+「录像资源模块不出现删除改名」「`RecordingClip*Modal.vue` 只有一个」等最容易复发的条目；
+在容器里跑测试时，依赖 `design/` 与 `frontend/` 目录的两条会跳过，需要时在宿主机 `cd backend && pytest -q` 补跑。
+
 ## 环境
 
 - Docker Desktop + Docker Compose（建议；目前未在此环境验证容器启动）
@@ -54,11 +67,23 @@ npm run dev
 
 - `GET /api/v1/health`
 - `POST /api/v1/media`：`multipart/form-data` 中单个 `file`；文件名去路径；不信任客户端 MIME；按文件头初筛。**签名有效并不等于文件可正确解码**，M1 将进一步探测。
-- `GET /api/v1/media` / `GET /api/v1/media/{media_id}`
+- `GET /api/v1/media` / `GET /api/v1/media/{media_id}`（`GET /api/v1/media?case_id=` 只看某个案件的要素文件）
 - `GET /api/v1/media/{media_id}/content`：只读回显原始画面（预览/人工核对角标用），路径做存储根校验，不改写不转码。
 - `POST /api/v1/media/{media_id}/inspect`：产生持久化排队作业。
 - `GET /api/v1/jobs/{job_id}` / `POST /api/v1/jobs/{job_id}/retry`
 - `GET /api/v1/jobs/{job_id}/report` / `GET /api/v1/inspections/{inspection_id}`
+
+## 案件管理与删除边界
+
+前端顶栏「案件」入口打开案件管理弹窗（新增 / 切换 / 删除），新增案件会成为当前案件，上传的要素文件归到该案件下。
+
+- `GET /api/v1/cases`：案件列表，附带每个案件的要素文件数量与占用字节。
+- `POST /api/v1/cases`：`{name, description}`；名称 2–120 字、说明 ≤500 字；编号由服务端生成 `CASE-YYYYMMDD-NN`。
+- `POST /api/v1/media`：可选表单字段 `case_id`；未知案件返回 422 `unknown_case`，不会留下孤儿文件。
+- `DELETE /api/v1/cases/{case_id}`：**只清理该案件上传的要素文件**（`media_assets.case_id` 命中的原始画面/片段），以及本系统内由这些素材派生的作业、报告、人工绑定与视角比较记录。
+  **录像资源不归案件管**：录像文件与录像索引属于独立的录像服务，删除案件不会删除任何录像文件；当前尚未接入录像资源，代码里用
+  `case_service.release_recording_resources()` 显式占位，接口返回 `recordings_preserved: true` 表明这一点。
+  未归属任何案件的旧素材不受影响。
 
 M0 初始阶段不提供 OCR/质量检测或真实媒体播放；M1a–M1d 已分别增量实现对应能力。未知字段为 `not_checked`，不会输出虚假时间、位置或识别结果。
 
@@ -87,6 +112,9 @@ M0 初始阶段不提供 OCR/质量检测或真实媒体播放；M1a–M1d 已�
   `GET /api/v1/gis/anchor` 返回台账里第一台有坐标的镜头用于初始定位。全部走只读账号
   `trajnexa_reader`，需要 `.env` 的 `MAP_DB_READONLY_URL` 与 `compose.map-db.yaml` 加入 Map 网络；
   超额直接拒绝（不截断），失败返回 422/503 且不含数据库口令，也不返回任何替代几何。见 `design/17`、`design/18`。
+- **底图**：主系统地图用 OSM 标准瓦片，再由 `frontend/src/styles/map.css` 的 `.is-dark-base` 在瓦片层做
+  `brightness(.7) contrast(1.2)` —— 与 TrajNexa_Map 暗色模式的做法和参数完全一致（Map 侧是 `--dark-map-filter`），
+  滤镜只作用于瓦片层，镜头点位与视域语义色不受影响；卫星仍为 Esri 真实影像、保持原色。详见 `design/22`。
 - **升级已有开发数据库**：`docker compose run --rm migrate`（如果已启动并运行 compose，则直接执行 `docker compose up --build -d` 触发 migrate）；不要清除现有数据库卷。
 - 可复现自动化测试：`cd backend && python -m pytest -q`，以及本地 SQLite 上 `alembic upgrade head`。
 - 真实 Map 的稳定 `camera_uuid` 发布接口尚未接通，设备快照只是适配器；M1d 已实现独立参考场景比较，但尚未进行实景精度和绝对地理朝向验收。

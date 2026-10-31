@@ -23,7 +23,12 @@ GRANT SELECT (id, name, map_camera_id, deleted_at, pose_quality, position_qualit
 ON TABLE public.cameras_registry TO trajnexa_reader;
 GRANT SELECT (camera_id_id, scenario, level, with_intersection, geom)
 ON TABLE public.cameras_camerafocus TO trajnexa_reader;
+-- has_video：只判断该镜头是否导入过录像参考帧，不读取图片内容
+GRANT SELECT (camera_id, source_type, image)
+ON TABLE public.cameras_snapshot TO trajnexa_reader;
 ```
+
+`has_video` 只按 `source_type='video_frame'` 聚合，不返回快照 ID、文件名或图片；缺少这段授权时接口会降级为全部 `has_video=false`，地图也不会因可选字段 503。
 
 必须保留 M2a 所授予的台账其它列的 SELECT 权限。不要授予写权限，不要使用 Map 数据库管理员账号作为主系统连接。
 
@@ -39,9 +44,11 @@ Invoke-RestMethod http://localhost:8000/api/v1/spatial/cameras
 
 返回 `status=available`、`source=map_postgresql_readonly`、`spatial_revision=mapdb-spatial:...`、`counts`、`cameras`。数据库未配置、不可达或数据超限时返回 HTTP 503 与**不包含数据库密码**的错误码；**不自动回退到虚假 GIS 数据**。
 
+`cameras[]` 在原有字段上增加 `has_video`，`counts` 增加 `with_video`。它只表示该 Map 镜头的台账下存在 `source_type='video_frame'` 的参考帧，用来在前端区分灰色/点亮；**不表示录像可回放、覆盖完整或实时在线**，也不改变 FOV 的模型几何声明。
+
 ## 范围和后续
 
-本次首次加载最多 3000 台 GIS 摄像头及 9000 条 FOV，超额直接拒绝（不截断）；总视域 GeoJSON 超过 8 MiB 也拒绝。后续应增加 bbox 或 GIS tiles 按需加载。主系统前端的演示工作台目前仍使用 SVG 示意坐标，因此另外提供**真实空间数据独立预览**，不会把地图经纬度当作示意坐标，也不宣称已经有道路/建筑 GIS 底图。
+本次首次加载最多 3000 台 GIS 摄像头及 9000 条 FOV，超额直接拒绝（不截断）；总视域 GeoJSON 超过 8 MiB 也拒绝。可选的 `has_video` 行数超限时截断为前 3000 条并继续返回地图，避免一个可选字段拖垮整页。后续应增加 bbox 或 GIS tiles 按需加载。主系统前端的演示工作台目前仍使用 SVG 示意坐标，因此另外提供**真实空间数据独立预览**，不会把地图经纬度当作示意坐标，也不宣称已经有道路/建筑 GIS 底图。
 
 M2a 名称目录与 M2b 空间视域使用相同只读连接，但**目录修订号与空间几何修订号相互独立**。已有人工确认绑定、OCR 报告、Map 台账均不改变。
 

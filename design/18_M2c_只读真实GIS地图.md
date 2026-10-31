@@ -40,7 +40,7 @@ docker compose -f compose.yaml -f compose.ocr.yaml -f compose.map-db.yaml up -d 
 Invoke-RestMethod 'http://localhost:8000/api/v1/gis/viewport?bbox=110.20,25.24,110.22,25.27'
 ~~~
 
-打开 localhost:5173，切换「真实 GIS 地图」。平移缩放时按视野请求镜头、道路、建筑和模型 FOV。默认不请求外部地图瓦片；勾选在线 OSM 栅格后，浏览器才会访问 OSM 瓦片服务器。
+打开 localhost:5173，切换「真实 GIS 地图」。平移缩放时按视野请求镜头、道路、建筑和模型 FOV。默认不请求外部地图瓦片；勾选在线暗色瓦片后，浏览器才会访问 OSM 瓦片服务器并按 `.is-dark-base` 压暗（见 `design/22`）。
 
 入口旁仍可切换业务示意与原始空间预览，真实 GIS 不反向改写现有任务、OCR 报告、人工绑定或地图编辑成果。
 
@@ -65,7 +65,7 @@ M2c 在地图记录尚未关联 CameraRegistry 时，从 cameras_cameratags 中�
 GRANT SELECT (camera_id_id, name, value) ON TABLE public.cameras_cameratags TO trajnexa_reader;
 ~~~
 
-真实 GIS 视图对 OSM 矢量路网始终署名 © OpenStreetMap 贡献者（ODbL）；在线 OSM 瓦片依旧需要明确勾选才会请求外部服务器。
+真实 GIS 视图对 OSM 矢量路网始终署名 © OpenStreetMap 贡献者（ODbL）；在线暗色瓦片（OSM 瓦片 + 瓦片层压暗滤镜）依旧需要明确勾选才会请求外部服务器。
 
 
 M2c 额外提供 GET /api/v1/gis/anchor，只读获取 Map 数据库首个有点位的摄像头坐标作为首次视野和「定位 Map 镜头」操作；无设备则 center=null，前端不生成假设备。这个接口只使用现有 cameras_camera 的 location 和 id 字段权限。
