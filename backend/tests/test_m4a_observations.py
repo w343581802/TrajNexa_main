@@ -60,7 +60,7 @@ def test_tiny_roi_and_hash_mismatch_rejected(tmp_path):
 
 def _case_and_media(client):
     response = client.post('/api/v1/cases', json={'name': 'M4 截图测试'})
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
     case = response.json()
     content = image_bytes()
     response = client.post('/api/v1/media', files={

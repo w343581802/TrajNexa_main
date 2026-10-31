@@ -14,6 +14,27 @@
 
 const BASE = "/api/v1";
 
+export type M4Observation = {
+  id: string;
+  case_id: string;
+  media_id: string;
+  object_class: "person" | "vehicle" | "other";
+  review_state: "pending" | string;
+  review_note: string;
+  source_inspection_id: string | null;
+  analysis_json: {
+    schema_version: string;
+    bbox_normalized: number[];
+    bbox_pixels: number[];
+    method: string;
+    quality: { heuristic_only: boolean; flags: string[];
+      median_luminance_0_255: number; laplacian_variance: number };
+    appearance: { roi_tones_unverified: { tone: string; fraction: number }[];
+      semantic_status: string };
+    linkage: { camera_uuid: string | null; geo_status: string };
+  };
+};
+
 export type MediaItem = {
   id: string;
   /** 归属案件；未归属（历史素材）时为 null */
@@ -322,6 +343,19 @@ export const mainApi = {
 
   getReport: (jobId: string) =>
     request<InspectionReport>(`/jobs/${encodeURIComponent(jobId)}/report`),
+
+  /** M4a：人工框选截图区域 → 观测记录；只读原截图，不执行身份识别 */
+  addM4Observation: (mediaId: string, body: {
+    object_class: "person" | "vehicle" | "other";
+    bbox_normalized: number[];
+    review_note: string;
+    authorized: boolean;
+  }) => request<M4Observation>(`/media/${encodeURIComponent(mediaId)}/observations`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  listM4Observations: (mediaId: string) =>
+    request<M4Observation[]>(`/media/${encodeURIComponent(mediaId)}/observations`),
 
   listCameras: () => request<CameraCatalog>("/cameras/catalog"),
 

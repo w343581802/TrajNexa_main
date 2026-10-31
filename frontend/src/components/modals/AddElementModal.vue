@@ -15,6 +15,7 @@ import {
   type CameraCatalogEntry,
   type InspectionReport,
   type MediaItem,
+  type M4Observation,
 } from "../../services/mainApi";
 
 /** 新建要素的默认日期 = 本机今天（不再写死演示日期） */
@@ -29,6 +30,91 @@ const DEFAULT_EVENT_DATE = (() => {
 /** 本次添加要素上传的截图；不再从媒体库挑多个素材，一张图走一次识别 */
 const selectedMedia = ref<MediaItem | null>(null);
 const selectedMediaId = computed(() => selectedMedia.value?.id ?? null);
+
+/* M4a: human-selected evidence region. No automatic detector/identity claim. */
+const m4Image = ref<HTMLImageElement | null>(null);
+const m4Box = ref<[number, number, number, number] | null>(null);
+const m4Anchor = ref<[number, number] | null>(null);
+const m4Observation = ref<M4Observation | null>(null);
+const m4Busy = ref(false);
+const m4Error = ref<string | null>(null);
+const m4Authorized = ref(false);
+const m4Note = ref("");
+
+function m4ImageMetrics() {
+  const img = m4Image.value;
+  if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+  const rect = img.getBoundingClientRect();
+  const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
+  const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
+  return { left: rect.left + (rect.width - width) / 2,
+    top: rect.top + (rect.height - height) / 2, width, height, frame: rect };
+}
+function m4Coords(event: PointerEvent, strict: boolean): [number, number] | null {
+  const m = m4ImageMetrics();
+  if (!m) return null;
+  const x = (event.clientX - m.left) / m.width;
+  const y = (event.clientY - m.top) / m.height;
+  if (strict && (x < 0 || x > 1 || y < 0 || y > 1)) return null;
+  return [Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y))];
+}
+function m4PointerDown(event: PointerEvent) {
+  if (event.button !== 0 || !selectedMedia.value) return;
+  const point = m4Coords(event, true);
+  if (!point) return;
+  m4Anchor.value = point;
+  m4Box.value = [point[0], point[1], point[0], point[1]];
+  m4Observation.value = null;
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+}
+function m4PointerMove(event: PointerEvent) {
+  if (!m4Anchor.value) return;
+  const end = m4Coords(event, false);
+  if (!end) return;
+  const [x, y] = m4Anchor.value;
+  m4Box.value = [Math.min(x, end[0]), Math.min(y, end[1]),
+                 Math.max(x, end[0]), Math.max(y, end[1])];
+}
+function m4PointerUp(event: PointerEvent) {
+  if (!m4Anchor.value) return;
+  m4PointerMove(event);
+  m4Anchor.value = null;
+  if (m4Box.value && (m4Box.value[2] - m4Box.value[0] < .015 ||
+                       m4Box.value[3] - m4Box.value[1] < .015)) {
+    m4Box.value = null;
+  }
+}
+const m4BoxStyle = computed(() => {
+  const box = m4Box.value;
+  const m = m4ImageMetrics();
+  if (!box || !m) return {};
+  const [x1, y1, x2, y2] = box;
+  return { left: String(m.left - m.frame.left + x1 * m.width) + "px",
+    top: String(m.top - m.frame.top + y1 * m.height) + "px",
+    width: String((x2 - x1) * m.width) + "px",
+    height: String((y2 - y1) * m.height) + "px" };
+});
+async function analyzeM4Selection() {
+  if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
+    m4Error.value = "请先在截图中拖拽框选目标区域";
+    return;
+  }
+  if (!m4Authorized.value || m4Note.value.trim().length < 8) {
+    m4Error.value = "需要确认授权并填写至少 8 个字符的选取依据";
+    return;
+  }
+  m4Busy.value = true; m4Error.value = null;
+  try {
+    m4Observation.value = await mainApi.addM4Observation(selectedMediaId.value, {
+      object_class: category.value, bbox_normalized: [...m4Box.value],
+      review_note: m4Note.value.trim(), authorized: m4Authorized.value,
+    });
+    toast("M4a 区域观测已保存：仅画质/颜色统计，未核实身份或地理位置", "ok");
+  } catch (error) {
+    m4Error.value = error instanceof Error ? error.message : String(error);
+  } finally { m4Busy.value = false; }
+}
+
 const mediaLoading = ref(false);
 const mediaError = ref<string | null>(null);
 
@@ -52,6 +138,7 @@ async function upload(file: File) {
   mediaError.value = null;
   recognizeError.value = null;
   report.value = null;
+  m4Box.value = null; m4Observation.value = null; m4Error.value = null;
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
     selectedMedia.value = media;
@@ -311,6 +398,8 @@ function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
   selectedMedia.value = null;
+  m4Box.value = null; m4Observation.value = null; m4Authorized.value = false;
+  m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
   mediaError.value = null;
   date.value = DEFAULT_EVENT_DATE;
   timeLabel.value = "";
@@ -390,7 +479,14 @@ function save(keepOpen: boolean) {
     quality: "good",
     category: category.value,
     attributes: attributes.map((attr) => ({ key: attr.key, value: attr.value, unknown: attr.unknown })),
-    boxes: [],
+    boxes: m4Box.value ? [{
+      id: m4Observation.value?.id ?? "manual-unsaved",
+      x: m4Box.value[0], y: m4Box.value[1],
+      w: m4Box.value[2] - m4Box.value[0],
+      h: m4Box.value[3] - m4Box.value[1],
+      kind: category.value === "vehicle" ? "vehicle" : "person",
+      label: "人工截图框选", auto: false,
+    }] : [],
   };
 
   const id = editingElement.value
@@ -453,14 +549,45 @@ function save(keepOpen: boolean) {
         <div class="preview">
           <template v-if="selectedMedia">
             <img
+              ref="m4Image"
               :src="mainApi.mediaContentUrl(selectedMedia.id)"
               :alt="selectedMedia.original_name"
             />
-            <span class="preview-tag">只读原始画面 · 未做任何改写</span>
+            <div class="m4a-select-overlay" title="在原始截图中拖拽框选观察对象"
+              @pointerdown.prevent="m4PointerDown"
+              @pointermove.prevent="m4PointerMove"
+              @pointerup.prevent="m4PointerUp"
+              @pointercancel="m4Anchor = null">
+              <div v-if="m4Box" class="m4a-selected-box" :style="m4BoxStyle"></div>
+            </div>
+            <span class="preview-tag">只读原始画面 · 拖拽框选目标区域（M4a）</span>
           </template>
           <p v-else class="preview-empty">选择一张截图，自动识别画面角标时间与摄像头名称</p>
         </div>
 
+        <div v-if="selectedMedia" class="m4a-panel">
+          <div class="m4a-panel-title">M4a · 目标区域画质与外观线索（人工框选）</div>
+          <p>拖动鼠标框选目标。统计结果可能混有背景，不能代表目标身份、衣物或地理坐标。</p>
+          <div class="m4a-panel-form">
+            <input v-model="m4Note" class="input" placeholder="选取依据（至少 8 字）" maxlength="500" />
+            <label><input v-model="m4Authorized" type="checkbox" /> 本案件素材已获授权处理</label>
+            <button class="btn btn--sm btn--primary" type="button"
+              :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">
+              {{ m4Busy ? "分析中…" : "保存区域观测" }}
+            </button>
+          </div>
+          <p v-if="m4Error" class="ae-error">{{ m4Error }}</p>
+          <div v-if="m4Observation" class="m4a-result">
+            <span>观测已保存 · {{ m4Observation.review_state }} · ROI
+              {{ m4Observation.analysis_json.bbox_pixels.join(", ") }}</span>
+            <span>亮度 {{ m4Observation.analysis_json.quality.median_luminance_0_255 }}
+              · 拉普拉斯方差 {{ m4Observation.analysis_json.quality.laplacian_variance }}</span>
+            <span>画质提示：{{ m4Observation.analysis_json.quality.flags.join("、") || "未触发规则告警" }}</span>
+            <span>ROI 粗颜色统计：{{ m4Observation.analysis_json.appearance.roi_tones_unverified
+              .map(v => v.tone + " " + Math.round(v.fraction * 100) + "%").join(" / ") }}</span>
+            <span>摄像头、地理位置、身份关联：未建立；不自动填入语义属性。</span>
+          </div>
+        </div>
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
 
         <div class="ae-evidence" :class="{ 'is-open': evidenceOpen }">
@@ -869,7 +996,22 @@ function save(keepOpen: boolean) {
   color: var(--text-3);
 }
 
-.preview-tag {
+
+.m4a-select-overlay { position: absolute; inset: 0; cursor: crosshair;
+  touch-action: none; z-index: 2; user-select: none; }
+.m4a-selected-box { position: absolute; border: 2px solid #54cfff;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.12); pointer-events: none;
+  background: rgba(84,207,255,.11); }
+.m4a-panel { border: 1px solid var(--line-2); border-radius: 6px; padding: 9px;
+  display: grid; gap: 6px; background: var(--bg-1); font-size: 11px; }
+.m4a-panel-title { font-size: 12px; font-weight: 600; color: var(--text-1); }
+.m4a-panel p { margin: 0; color: var(--text-3); }
+.m4a-panel-form { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.m4a-panel-form .input { flex: 1 1 190px; height: 27px; }
+.m4a-panel-form label { white-space: nowrap; }
+.m4a-result { display: grid; gap: 3px; padding: 7px; border-radius: 5px;
+  border: 1px solid rgba(47,207,146,.3); color: var(--text-2); }
+.preview-tag { z-index: 3; pointer-events: none;
   position: absolute;
   left: 6px;
   top: 6px;
