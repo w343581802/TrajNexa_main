@@ -7,6 +7,10 @@ __pycache__/
 node_modules/
 dist/
 storage/
+models/
+*.onnx
+*.pth
+*.engine
 *.sqlite3
 *.db
 

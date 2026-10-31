@@ -66,3 +66,36 @@ def test_model_is_not_automatically_downloaded(tmp_path):
         _session(str(tmp_path / 'missing.onnx'), 'a' * 64)
     with pytest.raises(DetectionError, match='m4b_model_sha256_required'):
         _session(str(tmp_path / 'missing.onnx'), '')
+
+
+
+def test_entire_onnx_adapter_with_injected_cpu_session(monkeypatch):
+    """Exercise actual preprocessing + ONNX calling convention + unpadding."""
+    from pathlib import Path
+    from app import m4_detection
+    class FakeSession:
+        def run(self, names, data):
+            assert names == ['labels', 'boxes', 'scores']
+            assert data['images'].shape == (1, 3, 640, 640)
+            assert data['orig_target_sizes'].tolist() == [[640, 640]]
+            return (np.array([[0]]),
+                    np.array([[[64,176,320,464]]], np.float32),
+                    np.array([[.87]], np.float32))
+    monkeypatch.setattr(m4_detection, '_session', lambda path, digest: FakeSession())
+    sample = np.zeros((360,640,3), np.uint8)
+    result = m4_detection.detect_image(
+        sample, model_path=Path('/models/dfine.onnx'),
+        model_sha256='a'*64, source_sha256='b'*64)
+    assert result['model_family'] == 'D-FINE'
+    assert result['source_sha256'] == 'b'*64
+    assert result['candidate_count'] == 1
+    assert result['candidates'][0]['bbox_normalized'] == [0.1,0.1,0.5,0.9]
+
+
+def test_invalid_signature_requires_digest_before_loading():
+    from app.m4_detection import detect_image
+    from pathlib import Path
+    sample = np.zeros((100,100,3), np.uint8)
+    with pytest.raises(DetectionError, match='m4b_model_sha256_required'):
+        detect_image(sample, model_path=Path('/models/x.onnx'),
+                     model_sha256='missing', source_sha256='b'*64)
