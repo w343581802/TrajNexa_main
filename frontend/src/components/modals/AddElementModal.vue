@@ -556,7 +556,7 @@ function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
   selectedMedia.value = null;
-  m4Box.value = null; m4Observation.value = null; m4Authorized.value = false;
+  m4Box.value = null; m4Observation.value = null; 
   m4DetectRequest += 1; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectError.value = null;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
@@ -774,7 +774,6 @@ function save(keepOpen: boolean) {
           <p>拖动鼠标框选目标。统计结果可能混有背景，不能代表目标身份、衣物或地理坐标。</p>
           <div class="m4a-panel-form">
             <input v-model="m4Note" class="input" placeholder="选取依据（至少 8 字）" maxlength="500" />
-            <label><input v-model="m4Authorized" type="checkbox" /> 本案件素材已获授权处理</label>
             <button class="btn btn--sm btn--primary" type="button"
               :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">
               {{ m4Busy ? "分析中…" : "保存区域观测" }}
