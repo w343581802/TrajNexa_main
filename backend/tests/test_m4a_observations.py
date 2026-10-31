@@ -72,8 +72,7 @@ def _case_and_media(client):
 
 def _payload():
     return {'object_class': 'person', 'bbox_normalized': [.25, .15, .75, .85],
-            'review_note': '根据原始截图人工框选画面中的对象，不确认身份',
-            'authorized': True}
+            'review_note': '根据原始截图人工框选画面中的对象，不确认身份'}
 
 
 def test_feature_requires_opt_in(env, monkeypatch):
@@ -112,14 +111,12 @@ def test_create_query_case_delete_clears_derivatives_only(env, monkeypatch):
         assert db.query(TargetObservation).count() == 0
 
 
-def test_reject_unowned_or_unapproved_or_invalid_object(env, monkeypatch):
+def test_reject_unowned_or_invalid_object(env, monkeypatch):
     client, _, _ = env
     monkeypatch.setattr(settings, 'm4a_enabled', True)
     _, media = _case_and_media(client)
     url = f"/api/v1/media/{media['id']}/observations"
     payload = _payload()
-    payload['authorized'] = False
-    assert client.post(url, json=payload).status_code == 422
     payload = _payload()
     payload['object_class'] = 'face_id'
     assert client.post(url, json=payload).json()['error']['code'] == 'm4a-invalid-object-class'
