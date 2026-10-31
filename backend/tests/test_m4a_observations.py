@@ -178,3 +178,36 @@ def test_case_delete_clears_observations_before_referenced_inspection(env, monke
     with Session() as db:
         assert db.query(TargetObservation).count() == 0
         assert db.query(InspectionReport).count() == 0
+
+def test_paged_case_history_and_direct_reopen(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, 'm4a_enabled', True)
+    case, media = _case_and_media(client)
+    url = '/api/v1/media/' + media['id'] + '/observations'
+    created = [client.post(url, json=_payload()).json() for _ in range(4)]
+    assert all(row['created_at'] and row['review_state'] == 'pending' for row in created)
+    case_url = '/api/v1/cases/' + case['id'] + '/observations'
+    first = client.get(case_url + '?limit=2&offset=0')
+    second = client.get(case_url + '?limit=2&offset=2')
+    assert first.status_code == 200 and second.status_code == 200
+    assert len(first.json()) == 2 and len(second.json()) == 2
+    assert {r['id'] for r in first.json() + second.json()} == {r['id'] for r in created}
+    saved = client.get('/api/v1/observations/' + created[1]['id'])
+    assert saved.status_code == 200
+    assert saved.json()['analysis_json']['bbox_normalized'] == _payload()['bbox_normalized']
+    assert saved.json()['analysis_json']['source_sha256'] == media['sha256']
+    assert client.get('/api/v1/media/' + media['id']).json()['id'] == media['id']
+    assert len(client.get(url + '?limit=1&offset=1').json()) == 1
+    assert client.get(case_url + '?limit=101').status_code == 422
+    assert client.get(case_url + '?offset=-1').status_code == 422
+    assert client.get('/api/v1/observations/missing').status_code == 404
+    assert client.get('/api/v1/cases/not-current-case/observations').json() == []
+    assert client.delete('/api/v1/cases/' + case['id']).status_code == 200
+    assert client.get('/api/v1/observations/' + created[1]['id']).status_code == 404
+
+def test_history_routes_require_enabled_flag(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, 'm4a_enabled', False)
+    assert client.get('/api/v1/cases/abc/observations').status_code == 503
+    assert client.get('/api/v1/observations/abc').status_code == 503
+    assert client.get('/api/v1/media/abc/observations').status_code == 503
