@@ -1,0 +1,4 @@
+# Optional D-FINE CPU ONNX (no weights shipped, no automatic downloads).
+# Model must be exported and manually mounted read-only at /models/dfine.onnx.
+-r requirements.txt
+onnxruntime>=1.19,<2

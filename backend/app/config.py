@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
     m4a_enabled: bool = False  # explicit opt-in until access-control deployment
+    m4b_enabled: bool = False  # opt-in D-FINE ONNX proposal preview
+    m4b_model_path: Path = Path('/models/dfine.onnx')
+    m4b_model_sha256: str = ''  # must be configured; prevents silent weight changes
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。

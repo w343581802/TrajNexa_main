@@ -1,0 +1,11 @@
+# Optional local D-FINE inference, CPU and human-review only.
+# Requires M4A_ENABLED=true and M4B_MODEL_SHA256 in private .env.
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.m4b
+    environment:
+      M4B_ENABLED: "true"
+    volumes:
+      - ./models:/models:ro
