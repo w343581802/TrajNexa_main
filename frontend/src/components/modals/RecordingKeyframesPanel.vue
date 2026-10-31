@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { mainApi, type RecordingClip, type RecordingKeyframePreview } from "../../services/mainApi";
+import { mainApi, type RecordingClip, type RecordingKeyframePreview, type M4dAttributePreview } from "../../services/mainApi";
 import { wb } from "../../store/workbench";
 
 /** Model proposals and requested video offsets are evidence candidates, not a tracklet. */
@@ -12,6 +12,9 @@ const error = ref("");
 const result = ref<RecordingKeyframePreview | null>(null);
 const selectedOffset = ref<number | null>(null);
 const frameFailed = ref(false);
+const vlmBusy = ref(false);
+const vlmResult = ref<M4dAttributePreview | null>(null);
+const vlmError = ref("");
 let requestEpoch = 0;
 
 watch(() => [props.clip.id, wb.caseId], () => {
@@ -19,6 +22,7 @@ watch(() => [props.clip.id, wb.caseId], () => {
   detect.value = false;
   offsetsInput.value = "0.5,2,8"; error.value = "";
   result.value = null; selectedOffset.value = null; frameFailed.value = false;
+  vlmResult.value = null; vlmError.value = ""; vlmBusy.value = false;
 });
 
 const currentFrame = computed(() => result.value?.frames.find(
@@ -34,8 +38,32 @@ const pictureRatio = computed(() => {
 });
 
 function choose(offset: number) {
+  vlmResult.value = null; vlmError.value = "";
   frameFailed.value = false;
   selectedOffset.value = offset;
+}
+
+async function inspectAttributes() {
+  const caseId = wb.caseId;
+  const clipId = props.clip.id;
+  const offset = selectedOffset.value;
+  if (!caseId || offset === null || vlmBusy.value) return;
+  const ticket = ++requestEpoch;
+  vlmBusy.value = true; vlmResult.value = null; vlmError.value = "";
+  try {
+    const data = await mainApi.previewM4dFrameAttributes(caseId, clipId, offset);
+    if (ticket !== requestEpoch || wb.caseId !== caseId ||
+        props.clip.id !== clipId || selectedOffset.value !== offset) return;
+    if (data.case_id !== caseId || data.clip_id !== clipId ||
+        data.requested_offset_seconds !== offset || data.identity_established !== false) {
+      throw new Error("模型分析来源不一致，已拒绝显示");
+    }
+    vlmResult.value = data;
+  } catch (exc) {
+    if (ticket === requestEpoch) vlmError.value = exc instanceof Error ? exc.message : String(exc);
+  } finally {
+    if (ticket === requestEpoch) vlmBusy.value = false;
+  }
 }
 
 async function inspect() {
@@ -119,6 +147,18 @@ async function inspect() {
         </svg>
       </div>
       <p v-if="frameFailed" class="m4c-error">关键帧图片读取失败，请确认录像未变化并重新扫描。</p>
+      <div v-if="currentFrame && currentFrame.status === 'frame_available'" class="m4c-summary">
+        <button type="button" class="btn btn--outline" :disabled="vlmBusy || loading"
+          @click="inspectAttributes">{{ vlmBusy ? "模型分析中…" : "M4d · 分析当前帧属性" }}</button>
+        <p v-if="vlmError" class="m4c-error">{{ vlmError }}</p>
+        <div v-if="vlmResult">
+          <p>模型状态：{{ vlmResult.vlm_status }}；属性状态：{{ vlmResult.attributes_status }}。
+            仅供人工复核，不确认身份或跨镜头关联。</p>
+          <p v-for="attr in vlmResult.attributes" :key="attr.name">
+            {{ attr.name }}：{{ attr.state }}{{ attr.value ? " · " + attr.value : "" }}
+          </p>
+        </div>
+      </div>
       <div v-if="currentFrame" class="m4c-summary">
         <p>画质提示：{{ currentFrame.quality?.warnings.join("、") || "无规则告警（仍未核实）" }}</p>
         <p v-if="currentFrame.detections">
