@@ -39,7 +39,6 @@ const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
-const m4Authorized = ref(false);
 const m4Note = ref("");
 
 /* The pointer surface must match the IMAGE content, not the dark letterbox. */
@@ -177,7 +176,6 @@ async function reopenM4Record(id: string) {
     m4Observation.value = record;
     await nextTick(); syncM4Layout();
     m4Note.value = record.review_note;
-    m4Authorized.value = false;
     category.value = record.object_class;
     report.value = null;
     recognizeError.value = null;
@@ -197,8 +195,8 @@ let m4DetectRequest = 0;
 async function requestM4Detections() {
   const source = selectedMedia.value;
   const caseId = currentCase.value?.id;
-  if (!source || !caseId || !m4Authorized.value || m4DetectBusy.value) {
-    m4DetectError.value = "请先选中案件截图并确认授权";
+  if (!source || !caseId || m4DetectBusy.value) {
+    m4DetectError.value = "请先选中案件截图";
     return;
   }
   const ticket = ++m4DetectRequest;
@@ -207,7 +205,7 @@ async function requestM4Detections() {
   m4DetectError.value = null; m4Proposals.value = [];
   m4DetectModel.value = null;
   try {
-    const response = await mainApi.previewM4Detections(source.id, true, .4);
+    const response = await mainApi.previewM4Detections(source.id, .4);
     if (ticket !== m4DetectRequest || session !== m4Session ||
         selectedMediaId.value !== source.id || currentCase.value?.id !== caseId ||
         !ui.addElementOpen) return;
@@ -247,8 +245,8 @@ async function analyzeM4Selection() {
     m4Error.value = "请先在截图中拖拽框选目标区域";
     return;
   }
-  if (!m4Authorized.value || m4Note.value.trim().length < 8) {
-    m4Error.value = "需要确认授权并填写至少 8 个字符的选取依据";
+  if (m4Note.value.trim().length < 8) {
+    m4Error.value = "请填写至少 8 个字符的选取依据";
     return;
   }
   m4Busy.value = true; m4Error.value = null;
@@ -258,7 +256,7 @@ async function analyzeM4Selection() {
     const session = m4Session;
     const saved = await mainApi.addM4Observation(mediaId, {
       object_class: category.value, bbox_normalized: [...m4Box.value],
-      review_note: m4Note.value.trim(), authorized: m4Authorized.value,
+      review_note: m4Note.value.trim(),
     });
     if (session === m4Session && currentCase.value?.id === caseId && selectedMediaId.value === mediaId) {
       m4Observation.value = saved;
@@ -298,7 +296,7 @@ async function upload(file: File) {
   m4DetectRequest += 1; m4Proposals.value = [];
   m4DetectModel.value = null; m4DetectError.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
-  m4Authorized.value = false; m4Note.value = '';
+  m4Note.value = '';
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
     selectedMedia.value = media;
@@ -761,7 +759,7 @@ function save(keepOpen: boolean) {
           <div class="m4a-panel-title">M4b · D-FINE 自动检测建议（需人工复核）</div>
           <p>可选本地 ONNX 模型，默认关闭。不会自动确认人员身份，也不自动保存目标观测。</p>
           <button type="button" class="btn btn--sm btn--primary"
-            :disabled="m4DetectBusy || !m4Authorized" @click="requestM4Detections">
+            :disabled="m4DetectBusy" @click="requestM4Detections">
             {{ m4DetectBusy ? "正在检测…" : "生成自动检测候选框" }}
           </button>
           <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
