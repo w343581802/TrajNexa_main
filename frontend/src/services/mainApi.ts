@@ -286,6 +286,31 @@ export type RecordingClip = {
   scanned_at: string;
 };
 
+export type RecordingKeyframe = {
+  requested_offset_seconds: number;
+  status: "frame_available" | "frame_unavailable";
+  width: number | null; height: number | null;
+  quality: { heuristic_only: boolean; warnings: string[];
+    median_luminance_0_255: number; laplacian_variance: number } | null;
+  detections: { model_family: string; model_sha256: string | null;
+    status: "candidates_unverified";
+    candidates: { proposal_index: number; object_class: string;
+      confidence: number; bbox_normalized: number[];
+      detector_label: string }[] } | null;
+};
+export type RecordingKeyframePreview = {
+  status: "sampled_keyframes_unverified";
+  case_id: string; clip_id: string;
+  start_time_candidate: string | null;
+  start_time_source: string;
+  absolute_frame_time_verified: false;
+  camera_uuid_candidate: string | null;
+  camera_verified_for_observation: false;
+  tracklet_status: "not_established";
+  frame_time_semantics: "requested_seek_offset_not_verified_pts";
+  frames: RecordingKeyframe[];
+};
+
 export type RecordingSummary = {
   case_id: string;
   source_count: number;
@@ -439,6 +464,15 @@ export const mainApi = {
     request<RecordingSummary>(`/recordings/summary?case_id=${encodeURIComponent(caseId)}`),
 
   /** 这段录像的开头截图：人工核对摄像头名称时看左边那张图 */
+  previewRecordingKeyframes: (caseId: string, clipId: string, body: {
+    authorized: boolean; offsets_seconds: number[]; include_detection: boolean;
+  }) => request<RecordingKeyframePreview>(
+    `/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/preview`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+  ),
+  recordingKeyframeImageUrl: (caseId: string, clipId: string, offsetSeconds: number) =>
+    `/api/v1/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/image?authorized=true&offset_seconds=${encodeURIComponent(String(offsetSeconds))}`,
+
   recordingClipFrameUrl: (clipId: string) =>
     `/api/v1/recordings/clips/${encodeURIComponent(clipId)}/frame`,
 

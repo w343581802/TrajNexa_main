@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
+import RecordingKeyframesPanel from "./RecordingKeyframesPanel.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import { mainApi, type CameraCatalogEntry, type RecordingClip } from "../../services/mainApi";
 
@@ -151,6 +152,7 @@ function submit() {
           <input v-model="note" class="rcn-input" placeholder="例如 与文件名一致，画面角标可辨" />
         </label>
         <p v-if="catalogNote" class="rcn-hint">{{ catalogNote }}</p>
+        <RecordingKeyframesPanel v-if="open && clip" :clip="clip" />
       </div>
     </div>
 
