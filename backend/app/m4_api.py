@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from threading import BoundedSemaphore
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Query
@@ -19,6 +20,7 @@ from app.db import get_db
 from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
+from app import m4_detection
 
 router = APIRouter(prefix='/api/v1')
 
@@ -131,3 +133,62 @@ def get_observation(observation_id: str, db: Session = Depends(get_db)):
     if row is None:
         fail(404, 'm4a-observation-not-found', '该截图观测不存在或所属案件已删除。')
     return row
+
+
+class DetectionPreviewInput(BaseModel):
+    authorized: bool = False
+    min_confidence: float = Field(default=0.4, ge=0.2, le=1)
+
+
+# Bound CPU inference requests and prevent multiple simultaneous heavyweight
+# D-FINE sessions. This is a preview only: no detection DB rows are created.
+_detection_gate = BoundedSemaphore(value=1)
+
+
+@router.post('/media/{media_id}/detections/preview')
+def preview_detections(media_id: str, body: DetectionPreviewInput,
+                       db: Session = Depends(get_db)):
+    ensure_enabled()
+    if not settings.m4b_enabled:
+        fail(503, 'm4b-disabled', 'M4b 自动检测预览未启用。')
+    if not body.authorized:
+        fail(422, 'm4b-authorization-required', '需要确认已获授权处理该案件截图。')
+    if not settings.m4b_model_sha256:
+        fail(503, 'm4b-model-sha256-required', '必须配置本地 ONNX 模型 SHA-256。')
+    asset = db.get(MediaAsset, media_id)
+    if asset is None:
+        fail(404, 'm4b-media-not-found', '截图素材不存在。')
+    if asset.kind != 'image' or not asset.case_id:
+        fail(422, 'm4b-case-image-required', '只处理已归属案件的截图。')
+    root = settings.storage_root.resolve()
+    file = (root / asset.storage_relpath).resolve()
+    if not file.is_relative_to(root):
+        fail(409, 'm4b-invalid-source', '原始截图路径越界。')
+    if not _detection_gate.acquire(blocking=False):
+        fail(429, 'm4b-detector-busy', '模型正在处理其它预览，请稍后再试。')
+    try:
+        image = m4_detection.verified_image(file, asset.sha256)
+        result = m4_detection.detect_image(
+            image, model_path=settings.m4b_model_path,
+            model_sha256=settings.m4b_model_sha256,
+            source_sha256=asset.sha256,
+            threshold=body.min_confidence,
+        )
+        result['media_id'] = asset.id
+        result['case_id'] = asset.case_id
+        return result
+    except m4_detection.DetectionError as exc:
+        code = str(exc)
+        if code in ('m4b_source_hash_mismatch', 'm4b_source_unavailable',
+                    'm4b_source_decode_failed', 'm4b_invalid_frame_size'):
+            status = 409
+        elif code in ('m4b_model_unavailable', 'm4b_runtime_unavailable',
+                      'm4b_model_sha256_required', 'm4b_model_digest_mismatch',
+                      'm4b_model_load_failed', 'm4b_incompatible_model'):
+            status = 503
+        else:
+            status = 422 if code == 'm4b_source_image_too_large' else 500
+        fail(status, code.replace('_', '-'),
+             '无法生成可靠的自动检测候选；原图未修改。')
+    finally:
+        _detection_gate.release()
