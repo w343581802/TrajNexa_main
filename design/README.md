@@ -74,3 +74,9 @@
 - 编号 `15_` 与 `22_` 各有两篇（历史原因），以文件名区分，暂不重排以免打断既有引用。
 - 文档是实施记录：写的是「当时怎么验的、为什么这么定」，口径冲突时以 [00](00_总体规划与Map职责边界_V1.0.md) 与 [26](26_能力地图与复用契约.md) 为准。
 - 契约有自动化守卫：[../backend/tests/test_architecture_contracts.py](../backend/tests/test_architecture_contracts.py)。
+
+## 7. Rebucca 技术验证
+
+| 文档 | 内容 |
+| --- | --- |
+| [30_Rebucca技术验证与集成决策.md](30_Rebucca技术验证与集成决策.md) | 技术验证优先决策、Rebucca 第一轮审计、实验分期、证据等级和文档治理 |
