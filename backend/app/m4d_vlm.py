@@ -8,18 +8,20 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass(frozen=True)
 class VLMResult:
-    status: str  # completed | refused | empty | error
+    status: str  # completed | refused | incomplete | empty | error
     model: str
     image_sha256: str
     text: str | None = None
     error_code: str | None = None
     request_id: str | None = None
     usage: dict[str, Any] | None = None
+    prompt_sha256: str | None = None
+    finish_reason: str | None = None
 
 
 class VLMInputError(ValueError):
@@ -50,6 +52,7 @@ def review_jpeg(
     if not isinstance(model, str) or not model.strip():
         raise VLMInputError("model_required")
     digest = sha256(image_bytes).hexdigest()
+    prompt_digest = sha256(prompt.encode('utf-8')).hexdigest()
     encoded = base64.b64encode(image_bytes).decode("ascii")
     try:
         response = client.chat.completions.create(
@@ -61,14 +64,18 @@ def review_jpeg(
         )
         choice = response.choices[0]
         content = choice.message.content
+        finish_reason = getattr(choice, 'finish_reason', None)
         request_id = getattr(response, "id", None)
         raw_usage = getattr(response, "usage", None)
         usage = raw_usage.model_dump() if hasattr(raw_usage, "model_dump") else None
-        if getattr(choice, "finish_reason", None) == "content_filter" or getattr(choice.message, "refusal", None):
-            return VLMResult("refused", model, digest, request_id=request_id, usage=usage)
+        metadata = dict(request_id=request_id, usage=usage, prompt_sha256=prompt_digest, finish_reason=finish_reason)
+        if finish_reason == 'content_filter' or getattr(choice.message, 'refusal', None):
+            return VLMResult('refused', model, digest, **metadata)
+        if finish_reason != 'stop':
+            return VLMResult('incomplete', model, digest, **metadata)
         if not isinstance(content, str) or not content.strip():
-            return VLMResult("empty", model, digest, request_id=request_id, usage=usage)
-        return VLMResult("completed", model, digest, text=content, request_id=request_id, usage=usage)
+            return VLMResult('empty', model, digest, **metadata)
+        return VLMResult('completed', model, digest, text=content, **metadata)
     except Exception as exc:
         # Never persist raw exception text: SDK errors may contain sensitive request details.
-        return VLMResult("error", model, digest, error_code=type(exc).__name__)
+        return VLMResult("error", model, digest, error_code=type(exc).__name__, prompt_sha256=prompt_digest)
