@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 from types import SimpleNamespace
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, ProxyHandler
@@ -13,6 +14,13 @@ def local_base_url(value: str) -> str:
             or parts.username or parts.password or parts.query or parts.fragment
             or not parts.port):
         raise ValueError("m4d_local_endpoint_required")
+    if parts.hostname:
+        try:
+            address = ipaddress.ip_address(parts.hostname)
+        except ValueError:
+            address = None
+        if address is not None and not address.is_loopback:
+            raise ValueError("m4d_local_endpoint_required")
     if parts.path.rstrip("/") != "/v1":
         raise ValueError("m4d_local_endpoint_required")
     return value.rstrip("/")
