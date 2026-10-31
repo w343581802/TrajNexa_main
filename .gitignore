@@ -9,3 +9,10 @@ dist/
 storage/
 *.sqlite3
 *.db
+
+# 本机部署覆盖：含宿主机录像目录与端口覆盖，只在本机用，不入库
+compose.override.yaml
+
+# 本机 pnpm 实验产物：仓库统一用 npm + package-lock.json
+frontend/pnpm-lock.yaml
+frontend/pnpm-workspace.yaml
