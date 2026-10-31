@@ -298,6 +298,14 @@ export type RecordingKeyframe = {
       confidence: number; bbox_normalized: number[];
       detector_label: string }[] } | null;
 };
+export type M4dAttributePreview = {
+  case_id: string; clip_id: string; requested_offset_seconds: number;
+  image_sha256: string; frame_time_verified: false; identity_established: false;
+  vlm_status: string; vlm_error_code: string | null;
+  attributes_status: string; requires_human_review: true;
+  attributes: { name: string; state: string; value: string | null; source: string }[];
+};
+
 export type RecordingKeyframePreview = {
   status: "sampled_keyframes_unverified";
   case_id: string; clip_id: string;
@@ -469,6 +477,12 @@ export const mainApi = {
     `/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/preview`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
   ),
+  previewM4dFrameAttributes: (caseId: string, clipId: string, offsetSeconds: number) =>
+    request<M4dAttributePreview>(
+      `/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/vlm/preview`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offset_seconds: offsetSeconds }) },
+    ),
   recordingKeyframeImageUrl: (caseId: string, clipId: string, offsetSeconds: number) =>
     `/api/v1/cases/${encodeURIComponent(caseId)}/recordings/clips/${encodeURIComponent(clipId)}/keyframes/image?offset_seconds=${encodeURIComponent(String(offsetSeconds))}`,
 
