@@ -13,6 +13,8 @@ def local_base_url(value: str) -> str:
             or parts.username or parts.password or parts.query or parts.fragment
             or not parts.port):
         raise ValueError("m4d_local_endpoint_required")
+    if parts.path.rstrip("/") != "/v1":
+        raise ValueError("m4d_local_endpoint_required")
     return value.rstrip("/")
 
 
@@ -38,9 +40,16 @@ class LocalChatClient:
         if len(raw) > 1024 * 1024:
             raise ValueError("m4d_model_response_too_large")
         data = json.loads(raw)
+        rows = data.get("choices")
+        if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+            raise ValueError("m4d_invalid_model_response")
+        row = rows[0]
+        message = row.get("message")
+        if not isinstance(message, dict):
+            raise ValueError("m4d_invalid_model_response")
         choices = [SimpleNamespace(
             finish_reason=row.get("finish_reason"),
-            message=SimpleNamespace(content=row.get("message", {}).get("content"),
-                                    refusal=row.get("message", {}).get("refusal")),
-        ) for row in data["choices"][:1]]
+            message=SimpleNamespace(content=message.get("content"),
+                                    refusal=message.get("refusal")),
+        )]
         return SimpleNamespace(id=data.get("id"), usage=None, choices=choices)
