@@ -99,7 +99,15 @@ def _split_roots(raw: str) -> list[str]:
 
 
 def allowed_roots() -> list[Path]:
-    """MEDIA_INPUT_ROOTS 配了才限制；本地 demo 留空表示不额外限制。"""
+    """允许访问的根目录。
+
+    * 显式配了 ``MEDIA_INPUT_ROOTS`` / ``VIDEO_NAMING_ROOTS`` 就只认这些；
+    * 都没配时**不再默认放行任意绝对路径**，而是退回到本机真实存在的可写挂载点
+      （容器里就是 ``/data/video-library``）。这一点很关键：视频命名工具是原地改名，
+      放行任意路径等于把整块磁盘都交给它。
+    * 本地直接跑（这些挂载点不存在）时才退回不限制，方便单机 demo 与测试；
+      测试通过 conftest 的 autouse fixture 显式清空，避免依赖运行环境。
+    """
     raw = (settings.media_input_roots or settings.video_naming_roots or '').strip()
     roots: list[Path] = []
     for piece in _split_roots(raw):
@@ -107,7 +115,19 @@ def allowed_roots() -> list[Path]:
             roots.append(Path(piece).expanduser().resolve())
         except OSError:
             continue
-    return roots
+    if roots:
+        return roots
+    fallback: list[Path] = []
+    for candidate in (settings.media_input_root, settings.video_naming_root):
+        if not candidate:
+            continue
+        path = Path(candidate).expanduser()
+        try:
+            if path.exists():
+                fallback.append(path.resolve())
+        except OSError:
+            continue
+    return fallback
 
 
 def default_root() -> Path:

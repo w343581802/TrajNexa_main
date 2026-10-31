@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     recordings_scan_interval_seconds: int = 30  # 开启自动扫描后的增量扫描间隔
     recordings_scan_max_files: int = 2000  # 单次扫描的文件上限，防止误选整个磁盘
     # 视频命名工具：前端只传本地路径 / 目录，后端直接读文件并原地改名。
-    # VIDEO_NAMING_ROOTS 用 os.pathsep 分隔；留空表示本地 demo 只校验路径存在。
+    # VIDEO_NAMING_ROOTS 用分号分隔；**留空也会兜底**：按本机真实存在的可写挂载点
+    # （容器内即 /data/video-library）限制可改名的范围——只有连这些挂载点都不存在
+    # （本地直接跑、没有挂载）时才退回不限制。要彻底放开就显式写 `VIDEO_NAMING_ROOTS=/`。
     video_naming_roots: str = ''
     video_naming_max_files: int = 200
     # 可写挂载点：容器内看到的录像库；相对路径按它解析
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     # 宿主机路径 → 容器路径，多个用 `;` 分隔；默认把 G:\测试数据\视频 映射到可写挂载
     video_naming_path_map: str = r'G:\测试数据\视频=/data/video-library'
     # 通用本地媒体输入（录像资源 / 视频命名 / 添加要素共用同一套「前端传路径、后端读本地文件」口径）。
-    # 留空时自动沿用上面的 VIDEO_NAMING_*，已有部署不需要改配置。
+    # 留空时自动沿用上面的 VIDEO_NAMING_*（含同一个兜底限制），已有部署不需要改配置。
     media_input_root: Path | None = None
     media_input_roots: str = ''
     media_input_path_map: str = ''

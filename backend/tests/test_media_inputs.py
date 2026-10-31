@@ -119,3 +119,40 @@ def test_collect_inputs_dedupes_and_reports_errors(host_map):
     with pytest.raises(media_inputs.InputPathError) as unsupported:
         media_inputs.collect_inputs([str(other)], default_root=host_map)
     assert unsupported.value.code == 'unsupported_video'
+
+
+def test_allowed_roots_falls_back_to_existing_mount(monkeypatch, tmp_path: Path):
+    """没显式配 ROOTS 时，退回「本机真实存在的可写挂载点」，不再放行任意绝对路径。
+
+    视频命名是原地改名，这条兜底决定了它能不能碰目录外的文件。
+    """
+    library = tmp_path / 'library'
+    library.mkdir()
+    monkeypatch.setattr(settings, 'video_naming_roots', '')
+    monkeypatch.setattr(settings, 'media_input_roots', '')
+    monkeypatch.setattr(settings, 'media_input_root', None)
+    monkeypatch.setattr(settings, 'video_naming_root', library)
+
+    assert media_inputs.allowed_roots() == [library.resolve()]
+
+    inside = library / '正常' / 'a.mp4'
+    inside.parent.mkdir()
+    inside.write_bytes(b'x')
+    assert media_inputs.resolve_input(str(inside)) == inside.resolve()
+
+    outside = tmp_path / 'b.mp4'
+    outside.write_bytes(b'x')
+    with pytest.raises(media_inputs.InputPathError) as blocked:
+        media_inputs.resolve_input(str(outside))
+    assert blocked.value.code == 'path_not_allowed'
+
+
+def test_explicit_roots_win_over_fallback(monkeypatch, tmp_path: Path):
+    library = tmp_path / 'library'
+    library.mkdir()
+    other = tmp_path / 'other'
+    other.mkdir()
+    monkeypatch.setattr(settings, 'media_input_root', library)
+    monkeypatch.setattr(settings, 'video_naming_root', library)
+    monkeypatch.setattr(settings, 'media_input_roots', str(other))
+    assert media_inputs.allowed_roots() == [other.resolve()]

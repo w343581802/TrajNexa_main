@@ -102,17 +102,17 @@ def _safe_stored_path(relpath: str | None) -> Path | None:
 
 
 def _safe_local_path(value: str | None) -> Path | None:
+    """下载用的本地路径校验：与命名流程共用 media_inputs 的同一套口径。
+
+    以前这里自己拼了一遍「绝对路径 + 允许根 + 是文件」，与 ``_collect`` 的口径会走偏；
+    现在统一走 ``media_inputs.resolve_input``：宿主机路径翻译、相对路径解析、
+    允许根校验、符号链接解析都在一处。
+    """
     if not value:
         return None
-    path = Path(value)
-    if not path.is_absolute():
-        return None
     try:
-        path = path.resolve()
-    except OSError:
-        return None
-    roots = _allowed_roots()
-    if roots and not any(path.is_relative_to(root) for root in roots):
+        path = media_inputs.resolve_input(value, default_root=settings.video_naming_root)
+    except media_inputs.InputPathError:
         return None
     return path if path.is_file() else None
 
