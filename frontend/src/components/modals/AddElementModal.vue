@@ -172,6 +172,7 @@ async function reopenM4Record(id: string) {
     selectedMedia.value = source;
     m4Box.value = [b[0], b[1], b[2], b[3]];
     m4Observation.value = record;
+    await nextTick(); syncM4Layout();
     m4Note.value = record.review_note;
     m4Authorized.value = false;
     category.value = record.object_class;
@@ -233,6 +234,7 @@ async function upload(file: File) {
   recognizeError.value = null;
   report.value = null;
   m4Session += 1; // Invalidate pending recovery/history for the previous image.
+  if (ui.addElementOpen) void loadM4History(true);
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
   m4Authorized.value = false; m4Note.value = '';
   try {
@@ -496,6 +498,7 @@ function resetForm() {
   selectedMedia.value = null;
   m4Box.value = null; m4Observation.value = null; m4Authorized.value = false;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
+  m4Restoring.value = false; m4Busy.value = false; m4HistoryBusy.value = false;
   mediaError.value = null;
   date.value = DEFAULT_EVENT_DATE;
   timeLabel.value = "";
@@ -542,16 +545,19 @@ watch(
     m4Session += 1;
     resetForm();
     fillFromElement();
-    void loadM4History(true);
+    if (!pendingElementFile.value) void loadM4History(true);
     const linkedObservationId = editingElement.value?.m4ObservationId;
     if (linkedObservationId) void reopenM4Record(linkedObservationId);
+    const activeSession = m4Session;
     void mainApi
       .listCameras()
       .then((catalogPage) => {
+        if (activeSession !== m4Session || !ui.addElementOpen) return;
         catalog.value = catalogPage.cameras ?? [];
         if (cameraName.value) syncCatalogMatch();
       })
       .catch(() => {
+        if (activeSession !== m4Session || !ui.addElementOpen) return;
         catalog.value = [];
       });
     // 「添加要素」已经先弹过系统选图框：拿到文件后进弹窗就直接上传+识别
