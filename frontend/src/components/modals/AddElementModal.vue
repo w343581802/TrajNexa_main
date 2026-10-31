@@ -190,11 +190,18 @@ async function analyzeM4Selection() {
   }
   m4Busy.value = true; m4Error.value = null;
   try {
-    m4Observation.value = await mainApi.addM4Observation(selectedMediaId.value, {
+    const mediaId = selectedMediaId.value;
+    const caseId = currentCase.value?.id;
+    const session = m4Session;
+    const saved = await mainApi.addM4Observation(mediaId, {
       object_class: category.value, bbox_normalized: [...m4Box.value],
       review_note: m4Note.value.trim(), authorized: m4Authorized.value,
     });
-    toast("M4a 区域观测已保存：仅画质/颜色统计，未核实身份或地理位置", "ok");
+    if (session === m4Session && currentCase.value?.id === caseId && selectedMediaId.value === mediaId) {
+      m4Observation.value = saved;
+      toast('M4a 区域观测已持久保存；不确认身份或地理位置', 'ok');
+      void loadM4History(true);
+    }
   } catch (error) {
     m4Error.value = error instanceof Error ? error.message : String(error);
   } finally { m4Busy.value = false; }
@@ -224,6 +231,7 @@ async function upload(file: File) {
   recognizeError.value = null;
   report.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
+  m4Authorized.value = false; m4Note.value = '';
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
     selectedMedia.value = media;
@@ -528,8 +536,12 @@ watch(
   () => ui.addElementOpen,
   (open) => {
     if (!open) return;
+    m4Session += 1;
     resetForm();
     fillFromElement();
+    void loadM4History(true);
+    const linkedObservationId = editingElement.value?.m4ObservationId;
+    if (linkedObservationId) void reopenM4Record(linkedObservationId);
     void mainApi
       .listCameras()
       .then((catalogPage) => {
@@ -549,6 +561,16 @@ watch(
 );
 
 function save(keepOpen: boolean) {
+  // A selected ROI must have a durable, matching observation record.
+  // Never place the synthetic "manual-unsaved" marker on the task timeline.
+  if (m4Box.value && !m4MatchesStored()) {
+    toast("请先点击「保存区域观测」，再保存目标要素；未写库的框选不能进入轨迹", "warn");
+    return;
+  }
+  if (m4Observation.value && selectedMedia.value?.case_id !== currentCase.value?.id) {
+    toast("当前截图不属于所选案件，请重新打开对应案件", "danger");
+    return;
+  }
   const payload: ElementPayload = {
     date: date.value,
     timeLabel: timeLabel.value,
@@ -564,14 +586,16 @@ function save(keepOpen: boolean) {
     quality: "good",
     category: category.value,
     attributes: attributes.map((attr) => ({ key: attr.key, value: attr.value, unknown: attr.unknown })),
-    boxes: m4Box.value ? [{
-      id: m4Observation.value?.id ?? "manual-unsaved",
+    sourceMediaId: m4MatchesStored() ? selectedMediaId.value : (editingElement.value?.sourceMediaId ?? null),
+    m4ObservationId: m4MatchesStored() ? m4Observation.value?.id : (editingElement.value?.m4ObservationId ?? null),
+    boxes: m4MatchesStored() && m4Box.value ? [{
+      id: m4Observation.value!.id,
       x: m4Box.value[0], y: m4Box.value[1],
       w: m4Box.value[2] - m4Box.value[0],
       h: m4Box.value[3] - m4Box.value[1],
       kind: category.value === "vehicle" ? "vehicle" : "person",
       label: "人工截图框选", auto: false,
-    }] : [],
+    }] : (editingElement.value?.boxes ?? []),
   };
 
   const id = editingElement.value
@@ -636,13 +660,15 @@ function save(keepOpen: boolean) {
             <img
               ref="m4Image"
               :src="mainApi.mediaContentUrl(selectedMedia.id)"
+              @load="syncM4Layout"
               :alt="selectedMedia.original_name"
             />
-            <div class="m4a-select-overlay" title="在原始截图中拖拽框选观察对象"
+            <div v-if="m4Layout" class="m4a-select-overlay" :style="m4OverlayStyle"
+              title="在原始截图中拖拽框选观察对象"
               @pointerdown.prevent="m4PointerDown"
               @pointermove.prevent="m4PointerMove"
               @pointerup.prevent="m4PointerUp"
-              @pointercancel="m4Anchor = null">
+              @pointercancel="m4PointerCancel">
               <div v-if="m4Box" class="m4a-selected-box" :style="m4BoxStyle"></div>
             </div>
             <span class="preview-tag">只读原始画面 · 拖拽框选目标区域（M4a）</span>
@@ -1082,7 +1108,7 @@ function save(keepOpen: boolean) {
 }
 
 
-.m4a-select-overlay { position: absolute; inset: 0; cursor: crosshair;
+.m4a-select-overlay { position: absolute; cursor: crosshair;
   touch-action: none; z-index: 2; user-select: none; }
 .m4a-selected-box { position: absolute; border: 2px solid #54cfff;
   box-shadow: 0 0 0 9999px rgba(0,0,0,.12); pointer-events: none;
