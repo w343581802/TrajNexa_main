@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { mainApi, type RecordingClip, type RecordingKeyframePreview } from "../../services/mainApi";
+import { mainApi, type RecordingClip, type RecordingKeyframePreview, type M4dAttributePreview } from "../../services/mainApi";
 import { wb } from "../../store/workbench";
 
 /** Model proposals and requested video offsets are evidence candidates, not a tracklet. */
 const props = defineProps<{ clip: RecordingClip }>();
-const authorized = ref(false);
 const detect = ref(false);
 const offsetsInput = ref("0.5,2,8");
 const loading = ref(false);
@@ -13,13 +12,19 @@ const error = ref("");
 const result = ref<RecordingKeyframePreview | null>(null);
 const selectedOffset = ref<number | null>(null);
 const frameFailed = ref(false);
+const vlmBusy = ref(false);
+const vlmResult = ref<M4dAttributePreview | null>(null);
+const vlmError = ref("");
 let requestEpoch = 0;
+let vlmEpoch = 0;
 
 watch(() => [props.clip.id, wb.caseId], () => {
   requestEpoch += 1;
-  authorized.value = false; detect.value = false;
+  vlmEpoch += 1;
+  detect.value = false;
   offsetsInput.value = "0.5,2,8"; error.value = "";
   result.value = null; selectedOffset.value = null; frameFailed.value = false;
+  vlmResult.value = null; vlmError.value = ""; vlmBusy.value = false;
 });
 
 const currentFrame = computed(() => result.value?.frames.find(
@@ -34,30 +39,70 @@ const pictureRatio = computed(() => {
     ? String(frame.width) + " / " + String(frame.height) : "16 / 9";
 });
 
+function onFrameImageError() {
+  frameFailed.value = true;
+  vlmEpoch += 1;
+  vlmBusy.value = false;
+  vlmResult.value = null;
+  vlmError.value = "关键帧图片读取失败，已清除模型候选";
+}
+
 function choose(offset: number) {
+  vlmEpoch += 1;
+  vlmBusy.value = false;
+  vlmResult.value = null; vlmError.value = "";
   frameFailed.value = false;
   selectedOffset.value = offset;
+}
+
+async function inspectAttributes() {
+  const caseId = wb.caseId;
+  const clipId = props.clip.id;
+  const offset = selectedOffset.value;
+  if (!caseId || offset === null || vlmBusy.value || frameFailed.value ||
+      currentFrame.value?.status !== "frame_available") return;
+  const ticket = ++vlmEpoch;
+  vlmBusy.value = true; vlmResult.value = null; vlmError.value = "";
+  try {
+    const data = await mainApi.previewM4dFrameAttributes(caseId, clipId, offset);
+    if (ticket !== vlmEpoch || wb.caseId !== caseId ||
+        props.clip.id !== clipId || selectedOffset.value !== offset) return;
+    if (data.case_id !== caseId || data.clip_id !== clipId ||
+        data.requested_offset_seconds !== offset || data.identity_established !== false) {
+      throw new Error("模型分析来源不一致，已拒绝显示");
+    }
+    vlmResult.value = data;
+  } catch (exc) {
+    if (ticket === vlmEpoch) vlmError.value = exc instanceof Error ? exc.message : String(exc);
+  } finally {
+    if (ticket === vlmEpoch) vlmBusy.value = false;
+  }
 }
 
 async function inspect() {
   const caseId = wb.caseId;
   const clipId = props.clip.id;
-  if (!caseId || !authorized.value || loading.value) {
-    error.value = "请先选择案件并确认录像已获授权使用";
+  if (!caseId || loading.value) {
+    error.value = "请先选择案件";
     return;
   }
-  const parts = offsetsInput.value.split(",").map(s => Number(s.trim()));
-  if (!parts.length || parts.length > 6 || parts.some(n => !Number.isFinite(n) || n < 0) ||
+  const rawParts = offsetsInput.value.split(",");
+  const parts = rawParts.map(s => Number(s.trim()));
+  if (!parts.length || parts.length > 6 || rawParts.some(s => !s.trim()) ||
+      parts.some(n => !Number.isFinite(n) || n < 0 || n > 21600) ||
       new Set(parts).size !== parts.length) {
     error.value = "偏移量必须为 1–6 个不重复的非负秒数，用英文逗号分隔";
     return;
   }
   const ticket = ++requestEpoch;
+  vlmEpoch += 1;
+  vlmBusy.value = false; vlmResult.value = null; vlmError.value = "";
   error.value = ""; loading.value = true;
   result.value = null; selectedOffset.value = null;
+  frameFailed.value = false;
   try {
     const response = await mainApi.previewRecordingKeyframes(caseId,clipId,{
-      authorized: true, offsets_seconds: parts, include_detection: detect.value,
+      offsets_seconds: parts, include_detection: detect.value,
     });
     if (ticket !== requestEpoch || wb.caseId !== caseId || props.clip.id !== clipId) return;
     if (response.case_id !== caseId || response.clip_id !== clipId ||
@@ -80,9 +125,6 @@ async function inspect() {
   <section class="m4c-panel">
     <strong>M4c · 视频关键帧检查（只读）</strong>
     <p>从已扫描录像请求少量画面。指定秒数为请求偏移，不保证等于实际呈现帧 PTS；设备时间、身份及地图位置均需核实。</p>
-    <label class="m4c-permission">
-      <input v-model="authorized" type="checkbox" /> 确认本次案件录像处理已获授权
-    </label>
     <label class="m4c-input">
       请求时间偏移（秒）
       <input v-model="offsetsInput" placeholder="0.5,2,8" spellcheck="false" />
@@ -90,7 +132,7 @@ async function inspect() {
     <label class="m4c-permission">
       <input v-model="detect" type="checkbox" /> 附加 D-FINE 检测候选（须已配置真实 ONNX）
     </label>
-    <button type="button" class="btn btn--outline" :disabled="loading || !authorized" @click="inspect">
+    <button type="button" class="btn btn--outline" :disabled="loading" @click="inspect">
       {{ loading ? "正在读取录像…" : "读取关键帧" }}
     </button>
     <p v-if="error" class="m4c-error">{{ error }}</p>
@@ -112,7 +154,7 @@ async function inspect() {
       <div v-if="currentFrame && currentFrame.status === 'frame_available' && !frameFailed"
         class="m4c-image" :style="{ aspectRatio: pictureRatio }">
         <img :key="imageUrl" :src="imageUrl" alt="录像指定偏移的关键帧（时间尚未经 PTS 校准）"
-          @error="frameFailed = true" />
+          @error="onFrameImageError" />
         <svg v-if="currentFrame.detections" viewBox="0 0 1 1"
           preserveAspectRatio="none" aria-label="未核实的检测候选框">
           <rect v-for="d in currentFrame.detections.candidates" :key="d.proposal_index"
@@ -123,6 +165,18 @@ async function inspect() {
         </svg>
       </div>
       <p v-if="frameFailed" class="m4c-error">关键帧图片读取失败，请确认录像未变化并重新扫描。</p>
+      <div v-if="currentFrame && currentFrame.status === 'frame_available'" class="m4c-summary">
+        <button type="button" class="btn btn--outline" :disabled="vlmBusy || loading || frameFailed"
+          @click="inspectAttributes">{{ vlmBusy ? "模型分析中…" : "M4d · 分析当前帧属性" }}</button>
+        <p v-if="vlmError" class="m4c-error">{{ vlmError }}</p>
+        <div v-if="vlmResult">
+          <p>模型状态：{{ vlmResult.vlm_status }}；属性状态：{{ vlmResult.attributes_status }}。
+            仅供人工复核，不确认身份或跨镜头关联。</p>
+          <p v-for="attr in vlmResult.attributes" :key="attr.name">
+            {{ attr.name }}：{{ attr.state }}{{ attr.value ? " · " + attr.value : "" }}
+          </p>
+        </div>
+      </div>
       <div v-if="currentFrame" class="m4c-summary">
         <p>画质提示：{{ currentFrame.quality?.warnings.join("、") || "无规则告警（仍未核实）" }}</p>
         <p v-if="currentFrame.detections">

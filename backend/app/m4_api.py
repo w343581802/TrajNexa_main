@@ -29,7 +29,6 @@ class ObservationInput(BaseModel):
     object_class: str
     bbox_normalized: list[float] = Field(min_length=4, max_length=4)
     review_note: str
-    authorized: bool = False
 
 
 class ObservationOut(BaseModel):
@@ -53,8 +52,6 @@ def ensure_enabled():
 @router.post('/media/{media_id}/observations', response_model=ObservationOut, status_code=201)
 def create_observation(media_id: str, body: ObservationInput, db: Session = Depends(get_db)):
     ensure_enabled()
-    if not body.authorized:
-        fail(422, 'm4a-authorization-required', '请确认本次处理属于获授权的案件任务。')
     note = body.review_note.strip()
     if not 8 <= len(note) <= 500:
         fail(422, 'm4a-note-required', '请填写至少 8 个字符的区域选取依据。')
@@ -136,7 +133,6 @@ def get_observation(observation_id: str, db: Session = Depends(get_db)):
 
 
 class DetectionPreviewInput(BaseModel):
-    authorized: bool = False
     min_confidence: float = Field(default=0.4, ge=0.2, le=1)
 
 
@@ -151,8 +147,6 @@ def preview_detections(media_id: str, body: DetectionPreviewInput,
     ensure_enabled()
     if not settings.m4b_enabled:
         fail(503, 'm4b-disabled', 'M4b 自动检测预览未启用。')
-    if not body.authorized:
-        fail(422, 'm4b-authorization-required', '需要确认已获授权处理该案件截图。')
     if not settings.m4b_model_sha256:
         fail(503, 'm4b-model-sha256-required', '必须配置本地 ONNX 模型 SHA-256。')
     asset = db.get(MediaAsset, media_id)

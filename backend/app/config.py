@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     m4a_enabled: bool = False  # explicit opt-in until access-control deployment
     m4c_enabled: bool = False  # opt-in read-only sampled frames of registered clips
     m4b_enabled: bool = False  # opt-in D-FINE ONNX proposal preview
+    m4d_enabled: bool = False  # optional local-only VLM demo endpoint
+    m4d_model: str = ''  # local OpenAI-compatible model name
+    m4d_base_url: str = 'http://127.0.0.1:11434/v1'  # local model server only
+    m4d_timeout_seconds: float = 30.0
     m4b_model_path: Path = Path('/models/dfine.onnx')
     m4b_model_sha256: str = ''  # must be configured; prevents silent weight changes
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
