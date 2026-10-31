@@ -78,3 +78,22 @@ def test_sdk_error_does_not_leak_exception_message():
 def test_content_filter():
     result = review_jpeg(JPEG, prompt="describe", model="vlm", client=FakeClient(finish_reason="content_filter"))
     assert result.status == "refused"
+
+
+def test_truncated_output_is_not_completed():
+    result = review_jpeg(JPEG, prompt="describe", model="vlm", client=FakeClient(finish_reason="length"))
+    assert result.status == "incomplete"
+    assert result.text is None
+    assert result.finish_reason == "length"
+
+
+def test_unknown_finish_reason_is_not_completed():
+    result = review_jpeg(JPEG, prompt="describe", model="vlm", client=FakeClient(finish_reason=None))
+    assert result.status == "incomplete"
+
+
+def test_prompt_hash_recorded_without_storing_prompt():
+    result = review_jpeg(JPEG, prompt="describe", model="vlm", client=FakeClient())
+    assert len(result.prompt_sha256) == 64
+    assert result.finish_reason == "stop"
+    assert "describe" not in str(result)
