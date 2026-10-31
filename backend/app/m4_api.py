@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -104,16 +104,28 @@ def create_observation(media_id: str, body: ObservationInput, db: Session = Depe
 
 
 @router.get('/media/{media_id}/observations', response_model=list[ObservationOut])
-def list_observations(media_id: str, db: Session = Depends(get_db)):
+def list_observations(media_id: str, limit: int = Query(50, ge=1, le=100),
+ offset: int = Query(0, ge=0, le=100000), db: Session = Depends(get_db)):
     ensure_enabled()
     return list(db.scalars(select(TargetObservation).where(
         TargetObservation.media_id == media_id).order_by(
-        TargetObservation.created_at.desc(), TargetObservation.id.desc()).limit(100)))
+        TargetObservation.created_at.desc(), TargetObservation.id.desc()).offset(offset).limit(limit)))
 
 
 @router.get('/cases/{case_id}/observations', response_model=list[ObservationOut])
-def list_case_observations(case_id: str, db: Session = Depends(get_db)):
+def list_case_observations(case_id: str, limit: int = Query(50, ge=1, le=100),
+ offset: int = Query(0, ge=0, le=100000), db: Session = Depends(get_db)):
     ensure_enabled()
     return list(db.scalars(select(TargetObservation).where(
         TargetObservation.case_id == case_id).order_by(
-        TargetObservation.created_at.desc(), TargetObservation.id.desc()).limit(100)))
+        TargetObservation.created_at.desc(), TargetObservation.id.desc()).offset(offset).limit(limit)))
+
+
+@router.get('/observations/{observation_id}', response_model=ObservationOut)
+def get_observation(observation_id: str, db: Session = Depends(get_db)):
+    """Reopen a stored manual ROI without rerunning OCR or altering evidence."""
+    ensure_enabled()
+    row = db.get(TargetObservation, observation_id)
+    if row is None:
+        fail(404, 'm4a-observation-not-found', '该截图观测不存在或所属案件已删除。')
+    return row
