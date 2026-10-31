@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.m4d_experiment import (
-    ExperimentAuthorizationError,
+    ExperimentSourceError,
     ExperimentSource,
     run_readonly_experiment,
 )
@@ -33,7 +33,7 @@ class FakeClient:
 
 def source(**kwargs):
     values = dict(case_id="case-test", media_id="media-test", frame_offset_ms=1200,
-                  image_sha256=sha256(JPEG).hexdigest(), authorization_checked=True)
+                  image_sha256=sha256(JPEG).hexdigest())
     values.update(kwargs)
     return ExperimentSource(**values)
 
@@ -50,7 +50,6 @@ def test_readonly_experiment_preserves_source_and_unverified_attributes():
 
 
 @pytest.mark.parametrize("changes", [
-    {"authorization_checked": False},
     {"case_id": ""},
     {"media_id": ""},
     {"frame_offset_ms": -1},
@@ -59,7 +58,7 @@ def test_readonly_experiment_preserves_source_and_unverified_attributes():
 ])
 def test_rejects_unverified_source_before_model_call(changes):
     client = FakeClient('{"attributes":[]}')
-    with pytest.raises(ExperimentAuthorizationError):
+    with pytest.raises(ExperimentSourceError):
         run_readonly_experiment(JPEG, source=source(**changes), prompt="describe", model="test", client=client)
     assert client.calls == []
 
