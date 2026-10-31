@@ -1,0 +1,119 @@
+"""M4a HTTP: explicit manual ROI selection from a case-owned uploaded image.
+
+No video extraction, detector model, identity matching or GIS projection occurs.
+The existing image and OCR report remain immutable.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.db import get_db
+from app.m4_features import analyze_image_roi, FeatureInputError
+from app.models import MediaAsset, InspectionReport, TargetObservation
+from app.recording_api import fail
+
+router = APIRouter(prefix='/api/v1')
+
+
+class ObservationInput(BaseModel):
+    object_class: str
+    bbox_normalized: list[float] = Field(min_length=4, max_length=4)
+    review_note: str
+    authorized: bool = False
+
+
+class ObservationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    case_id: str
+    media_id: str
+    object_class: str
+    analysis_json: dict
+    review_note: str
+    review_state: str
+    source_inspection_id: str | None
+
+
+def ensure_enabled():
+    if not settings.m4a_enabled:
+        fail(503, 'm4a-disabled', 'M4a 人工区域观测功能未启用，请先在受控部署中配置开关。')
+
+
+@router.post('/media/{media_id}/observations', response_model=ObservationOut, status_code=201)
+def create_observation(media_id: str, body: ObservationInput, db: Session = Depends(get_db)):
+    ensure_enabled()
+    if not body.authorized:
+        fail(422, 'm4a-authorization-required', '请确认本次处理属于获授权的案件任务。')
+    note = body.review_note.strip()
+    if not 8 <= len(note) <= 500:
+        fail(422, 'm4a-note-required', '请填写至少 8 个字符的区域选取依据。')
+    if body.object_class not in ('person', 'vehicle', 'other'):
+        fail(422, 'm4a-invalid-object-class', '目标类别只支持 person、vehicle、other。')
+    media = db.get(MediaAsset, media_id)
+    if media is None:
+        fail(404, 'm4a-media-not-found', '来源素材不存在。')
+    if media.kind != 'image' or not media.case_id:
+        fail(422, 'm4a-case-image-required', '仅能分析已归属案件的截图。')
+    root = settings.storage_root.resolve()
+    source = (root / media.storage_relpath).resolve()
+    if not source.is_relative_to(root):
+        fail(409, 'm4a-invalid-source', '素材存储路径无效。')
+    try:
+        result = analyze_image_roi(source, media.sha256, body.bbox_normalized)
+    except FeatureInputError as exc:
+        fail(422 if str(exc) in ('m4_invalid_bbox', 'm4_roi_too_small',
+                                  'm4_image_too_large') else 409,
+             str(exc).replace('_', '-'), '无法可靠分析该区域，请核查截图与框选。')
+    report = db.scalar(select(InspectionReport)
+                       .where(InspectionReport.media_id == media.id)
+                       .order_by(InspectionReport.created_at.desc(),
+                                 InspectionReport.id.desc()).limit(1))
+    # Never promote OCR timestamp or camera name to verified identity/position.
+    if report:
+        identity = report.result_json.get('identity') or {}
+        result['source_context'] = {
+            'inspection_id': report.id,
+            'time_candidate': identity.get('capture_time'),
+            'time_source': identity.get('time_source'),
+            'time_verified': False,
+            'camera_verified': False,
+        }
+    else:
+        result['source_context'] = {
+            'inspection_id': None, 'time_candidate': None,
+            'time_source': None, 'time_verified': False,
+            'camera_verified': False,
+        }
+    row = TargetObservation(
+        id=str(uuid4()), case_id=media.case_id, media_id=media.id,
+        object_class=body.object_class, analysis_json=result,
+        review_note=note, review_state='pending',
+        source_inspection_id=report.id if report else None,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.get('/media/{media_id}/observations', response_model=list[ObservationOut])
+def list_observations(media_id: str, db: Session = Depends(get_db)):
+    ensure_enabled()
+    return list(db.scalars(select(TargetObservation).where(
+        TargetObservation.media_id == media_id).order_by(
+        TargetObservation.created_at.desc(), TargetObservation.id.desc()).limit(100)))
+
+
+@router.get('/cases/{case_id}/observations', response_model=list[ObservationOut])
+def list_case_observations(case_id: str, db: Session = Depends(get_db)):
+    ensure_enabled()
+    return list(db.scalars(select(TargetObservation).where(
+        TargetObservation.case_id == case_id).order_by(
+        TargetObservation.created_at.desc(), TargetObservation.id.desc()).limit(100)))

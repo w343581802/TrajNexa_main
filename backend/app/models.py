@@ -168,3 +168,25 @@ class RecordingClip(Base):
     reviewer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     match_suggestions: Mapped[list | None] = mapped_column(JSON, nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TargetObservation(Base):
+    """M4a append-only, human-selected ROI; no cross-camera identity assertion.
+
+    Uploads are case-owned; the Map editor does not receive these rows.
+    """
+    __tablename__ = 'target_observations'
+    __table_args__ = (
+        Index('ix_target_observations_case_created', 'case_id', 'created_at'),
+        Index('ix_target_observations_media_created', 'media_id', 'created_at'),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), nullable=False)
+    media_id: Mapped[str] = mapped_column(ForeignKey('media_assets.id'), nullable=False)
+    object_class: Mapped[str] = mapped_column(String(24), nullable=False)
+    analysis_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    review_note: Mapped[str] = mapped_column(String(500), nullable=False)
+    review_state: Mapped[str] = mapped_column(String(32), default='pending')
+    source_inspection_id: Mapped[str | None] = mapped_column(
+        ForeignKey('inspection_reports.id'), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -26,6 +26,7 @@ from app.models import (
     RecordingScanJob,
     RecordingSource,
     ViewComparisonRecord,
+    TargetObservation,
 )
 
 NAME_MIN = 2
@@ -124,6 +125,7 @@ def purge_case_media(db: Session, case: Case) -> dict:
         db.execute(delete(CameraViewReference).where(CameraViewReference.id.in_(reference_ids)))
         db.execute(delete(AnalysisJob).where(AnalysisJob.media_id.in_(media_ids)))
 
+        db.execute(delete(TargetObservation).where(TargetObservation.media_id.in_(media_ids)))
         media_rows = list(db.scalars(select(MediaAsset).where(MediaAsset.id.in_(media_ids))))
         for media in media_rows:
             stats['bytes_removed'] += media.size_bytes

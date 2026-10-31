@@ -14,6 +14,7 @@ from app.db import get_db
 from app.models import Case, MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision, CameraViewReference, ViewComparisonRecord
 from app import case_service
 from app import recording_api
+from app import m4_api
 from app import video_naming_api
 from app.media import detect_signature, safe_basename
 from app.config import settings
@@ -25,6 +26,7 @@ from app.view_match import media_path, _decode_image, check_reference_view, View
 app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
 # 录像资源：只读目录浏览 + 目录登记 + 扫描结果（见 app/recording_api.py）
 app.include_router(recording_api.router)
+app.include_router(m4_api.router)
 app.include_router(video_naming_api.router)
 
 class MediaOut(BaseModel):
