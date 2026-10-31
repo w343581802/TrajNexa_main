@@ -16,6 +16,7 @@ from app import case_service
 from app import recording_api
 from app import m4_api
 from app import m4_video_api
+from app import m4d_api
 from app import video_naming_api
 from app.media import detect_signature, safe_basename
 from app.config import settings
@@ -29,6 +30,7 @@ app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
 app.include_router(recording_api.router)
 app.include_router(m4_api.router)
 app.include_router(m4_video_api.router)
+app.include_router(m4d_api.router)
 app.include_router(video_naming_api.router)
 
 class MediaOut(BaseModel):
