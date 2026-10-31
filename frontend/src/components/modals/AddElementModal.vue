@@ -119,6 +119,66 @@ function m4MatchesStored(): boolean {
     !!original && original.length === 4 &&
     original.every((value, index) => Math.abs(value - b[index]) < 0.000001);
 }
+const m4History = ref<M4Observation[]>([]);
+const m4HistoryBusy = ref(false);
+const m4HistoryMore = ref(false);
+const m4HistoryError = ref<string | null>(null);
+const m4Restoring = ref(false);
+const m4PageSize = 25;
+let m4Session = 0;
+
+/** The database history remains available after a browser refresh. */
+async function loadM4History(reset = false) {
+  const caseId = currentCase.value?.id;
+  if (!caseId || (m4HistoryBusy.value && !reset)) return;
+  if (reset) { m4History.value = []; m4HistoryMore.value = false; }
+  const session = m4Session;
+  const offset = m4History.value.length;
+  m4HistoryBusy.value = true; m4HistoryError.value = null;
+  try {
+    const records = await mainApi.listCaseM4Observations(caseId, m4PageSize, offset);
+    if (session !== m4Session || currentCase.value?.id !== caseId || !ui.addElementOpen) return;
+    const known = new Set(m4History.value.map(r => r.id));
+    m4History.value = [...m4History.value, ...records.filter(r => !known.has(r.id))];
+    m4HistoryMore.value = records.length === m4PageSize;
+  } catch (error) {
+    if (session === m4Session) m4HistoryError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    if (session === m4Session) m4HistoryBusy.value = false;
+  }
+}
+
+/** Recover the original MediaAsset and the exact saved ROI, never re-run OCR. */
+async function reopenM4Record(id: string) {
+  const caseId = currentCase.value?.id;
+  if (!caseId) return;
+  const session = m4Session;
+  m4Restoring.value = true; m4Error.value = null;
+  try {
+    const record = await mainApi.getM4Observation(id);
+    if (record.case_id !== caseId) throw new Error('目标观测不属于当前案件');
+    const source = await mainApi.getMedia(record.media_id);
+    if (source.id !== record.media_id || source.case_id !== caseId || source.kind !== 'image') {
+      throw new Error('原始截图与观测的案件归属不一致');
+    }
+    if (session !== m4Session || currentCase.value?.id !== caseId || !ui.addElementOpen) return;
+    const b = record.analysis_json.bbox_normalized;
+    if (!Array.isArray(b) || b.length !== 4 || b.some(v => !Number.isFinite(v)) ||
+        !(0 <= b[0] && b[0] < b[2] && b[2] <= 1 &&
+          0 <= b[1] && b[1] < b[3] && b[3] <= 1)) throw new Error('观测的框选坐标无效');
+    m4Layout.value = null;
+    selectedMedia.value = source;
+    m4Box.value = [b[0], b[1], b[2], b[3]];
+    m4Observation.value = record;
+    m4Note.value = record.review_note;
+    m4Authorized.value = false;
+    category.value = record.object_class;
+    report.value = null;
+    recognizeError.value = null;
+  } catch (error) {
+    if (session === m4Session) m4Error.value = error instanceof Error ? error.message : String(error);
+  } finally { if (session === m4Session) m4Restoring.value = false; }
+}
 async function analyzeM4Selection() {
   if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
     m4Error.value = "请先在截图中拖拽框选目标区域";
