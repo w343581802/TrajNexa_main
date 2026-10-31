@@ -52,3 +52,29 @@ def test_model_required(env, monkeypatch):
                            json={"offset_seconds": 0.5})
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "m4d-model-required"
+
+
+def test_mismatched_source_rejected(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, "m4d_enabled", True)
+    monkeypatch.setattr(settings, "m4d_model", "local-vision")
+    monkeypatch.setattr(m4d_api, "make_client", lambda: object())
+    monkeypatch.setattr(m4d_api.m4d_frame_review, "review_case_clip_frame",
+                        lambda db, **kwargs: ExperimentReview(
+                            source=ExperimentSource(case_id="another-case", media_id="clip",
+                                                    frame_offset_ms=1000, image_sha256="a" * 64),
+                            vlm=VLMResult("completed", "local-vision", "a" * 64),
+                            attributes=AttributeParseResult("parsed")))
+    response = client.post("/api/v1/cases/case/recordings/clips/clip/vlm/preview",
+                           json={"offset_seconds": 1})
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "m4d-source-mismatch"
+
+
+def test_nonfinite_offset_rejected(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, "m4d_enabled", True)
+    monkeypatch.setattr(settings, "m4d_model", "local-vision")
+    response = client.post("/api/v1/cases/case/recordings/clips/clip/vlm/preview",
+                           json={"offset_seconds": "NaN"})
+    assert response.status_code == 422
