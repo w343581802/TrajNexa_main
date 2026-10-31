@@ -20,7 +20,6 @@ _gate = BoundedSemaphore(1)
 
 
 class ClipSampleRequest(BaseModel):
-    authorized: bool = False
     offsets_seconds: list[float] = Field(min_length=1, max_length=6)
     include_detection: bool = False
 
@@ -51,8 +50,6 @@ def sample_failure(exc: m4_video.KeyframeError):
 def preview_clip_keyframes(case_id: str, clip_id: str, body: ClipSampleRequest,
                            db: Session = Depends(get_db)):
     enabled()
-    if not body.authorized:
-        fail(422, 'm4c-authorization-required', '请确认已获授权使用该案件录像。')
     try:
         clip, path = m4_video.resolve_case_clip(db, case_id=case_id, clip_id=clip_id)
         # Validate all offsets before any video decoding or model load.
@@ -80,12 +77,10 @@ def preview_clip_keyframes(case_id: str, clip_id: str, body: ClipSampleRequest,
 
 
 @router.get('/cases/{case_id}/recordings/clips/{clip_id}/keyframes/image')
-def get_clip_keyframe_image(case_id: str, clip_id: str, authorized: bool = False,
+def get_clip_keyframe_image(case_id: str, clip_id: str,
                             offset_seconds: float = Query(0.5, ge=0, le=21600),
                             db: Session = Depends(get_db)):
     enabled()
-    if not authorized:
-        fail(422, 'm4c-authorization-required', '请确认已获授权使用该案件录像。')
     if not _gate.acquire(blocking=False):
         fail(429, 'm4c-preview-busy', '已有录像采样任务，请稍后重试。')
     try:
