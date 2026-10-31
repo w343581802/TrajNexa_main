@@ -100,9 +100,11 @@ def test_changed_clip_requires_rescan(sample_clip):
 def test_invalid_offsets_and_detector_gate(sample_clip):
     client,_,case_id,clip_id,_=sample_clip
     base={'authorized':True}
-    for offsets in ([1,1],[-1],[121], [float('nan')], [1]*7):
+    for offsets in ([1,1],[-1],[121], [1]*7):
         resp=client.post(route(case_id,clip_id),json={**base,'offsets_seconds':offsets})
         assert resp.status_code==422
+    # A textual NaN can be sent as standard JSON and must be rejected by the API.
+    assert client.post(route(case_id,clip_id), json={**base,'offsets_seconds':['NaN']}).status_code==422
     resp=client.post(route(case_id,clip_id),
                      json={**base,'offsets_seconds':[.5],
                            'include_detection':True})
