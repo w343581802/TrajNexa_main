@@ -1,0 +1,17 @@
+# M4c optional read-only recording library mount.
+# Set RECORDINGS_HOST_ROOT to the SAME folder previously indexed by M3.
+# Enable M4C_ENABLED=true explicitly in your PRIVATE .env.
+# Never mount a writable recording library into the inference API.
+services:
+  api:
+    volumes:
+      - type: bind
+        source: ${RECORDINGS_HOST_ROOT:?Set RECORDINGS_HOST_ROOT in your local .env}
+        target: /data/videos
+        read_only: true
+  worker:
+    volumes:
+      - type: bind
+        source: ${RECORDINGS_HOST_ROOT:?Set RECORDINGS_HOST_ROOT in your local .env}
+        target: /data/videos
+        read_only: true
