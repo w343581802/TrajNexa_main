@@ -144,3 +144,12 @@ def test_feature_disabled_by_default(sample_clip,monkeypatch):
                      json={'offsets_seconds':[.5]})
     assert resp.status_code==503
     assert resp.json()['error']['code']=='m4c-disabled'
+
+
+def test_demo_keyframe_preview_needs_no_authorization_flag(sample_clip, monkeypatch):
+    client, _, case_id, clip_id, _ = sample_clip
+    monkeypatch.setattr(m4_video.overlay_identity, 'grab_evidence_frame',
+                        lambda path, offsets: np.full((120, 240, 3), 127, np.uint8))
+    response = client.post(route(case_id, clip_id), json={'offsets_seconds': [0.5]})
+    assert response.status_code == 200, response.text
+    assert response.json()['frames'][0]['status'] == 'frame_available'
