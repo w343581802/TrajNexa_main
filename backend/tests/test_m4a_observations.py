@@ -144,3 +144,37 @@ def test_changed_file_rejected_without_record(env, monkeypatch):
     assert result.status_code == 409
     with Session() as db:
         assert db.query(TargetObservation).count() == 0
+
+
+
+def test_case_delete_clears_observations_before_referenced_inspection(env, monkeypatch):
+    from uuid import uuid4
+    from app.models import AnalysisJob, InspectionReport
+    client, Session, _ = env
+    monkeypatch.setattr(settings, 'm4a_enabled', True)
+    case, media = _case_and_media(client)
+    with Session() as db:
+        job = AnalysisJob(id=str(uuid4()), media_id=media['id'], module='test-inspector',
+                          status='succeeded', attempt=1, progress=100)
+        db.add(job)
+        db.flush()
+        report = InspectionReport(
+            id=str(uuid4()), media_id=media['id'], job_id=job.id,
+            schema_version='0.1.3', module_version='test', result_json={
+                'identity': {'capture_time': '2026-10-23T15:00:00',
+                             'time_source': 'ocr', 'camera_name': '仅候选'}
+            })
+        db.add(report)
+        db.commit()
+        report_id = report.id
+    result = client.post('/api/v1/media/' + media['id'] + '/observations',
+                         json=_payload())
+    assert result.status_code == 201, result.text
+    assert result.json()['source_inspection_id'] == report_id
+    assert result.json()['analysis_json']['source_context']['time_verified'] is False
+    assert result.json()['analysis_json']['linkage']['camera_uuid'] is None
+    deleted = client.delete('/api/v1/cases/' + case['id'])
+    assert deleted.status_code == 200, deleted.text
+    with Session() as db:
+        assert db.query(TargetObservation).count() == 0
+        assert db.query(InspectionReport).count() == 0

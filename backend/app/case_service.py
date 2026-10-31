@@ -105,6 +105,9 @@ def purge_case_media(db: Session, case: Case) -> dict:
         'recordings_preserved': True,
     }
     if media_ids:
+        # TargetObservation may FK-reference InspectionReport. Remove its own
+        # case-owned evidence row BEFORE removing referenced reports or assets.
+        db.execute(delete(TargetObservation).where(TargetObservation.media_id.in_(media_ids)))
         report_ids = list(db.scalars(
             select(InspectionReport.id).where(InspectionReport.media_id.in_(media_ids))
         ))
@@ -125,7 +128,6 @@ def purge_case_media(db: Session, case: Case) -> dict:
         db.execute(delete(CameraViewReference).where(CameraViewReference.id.in_(reference_ids)))
         db.execute(delete(AnalysisJob).where(AnalysisJob.media_id.in_(media_ids)))
 
-        db.execute(delete(TargetObservation).where(TargetObservation.media_id.in_(media_ids)))
         media_rows = list(db.scalars(select(MediaAsset).where(MediaAsset.id.in_(media_ids))))
         for media in media_rows:
             stats['bytes_removed'] += media.size_bytes
