@@ -51,7 +51,8 @@ async function inspectAttributes() {
   const caseId = wb.caseId;
   const clipId = props.clip.id;
   const offset = selectedOffset.value;
-  if (!caseId || offset === null || vlmBusy.value) return;
+  if (!caseId || offset === null || vlmBusy.value || frameFailed.value ||
+      currentFrame.value?.status !== "frame_available") return;
   const ticket = ++vlmEpoch;
   vlmBusy.value = true; vlmResult.value = null; vlmError.value = "";
   try {
@@ -77,8 +78,10 @@ async function inspect() {
     error.value = "请先选择案件";
     return;
   }
-  const parts = offsetsInput.value.split(",").map(s => Number(s.trim()));
-  if (!parts.length || parts.length > 6 || parts.some(n => !Number.isFinite(n) || n < 0) ||
+  const rawParts = offsetsInput.value.split(",");
+  const parts = rawParts.map(s => Number(s.trim()));
+  if (!parts.length || parts.length > 6 || rawParts.some(s => !s.trim()) ||
+      parts.some(n => !Number.isFinite(n) || n < 0 || n > 21600) ||
       new Set(parts).size !== parts.length) {
     error.value = "偏移量必须为 1–6 个不重复的非负秒数，用英文逗号分隔";
     return;
@@ -88,6 +91,7 @@ async function inspect() {
   vlmBusy.value = false; vlmResult.value = null; vlmError.value = "";
   error.value = ""; loading.value = true;
   result.value = null; selectedOffset.value = null;
+  frameFailed.value = false;
   try {
     const response = await mainApi.previewRecordingKeyframes(caseId,clipId,{
       offsets_seconds: parts, include_detection: detect.value,
@@ -154,7 +158,7 @@ async function inspect() {
       </div>
       <p v-if="frameFailed" class="m4c-error">关键帧图片读取失败，请确认录像未变化并重新扫描。</p>
       <div v-if="currentFrame && currentFrame.status === 'frame_available'" class="m4c-summary">
-        <button type="button" class="btn btn--outline" :disabled="vlmBusy || loading"
+        <button type="button" class="btn btn--outline" :disabled="vlmBusy || loading || frameFailed"
           @click="inspectAttributes">{{ vlmBusy ? "模型分析中…" : "M4d · 分析当前帧属性" }}</button>
         <p v-if="vlmError" class="m4c-error">{{ vlmError }}</p>
         <div v-if="vlmResult">
