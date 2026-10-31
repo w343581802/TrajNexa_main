@@ -34,8 +34,8 @@ export type M4DetectionPreview = {
   candidates: M4DetectionProposal[];
 };
 
-/** M4d：两个可切换的识别引擎，同一张图上换引擎重跑即可对比效果 */
-export type M4DetectEngine = "dfine" | "qwen3vl";
+/** 可切换的识别引擎：D-FINE 检测器 + Qwen3-VL 2B/4B 两个视觉模型 */
+export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b";
 
 export type M4DetectCandidate = {
   proposal_index: number;
@@ -80,7 +80,7 @@ export type M4RoiFeatures = {
   appearance: {
     roi_tones_unverified: { tone: string; fraction: number }[];
     semantic_status: string;
-    semantic_attributes?: { features_unverified?: string[] };
+    semantic_attributes?: { features_unverified?: string[]; semantic_model?: string };
     semantic_error?: string;
   };
   linkage: { identity_status: string; geo_status: string; camera_uuid: string | null };

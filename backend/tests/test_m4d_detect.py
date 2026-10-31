@@ -65,6 +65,72 @@ def test_qwen_detect_returns_unverified_candidates(env, enabled, monkeypatch):
     assert calls['base_url'] == settings.vision_base_url
 
 
+def test_qwen4b_engine_uses_large_model(env, enabled, monkeypatch):
+    """engine=qwen3vl4b 走 4B 权重，2B 仍然保留，两个引擎可并存对比。"""
+    client, _, _ = env
+    _, media = _case_and_media(client)
+    calls = {}
+
+    def fake_detect(image, **kwargs):
+        calls.update(kwargs)
+        return [_candidate()]
+
+    monkeypatch.setattr(m4_vision, 'detect_objects', fake_detect)
+    body = client.post(f"/api/v1/media/{media['id']}/detect", json={'engine': 'qwen3vl4b'})
+    assert body.status_code == 200, body.text
+    data = body.json()
+    assert data['engine'] == 'qwen3vl4b'
+    assert data['model_family'] == 'Qwen3-VL 4B'
+    assert data['model_id'] == settings.vision_model_large
+    assert calls['model'] == settings.vision_model_large
+
+
+def test_clean_features_unwraps_nested_json():
+    """2B 会把 JSON 数组当成字符串再塞回来，展示前必须拆干净。"""
+    from app.m4_vision import _clean_features
+    assert _clean_features(['["白色"', '"黑色"', '行走']) == ['白色', '黑色', '行走']
+    assert _clean_features(['["白色条纹衬衫","黑色长裤"]']) == ['白色条纹衬衫', '黑色长裤']
+
+
+def test_roi_features_use_best_model_for_detector_boxes(env, enabled, monkeypatch):
+    """用 D-FINE 选中框时，外观短语走最好的视觉模型（4B），2B 不必参与。"""
+    client, _, _ = env
+    _, media = _case_and_media(client)
+    seen = {}
+
+    def fake_describe(image, box, **kwargs):
+        seen.update(kwargs)
+        return ['白色条纹衬衫']
+
+    monkeypatch.setattr(m4_vision, 'describe_roi', fake_describe)
+    body = client.post(f"/api/v1/media/{media['id']}/roi-features",
+                       json={'bbox_normalized': [.2, .2, .6, .7], 'engine': 'dfine'})
+    assert body.status_code == 200, body.text
+    data = body.json()
+    assert seen['model'] == settings.vision_feature_model
+    assert data['appearance']['semantic_status'] == 'vlm_unverified'
+    assert data['appearance']['semantic_attributes']['semantic_model'] == settings.vision_feature_model
+
+
+def test_roi_features_fall_back_to_2b_when_4b_missing(env, enabled, monkeypatch):
+    client, _, _ = env
+    _, media = _case_and_media(client)
+    tried = []
+
+    def fake_describe(image, box, **kwargs):
+        tried.append(kwargs['model'])
+        if kwargs['model'] == settings.vision_feature_model:
+            raise m4_vision.VisionError('m4d_model_unavailable')
+        return ['深色上衣']
+
+    monkeypatch.setattr(m4_vision, 'describe_roi', fake_describe)
+    body = client.post(f"/api/v1/media/{media['id']}/roi-features",
+                       json={'bbox_normalized': [.2, .2, .6, .7], 'engine': 'dfine'})
+    assert body.status_code == 200, body.text
+    assert tried == [settings.vision_feature_model, settings.vision_model]
+    assert body.json()['appearance']['semantic_attributes']['features_unverified'] == ['深色上衣']
+
+
 def test_vision_unavailable_maps_to_503(env, enabled, monkeypatch):
     client, _, _ = env
     _, media = _case_and_media(client)

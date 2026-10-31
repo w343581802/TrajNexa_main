@@ -42,7 +42,7 @@ const m4Observation = ref<M4Observation | null>(null);
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
 /** 两个可切换的识别引擎：先看效果，再决定后面接哪一个 */
-const m4Engine = ref<M4DetectEngine>("qwen3vl");
+const m4Engine = ref<M4DetectEngine>("dfine");
 /** 选中框之后的关键特征（画质/主色 + 视觉模型外观短语） */
 const m4Features = ref<M4RoiFeatures | null>(null);
 const m4FeaturesBusy = ref(false);
@@ -216,7 +216,8 @@ let m4DetectRequest = 0;
 
 const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
   dfine: "D-FINE",
-  qwen3vl: "Qwen3-VL",
+  qwen3vl: "Qwen3-VL 2B",
+  qwen3vl4b: "Qwen3-VL 4B",
 };
 
 /** 选完图、换引擎都会自动跑一次：框先出来，人再决定用哪一个 */
@@ -830,7 +831,11 @@ function save(keepOpen: boolean) {
           <div class="m4-engine-row">
             <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'qwen3vl' }"
               @click="m4Engine = 'qwen3vl'">
-              Qwen3-VL <small>本地视觉模型</small>
+              Qwen3-VL 2B <small>快</small>
+            </button>
+            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'qwen3vl4b' }"
+              @click="m4Engine = 'qwen3vl4b'">
+              Qwen3-VL 4B <small>准一些/慢</small>
             </button>
             <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'dfine' }"
               @click="m4Engine = 'dfine'">
@@ -867,7 +872,8 @@ function save(keepOpen: boolean) {
               {{ m4ToneText(m4Features.appearance.roi_tones_unverified) }}</span>
             <span v-if="m4Features.appearance.semantic_attributes?.features_unverified?.length">
               外观线索：<b>{{ m4Features.appearance.semantic_attributes.features_unverified.join("、") }}</b>
-              <em class="dim">（视觉模型建议，待人工核实）</em>
+              <em class="dim">（{{ m4Features.appearance.semantic_attributes.semantic_model
+                || "视觉模型" }} 建议，待人工核实）</em>
             </span>
             <span v-else class="dim">
               外观线索：{{ m4Features.appearance.semantic_status === "unavailable"

@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     vision_enabled: bool = True
     vision_base_url: str = 'http://host.docker.internal:11434'
     vision_model: str = 'qwen3-vl:2b-instruct'
+    # 4B 作为可选引擎（engine=qwen3vl4b），同一个 Ollama 上并存；
+    # 6GB 显存放不下两个模型，切换时 Ollama 会自动换出，第一次切会慢几秒。
+    vision_model_large: str = 'qwen3-vl:4b-instruct'
+    # 关键特征（外观短语）优先用这个模型，不可用时回落到 vision_model。
+    vision_feature_model: str = 'qwen3-vl:4b-instruct'
     vision_timeout_seconds: int = 180
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL

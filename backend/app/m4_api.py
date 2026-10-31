@@ -211,13 +211,19 @@ def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: b
 
 
 class DetectInput(BaseModel):
-    engine: str = 'qwen3vl'  # dfine | qwen3vl
+    engine: str = 'qwen3vl'  # dfine | qwen3vl(2B) | qwen3vl4b(4B)
     min_confidence: float = Field(default=0.4, ge=0.2, le=1)
+
+
+VISION_MODELS = {
+    'qwen3vl': ('Qwen3-VL 2B', 'vision_model'),
+    'qwen3vl4b': ('Qwen3-VL 4B', 'vision_model_large'),
+}
 
 
 @router.post('/media/{media_id}/detect')
 def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
-    """统一识别入口：同一张截图上换引擎重跑，用来对比两个模型的效果。
+    """统一识别入口：同一张截图上换引擎重跑，用来对比各个模型的效果。
 
     只返回待核实候选框；不写库、不改原图、不确认身份。
     """
@@ -229,30 +235,32 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
         result['engine'] = 'dfine'
         result['elapsed_seconds'] = round(time.monotonic() - started, 2)
         return result
-    if engine != 'qwen3vl':
-        fail(422, 'm4-unknown-engine', '识别引擎只支持 dfine 或 qwen3vl。')
+    if engine not in VISION_MODELS:
+        fail(422, 'm4-unknown-engine', '识别引擎只支持 dfine、qwen3vl、qwen3vl4b。')
+    label, setting_name = VISION_MODELS[engine]
+    model = getattr(settings, setting_name)
     if not settings.vision_enabled:
         fail(503, 'vision-disabled', 'Qwen3-VL 识别已关闭。')
     asset, _file, image = _case_image(db, media_id)
     try:
         candidates = m4_vision.detect_objects(
-            image, base_url=settings.vision_base_url, model=settings.vision_model,
+            image, base_url=settings.vision_base_url, model=model,
             timeout=settings.vision_timeout_seconds)
     except m4_vision.VisionError as exc:
         code = str(exc)
         status = 503 if code in ('m4d_model_unavailable', 'm4d_prompt_too_long',
                                  'm4d_model_thinking_only') else \
             422 if code == 'm4d_roi_too_small' else 502
-        hint = ('确认本机 ollama serve 已启动且已拉取 ' + settings.vision_model + '。'
+        hint = ('确认本机 ollama serve 已启动且已拉取 ' + model + '。'
                 if code != 'm4d_model_thinking_only' else
-                '当前模型只输出推理不给结论：请改用 instruct 变体（' + settings.vision_model + '）。')
+                '当前模型只输出推理不给结论：请改用 instruct 变体（' + model + '）。')
         fail(status, code.replace('_', '-'), '视觉模型没有给出可用候选：' + hint)
     return {
         'schema_version': '1.0',
-        'engine': 'qwen3vl',
+        'engine': engine,
         'status': 'candidates_unverified',
-        'model_family': 'Qwen3-VL',
-        'model_id': settings.vision_model,
+        'model_family': label,
+        'model_id': model,
         'source_sha256': asset.sha256,
         'image_size': [image.shape[1], image.shape[0]],
         'tiling': 1,  # 视觉模型整幅推理：切片会成倍拖慢（2s → 8s），先不切
@@ -283,20 +291,28 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
              str(exc).replace('_', '-'), '无法可靠分析该区域，请核查截图与框选。')
     engine = (body.engine or '').strip().lower()
     result['engine'] = engine
-    if engine == 'qwen3vl':
-        if not settings.vision_enabled:
-            result['appearance']['semantic_status'] = 'disabled'
-        else:
-            try:
-                features = m4_vision.describe_roi(
-                    image, body.bbox_normalized, base_url=settings.vision_base_url,
-                    model=settings.vision_model,
-                    timeout=min(120, settings.vision_timeout_seconds))
-                result['appearance']['semantic_attributes'] = {
-                    'features_unverified': features}
-                result['appearance']['semantic_status'] = 'vlm_unverified'
-            except m4_vision.VisionError as exc:
-                # 关键特征里的模型部分是加分项：失败只降级，不让整次选框失败
-                result['appearance']['semantic_status'] = 'unavailable'
-                result['appearance']['semantic_error'] = str(exc)
+    if not settings.vision_enabled:
+        result['appearance']['semantic_status'] = 'disabled'
+        return result
+    # 选框有视觉引擎就用它（便于对比）；检测器选中的框则用最好的描述模型。
+    models = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
+        else [settings.vision_feature_model, settings.vision_model]
+    last_error = 'm4d_model_unavailable'
+    for model in dict.fromkeys(models):
+        try:
+            features = m4_vision.describe_roi(
+                image, body.bbox_normalized, base_url=settings.vision_base_url,
+                model=model, timeout=min(120, settings.vision_timeout_seconds))
+        except m4_vision.VisionError as exc:
+            last_error = str(exc)
+            if last_error == 'm4d_model_unavailable':
+                continue  # 4B 没拉就用 2B 兜底
+            break
+        result['appearance']['semantic_attributes'] = {
+            'features_unverified': features, 'semantic_model': model}
+        result['appearance']['semantic_status'] = 'vlm_unverified'
+        return result
+    # 关键特征里的模型部分是加分项：失败只降级，不让整次选框失败
+    result['appearance']['semantic_status'] = 'unavailable'
+    result['appearance']['semantic_error'] = last_error
     return result

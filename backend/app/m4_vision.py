@@ -158,7 +158,7 @@ def _dedupe(items, limit: int = 6) -> list[str]:
 def _fragments(text: str) -> list[str]:
     """模型没给 JSON 时退一步：把这句话按标点切成短语，仍然是「能看见的线索」。"""
     parts = re.split(r'[，,。；;、\n]+', re.sub(r'```(?:json)?', '', text))
-    return _dedupe(parts)
+    return _clean_features(parts)
 
 
 CATEGORY_HINTS = (
@@ -255,6 +255,32 @@ def detect_objects(image: np.ndarray, *, base_url: str, model: str,
     return _dedupe_boxes(candidates)
 
 
+def _clean_features(values) -> list[str]:
+    """把模型的各种写法统一成短语列表：['"[\\"白色\\""'] 这类嵌套 JSON 也要拆开。"""
+    out: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text:
+            continue
+        if text[0] in '[{"':
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                parsed = None
+            if isinstance(parsed, list):
+                out.extend(_clean_features(parsed))
+                continue
+            if isinstance(parsed, dict):
+                out.extend(_clean_features(parsed.values()))
+                continue
+            if isinstance(parsed, str):
+                text = parsed
+        text = text.strip(' "\'[]{}，,。;；')
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
 def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: str,
                  timeout: float = 120) -> list[str]:
     """对已选中的框裁剪后要 3–5 个外观短语；失败不抛给调用方，由上层降级。"""
@@ -279,10 +305,12 @@ def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: s
         raise
     features = parsed.get('features')
     if isinstance(features, list):
-        return _dedupe(features)
+        cleaned = _clean_features(features)
+        if cleaned:
+            return cleaned
     # 模型自造字段（color / clothing / posture ...）也收下，只要值是人能读的文本
     values = [v for v in parsed.values() if isinstance(v, str)]
-    flattened = _dedupe(values)
+    flattened = _clean_features(values)
     if flattened:
         return flattened
     raise VisionError('m4d_model_bad_response')
