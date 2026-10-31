@@ -41,7 +41,13 @@ class LocalChatClient:
         request = Request(self.base_url + "/chat/completions", data=payload,
                           headers={"Content-Type": "application/json"}, method="POST")
         # Do not route localhost evidence through environment-configured HTTP proxies.
-        with build_opener(ProxyHandler({})).open(request, timeout=self.timeout) as response:
+        from urllib.request import HTTPRedirectHandler
+
+        class NoRedirect(HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                raise ValueError("m4d_redirect_not_allowed")
+
+        with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=self.timeout) as response:
             if response.status != 200:
                 raise ValueError("m4d_model_http_error")
             raw = response.read(1024 * 1024 + 1)
