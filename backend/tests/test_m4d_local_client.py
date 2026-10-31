@@ -14,6 +14,8 @@ from app.m4d_local_client import LocalChatClient, local_base_url
     "http://127.0.0.1:11434/v1?x=1",
     "http://user:password@localhost:11434/v1",
     "http://127.0.0.1/v1",
+    "http://0.0.0.0:11434/v1",
+    "http://192.168.1.10:11434/v1",
 ])
 def test_reject_nonlocal_or_unexpected_endpoint(url):
     with pytest.raises(ValueError, match="m4d_local_endpoint_required"):
