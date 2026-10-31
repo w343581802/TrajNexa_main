@@ -16,9 +16,11 @@ const vlmBusy = ref(false);
 const vlmResult = ref<M4dAttributePreview | null>(null);
 const vlmError = ref("");
 let requestEpoch = 0;
+let vlmEpoch = 0;
 
 watch(() => [props.clip.id, wb.caseId], () => {
   requestEpoch += 1;
+  vlmEpoch += 1;
   detect.value = false;
   offsetsInput.value = "0.5,2,8"; error.value = "";
   result.value = null; selectedOffset.value = null; frameFailed.value = false;
@@ -38,6 +40,8 @@ const pictureRatio = computed(() => {
 });
 
 function choose(offset: number) {
+  vlmEpoch += 1;
+  vlmBusy.value = false;
   vlmResult.value = null; vlmError.value = "";
   frameFailed.value = false;
   selectedOffset.value = offset;
@@ -48,11 +52,11 @@ async function inspectAttributes() {
   const clipId = props.clip.id;
   const offset = selectedOffset.value;
   if (!caseId || offset === null || vlmBusy.value) return;
-  const ticket = ++requestEpoch;
+  const ticket = ++vlmEpoch;
   vlmBusy.value = true; vlmResult.value = null; vlmError.value = "";
   try {
     const data = await mainApi.previewM4dFrameAttributes(caseId, clipId, offset);
-    if (ticket !== requestEpoch || wb.caseId !== caseId ||
+    if (ticket !== vlmEpoch || wb.caseId !== caseId ||
         props.clip.id !== clipId || selectedOffset.value !== offset) return;
     if (data.case_id !== caseId || data.clip_id !== clipId ||
         data.requested_offset_seconds !== offset || data.identity_established !== false) {
@@ -60,9 +64,9 @@ async function inspectAttributes() {
     }
     vlmResult.value = data;
   } catch (exc) {
-    if (ticket === requestEpoch) vlmError.value = exc instanceof Error ? exc.message : String(exc);
+    if (ticket === vlmEpoch) vlmError.value = exc instanceof Error ? exc.message : String(exc);
   } finally {
-    if (ticket === requestEpoch) vlmBusy.value = false;
+    if (ticket === vlmEpoch) vlmBusy.value = false;
   }
 }
 
@@ -80,6 +84,8 @@ async function inspect() {
     return;
   }
   const ticket = ++requestEpoch;
+  vlmEpoch += 1;
+  vlmBusy.value = false; vlmResult.value = null; vlmError.value = "";
   error.value = ""; loading.value = true;
   result.value = null; selectedOffset.value = null;
   try {
