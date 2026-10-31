@@ -138,20 +138,26 @@ def _overlap(a: list[float], b: list[float]) -> float:
     return inter / (area_a + area_b - inter)
 
 
-def _is_duplicate(a: list[float], b: list[float]) -> bool:
-    """重叠 + 近邻两种重复：小目标框尺寸略有差异时 IoU 会很低，只看 IoU 不够。"""
-    if _overlap(a, b) > 0.5:
+def _is_duplicate(a: list[float], b: list[float], same_class: bool = True) -> bool:
+    """重叠 + 近邻两种重复：小目标框尺寸略有差异时 IoU 会很低，只看 IoU 不够。
+
+    不同类别（人 vs 车）只有强重叠才合并——骑车的人和车是两个目标，不能互相吞掉。
+    """
+    overlap = _overlap(a, b)
+    if overlap > (0.5 if same_class else 0.75):
         return True
+    if not same_class:
+        return False
     wa, ha = a[2] - a[0], a[3] - a[1]
     wb, hb = b[2] - b[0], b[3] - b[1]
     if min(wa, ha, wb, hb) <= 0:
         return False
     distance = math.hypot((a[0] + a[2]) / 2 - (b[0] + b[2]) / 2,
                           (a[1] + a[3]) / 2 - (b[1] + b[3]) / 2)
-    if distance > 0.5 * max(wa, ha, wb, hb):
+    if distance > 0.6 * max(wa, ha, wb, hb):
         return False
     ratio = (wa * ha) / (wb * hb)
-    return 0.4 <= ratio <= 2.5
+    return 0.25 <= ratio <= 4
 
 
 def _nms(candidates: list[dict]) -> list[dict]:
@@ -159,7 +165,9 @@ def _nms(candidates: list[dict]) -> list[dict]:
     kept: list[dict] = []
     for item in candidates:
         box = item['bbox_normalized']
-        if any(_is_duplicate(box, other['bbox_normalized']) for other in kept):
+        if any(_is_duplicate(box, other['bbox_normalized'],
+                             item['object_class'] == other['object_class'])
+               for other in kept):
             continue
         kept.append(item)
     return kept
@@ -240,10 +248,22 @@ def parse_hf_outputs(logits, pred_boxes):
     return labels, xyxy, scores
 
 
-def detect_image(image: np.ndarray, *, model_path: Path, model_sha256: str,
-                 source_sha256: str, threshold: float = 0.4) -> dict:
-    _validate_digest(model_sha256)
-    session, layout = _session(str(model_path), model_sha256.lower())
+def _grid_for(image: np.ndarray, tiling) -> int:
+    """大图整幅缩到 640 会把目标压成十来个像素——长边超过 1280 就切片推理。
+
+    实测：3200×1800 整图平均 0.6 个框（8 张里 5 张零框），切 2×2 后 3.1 个框。
+    """
+    if tiling in ('off', 0, '0', False):
+        return 1
+    if tiling in ('2', '3', 2, 3):
+        return int(tiling)
+    longest = max(image.shape[:2])
+    if longest <= 1280:
+        return 1
+    return 2 if longest <= 2600 else 3
+
+
+def _infer_once(image, session, layout, threshold):
     input_tensor, original_size, geometry = to_onnx_input(image)
     try:
         if layout == 'hf':
@@ -258,7 +278,51 @@ def detect_image(image: np.ndarray, *, model_path: Path, model_sha256: str,
         raise
     except Exception:
         raise DetectionError('m4b_inference_failed') from None
-    proposals = parse_detections(output, image.shape, geometry, threshold)
+    return parse_detections(output, image.shape, geometry, threshold)
+
+
+def _infer_tiled(image, session, layout, threshold, grid: int, overlap: float = 0.2):
+    """切 grid×grid（带重叠）分别推理，再把框映射回整图并跨块去重。"""
+    height, width = image.shape[:2]
+    step_h, step_w = height / grid, width / grid
+    pad_h, pad_w = step_h * overlap, step_w * overlap
+    merged = []
+    for row in range(grid):
+        for col in range(grid):
+            top = max(0, int(row * step_h - pad_h))
+            left = max(0, int(col * step_w - pad_w))
+            bottom = min(height, int((row + 1) * step_h + pad_h))
+            right = min(width, int((col + 1) * step_w + pad_w))
+            tile = image[top:bottom, left:right]
+            if min(tile.shape[:2]) < 24:
+                continue
+            tile_h, tile_w = tile.shape[:2]
+            for item in _infer_once(tile, session, layout, threshold):
+                x1, y1, x2, y2 = item['bbox_normalized']
+                merged.append({
+                    **item,
+                    'bbox_normalized': [
+                        round((left + x1 * tile_w) / width, 6),
+                        round((top + y1 * tile_h) / height, 6),
+                        round((left + x2 * tile_w) / width, 6),
+                        round((top + y2 * tile_h) / height, 6),
+                    ],
+                })
+    merged.sort(key=lambda p: (-p['confidence'], p['proposal_index']))
+    kept = _nms(merged)
+    return [{**item, 'proposal_index': index} for index, item in enumerate(kept)]
+
+
+def detect_image(image: np.ndarray, *, model_path: Path, model_sha256: str,
+                 source_sha256: str, threshold: float = 0.4,
+                 tiling='auto') -> dict:
+    _validate_digest(model_sha256)
+    session, layout = _session(str(model_path), model_sha256.lower())
+    grid = _grid_for(image, tiling)
+    if grid == 1:
+        proposals = _infer_once(image, session, layout, threshold)
+    else:
+        proposals = _infer_tiled(image, session, layout, threshold, grid)
     return {
         'schema_version': '1.0',
         'status': 'candidates_unverified',
@@ -268,6 +332,7 @@ def detect_image(image: np.ndarray, *, model_path: Path, model_sha256: str,
         'input_size': MODEL_SIZE,
         'source_sha256': source_sha256,
         'image_size': [image.shape[1], image.shape[0]],
+        'tiling': grid,
         'candidate_count': len(proposals),
         'candidates': proposals,
         'note': 'Detector boxes are proposals only; no identity, camera or location is established.',

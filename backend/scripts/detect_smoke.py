@@ -25,6 +25,7 @@ def main() -> int:
     parser.add_argument('image')
     parser.add_argument('--engine', choices=('dfine', 'qwen3vl'), default='dfine')
     parser.add_argument('--threshold', type=float, default=0.35)
+    parser.add_argument('--tiling', default='auto', help="auto / off / 2 / 3")
     args = parser.parse_args()
 
     path = Path(args.image)
@@ -38,7 +39,8 @@ def main() -> int:
         result = m4_detection.detect_image(
             image, model_path=Path(os.environ.get('M4B_MODEL_PATH', '/models/dfine.onnx')),
             model_sha256=os.environ.get('M4B_MODEL_SHA256', ''),
-            source_sha256=sha256(content).hexdigest(), threshold=args.threshold)
+            source_sha256=sha256(content).hexdigest(), threshold=args.threshold,
+            tiling=args.tiling)
     else:
         result = {'candidates': m4_vision.detect_objects(
             image,

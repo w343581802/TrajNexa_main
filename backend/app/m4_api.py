@@ -187,6 +187,7 @@ def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: b
             model_sha256=settings.m4b_model_sha256,
             source_sha256=asset.sha256,
             threshold=min_confidence,
+            tiling=settings.m4b_tiling,
         )
     except m4_detection.DetectionError as exc:
         code = str(exc)
@@ -254,6 +255,7 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
         'model_id': settings.vision_model,
         'source_sha256': asset.sha256,
         'image_size': [image.shape[1], image.shape[0]],
+        'tiling': 1,  # 视觉模型整幅推理：切片会成倍拖慢（2s → 8s），先不切
         'candidate_count': len(candidates),
         'candidates': candidates,
         'media_id': asset.id,

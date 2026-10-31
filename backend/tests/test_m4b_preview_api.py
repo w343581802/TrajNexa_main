@@ -69,7 +69,8 @@ def test_injected_candidate_only_not_written_as_observation(env, monkeypatch):
     monkeypatch.setattr(settings, 'm4b_enabled', True)
     monkeypatch.setattr(settings, 'm4b_model_sha256', 'a'*64)
     _, media = _upload(client)
-    def fake_detector(img, *, model_path, model_sha256, source_sha256, threshold):
+    def fake_detector(img, *, model_path, model_sha256, source_sha256, threshold,
+                      tiling='auto'):
         assert img.shape[:2] == (120, 200)
         assert source_sha256 == media['sha256'] and threshold == 0.4
         return {'schema_version':'1.0','status':'candidates_unverified',

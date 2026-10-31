@@ -118,6 +118,44 @@ def test_hf_layout_onnx_adapter(monkeypatch):
     assert candidate['bbox_normalized'] == [0.4, 0.3, 0.6, 0.7]
 
 
+def test_tiling_grid_selection():
+    from app.m4_detection import _grid_for
+    big = np.zeros((1800, 3200, 3), np.uint8)
+    mid = np.zeros((1080, 1920, 3), np.uint8)
+    small = np.zeros((720, 1280, 3), np.uint8)
+    assert _grid_for(small, 'auto') == 1
+    assert _grid_for(mid, 'auto') == 2
+    assert _grid_for(big, 'auto') == 3
+    assert _grid_for(big, 'off') == 1
+    assert _grid_for(big, '2') == 2
+
+
+def test_tiled_inference_maps_boxes_back_to_full_image(monkeypatch):
+    """切片推理：每块的归一化框必须映射回整图坐标，且仍落在 0..1。"""
+    from pathlib import Path
+    from app import m4_detection
+
+    class FakeSession:
+        def run(self, names, data):
+            assert names == ['labels', 'boxes', 'scores']
+            assert data['images'].shape == (1, 3, 640, 640)
+            return (np.array([[0]]),
+                    np.array([[[160, 160, 480, 480]]], np.float32),
+                    np.array([[.9]], np.float32))
+
+    monkeypatch.setattr(m4_detection, '_session',
+                        lambda path, digest: (FakeSession(), 'official'))
+    sample = np.zeros((1400, 1400, 3), np.uint8)
+    result = m4_detection.detect_image(
+        sample, model_path=Path('/models/dfine.onnx'),
+        model_sha256='a'*64, source_sha256='b'*64, tiling='2')
+    assert result['tiling'] == 2
+    assert result['candidates'], '切片后应能给出候选'
+    for item in result['candidates']:
+        assert all(0.0 <= value <= 1.0 for value in item['bbox_normalized'])
+        assert item['bbox_normalized'][0] < item['bbox_normalized'][2]
+
+
 def test_invalid_signature_requires_digest_before_loading():
     from app.m4_detection import detect_image
     from pathlib import Path

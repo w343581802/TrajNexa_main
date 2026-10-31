@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     m4b_enabled: bool = True
     m4b_model_path: Path = Path('/models/dfine.onnx')
     m4b_model_sha256: str = ''  # 配了权重就必须配 SHA-256，防止权重被静默替换
+    # auto：长边 >1280 切片（2×2），>2600 切 3×3；也可写 off/2/3。
+    # 3200×1800 整幅缩到 640 目标只剩十几像素，实测漏检严重，切片后召回翻倍。
+    m4b_tiling: str = 'auto'
     # M4d 本地视觉模型（Qwen3-VL via Ollama）：与 D-FINE 并列的第二个识别引擎。
     # 容器内要用 host.docker.internal 才能回到宿主机上的 ollama serve。
     vision_enabled: bool = True

@@ -190,19 +190,22 @@ def _iou(a: list[float], b: list[float]) -> float:
     return inter / (area_a + area_b - inter)
 
 
-def _is_duplicate(a: list[float], b: list[float]) -> bool:
-    if _iou(a, b) > 0.5:
+def _is_duplicate(a: list[float], b: list[float], same_class: bool = True) -> bool:
+    overlap = _iou(a, b)
+    if overlap > (0.5 if same_class else 0.75):
         return True
+    if not same_class:
+        return False
     wa, ha = a[2] - a[0], a[3] - a[1]
     wb, hb = b[2] - b[0], b[3] - b[1]
     if min(wa, ha, wb, hb) <= 0:
         return False
     distance = ((a[0] + a[2]) / 2 - (b[0] + b[2]) / 2) ** 2 + \
                ((a[1] + a[3]) / 2 - (b[1] + b[3]) / 2) ** 2
-    if distance > (0.5 * max(wa, ha, wb, hb)) ** 2:
+    if distance > (0.6 * max(wa, ha, wb, hb)) ** 2:
         return False
     ratio = (wa * ha) / (wb * hb)
-    return 0.4 <= ratio <= 2.5
+    return 0.25 <= ratio <= 4
 
 
 def _dedupe_boxes(candidates: list[dict]) -> list[dict]:
@@ -210,7 +213,9 @@ def _dedupe_boxes(candidates: list[dict]) -> list[dict]:
     kept: list[dict] = []
     for item in candidates:
         box = item['bbox_normalized']
-        if any(_is_duplicate(box, other['bbox_normalized']) for other in kept):
+        if any(_is_duplicate(box, other['bbox_normalized'],
+                             item['object_class'] == other['object_class'])
+               for other in kept):
             continue
         kept.append({**item, 'proposal_index': len(kept)})
     return kept

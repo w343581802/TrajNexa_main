@@ -243,7 +243,8 @@ async function runDetection() {
     m4Proposals.value = response.candidates;
     m4DetectElapsed.value = response.elapsed_seconds;
     m4DetectModel.value = M4_ENGINE_TEXT[engine] +
-      (response.model_id ? ` · ${response.model_id}` : "");
+      (response.model_id ? ` · ${response.model_id}` : "") +
+      (response.tiling && response.tiling > 1 ? ` · 切片 ${response.tiling}×${response.tiling}` : "");
     if (!response.candidates.length) {
       m4DetectError.value = `${M4_ENGINE_TEXT[engine]} 没有给出候选框；可换另一个引擎再试`;
     } else if (!m4Box.value && response.candidates.length) {

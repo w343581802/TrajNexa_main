@@ -138,9 +138,12 @@ def test_vision_helpers_tolerate_sloppy_model_output():
     assert m4_vision._fragments('白色轿车，车头有蓝色车牌，车身有后视镜。') == \
         ['白色轿车', '车头有蓝色车牌', '车身有后视镜']
     # 同一目标重复框按 IoU 去重，并重新编号
-    boxes = [{'proposal_index': 0, 'bbox_normalized': [0, 0, .5, .5]},
-             {'proposal_index': 1, 'bbox_normalized': [0, 0, .51, .5]},
-             {'proposal_index': 2, 'bbox_normalized': [.5, .5, 1, 1]}]
+    boxes = [{'proposal_index': 0, 'object_class': 'vehicle',
+              'bbox_normalized': [0, 0, .5, .5]},
+             {'proposal_index': 1, 'object_class': 'vehicle',
+              'bbox_normalized': [0, 0, .51, .5]},
+             {'proposal_index': 2, 'object_class': 'person',
+              'bbox_normalized': [.5, .5, 1, 1]}]
     kept = m4_vision._dedupe_boxes(boxes)
     assert [item['bbox_normalized'] for item in kept] == [[0, 0, .5, .5], [.5, .5, 1, 1]]
     assert [item['proposal_index'] for item in kept] == [0, 1]
@@ -161,10 +164,13 @@ def test_hf_export_outputs_convert_to_official_triplet():
 
 
 def test_nms_drops_duplicate_detections():
-    a = {'bbox_normalized': [.2, .2, .3, .4], 'confidence': .9}
-    b = {'bbox_normalized': [.201, .2, .301, .4], 'confidence': .8}
-    c = {'bbox_normalized': [.7, .7, .9, .9], 'confidence': .7}
+    a = {'object_class': 'vehicle', 'bbox_normalized': [.2, .2, .3, .4], 'confidence': .9}
+    b = {'object_class': 'vehicle', 'bbox_normalized': [.201, .2, .301, .4], 'confidence': .8}
+    c = {'object_class': 'vehicle', 'bbox_normalized': [.7, .7, .9, .9], 'confidence': .7}
     assert [item['confidence'] for item in m4_detection._nms([a, b, c])] == [.9, .7]
+    # 不同类别（人 vs 车）只有强重叠才合并：骑车的人不能被车吞掉
+    person = {'object_class': 'person', 'bbox_normalized': [.2, .2, .35, .45], 'confidence': .6}
+    assert len(m4_detection._nms([a, person])) == 2
 
 
 def test_detect_rejects_out_of_case_media(env, enabled, monkeypatch):

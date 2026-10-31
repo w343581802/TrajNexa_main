@@ -55,6 +55,8 @@ export type M4DetectResult = {
   model_sha256?: string;
   source_sha256: string;
   image_size: [number, number];
+  /** 1=整图；2/3=切片推理的网格数（大图切片后才检得出小目标） */
+  tiling?: number;
   candidate_count: number;
   candidates: M4DetectCandidate[];
   media_id: string;
