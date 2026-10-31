@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
@@ -41,31 +41,61 @@ const m4Error = ref<string | null>(null);
 const m4Authorized = ref(false);
 const m4Note = ref("");
 
-function m4ImageMetrics() {
+/* The pointer surface must match the IMAGE content, not the dark letterbox. */
+type M4Layout = { left: number; top: number; width: number; height: number };
+const m4Layout = ref<M4Layout | null>(null);
+let m4ResizeObserver: ResizeObserver | null = null;
+function syncM4Layout() {
   const img = m4Image.value;
-  if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+  const parent = img?.parentElement;
+  if (!img || !parent || !img.naturalWidth || !img.naturalHeight) { m4Layout.value = null; return; }
   const rect = img.getBoundingClientRect();
+  const frame = parent.getBoundingClientRect();
+  if (!rect.width || !rect.height) { m4Layout.value = null; return; }
   const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
   const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
-  return { left: rect.left + (rect.width - width) / 2,
-    top: rect.top + (rect.height - height) / 2, width, height, frame: rect };
+  m4Layout.value = {
+    left: rect.left - frame.left + (rect.width - width) / 2,
+    top: rect.top - frame.top + (rect.height - height) / 2, width, height,
+  };
 }
+watch(m4Image, async (img) => {
+  m4ResizeObserver?.disconnect(); m4ResizeObserver = null;
+  m4Layout.value = null;
+  if (!img) return;
+  m4ResizeObserver = new ResizeObserver(syncM4Layout);
+  m4ResizeObserver.observe(img);
+  if (img.parentElement) m4ResizeObserver.observe(img.parentElement);
+  await nextTick(); syncM4Layout();
+});
+onUnmounted(() => { m4ResizeObserver?.disconnect(); m4Session += 1; });
+const m4OverlayStyle = computed(() => m4Layout.value ? ({
+  left: m4Layout.value.left + 'px', top: m4Layout.value.top + 'px',
+  width: m4Layout.value.width + 'px', height: m4Layout.value.height + 'px',
+}) : {});
+const m4BoxStyle = computed(() => {
+  const b = m4Box.value;
+  if (!b) return {};
+  return { left: (b[0] * 100) + '%', top: (b[1] * 100) + '%',
+    width: ((b[2] - b[0]) * 100) + '%', height: ((b[3] - b[1]) * 100) + '%' };
+});
 function m4Coords(event: PointerEvent, strict: boolean): [number, number] | null {
-  const m = m4ImageMetrics();
-  if (!m) return null;
-  const x = (event.clientX - m.left) / m.width;
-  const y = (event.clientY - m.top) / m.height;
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const x = (event.clientX - rect.left) / rect.width;
+  const y = (event.clientY - rect.top) / rect.height;
   if (strict && (x < 0 || x > 1 || y < 0 || y > 1)) return null;
   return [Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y))];
 }
 function m4PointerDown(event: PointerEvent) {
-  if (event.button !== 0 || !selectedMedia.value) return;
+  if (event.button !== 0 || !selectedMedia.value || m4Busy.value) return;
   const point = m4Coords(event, true);
   if (!point) return;
   m4Anchor.value = point;
   m4Box.value = [point[0], point[1], point[0], point[1]];
   m4Observation.value = null;
-  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+  m4Error.value = null;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
 function m4PointerMove(event: PointerEvent) {
   if (!m4Anchor.value) return;
@@ -77,23 +107,18 @@ function m4PointerMove(event: PointerEvent) {
 }
 function m4PointerUp(event: PointerEvent) {
   if (!m4Anchor.value) return;
-  m4PointerMove(event);
-  m4Anchor.value = null;
+  m4PointerMove(event); m4Anchor.value = null;
   if (m4Box.value && (m4Box.value[2] - m4Box.value[0] < .015 ||
-                       m4Box.value[3] - m4Box.value[1] < .015)) {
-    m4Box.value = null;
-  }
+      m4Box.value[3] - m4Box.value[1] < .015)) m4Box.value = null;
 }
-const m4BoxStyle = computed(() => {
-  const box = m4Box.value;
-  const m = m4ImageMetrics();
-  if (!box || !m) return {};
-  const [x1, y1, x2, y2] = box;
-  return { left: String(m.left - m.frame.left + x1 * m.width) + "px",
-    top: String(m.top - m.frame.top + y1 * m.height) + "px",
-    width: String((x2 - x1) * m.width) + "px",
-    height: String((y2 - y1) * m.height) + "px" };
-});
+function m4PointerCancel() { m4Anchor.value = null; m4Box.value = null; }
+function m4MatchesStored(): boolean {
+  const b = m4Box.value, record = m4Observation.value;
+  const original = record?.analysis_json.bbox_normalized;
+  return !!b && !!record && record.media_id === selectedMediaId.value &&
+    !!original && original.length === 4 &&
+    original.every((value, index) => Math.abs(value - b[index]) < 0.000001);
+}
 async function analyzeM4Selection() {
   if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
     m4Error.value = "请先在截图中拖拽框选目标区域";
