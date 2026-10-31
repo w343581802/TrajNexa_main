@@ -732,6 +732,8 @@ export type ElementPayload = {
   category: NonNullable<TargetElement["category"]>;
   attributes: ElementAttributeInput[];
   boxes: NonNullable<TargetElement["boxes"]>;
+  sourceMediaId?: string | null;
+  m4ObservationId?: string | null;
 };
 
 /** 表单级校验：任一条不满足就不写库，错误文案直接回给弹窗 */
@@ -768,6 +770,8 @@ function buildElement(id: string, payload: ElementPayload): TargetElement {
       unknown: attr.unknown,
     })),
     boxes: payload.boxes.map((box) => ({ ...box })),
+    sourceMediaId: payload.sourceMediaId ?? null,
+    m4ObservationId: payload.m4ObservationId ?? null,
   };
 }
 

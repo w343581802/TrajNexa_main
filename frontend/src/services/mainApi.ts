@@ -323,6 +323,8 @@ export const mainApi = {
   /* ------------------------------ 媒体 ------------------------------ */
 
   /** 传 caseId 只看该案件的要素文件；不传则看全部（含未归属） */
+  getMedia: (mediaId: string) => request<MediaItem>(`/media/${encodeURIComponent(mediaId)}`),
+
   listMedia: (caseId?: string | null) =>
     request<MediaItem[]>(caseId ? `/media?case_id=${encodeURIComponent(caseId)}` : "/media"),
 
@@ -354,8 +356,12 @@ export const mainApi = {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }),
-  listM4Observations: (mediaId: string) =>
-    request<M4Observation[]>(`/media/${encodeURIComponent(mediaId)}/observations`),
+  listM4Observations: (mediaId: string, limit = 50, offset = 0) =>
+    request<M4Observation[]>(`/media/${encodeURIComponent(mediaId)}/observations?limit=${limit}&offset=${offset}`),
+  listCaseM4Observations: (caseId: string, limit = 50, offset = 0) =>
+    request<M4Observation[]>(`/cases/${encodeURIComponent(caseId)}/observations?limit=${limit}&offset=${offset}`),
+  getM4Observation: (id: string) =>
+    request<M4Observation>(`/observations/${encodeURIComponent(id)}`),
 
   listCameras: () => request<CameraCatalog>("/cameras/catalog"),
 

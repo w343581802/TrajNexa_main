@@ -35,6 +35,9 @@ export type TargetElement = {
   attributes?: ElementAttribute[];
   /** 人工框选 / 自动检测框，仅用于回溯画面位置 */
   boxes?: ElementBox[];
+  /** M4a origin metadata: permanent database evidence, not the in-memory element ID. */
+  sourceMediaId?: string | null;
+  m4ObservationId?: string | null;
   /** 角标时间是否未知（未知时不参与时间排序） */
   timeUnknown?: boolean;
   /** 记录来源：一律是用户添加 */
