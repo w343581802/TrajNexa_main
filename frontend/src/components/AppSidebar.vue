@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 
-type SidebarSection = "workspace" | "small-models" | "vision-models";
+type SidebarSection = "workspace" | "small-models" | "vision-models" | "model-test";
 const props = defineProps<{ active: SidebarSection }>();
 const emit = defineEmits<{ (event: "select", section: SidebarSection): void }>();
 
@@ -21,6 +21,7 @@ const nav = [
   { id: "workspace" as const, label: "研判工作台", desc: "地图与多镜头任务", icon: "target" as const },
   { id: "small-models" as const, label: "小模型管理", desc: "Rebucca 检测模型", icon: "layers" as const },
   { id: "vision-models" as const, label: "大模型管理", desc: "视觉模型与外观分析", icon: "scan" as const },
+  { id: "model-test" as const, label: "模型测试", desc: "图片多模型对比与 ROI 提示词实验", icon: "scan" as const },
 ];
 </script>
 
@@ -51,7 +52,7 @@ const nav = [
     </nav>
     <div v-if="!collapsed" class="side-foot">
       <span class="side-foot-tag">M5 · 模型实验</span>
-      <p>小模型负责定位，大模型负责可见属性。结果需人工复核。</p>
+      <p>模型实验统一进入「模型测试」；业务工作台使用默认模型组合。</p>
     </div>
   </aside>
 </template>
