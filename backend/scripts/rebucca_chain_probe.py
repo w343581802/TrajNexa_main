@@ -142,6 +142,11 @@ def _load_detectors(config, root, EngineFactory):
             "engine": engine, "class_map": class_map,
             "model_sha256": _hash_file(path),
             "engine_kind": str(spec.get("inference_engine", "onnxruntime")),
+            "algorithm_type": str(algo_type),
+            "task_type": str(spec.get("task_type", "detect")),
+            "device": str(spec.get("device", "cpu")),
+            "input_size": [int(spec.get("input_width", 640)),
+                           int(spec.get("input_height", 640))],
         })
     return loaded
 
