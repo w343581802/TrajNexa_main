@@ -109,3 +109,48 @@ def test_invalid_model_selection_rejected(env, monkeypatch):
     assert post(client, "detect", vision_model_ids="[]").status_code == 422
     assert post(client, "roi", vision_model_ids='["qwen3vl"]',
                 bbox_normalized="[1,0,0,1]").status_code == 422
+
+
+def test_remote_only_works_with_ollama_disabled(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, "vision_enabled", False)
+    monkeypatch.setattr(settings, "m5_vision_models_json", json.dumps([
+        {"id": "remote", "name": "Remote", "model": "remote-vision",
+         "provider": "openai_compatible", "api_url": "https://api.example.ai/v1",
+         "api_key_env": "TEST_REMOTE_API_KEY"}]))
+    monkeypatch.setenv("TEST_REMOTE_API_KEY", "fake-for-test")
+    from app import m5_vision_transport
+    monkeypatch.setattr(m5_vision_transport, "remote_chat",
+        lambda entry, prompt, jpeg, timeout:
+        '{"objects":[{"box":[100,100,700,700],"label":"红色轿车","category":"vehicle"}]}')
+    catalog = client.get("/api/v1/ai/vision-models").json()
+    assert catalog["enabled"] is True
+    assert next(x for x in catalog["models"] if x["id"] == "remote")["enabled"] is True
+    assert next(x for x in catalog["models"] if x["id"] == "qwen3vl")["enabled"] is False
+    result = post(client, "detect", vision_model_ids='["remote"]')
+    assert result.status_code == 200, result.text
+    assert result.json()["candidate_count"] == 1
+
+
+def test_default_business_detector_ignores_experiment_selection(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setattr(settings, "m5_rebucca_enabled", True)
+    monkeypatch.setattr(settings, "m5_workspace_detector_id", "case-model")
+    monkeypatch.setattr(m5_rebucca_client, "list_models",
+        lambda **kw: [{"id": "case-model"}, {"id": "lab-only"}])
+    selected = []
+    def fake(image, **kwargs):
+        selected.extend(kwargs["model_ids"])
+        return {"candidates": [], "model_runs": [
+            {"model_id": "case-model", "status": "returned_unverified",
+             "candidate_count": 0}]}
+    monkeypatch.setattr(m5_rebucca_client, "detect_image", fake)
+    case = client.post("/api/v1/cases", json={"name": "实验与案件分离"}).json()
+    asset = client.post("/api/v1/media",
+        files={"file": ("image.png", sample(), "image/png")},
+        data={"case_id": case["id"]}).json()
+    response = client.post("/api/v1/media/" + asset["id"] + "/detect",
+                           json={"engine": "auto", "model_ids": ["lab-only"]})
+    assert response.status_code == 200, response.text
+    assert selected == ["case-model"]
+    assert response.json()["effective_profile"] == "workspace_server_default"
