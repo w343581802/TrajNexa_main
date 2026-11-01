@@ -59,7 +59,8 @@ def _request(base_url: str, path: str, *, token: str, timeout: float,
     req = urllib.request.Request(root + path, data=payload, headers=headers,
                                  method="POST" if payload is not None else "GET")
     try:
-        with urllib.request.build_opener(_NoRedirect).open(req, timeout=timeout) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect).open(
+                req, timeout=timeout) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
