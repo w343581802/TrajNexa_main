@@ -103,6 +103,10 @@ def list_models(*, base_url: str, token: str, timeout: float) -> list[dict]:
             raise RebuccaImageError("m5_service_bad_response")
         clean.append({"id": mid, "name": name,
                       "engine": str(item.get("engine") or "")[:32],
+                      "algorithm_type": str(item.get("algorithm_type") or "")[:40],
+                      "task_type": str(item.get("task_type") or "detect")[:16],
+                      "device": str(item.get("device") or "cpu")[:32],
+                      "input_size": item.get("input_size", [640, 640]),
                       "model_sha256": digest.lower()})
     return clean
 
