@@ -334,10 +334,14 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
             result['elapsed_seconds'] = round(time.monotonic() - started, 2)
             result['effective_profile'] = 'workspace_server_default'
             return result
-        # No model installed: user may draw a rectangle manually; never silently
-        # send the entire case image to an unconfigured remote VLM.
-        fail(503, 'm5-workspace-model-missing',
-             '没有已配置的默认检测模型，可继续人工框选目标。')
+        # Keep the existing local-VLM Demo fallback when no detector weights
+        # are installed. This is a SERVER default, not an experiment choice;
+        # it never sends the image to an unconfigured remote provider.
+        if settings.vision_enabled:
+            engine = 'qwen3vl'
+        else:
+            fail(503, 'm5-workspace-model-missing',
+                 '没有可用的业务默认检测模型，可继续人工框选目标。')
     if engine == 'rebucca':
         return _run_rebucca(db, media_id, body, started)
     if engine == 'dfine':
