@@ -102,3 +102,13 @@ def test_dfine_requires_original_label_order(tmp_path):
                              "algorithm_type": "dfine"}]}
     with pytest.raises(ValueError, match="m5_dfine_requires_ordered_class_labels"):
         p._load_detectors(config, tmp_path, object())
+
+
+def test_reuses_rebucca_seed_labels_directly(tmp_path):
+    p = probe()
+    seed = tmp_path / "app" / "utils" / "seed_defaults.py"
+    seed.parent.mkdir(parents=True)
+    seed.write_text("COCO_80_CN = ['人', '自行车', '汽车', '摩托车'] + ['类别%d' % i for i in range(76)]", encoding="utf-8")
+    labels = p._model_labels({"labels_source": "rebucca_coco80_cn"}, tmp_path)
+    assert len(labels) == 80
+    assert labels[:4] == ["人", "自行车", "汽车", "摩托车"]
