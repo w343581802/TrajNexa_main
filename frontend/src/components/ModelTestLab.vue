@@ -53,8 +53,8 @@ const REID_STATE_TEXT: Record<string, string> = {
 };
 const REID_REASON_TEXT: Record<string, string> = {
   similarity_above_threshold: "最高相似度达到实验阈值，仍需人工核对",
-  similarity_below_threshold: "最高相似度低于实验阈值，不建议据此关联",
-  no_high_quality_candidate: "只有低质量候选（低置信度或过小），未进入优先比较",
+  similarity_below_threshold: "没有足够证据表明当前画面存在该目标（最高相似度低于实验阈值）",
+  no_high_quality_candidate: "只有低置信度或过小的候选，证据不足以进入优先比较",
   no_valid_embedding: "候选裁剪无法提取向量",
   detector_found_no_person: "检测层没有给出任何人员候选",
 };
