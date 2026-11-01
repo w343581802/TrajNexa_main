@@ -32,6 +32,8 @@ class DetectorError(RuntimeError):
 
 
 _lock = threading.Lock()
+# 同一引擎实例不允许并发推理：工作台、模型测试、视频采样共用一个锁
+_infer_lock = threading.BoundedSemaphore(1)
 _cache: dict[str, Any] = {"key": None, "models": {}}
 
 
@@ -200,6 +202,15 @@ def detect_flat(image, model_ids: list[str], min_confidence: float = 0.35) -> di
 def detect(image, model_ids: list[str], min_confidence: float = 0.35) -> dict:
     """在一张 BGR 图上按所选检测器依次推理；输出只含业务字段。"""
     models = _load_all()
+    if not _infer_lock.acquire(blocking=False):
+        raise DetectorError("detector_busy")
+    try:
+        return _detect_locked(image, model_ids, min_confidence, models)
+    finally:
+        _infer_lock.release()
+
+
+def _detect_locked(image, model_ids: list[str], min_confidence: float, models: dict) -> dict:
     if not isinstance(model_ids, list) or not model_ids or len(model_ids) > MAX_SELECTION or (
             not all(isinstance(x, str) and x in models for x in model_ids)
             or len(set(model_ids)) != len(model_ids)):

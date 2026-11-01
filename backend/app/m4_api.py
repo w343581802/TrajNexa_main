@@ -164,8 +164,6 @@ class DetectionPreviewInput(BaseModel):
 
 # Bound CPU inference requests and prevent multiple simultaneous heavyweight
 # D-FINE sessions. This is a preview only: no detection DB rows are created.
-_detection_gate = BoundedSemaphore(value=1)
-_rebucca_gate = BoundedSemaphore(value=1)  # image-only experiments; shared model service
 
 
 @router.post('/media/{media_id}/detections/preview')
@@ -185,12 +183,12 @@ def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: b
     configured = settings.m5_workspace_detector_id.strip()
     chosen = configured if configured in {row['id'] for row in models} else models[0]['id']
     asset, _file, image = _case_image(db, media_id, prefix='m4b')
-    if not _detection_gate.acquire(blocking=False):
-        fail(429, 'm4b-detector-busy', '模型正在处理其它请求，请稍后再试。')
     try:
         result = detectors.detect_flat(image, [chosen], min_confidence)
-    finally:
-        _detection_gate.release()
+    except detectors.DetectorError as exc:
+        if exc.code == 'detector_busy':
+            fail(429, 'detector-busy', '检测模型正在处理其它请求，请稍后再试。')
+        raise
     out = {
         'schema_version': '1.0',
         'engine': 'local',
@@ -254,17 +252,15 @@ def _run_local(db: Session, media_id: str, body: DetectInput, started: float) ->
     if not body.model_ids:
         fail(422, 'local-model-selection-required', '请至少选择一个检测模型。')
     asset, _source, image = _case_image(db, media_id, prefix='m5')
-    if not _rebucca_gate.acquire(blocking=False):
-        fail(429, 'local-detector-busy', '检测模型正在处理其他图片，请稍后再试。')
     try:
         result = detectors.detect_flat(image, body.model_ids, body.min_confidence)
     except detectors.DetectorError as exc:
         code = exc.code
+        if code == 'detector_busy':
+            fail(429, 'detector-busy', '检测模型正在处理其他图片，请稍后再试。')
         status = 422 if code in ('invalid_model_selection', 'invalid_threshold') else 503
         fail(status, code.replace('_', '-').replace(':', '-'),
              '本机检测未成功；不会将错误当作无目标，也不会修改原图。')
-    finally:
-        _rebucca_gate.release()
     return {
         'schema_version': '1.0',
         'engine': 'local',

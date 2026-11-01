@@ -28,8 +28,9 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./storage:/data/storage
-      # 本地 D-FINE ONNX 权重（不入库），供 /detect?engine=dfine 使用
-      - ./models:/models:ro
+      # 检测器配置与权重（权重不入库）：容器内路径固定为 /srv/config、/srv/models
+      - ./backend/config:/srv/config:ro
+      - ./backend/models:/srv/models:ro
     ports:
       - "127.0.0.1:8000:8000"
   worker:
@@ -41,6 +42,8 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./storage:/data/storage
+      - ./backend/config:/srv/config:ro
+      - ./backend/models:/srv/models:ro
   frontend:
     build: ./frontend
     depends_on:

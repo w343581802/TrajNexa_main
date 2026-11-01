@@ -25,7 +25,6 @@ from app.recording_api import fail
 router = APIRouter(prefix="/api/v1/ai/model-test")
 MAX_BYTES = 12 * 1024 * 1024
 MAX_PIXELS = 20_000_000
-_small_gate = BoundedSemaphore(value=1)
 _vlm_gate = BoundedSemaphore(value=1)
 
 
@@ -102,23 +101,18 @@ def detect(
     candidates, runs = [], []
     begun_all = time.monotonic()
     if small:
-        if not _small_gate.acquire(blocking=False):
-            fail(429, "m5-test-detector-busy", "检测模型繁忙。")
+        start = time.monotonic()
         try:
-            start = time.monotonic()
-            try:
-                result = detectors.detect_flat(image, small, min_confidence)
-            except detectors.DetectorError as exc:
-                for mid in small:
-                    runs.append(_run({"id": mid, "kind": "detector"},
-                                     "inference_error", 0, start, str(exc)))
-            else:
-                candidates.extend(result["candidates"])
-                for entry in result["model_runs"]:
-                    runs.append(_run({"id": entry["id"], "kind": "detector"},
-                                     "ok", entry["candidate_count"], start))
-        finally:
-            _small_gate.release()
+            result = detectors.detect_flat(image, small, min_confidence)
+        except detectors.DetectorError as exc:
+            for mid in small:
+                runs.append(_run({"id": mid, "kind": "detector"},
+                                 "inference_error", 0, start, str(exc)))
+        else:
+            candidates.extend(result["candidates"])
+            for entry in result["model_runs"]:
+                runs.append(_run({"id": entry["id"], "kind": "detector"},
+                                 "ok", entry["candidate_count"], start))
 
     if entries:
         if not _vlm_gate.acquire(blocking=False):

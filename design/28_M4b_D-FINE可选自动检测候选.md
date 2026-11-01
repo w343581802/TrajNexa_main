@@ -1,3 +1,7 @@
+> **已废弃（2026-11-01）**：本仓库自己的 D-FINE 实现已删除，检测引擎改为移植 Rebucca 的 `app/engines`，
+> 配置见 [42_检测引擎移植.md](42_检测引擎移植.md)。`compose.m4b.yaml`、`Dockerfile.m4b`、`requirements-m4b.txt`
+> 已移除；`M4B_*` 环境变量不再生效。本文仅作变更历史。
+
 # M4b：D-FINE ONNX 可选检测候选（截图，人工复核）
 
 ## 范围与约束
