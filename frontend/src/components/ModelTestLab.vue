@@ -43,15 +43,16 @@ async function loadCatalog() {
   smallModels.value = small.status === "fulfilled" && small.value.enabled ? small.value.models : [];
   visionModels.value = vision.status === "fulfilled" && vision.value.enabled ? vision.value.models : [];
   const smallAllowed = new Set(smallModels.value.map(m => m.id));
-  const visionAllowed = new Set(visionModels.value.map(m => m.id));
+  const visionAllowed = new Set(visionModels.value.filter(m => m.enabled).map(m => m.id));
   smallSelected.value = smallSelected.value.filter(id => smallAllowed.has(id));
   visionSelected.value = visionSelected.value.filter(id => visionAllowed.has(id));
   if (!smallSelected.value.length && smallModels.value.length) {
     smallSelected.value = [smallModels.value[0].id];
   }
   if (!visionSelected.value.length && visionModels.value.length) {
-    const preferred = visionModels.value.find(m => m.default_for_roi) || visionModels.value[0];
-    visionSelected.value = [preferred.id];
+    const preferred = visionModels.value.find(m => m.enabled && m.default_for_roi) ||
+      visionModels.value.find(m => m.enabled);
+    visionSelected.value = preferred ? [preferred.id] : [];
   }
   if (small.status === "rejected" || vision.status === "rejected") {
     catalogError.value = "部分模型服务不可用。已列出可连接的模型；也可以只测另一类模型。";
@@ -86,6 +87,9 @@ function toggleSmall(id: string) {
   else if (smallSelected.value.length < 5) smallSelected.value = [...smallSelected.value, id];
   else error.value = "最多选择 5 个检测模型。";
   setSmallModelIds(smallSelected.value);
+}
+function visionAllowedForTest(id: string) {
+  return visionModels.value.some(m => m.id === id && m.enabled);
 }
 function toggleVision(id: string) {
   if (visionSelected.value.includes(id))
@@ -204,7 +208,7 @@ async function analyzeRoi() {
         <h2>03 · 视觉大模型（最多 3 个）</h2>
         <label v-for="m in visionModels" :key="m.id" class="model-pick">
           <input type="checkbox" :checked="visionSelected.includes(m.id)"
-            @change="toggleVision(m.id)" />
+            :disabled="!m.enabled" @change="toggleVision(m.id)" />
           <span><b>{{ m.name }}</b><small>{{ m.location === "remote" ? "远程 API" : "本地" }}
             · {{ m.provider }} · {{ m.model_id }}</small></span>
         </label>
