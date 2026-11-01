@@ -48,6 +48,8 @@ const m4Engine = ref<M4DetectEngine>("dfine");
 const m4Features = ref<M4RoiFeatures | null>(null);
 const m4FeaturesBusy = ref(false);
 const m4FeaturesError = ref<string | null>(null);
+const m5PromptOverride = ref("");
+let m4FeaturesRequest = 0;
 const m4Note = ref("");
 
 /* The pointer surface must match the IMAGE content, not the dark letterbox. */
@@ -337,19 +339,22 @@ async function loadM4Features() {
   const box = m4Box.value;
   if (!mediaId || !box) return;
   const session = m4Session;
+  const request = ++m4FeaturesRequest;
   m4FeaturesBusy.value = true;
   m4FeaturesError.value = null;
   m4Features.value = null;
   try {
-    const result = await mainApi.analyzeM4Roi(mediaId, [...box], m4Engine.value);
-    if (session !== m4Session || selectedMediaId.value !== mediaId || !ui.addElementOpen) return;
+    const result = await mainApi.analyzeM4Roi(
+      mediaId, [...box], m4Engine.value, category.value, m5PromptOverride.value);
+    if (request !== m4FeaturesRequest || session !== m4Session ||
+        selectedMediaId.value !== mediaId || !ui.addElementOpen) return;
     m4Features.value = result;
   } catch (error) {
-    if (session === m4Session) {
+    if (request === m4FeaturesRequest && session === m4Session) {
       m4FeaturesError.value = error instanceof Error ? error.message : String(error);
     }
   } finally {
-    if (session === m4Session) m4FeaturesBusy.value = false;
+    if (request === m4FeaturesRequest && session === m4Session) m4FeaturesBusy.value = false;
   }
 }
 
@@ -419,6 +424,7 @@ async function upload(file: File) {
   m4DetectRequest += 1; m4Proposals.value = [];
   m4DetectModel.value = null; m4DetectError.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
+  m4FeaturesRequest += 1; m5PromptOverride.value = "";
   m4Features.value = null; m4Note.value = '';
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
@@ -680,6 +686,7 @@ function resetForm() {
   nameIndex.value = -1;
   selectedMedia.value = null;
   m4Box.value = null; m4Observation.value = null; m4Features.value = null;
+  m4FeaturesRequest += 1; m5PromptOverride.value = "";
   m4DetectRequest += 1; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectError.value = null;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
@@ -957,6 +964,17 @@ function save(keepOpen: boolean) {
             <span>画质提示：{{ m4Features.quality.flags.join("、") || "未触发规则告警" }}</span>
           </div>
           <p v-else class="m4a-history-hint">在上方候选框里点一个，或直接在画面上拖拽框选。</p>
+          <details class="m5-prompt-editor">
+            <summary>调整大模型提示词（本次图片实验，不保存为模板）</summary>
+            <p class="m4a-history-hint">
+              留空时按目标类别使用人员/车辆专用提示词；输入后仅覆盖本次 ROI 描述。
+              保存为版本模板将在后续 M5 Prompt 工作台实现。
+            </p>
+            <textarea v-model="m5PromptOverride" rows="4" maxlength="2400"
+              placeholder="例如：只描述车身颜色、可见轮数和装载物；看不清写未知。以 JSON 输出 features 数组。" />
+            <button type="button" class="chip-btn" :disabled="!m4Box || m4FeaturesBusy"
+              @click="loadM4Features">用当前提示词重新分析选中区域</button>
+          </details>
           <div class="m4a-panel-form">
             <input v-model="m4Note" class="input" placeholder="选取依据（可留空，自动生成）" maxlength="500" />
             <button class="btn btn--sm btn--primary" type="button"
@@ -1421,6 +1439,12 @@ function save(keepOpen: boolean) {
   border: 1px solid var(--line-2); padding: 3px 7px; border-radius: 5px;
   color: var(--text-2); cursor: pointer; }
 .m5-model-pill small { color: var(--text-4); }
+.m5-prompt-editor { border: 1px dashed var(--line-2); border-radius: 5px; padding: 6px; }
+.m5-prompt-editor summary { cursor: pointer; color: var(--text-2); }
+.m5-prompt-editor textarea { display: block; width: 100%; resize: vertical;
+  box-sizing: border-box; border: 1px solid var(--line-2); border-radius: 5px;
+  background: var(--bg-2); color: var(--text-1); font: inherit; padding: 7px;
+  margin: 6px 0; }
 .m4b-proposal-list { display: flex; gap: 6px; flex-wrap: wrap; }
 .m4b-panel { display: grid; gap: 7px; padding: 9px;
   border: 1px dashed var(--line-2); border-radius: 6px; font-size: 11px; }
