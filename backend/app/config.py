@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Business workbench uses ONE server-chosen detector, not lab selection.
     # Empty = 配置里第一个已加载检测器。
     m5_workspace_detector_id: str = ''
+    # M6 P1-A person-only similarity lab. Must point inside backend/models/.
+    # No packaged weight; not a face/identity recognition service.
+    m6_person_reid_model_path: str = ''
+    m6_person_reid_model_sha256: str = ''
     # Extra local Ollama vision models shown in the large-model menu.
     # JSON list: [{"id":"internvl","name":"InternVL","model":"local-ollama-tag"}]
     # No arbitrary endpoint or credentials accepted from the browser.
