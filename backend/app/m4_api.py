@@ -24,6 +24,8 @@ from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
 from app import m4_detection, m4_vision, m5_rebucca_client
+from app.m5_vision_registry import (configured_vision_models, resolve_vision_model,
+                                    VisionRegistryError)
 
 router = APIRouter(prefix='/api/v1')
 
@@ -216,12 +218,24 @@ class DetectInput(BaseModel):
     engine: str = 'qwen3vl'  # dfine | qwen3vl(2B) | qwen3vl4b(4B) | rebucca
     min_confidence: float = Field(default=0.4, ge=0.2, le=1)
     model_ids: list[str] = Field(default_factory=list, max_length=5)
+    vision_model_id: str | None = None  # allowlisted model catalog ID for engine=vlm
 
 
 VISION_MODELS = {
     'qwen3vl': ('Qwen3-VL 2B', 'vision_model'),
     'qwen3vl4b': ('Qwen3-VL 4B', 'vision_model_large'),
 }
+
+
+@router.get('/ai/vision-models')
+def available_vision_models():
+    """List configured Ollama vision models, never an arbitrary URL from UI."""
+    try:
+        models = configured_vision_models(settings)
+    except VisionRegistryError:
+        fail(503, 'm5-vision-registry-invalid',
+             '视觉模型配置有误，请核对本机模型配置。')
+    return {'enabled': bool(settings.vision_enabled), 'models': models}
 
 
 @router.get('/ai/image-models')
@@ -298,10 +312,18 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
         result['engine'] = 'dfine'
         result['elapsed_seconds'] = round(time.monotonic() - started, 2)
         return result
-    if engine not in VISION_MODELS:
-        fail(422, 'm4-unknown-engine', '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、rebucca。')
-    label, setting_name = VISION_MODELS[engine]
-    model = getattr(settings, setting_name)
+    if engine == 'vlm':
+        try:
+            chosen = resolve_vision_model(settings, body.vision_model_id or '')
+        except VisionRegistryError:
+            fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
+        label, model = chosen['name'], chosen['model_id']
+    elif engine in VISION_MODELS:
+        label, setting_name = VISION_MODELS[engine]
+        model = getattr(settings, setting_name)
+    else:
+        fail(422, 'm4-unknown-engine',
+             '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、vlm、rebucca。')
     if not settings.vision_enabled:
         fail(503, 'vision-disabled', 'Qwen3-VL 识别已关闭。')
     asset, _file, image = _case_image(db, media_id)
@@ -341,6 +363,7 @@ class RoiFeatureInput(BaseModel):
     engine: str = 'qwen3vl'
     object_class: str = 'person'  # image-selected category, not identity
     prompt_override: str | None = Field(default=None, max_length=2400)
+    vision_model_id: str | None = None  # configured model selection for ROI review
 
 
 @router.post('/media/{media_id}/roi-features')
@@ -361,9 +384,17 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
     if not settings.vision_enabled:
         result['appearance']['semantic_status'] = 'disabled'
         return result
-    # 选框有视觉引擎就用它（便于对比）；检测器选中的框则用最好的描述模型。
-    models = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
-        else [settings.vision_feature_model, settings.vision_model]
+    # An explicit M5 selection wins; otherwise keep existing M4 behavior.
+    # Do not silently fall back when the user explicitly selected a model.
+    if body.vision_model_id:
+        try:
+            chosen = resolve_vision_model(settings, body.vision_model_id)
+        except VisionRegistryError:
+            fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
+        models = [chosen['model_id']]
+    else:
+        models = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
+            else [settings.vision_feature_model, settings.vision_model]
     last_error = 'm4d_model_unavailable'
     for model in dict.fromkeys(models):
         try:
