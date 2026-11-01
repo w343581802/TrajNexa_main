@@ -15,6 +15,7 @@ from app.models import Case, MediaAsset, AnalysisJob, InspectionReport, CameraBi
 from app import case_service
 from app import recording_api
 from app import m4_api
+from app import m5_test_api
 from app import m4_video_api
 from app import video_naming_api
 from app.media import detect_signature, safe_basename
@@ -28,6 +29,7 @@ app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
 # 录像资源：只读目录浏览 + 目录登记 + 扫描结果（见 app/recording_api.py）
 app.include_router(recording_api.router)
 app.include_router(m4_api.router)
+app.include_router(m5_test_api.router)
 app.include_router(m4_video_api.router)
 app.include_router(video_naming_api.router)
 
