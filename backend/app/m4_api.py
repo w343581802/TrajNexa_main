@@ -216,7 +216,7 @@ def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: b
 
 
 class DetectInput(BaseModel):
-    engine: str = 'qwen3vl'  # dfine | qwen3vl(2B) | qwen3vl4b(4B) | rebucca
+    engine: str = 'qwen3vl'  # auto(workspace) | rebucca | dfine | vlm | legacy Qwen
     min_confidence: float = Field(default=0.4, ge=0.2, le=1)
     model_ids: list[str] = Field(default_factory=list, max_length=5)
     vision_model_id: str | None = None  # allowlisted model catalog ID for engine=vlm
