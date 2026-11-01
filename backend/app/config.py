@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # 关键特征（外观短语）优先用这个模型，不可用时回落到 vision_model。
     vision_feature_model: str = 'qwen3-vl:4b-instruct'
     vision_timeout_seconds: int = 180
+    # M5 图片优先：Rebucca 模型服务在独立 Python 环境中运行，默认不启用。
+    # 容器用 host.docker.internal 访问 Windows 侧；仅限本机/受限网络。
+    m5_rebucca_enabled: bool = False
+    m5_rebucca_base_url: str = 'http://host.docker.internal:8766'
+    m5_rebucca_token: str = ''  # sidecar 绑定非 loopback 时必须配置共享密钥
+    m5_rebucca_timeout_seconds: int = 60
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。
