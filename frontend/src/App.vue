@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import AppHeader from "./components/AppHeader.vue";
 import AppSidebar from "./components/AppSidebar.vue";
-import ModelHub from "./components/ModelHub.vue";
+import RebuccaFrame from "./components/RebuccaFrame.vue";
 import ModelTestLab from "./components/ModelTestLab.vue";
 import BottomDock from "./components/BottomDock.vue";
 import ObservationTimeline from "./components/ObservationTimeline.vue";
@@ -24,12 +24,16 @@ import { applyDemoHash, loadCases } from "./store/workbench";
 
 type Page = "workspace" | "small-models" | "vision-models" | "model-test";
 const page = ref<Page>("workspace");
+// 支持 ?page=small-models 直达，方便演示与自测（页面状态原本只存在内存里）
+const PAGE_IDS: Page[] = ["workspace", "small-models", "vision-models", "model-test"];
+function initialPage(): Page {
+  const raw = new URLSearchParams(window.location.search).get("page");
+  return PAGE_IDS.includes(raw as Page) ? (raw as Page) : "workspace";
+}
+page.value = initialPage();
 const mapView = ref<"demo" | "preview" | "gis">("demo");
 
-function openModelTest() {
-  // Tests are independent of case media uploads and the investigation desk.
-  page.value = "model-test";
-}
+
 onMounted(() => {
   applyDemoHash();
   // 首次进入读取案件；有案件时默认选中最近创建的一个，保持原来的工作台视图
@@ -44,9 +48,13 @@ onMounted(() => {
     <div class="app-shell">
       <AppSidebar :active="page" @select="page = $event" />
       <div class="app-body">
-        <ModelHub v-if="page === 'small-models' || page === 'vision-models'"
-          :kind="page === 'small-models' ? 'small' : 'vision'"
-          @test-image="openModelTest" />
+        <!-- 小模型 / 大模型直接用 Rebucca 原生页面，TrajNexa 不再维护第二套模型管理 -->
+        <RebuccaFrame v-if="page === 'small-models'" title="小模型管理"
+          path="/smallmodel/index"
+          hint="Rebucca 原生页面：新增/编辑模型、上传权重、引擎与检测器探测、在线测试" />
+        <RebuccaFrame v-else-if="page === 'vision-models'" title="大模型管理"
+          path="/llm/index"
+          hint="Rebucca 原生页面：视觉模型登记、参数与连通性测试" />
         <ModelTestLab v-else-if="page === 'model-test'" />
         <template v-else>
     <main class="app-main">
