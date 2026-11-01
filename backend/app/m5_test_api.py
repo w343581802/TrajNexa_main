@@ -67,6 +67,9 @@ def _vision_models(ids: list[str]):
             rows.append(resolve_vision_model(settings, mid))
         except VisionRegistryError:
             fail(422, "m5-test-unknown-model", "视觉模型未注册或配置无效。")
+    if any(not m["enabled"] for m in rows):
+        fail(503, "m5-test-vision-disabled",
+             "某些已选视觉模型未启用，请在模型管理页检查配置。")
     return rows
 
 
@@ -95,8 +98,6 @@ def detect(
     entries = _vision_models(vision)
     if small and not settings.m5_rebucca_enabled:
         fail(503, "m5-test-small-disabled", "Rebucca 小模型服务未启用。")
-    if vision and not settings.vision_enabled:
-        fail(503, "m5-test-vision-disabled", "视觉模型服务未启用。")
     image, digest = _read_image(file)
     candidates, runs = [], []
     begun_all = time.monotonic()
@@ -175,8 +176,6 @@ def roi(
     if not ids:
         fail(422, "m5-test-no-vision-model", "请选择视觉模型。")
     entries = _vision_models(ids)
-    if not settings.vision_enabled:
-        fail(503, "m5-test-vision-disabled", "视觉模型服务未启用。")
     if object_class not in ("person", "vehicle", "other"):
         fail(422, "m5-test-class", "无效目标类别。")
     if len(prompt_override) > 2400:
