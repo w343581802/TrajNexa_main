@@ -31,6 +31,10 @@ const modelName = computed(() => new Map([
   ...visionModels.value.map(m => [m.id, m.name] as const),
 ]));
 const hasModels = computed(() => smallSelected.value.length + visionSelected.value.length > 0);
+/** 已框选坐标的文字：在脚本里算，模板不需要对元组做类型推断 */
+const boxText = computed(() => selectedBox.value
+  ? selectedBox.value.map((value) => value.toFixed(3)).join(", ")
+  : "");
 
 async function loadCatalog() {
   const ticket = ++catalogEpoch;
@@ -273,7 +277,7 @@ async function analyzeRoi() {
           <select v-model="objectClass"><option value="person">人员</option>
             <option value="vehicle">车辆</option><option value="other">其他</option></select>
         </label>
-        <span class="hint">{{ selectedBox ? "已框选：" + selectedBox.map(x => x.toFixed(3)).join(", ") :
+        <span class="hint">{{ selectedBox ? "已框选：" + boxText :
           "请先在上方图中选择一个候选或手动框选。" }}</span>
       </div>
       <label class="prompt-label">本次提示词（留空即按人员/车辆类别使用内置模板）
