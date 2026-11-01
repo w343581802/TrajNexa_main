@@ -22,7 +22,7 @@ from app.db import get_db
 from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
-from app import m4_detection, m4_vision
+from app import m4_detection, m4_vision, m5_rebucca_client
 
 router = APIRouter(prefix='/api/v1')
 
@@ -161,6 +161,7 @@ class DetectionPreviewInput(BaseModel):
 # Bound CPU inference requests and prevent multiple simultaneous heavyweight
 # D-FINE sessions. This is a preview only: no detection DB rows are created.
 _detection_gate = BoundedSemaphore(value=1)
+_rebucca_gate = BoundedSemaphore(value=1)  # image-only experiments; shared model service
 
 
 @router.post('/media/{media_id}/detections/preview')
@@ -211,14 +212,73 @@ def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: b
 
 
 class DetectInput(BaseModel):
-    engine: str = 'qwen3vl'  # dfine | qwen3vl(2B) | qwen3vl4b(4B)
+    engine: str = 'qwen3vl'  # dfine | qwen3vl(2B) | qwen3vl4b(4B) | rebucca
     min_confidence: float = Field(default=0.4, ge=0.2, le=1)
+    model_ids: list[str] = Field(default_factory=list, max_length=5)
 
 
 VISION_MODELS = {
     'qwen3vl': ('Qwen3-VL 2B', 'vision_model'),
     'qwen3vl4b': ('Qwen3-VL 4B', 'vision_model_large'),
 }
+
+
+@router.get('/ai/image-models')
+def available_image_models():
+    """Optional Rebucca detector catalog; never returns paths or credentials."""
+    if not settings.m5_rebucca_enabled:
+        return {'enabled': False, 'models': []}
+    try:
+        models = m5_rebucca_client.list_models(
+            base_url=settings.m5_rebucca_base_url,
+            token=settings.m5_rebucca_token,
+            timeout=min(15, settings.m5_rebucca_timeout_seconds))
+    except m5_rebucca_client.RebuccaImageError as exc:
+        fail(503, str(exc).replace('_', '-'),
+             'Rebucca 图片模型服务不可用；其他识别引擎和人工框选仍可使用。')
+    return {'enabled': True, 'models': models}
+
+
+def _run_rebucca(db: Session, media_id: str, body: DetectInput, started: float) -> dict:
+    if not settings.m5_rebucca_enabled:
+        fail(503, 'm5-rebucca-disabled',
+             'Rebucca 图片模型服务未启用，请在本机配置 M5_REBUCCA_ENABLED。')
+    if not body.model_ids:
+        fail(422, 'm5-model-selection-required', '请至少选择一个 Rebucca 检测模型。')
+    asset, _source, image = _case_image(db, media_id, prefix='m5')
+    if not _rebucca_gate.acquire(blocking=False):
+        fail(429, 'm5-rebucca-busy', 'Rebucca 检测模型正在处理其他图片，请稍后再试。')
+    try:
+        result = m5_rebucca_client.detect_image(
+            image, model_ids=body.model_ids, min_confidence=body.min_confidence,
+            base_url=settings.m5_rebucca_base_url,
+            token=settings.m5_rebucca_token,
+            timeout=min(120, settings.m5_rebucca_timeout_seconds))
+    except m5_rebucca_client.RebuccaImageError as exc:
+        code = str(exc)
+        status = 422 if code in ('m5_invalid_model_selection', 'm5_invalid_image',
+                                  'm5_image_too_large') else 503 if code in (
+                                      'm5_service_unavailable', 'm5_service_forbidden',
+                                      'm5_invalid_service_endpoint') else 502
+        fail(status, code.replace('_', '-'),
+             'Rebucca 图片识别未成功；不会将错误当作无目标，也不会修改原图。')
+    finally:
+        _rebucca_gate.release()
+    return {
+        'schema_version': '1.0',
+        'engine': 'rebucca',
+        'status': 'candidates_unverified',
+        'model_family': 'Rebucca 多模型检测',
+        'source_sha256': asset.sha256,
+        'image_size': [image.shape[1], image.shape[0]],
+        'candidate_count': len(result['candidates']),
+        'candidates': result['candidates'],
+        'model_runs': result['model_runs'],
+        'media_id': asset.id,
+        'case_id': asset.case_id,
+        'elapsed_seconds': round(time.monotonic() - started, 2),
+        'note': '多个检测模型的候选不会自动合并或确认身份，选中后由人工复核。',
+    }
 
 
 @router.post('/media/{media_id}/detect')
@@ -230,13 +290,15 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
     ensure_enabled()
     engine = (body.engine or '').strip().lower()
     started = time.monotonic()
+    if engine == 'rebucca':
+        return _run_rebucca(db, media_id, body, started)
     if engine == 'dfine':
         result = _run_dfine(db, media_id, body.min_confidence, with_ids=True)
         result['engine'] = 'dfine'
         result['elapsed_seconds'] = round(time.monotonic() - started, 2)
         return result
     if engine not in VISION_MODELS:
-        fail(422, 'm4-unknown-engine', '识别引擎只支持 dfine、qwen3vl、qwen3vl4b。')
+        fail(422, 'm4-unknown-engine', '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、rebucca。')
     label, setting_name = VISION_MODELS[engine]
     model = getattr(settings, setting_name)
     if not settings.vision_enabled:
