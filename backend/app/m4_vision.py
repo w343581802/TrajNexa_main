@@ -37,6 +37,37 @@ FEATURE_PROMPT = (
     "3 到 5 个短语，只写颜色、衣着、姿态、携带物；不要猜身份、性别、年龄或姓名；不要解释。"
 )
 
+# Distinct task prompts. The final runtime prompt can be overridden for a single
+# image experiment; persistence/versioning belong to the M5 Prompt Workbench.
+VEHICLE_FEATURE_PROMPT = (
+    "这是监控截图裁剪出的一个车辆候选区域，可能含背景或骑行者。"
+    "仅描述画面中确实可见的车辆自身特征，输出JSON："
+    '{"features":["深色车身","两轮车","后部有货箱"]}。'
+    "优先车身颜色、轮数/大类、车体外形、可见载物与遮挡；"
+    "看不清的车型、车标、型号、牌照必须写未知或不提，不要猜测品牌和身份；"
+    "不要把旁边行人的衣服误作车辆特征。"
+)
+OTHER_FEATURE_PROMPT = (
+    '这是监控截图的目标裁剪，只描述能直接看到的形状、颜色和遮挡。'
+    '输出JSON：{"features":["深色物体","有明显遮挡"]}。'
+    "看不清的属性不要猜测，不要推断身份或来源。"
+)
+
+
+def effective_feature_prompt(object_class: str = "person",
+                             prompt_override: str | None = None) -> str:
+    if prompt_override is not None:
+        if not isinstance(prompt_override, str) or len(prompt_override) > 2400:
+            raise VisionError("m4d_invalid_prompt")
+        prompt = prompt_override.strip()
+        if prompt:
+            return prompt
+    if object_class == "vehicle":
+        return VEHICLE_FEATURE_PROMPT
+    if object_class == "other":
+        return OTHER_FEATURE_PROMPT
+    return FEATURE_PROMPT
+
 
 class VisionError(ValueError):
     """稳定错误码，不含文件路径或密钥。"""
@@ -282,10 +313,16 @@ def _clean_features(values) -> list[str]:
 
 
 def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: str,
-                 timeout: float = 120) -> list[str]:
-    """对已选中的框裁剪后要 3–5 个外观短语；失败不抛给调用方，由上层降级。"""
-    prepared = _normalized_image(image)
-    height, width = prepared.shape[:2]
+                 timeout: float = 120, object_class: str = "person",
+                 prompt_override: str | None = None) -> list[str]:
+    """Crop from ORIGINAL pixels before resizing only the ROI.
+
+    Whole-frame downsizing previously destroyed small vehicle details; ROI-first
+    keeps them until the selected crop itself exceeds the VLM input width cap.
+    """
+    if image is None or image.ndim != 3:
+        raise VisionError("m4d_source_decode_failed")
+    height, width = image.shape[:2]
     pad_x, pad_y = (box[2] - box[0]) * 0.06, (box[3] - box[1]) * 0.06
     left = max(0, int((box[0] - pad_x) * width))
     top = max(0, int((box[1] - pad_y) * height))
@@ -293,8 +330,9 @@ def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: s
     bottom = min(height, int(np.ceil((box[3] + pad_y) * height)))
     if right - left < 16 or bottom - top < 16:
         raise VisionError('m4d_roi_too_small')
-    crop = prepared[top:bottom, left:right]
-    content = _chat(base_url, model, FEATURE_PROMPT, _encode_jpeg(crop, 90), timeout)
+    crop = _normalized_image(image[top:bottom, left:right])
+    prompt = effective_feature_prompt(object_class, prompt_override)
+    content = _chat(base_url, model, prompt, _encode_jpeg(crop, 90), timeout)
     try:
         parsed = extract_json(content)
     except VisionError:
