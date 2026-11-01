@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import AppHeader from "./components/AppHeader.vue";
 import AppSidebar from "./components/AppSidebar.vue";
 import ModelHub from "./components/ModelHub.vue";
+import ModelTestLab from "./components/ModelTestLab.vue";
 import BottomDock from "./components/BottomDock.vue";
 import ObservationTimeline from "./components/ObservationTimeline.vue";
 import TargetFeatureBar from "./components/TargetFeatureBar.vue";
@@ -19,16 +20,15 @@ import RecordingDirModal from "./components/modals/RecordingDirModal.vue";
 import VideoNamingModal from "./components/modals/VideoNamingModal.vue";
 import ClipReviewModal from "./components/modals/ClipReviewModal.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
-import { actions, applyDemoHash, loadCases } from "./store/workbench";
+import { applyDemoHash, loadCases } from "./store/workbench";
 
-type Page = "workspace" | "small-models" | "vision-models";
+type Page = "workspace" | "small-models" | "vision-models" | "model-test";
 const page = ref<Page>("workspace");
 const mapView = ref<"demo" | "preview" | "gis">("demo");
 
-function testSelectedModels() {
-  page.value = "workspace";
-  // Keep the existing case-owned image-picker workflow; no second uploader.
-  void actions.openAddElement();
+function openModelTest() {
+  // Tests are independent of case media uploads and the investigation desk.
+  page.value = "model-test";
 }
 onMounted(() => {
   applyDemoHash();
@@ -44,9 +44,10 @@ onMounted(() => {
     <div class="app-shell">
       <AppSidebar :active="page" @select="page = $event" />
       <div class="app-body">
-        <ModelHub v-if="page !== 'workspace'"
+        <ModelHub v-if="page === 'small-models' || page === 'vision-models'"
           :kind="page === 'small-models' ? 'small' : 'vision'"
-          @test-image="testSelectedModels" />
+          @test-image="openModelTest" />
+        <ModelTestLab v-else-if="page === 'model-test'" />
         <template v-else>
     <main class="app-main">
       <div class="stage">
