@@ -40,6 +40,8 @@ export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
   algorithm_type?: string; task_type?: string; device?: string; input_size?: number[];
   conf_threshold?: number | null; iou_threshold?: number | null;
+  /** 支持类别（检测器标签表）；界面编辑时按英文逗号拼接 */
+  labels?: string[];
 };
 export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
 export type M5VisionModel = {

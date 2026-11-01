@@ -63,13 +63,16 @@ function openFromQuery<T extends { id: string }>(models: T[]) {
 type ImageForm = {
   id: string; name: string; algorithm_type: string; task_type: string;
   engine: string; device: string; model_file: string; labels_file: string;
+  /** 支持类别：英文逗号分隔，中文原样 */
+  labels: string;
   input_width: number; input_height: number;
   conf_threshold: number; iou_threshold: number;
 };
 function blankForm(): ImageForm {
   return { id: "", name: "", algorithm_type: "yolo8", task_type: "detect",
     engine: "onnxruntime", device: "cpu", model_file: "",
-    labels_file: "config/labels/coco80_zh.txt", input_width: 640, input_height: 640,
+    labels_file: "config/labels/coco80_zh.txt", labels: "",
+    input_width: 640, input_height: 640,
     conf_threshold: 0.35, iou_threshold: 0.5 };
 }
 const form = ref<ImageForm>(blankForm());
@@ -93,6 +96,7 @@ function openEdit(model: M5ImageModel | M5VisionModel) {
     algorithm_type: row.algorithm_type || "yolo8",
     task_type: row.task_type || "detect", engine: row.engine,
     device: row.device || "cpu", model_file: "", labels_file: "",
+    labels: (row.labels || []).join(","),
     input_width: (row.input_size || [])[0] || 640,
     input_height: (row.input_size || [])[1] || 640,
     conf_threshold: row.conf_threshold ?? 0.35,
@@ -115,12 +119,15 @@ async function saveEdit() {
   saving.value = true;
   formError.value = "";
   try {
-    const catalog = await mainApi.updateImageModel(form.value.id, {
+    const payload: Record<string, unknown> = {
       name: form.value.name,
       device: form.value.device,
       conf_threshold: Number(form.value.conf_threshold),
       iou_threshold: Number(form.value.iou_threshold),
-    });
+    };
+    // 留空表示不改动已有类别；填了就按逗号拆分后覆盖
+    if (form.value.labels.trim()) payload.labels = form.value.labels.trim();
+    const catalog = await mainApi.updateImageModel(form.value.id, payload);
     applyCatalog(catalog);
     editing.value = null;
   } catch (err) {
@@ -143,7 +150,8 @@ async function saveCreate() {
       conf_threshold: Number(form.value.conf_threshold),
       iou_threshold: Number(form.value.iou_threshold),
     };
-    if (form.value.labels_file.trim()) payload.labels_file = form.value.labels_file.trim();
+    if (form.value.labels.trim()) payload.labels = form.value.labels.trim();
+    else if (form.value.labels_file.trim()) payload.labels_file = form.value.labels_file.trim();
     const catalog = await mainApi.createImageModel(payload);
     applyCatalog(catalog);
     creating.value = false;
@@ -366,6 +374,11 @@ const selectedNames = computed(() => isSmall.value
             <div class="rb-field"><label>模型名称</label>
               <input v-model="form.name" class="rb-input" maxlength="64" />
               <p class="rb-hint">ID 是配置里的标识（{{ form.id }}），创建后不可改。</p></div>
+            <div class="rb-field"><label>支持类别</label>
+              <textarea v-model="form.labels" class="rb-input rb-textarea" rows="3"
+                placeholder="人,自行车,汽车,摩托车,公共汽车,卡车"></textarea>
+              <p class="rb-hint">英文逗号分隔，支持中文；留空表示沿用配置文件里的标签文件。
+                类别数量要与权重输出一致，保存后会自动重新加载模型。</p></div>
             <div class="rb-row2">
               <div class="rb-field"><label>模型类型</label>
                 <div class="rb-input is-ro">{{ algoLabel(form.algorithm_type) }}</div></div>
@@ -480,7 +493,12 @@ const selectedNames = computed(() => isSmall.value
               <option v-for="file in weights" :key="file" :value="file">{{ file }}</option>
             </select>
             <p class="rb-hint">把 .onnx/.pt 放进 backend/models/ 后刷新列表即可选；也可用 POST /ai/image-models/upload 上传。</p></div>
-          <div class="rb-field"><label>标签文件（D-FINE 必填）</label>
+          <div class="rb-field"><label>支持类别</label>
+            <textarea v-model="form.labels" class="rb-input rb-textarea" rows="3"
+              placeholder="人,自行车,汽车,摩托车,公共汽车,卡车"></textarea>
+            <p class="rb-hint">英文逗号分隔，支持中文。填了就用它，不必再写标签文件；
+              与下面的标签文件至少填一个（D-FINE 必需）。</p></div>
+          <div class="rb-field"><label>标签文件（可选）</label>
             <input v-model="form.labels_file" class="rb-input mono"
               placeholder="config/labels/coco80_zh.txt" /></div>
           <div class="rb-row2">
@@ -610,6 +628,8 @@ const selectedNames = computed(() => isSmall.value
 input.rb-input, select.rb-input { font: inherit; min-height: 36px; }
 input.rb-input:focus, select.rb-input:focus { outline: none; border-color: #169f85; }
 .rb-input.is-ro { color: var(--text-3); background: rgba(255,255,255,.02); }
+.rb-textarea { padding: 8px 10px; line-height: 1.5; resize: vertical; font-family: inherit;
+  min-height: 92px; max-height: 200px; overflow-y: auto; }
 .rb-error { margin: 0; font-size: 12px; color: #f0a8a8; background: rgba(239,68,68,.10);
   border: 1px solid rgba(239,68,68,.35); border-radius: 6px; padding: 8px 10px; }
 .rb-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px;

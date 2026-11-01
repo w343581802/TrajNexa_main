@@ -283,6 +283,7 @@ class ImageModelUpdate(BaseModel):
     conf_threshold: float | None = Field(default=None, gt=0, le=1)
     iou_threshold: float | None = Field(default=None, gt=0, le=1)
     device: str | None = Field(default=None, pattern='^(cpu|gpu)$')
+    labels: str | None = Field(default=None, max_length=4000)
 
 
 class ImageModelCreate(BaseModel):
@@ -295,6 +296,7 @@ class ImageModelCreate(BaseModel):
     device: str = Field(default='cpu', pattern='^(cpu|gpu)$')
     model_file: str = Field(min_length=1, max_length=240)
     labels_file: str | None = Field(default=None, max_length=240)
+    labels: str | None = Field(default=None, max_length=4000)
     input_width: int = Field(default=640, ge=32, le=4096)
     input_height: int = Field(default=640, ge=32, le=4096)
     conf_threshold: float = Field(default=0.35, gt=0, le=1)
@@ -353,7 +355,7 @@ def delete_image_model(model_id: str) -> dict:
 
 @router.put('/ai/image-models/{model_id}')
 def update_image_model(model_id: str, body: ImageModelUpdate) -> dict:
-    """保存检测器的可编辑字段（名称/阈值/设备）并热加载；失败回滚原配置。"""
+    """保存检测器的可编辑字段（名称/类别/阈值/设备）并热加载；失败回滚原配置。"""
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         fail(422, 'detector-update-empty', '没有需要保存的字段。')

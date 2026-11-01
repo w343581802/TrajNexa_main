@@ -183,3 +183,32 @@ def test_proposals_reject_bad_image_size() -> None:
     with pytest.raises(detectors.DetectorError) as exc:
         detectors.proposals([], (0, 10))
     assert exc.value.code == "detector_invalid_image_size"
+
+
+def test_update_labels_inline_replaces_file(cfg):
+    """支持类别可以直接在页面填：逗号拆分、去重、中文原样，并顶掉标签文件。"""
+    models = detectors.update_spec("m1", {"labels": "人, 自行车，汽车,人"})
+    assert models[0]["labels"] == ["人", "自行车", "汽车"]
+    raw = json.loads(cfg.read_text(encoding="utf-8"))
+    assert raw["detectors"][0]["labels"] == ["人", "自行车", "汽车"]
+    assert "labels_file" not in raw["detectors"][0]
+    # 推理时用的就是新类别表
+    out = detectors.detect_flat(np.zeros((64, 64, 3), np.uint8), ["m1"], 0.9)
+    assert out["candidates"][0]["label"] == "人"
+
+
+def test_update_labels_rejects_empty_and_too_many(cfg):
+    for bad in ("", " , ，", ["x" * 41], [str(i) for i in range(201)]):
+        with pytest.raises(detectors.DetectorError) as err:
+            detectors.update_spec("m1", {"labels": bad})
+        assert err.value.code == "detector_update_bad_labels"
+
+
+def test_create_with_inline_labels(cfg):
+    models = detectors.create_spec({"id": "m2", "name": "M2", "engine": "onnxruntime",
+                                    "algorithm_type": "dfine", "task_type": "detect",
+                                    "model_file": str(cfg.parent / "m.onnx"),
+                                    "labels": "人,车", "input_width": 640,
+                                    "input_height": 640})
+    assert [row["id"] for row in models] == ["m1", "m2"]
+    assert models[1]["labels"] == ["人", "车"]

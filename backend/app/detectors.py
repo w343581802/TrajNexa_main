@@ -238,7 +238,31 @@ def model_meta(model_id: str) -> dict:
     return {k: v for k, v in item.items() if k not in ("engine_obj", "failures")}
 
 
-EDITABLE_FIELDS = ("name", "conf_threshold", "iou_threshold", "device")
+EDITABLE_FIELDS = ("name", "conf_threshold", "iou_threshold", "device", "labels")
+MAX_LABELS = 200
+MAX_LABEL_LEN = 40
+
+
+def _parse_labels(value) -> list[str]:
+    """支持类别：英文/中文逗号分隔的字符串，或字符串数组；中文标签原样保留。"""
+    if isinstance(value, str):
+        parts = re.split(r"[,，]", value)
+    elif isinstance(value, list) and all(isinstance(x, str) for x in value):
+        parts = value
+    else:
+        raise DetectorError("detector_update_bad_labels")
+    out: list[str] = []
+    for part in parts:
+        text = part.strip()
+        if not text:
+            continue
+        if len(text) > MAX_LABEL_LEN:
+            raise DetectorError("detector_update_bad_labels")
+        if text not in out:
+            out.append(text)
+    if not out or len(out) > MAX_LABELS:
+        raise DetectorError("detector_update_bad_labels")
+    return out
 
 
 def _read_raw() -> dict:
@@ -274,6 +298,8 @@ def _validate_changes(changes: dict) -> dict:
                 raise DetectorError("detector_update_bad_threshold")
             clean[key] = round(float(value), 3)
         
+    if "labels" in changes:
+        clean["labels"] = _parse_labels(changes["labels"])
     if "device" in changes:
         device = str(changes["device"] or "").strip().lower()
         if device not in ("cpu", "gpu"):
@@ -293,6 +319,9 @@ def update_spec(model_id: str, changes: dict) -> list[dict]:
         raise DetectorError("detector_not_found")
     original = path.read_text(encoding="utf-8")
     target.update(clean)
+    if "labels" in clean:
+        # 页面上直接填了类别，就以它为准，不再同时留着标签文件
+        target.pop("labels_file", None)
     # 只写可编辑字段，保留其余键与顺序
     _write_raw(raw)
     _reload_or_rollback(original, model_id)
@@ -300,7 +329,7 @@ def update_spec(model_id: str, changes: dict) -> list[dict]:
 
 
 CREATE_FIELDS = ("id", "name", "engine", "algorithm_type", "task_type", "device",
-                 "model_file", "labels_file", "input_width", "input_height",
+                 "model_file", "labels_file", "labels", "input_width", "input_height",
                  "conf_threshold", "iou_threshold")
 MODEL_ROOT = BACKEND_ROOT / "models"
 WEIGHT_SUFFIXES = (".onnx", ".pt", ".pth", ".bin", ".xml")
@@ -372,7 +401,9 @@ def create_spec(spec: dict) -> list[dict]:
                   "model_file": str(spec["model_file"]),
                   "input_width": int(spec.get("input_width") or 640),
                   "input_height": int(spec.get("input_height") or 640)})
-    if spec.get("labels_file"):
+    if entry.get("labels"):
+        pass  # 页面上的「支持类别」优先于标签文件
+    elif spec.get("labels_file"):
         labels_path = _resolve(str(spec["labels_file"]))
         if not labels_path.is_file():
             raise DetectorError("detector_create_labels_missing")
