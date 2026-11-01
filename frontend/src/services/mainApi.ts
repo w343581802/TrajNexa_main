@@ -38,15 +38,37 @@ export type M4DetectionPreview = {
 export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca" | "vlm";
 export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
+  algorithm_type?: string; task_type?: string; device?: string; input_size?: number[];
 };
 export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
 export type M5VisionModel = {
-  id: string; name: string; provider: string; model_id: string; enabled: boolean; default_for_roi: boolean;
+  id: string; name: string; provider: string; location?: "local" | "remote";
+  model_id: string; enabled: boolean; default_for_roi: boolean;
 };
 export type M5VisionModels = { enabled: boolean; models: M5VisionModel[] };
 export type M5ModelRun = {
   model_id: string; status: "returned_unverified" | "inference_error";
   candidate_count: number;
+};
+export type M5TestRun = {
+  model_id: string; kind: "detector" | "vision";
+  status: "returned_unverified" | "inference_error";
+  candidate_count: number; elapsed_ms: number; error_code?: string;
+};
+export type M5TestDetectionResult = {
+  test_only: true; status: "candidates_unverified" | "all_models_failed";
+  source_sha256: string; image_size: [number, number];
+  model_runs: M5TestRun[]; candidates: M4DetectCandidate[];
+  candidate_count: number; elapsed_ms: number; case_id: null;
+};
+export type M5TestRoiResult = {
+  test_only: true; source_sha256: string; bbox_normalized: number[];
+  object_class: "person" | "vehicle" | "other";
+  results: {
+    model_id: string; model_name: string; provider: string;
+    status: string; features_unverified: string[];
+    prompt_sha256: string; elapsed_ms: number; error_code?: string;
+  }[];
 };
 
 export type M4DetectCandidate = {
@@ -482,6 +504,29 @@ export const mainApi = {
   /** M5 Rebucca image models: catalog is optional; never reveals paths or keys. */
   listM5ImageModels: () => request<M5ImageModels>("/ai/image-models"),
   listM5VisionModels: () => request<M5VisionModels>("/ai/vision-models"),
+  /** Standalone M5 laboratory: upload once per request, NOT into a case. */
+  testM5Detect: (file: File, smallIds: string[], visionIds: string[], threshold = 0.35) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("small_model_ids", JSON.stringify(smallIds));
+    form.append("vision_model_ids", JSON.stringify(visionIds));
+    form.append("min_confidence", String(threshold));
+    return request<M5TestDetectionResult>("/ai/model-test/detect", {
+      method: "POST", body: form,
+    });
+  },
+  testM5Roi: (file: File, box: number[], objectClass: "person" | "vehicle" | "other",
+    visionIds: string[], prompt = "") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("vision_model_ids", JSON.stringify(visionIds));
+    form.append("bbox_normalized", JSON.stringify(box));
+    form.append("object_class", objectClass);
+    form.append("prompt_override", prompt);
+    return request<M5TestRoiResult>("/ai/model-test/roi", {
+      method: "POST", body: form,
+    });
+  },
   /** All detection results remain unverified; no automatic identity or evidence writes. */
   detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4, modelIds: string[] = [],
     visionModelId = "") =>
