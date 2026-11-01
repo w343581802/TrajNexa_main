@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     m5_rebucca_base_url: str = 'http://host.docker.internal:8766'
     m5_rebucca_token: str = ''  # sidecar 绑定非 loopback 时必须配置共享密钥
     m5_rebucca_timeout_seconds: int = 60
+    # Extra local Ollama vision models shown in the large-model menu.
+    # JSON list: [{"id":"internvl","name":"InternVL","model":"local-ollama-tag"}]
+    # No arbitrary endpoint or credentials accepted from the browser.
+    m5_vision_models_json: str = ''
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。
