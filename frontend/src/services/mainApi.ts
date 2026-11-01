@@ -41,7 +41,7 @@ export type M5ImageModel = {
 };
 export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
 export type M5VisionModel = {
-  id: string; name: string; provider: string; model_id: string; enabled: boolean;
+  id: string; name: string; provider: string; model_id: string; enabled: boolean; default_for_roi: boolean;
 };
 export type M5VisionModels = { enabled: boolean; models: M5VisionModel[] };
 export type M5ModelRun = {
