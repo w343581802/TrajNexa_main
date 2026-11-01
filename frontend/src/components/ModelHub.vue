@@ -46,10 +46,10 @@ async function loadModels() {
       if (ticket !== latest) return;
       enabled.value = catalog.enabled;
       visionModels.value = catalog.models;
-      const allowed = new Set(catalog.models.map(model => model.id));
+      const allowed = new Set(catalog.models.filter(item => item.enabled).map(model => model.id));
       if (!allowed.has(modelChoices.visionModelId)) {
-        setVisionModelId(catalog.models.find(item => item.default_for_roi)?.id ||
-          catalog.models[0]?.id || "");
+        setVisionModelId(catalog.models.find(item => item.enabled && item.default_for_roi)?.id ||
+          catalog.models.find(item => item.enabled)?.id || "");
       }
     }
   } catch (err) {
