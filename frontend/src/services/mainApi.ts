@@ -35,7 +35,7 @@ export type M4DetectionPreview = {
 };
 
 /** Rebucca 多个本地检测模型 + 保留的 D-FINE / Qwen 对照。 */
-export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca" | "vlm";
+export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca" | "vlm" | "auto";
 export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
   algorithm_type?: string; task_type?: string; device?: string; input_size?: number[];
