@@ -183,3 +183,72 @@
 | P3 多摄像头关联 | **未完成** | 多个实际摄像头录像的候选轨迹 |
 
 > 实施时逐项标注：`代码已提交`、`自动化 mock 测试通过`、`真实权重测试通过`、`业务验收完成` 是四个不同状态。不能混用。
+
+
+## 8. 2026-11-01 本批实施记录：P0 + P1-A 最小代码闭环
+
+> 以下是**代码与 mock 测试证据**，不是现场 ReID 准确率报告。真实 OSNet 权重尚未纳入仓库，无法在 GitHub Actions 中测试真实 embedding。
+
+### P0-A 完成（配置层）
+
+- `backend/config/detectors.json` 已移除 3 条将 D-FINE 权重误作 YOLOv5/v8/v26 的配置。模型 `yolo-v5` / `yolo-v8` / `yolo-v26` 若要重新注册，必须提供与算法相符的真实权重；**没有删除机器里的任何权重文件**。
+- D-FINE `dfine-n` 删除错序 58 类 inline labels，改为 `config/labels/coco80_zh.txt`（80 类标准 COCO 顺序）；`yolo11n` 保留。
+- `backend/tests/test_packaged_detector_config.py` 保证标准 80 类、检测器 ID 不重复，以及 YOLO 不指向 D-FINE 路径。
+- 权重是否存在、真实 D-FINE/YOLO 模型召回率、类别是否适合两轮电动车，仍需要 Windows 模型测试截图复核。**COCO 的“摩托车”类别不等于细分识别电单车，不能通过修改标签文字伪造类别。**
+
+### P0-B 完成（CI）
+
+- 修复 `.github/workflows/m4-contract.yml` 中已被移植删除的旧 M4B、Rebucca sidecar 测试文件引用。
+- 现在执行 `test_packaged_detector_config.py`、`test_detectors_registry.py`、M4/M5 当前有效的接口/架构测试及新增 M6 测试，前端保留 `npm run build`。CI 成功只能证明自动化契约通过。
+
+### P1-A 代码实现（现场模型效果**待验证**）
+
+| 模块/入口 | 内容 |
+| --- | --- |
+| `app/m6_person_reid.py` | Reuse `EngineFactory.create(..., task_type="reid")` / `ReidOnnxEngine.extract_embeddings`；原始像素 ROI → 人员向量归一化 → cosine 排序 |
+| `POST /api/v1/ai/model-test/reid-search` | A 参考人员图、参考框、B 搜索图片、已加载检测器 ID、检测阈值；只处理人框，结果带图片/权重 SHA256、排序、耗时和 `identity_established=false` |
+| `ModelTestLab.vue` | 左侧模型测试页新增第 05 区：选 A 图/手绘人员 ROI，复用上方 B 测试图片、选择检测模型、显示前 N 个候选与 cosine 值 |
+| `backend/tests/test_m6_person_reid.py` | 采用假 embedding 的 Top-K 排序、排除车辆、空候选、缺失权重、坏框、错误模型、不写案件数据库 |
+| `backend/app/config.py`、`.env.example` | 新增 OSNet 仅在测试模块启用的部署参数 |
+
+在 Windows 宿主机将经过许可的**人员 OSNet ONNX** 放到：
+
+```text
+backend/models/reid/osnet_person.onnx
+```
+
+示例 `.env`（`.env.example` 有同名字段）：
+
+```dotenv
+M6_PERSON_REID_MODEL_PATH=models/reid/osnet_person.onnx
+# 可选，但建议填实际权重的完整 SHA256；不匹配会拒绝推理
+M6_PERSON_REID_MODEL_SHA256=
+```
+
+PowerShell 读取权重 SHA：
+
+```powershell
+(Get-FileHash .\\backend\\models\\reid\\osnet_person.onnx -Algorithm SHA256).Hash.ToLower()
+```
+
+部署注意：
+- 路径相对 `backend/`，**必须位于 `backend/models/` 下**，不支持指向任意系统文件；支持现有 compose 模型目录挂载。
+- 此处不下载任何模型权重，不宣称某个公开模型可直接工作；应先核验 OSNet ONNX 输入形状（预期 batch1 × RGB3 × H256 × W128）、输出 embedding 维度、模型许可和兼容的 ONNX Runtime。
+- 重新运行 API，打开左侧**模型测试**：先在“01 · 测试图片”中上传包含多个候选人的图片 B，再在“05 · 指定目标相似检索”选择 A、拖拽框选**人**、选择真实已加载的 D-FINE/YOLO，点击“开始指定人员检索”。
+- 没有 OSNet 权重时界面应明确报不可用；**不会用色彩/检测分数替代 ReID 相似度**。
+- 返回的是人员外观 cosine **排序**，不是概率、不是人脸识别，也不是车辆 ReID；跨摄像头追踪及目标档案更新尚未接入。
+
+### 本批真实验收清单（未完成，需提供实测数据）
+
+- [ ] OSNet 真正加载：记录权重 SHA、输入/输出 shape、CPU 推理耗时；
+- [ ] 同一人跨视角 A/B：报告 Top-1/Top-5 和错误例；
+- [ ] 颜色相同但不是同一人的难负例：误匹配率；
+- [ ] 小目标模糊、多遮挡：unknown / 无有效向量返回；
+- [ ] 与有尾箱的两轮车/骑手组合：**仅人员维度**先测试，车辆维度需单独的 Vehicle ReID；
+- [ ] 与用户确认 P1-A 效果后，再启动 P1-B 与 P2。
+
+### 本批 GitHub 自动测试证据
+
+- P0-A + P0-B：M4/M5 contract checks 已修复并通过；
+- P1-A：`test_m6_person_reid.py` mock 排序与无案件写入测试已加入 CI，前端构建通过；
+- **以上不替代真实模型与录像评测**。
