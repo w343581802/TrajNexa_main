@@ -90,7 +90,8 @@ export type M4RoiFeatures = {
   appearance: {
     roi_tones_unverified: { tone: string; fraction: number }[];
     semantic_status: string;
-    semantic_attributes?: { features_unverified?: string[]; semantic_model?: string };
+    semantic_attributes?: { features_unverified?: string[]; semantic_model?: string;
+      object_class?: string; prompt_sha256?: string; prompt_scope?: string };
     semantic_error?: string;
   };
   linkage: { identity_status: string; geo_status: string; camera_uuid: string | null };
@@ -483,10 +484,12 @@ export const mainApi = {
       body: JSON.stringify({ engine, min_confidence: minConfidence, model_ids: modelIds }),
     }),
   /** M4a：选中框后的关键特征（画质、主色 + 视觉模型外观短语） */
-  analyzeM4Roi: (mediaId: string, bbox: number[], engine: M4DetectEngine = "qwen3vl") =>
+  analyzeM4Roi: (mediaId: string, bbox: number[], engine: M4DetectEngine = "qwen3vl",
+    objectClass: "person" | "vehicle" | "other" = "person", promptOverride = "") =>
     request<M4RoiFeatures>(`/media/${encodeURIComponent(mediaId)}/roi-features`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bbox_normalized: bbox, engine }),
+      body: JSON.stringify({ bbox_normalized: bbox, engine, object_class: objectClass,
+        prompt_override: promptOverride.trim() || null }),
     }),
   getM4Observation: (id: string) =>
     request<M4Observation>(`/observations/${encodeURIComponent(id)}`),
