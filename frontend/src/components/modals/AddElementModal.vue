@@ -4,7 +4,6 @@ import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
 import { actions, currentCase, elementList, pendingElementFile, toast, ui, type ElementPayload } from "../../store/workbench";
-import { modelChoices, setSmallModelIds } from "../../store/modelChoices";
 import {
   CAMERA_STATUS_TEXT,
   TIME_STATUS_TEXT,
@@ -19,7 +18,6 @@ import {
   type M4Observation,
   type M4DetectCandidate,
   type M4DetectEngine,
-  type M5ImageModel,
   type M4RoiFeatures,
 } from "../../services/mainApi";
 
@@ -43,13 +41,12 @@ const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
-/** Use the selected detector from the left menu when available. */
-const m4Engine = ref<M4DetectEngine>(modelChoices.smallModelIds.length ? "rebucca" : "dfine");
+/** Business mode always invokes the SERVER-side default, never lab choices. */
+const m4Engine: M4DetectEngine = "auto";
 /** 选中框之后的关键特征（画质/主色 + 视觉模型外观短语） */
 const m4Features = ref<M4RoiFeatures | null>(null);
 const m4FeaturesBusy = ref(false);
 const m4FeaturesError = ref<string | null>(null);
-const m5PromptOverride = ref("");
 let m4FeaturesRequest = 0;
 const m4Note = ref("");
 
@@ -216,62 +213,15 @@ const m4DetectBusy = ref(false);
 const m4DetectError = ref<string | null>(null);
 const m4DetectModel = ref<string | null>(null);
 const m4DetectElapsed = ref<number | null>(null);
-const m5Models = ref<M5ImageModel[]>([]);
-const m5SelectedIds = ref<string[]>([...modelChoices.smallModelIds]);
-const m5ModelsLoading = ref(false);
-const m5ModelsError = ref<string | null>(null);
 let m4DetectRequest = 0;
-
-async function loadM5Models() {
-  const session = m4Session;
-  m5ModelsLoading.value = true;
-  m5ModelsError.value = null;
-  try {
-    const response = await mainApi.listM5ImageModels();
-    if (session !== m4Session || !ui.addElementOpen) return;
-    m5Models.value = response.models;
-    if (!response.enabled) {
-      m5ModelsError.value = "Rebucca 图片服务尚未启用（M5_REBUCCA_ENABLED=false）";
-    } else if (!response.models.length) {
-      m5ModelsError.value = "Rebucca 当前没有可选检测模型，请检查本地模型配置";
-    }
-    const allowed = new Set(response.models.map(item => item.id));
-    const retained = modelChoices.smallModelIds.filter(id => allowed.has(id));
-    m5SelectedIds.value = retained.length ? retained : response.models[0] ? [response.models[0].id] : [];
-    if (response.enabled) setSmallModelIds(m5SelectedIds.value);
-    if (m4Engine.value === "rebucca" && selectedMediaId.value && m5SelectedIds.value.length) {
-      void runDetection();
-    }
-  } catch (error) {
-    if (session === m4Session && ui.addElementOpen) {
-      m5Models.value = []; m5SelectedIds.value = [];
-      m5ModelsError.value = error instanceof Error ? error.message : String(error);
-    }
-  } finally {
-    if (session === m4Session) m5ModelsLoading.value = false;
-  }
-}
-
-function toggleM5Model(id: string) {
-  if (!m5Models.value.some(model => model.id === id)) return;
-  const ids = m5SelectedIds.value.includes(id)
-    ? m5SelectedIds.value.filter(selected => selected !== id)
-    : [...m5SelectedIds.value, id];
-  if (ids.length > 5) {
-    m5ModelsError.value = "一次最多选择 5 个检测模型";
-    return;
-  }
-  m5SelectedIds.value = ids;
-  setSmallModelIds(ids);
-}
-
 
 const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
   dfine: "D-FINE",
   qwen3vl: "Qwen3-VL 2B",
   qwen3vl4b: "Qwen3-VL 4B",
   rebucca: "Rebucca 多模型",
-  vlm: "已配置视觉模型",
+  vlm: "视觉模型",
+  auto: "默认检测",
 };
 
 /** 选完图、换引擎都会自动跑一次：框先出来，人再决定用哪一个 */
@@ -281,22 +231,12 @@ async function runDetection() {
   if (!source || !caseId) return;
   const ticket = ++m4DetectRequest;
   const session = m4Session;
-  const engine = m4Engine.value;
-  const modelIds = engine === "rebucca" ? [...m5SelectedIds.value] : [];
-  if (engine === "rebucca" && !modelIds.length) {
-    m4DetectError.value = m5ModelsError.value || "请先选择至少一个 Rebucca 模型";
-    return;
-  }
-  if (engine === "vlm" && !modelChoices.visionModelId) {
-    m4DetectError.value = "请先在左侧「大模型管理」选择一个视觉模型";
-    return;
-  }
+  const engine = m4Engine;
   m4DetectBusy.value = true;
   m4DetectError.value = null; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectElapsed.value = null;
   try {
-    const response = await mainApi.detectM4(source.id, engine, .4, modelIds,
-      engine === "vlm" ? modelChoices.visionModelId : "");
+    const response = await mainApi.detectM4(source.id, engine, .4);
     if (ticket !== m4DetectRequest || session !== m4Session ||
         selectedMediaId.value !== source.id || currentCase.value?.id !== caseId ||
         !ui.addElementOpen) return;
@@ -311,11 +251,11 @@ async function runDetection() {
     if (failedRuns.length) {
       m4DetectError.value = `部分 Rebucca 模型没有成功返回结果：${failedRuns.map(run => run.model_id).join("、")}（失败不等于无目标）`;
     }
-    m4DetectModel.value = M4_ENGINE_TEXT[engine] +
+    m4DetectModel.value = response.model_family +
       (response.model_id ? ` · ${response.model_id}` : "") +
       (response.tiling && response.tiling > 1 ? ` · 切片 ${response.tiling}×${response.tiling}` : "");
     if (!response.candidates.length) {
-      if (!m4DetectError.value) m4DetectError.value = `${M4_ENGINE_TEXT[engine]} 没有给出候选框；可换另一个引擎再试`;
+      if (!m4DetectError.value) m4DetectError.value = "默认检测没有给出候选框，可手动拖拽框选目标。";
     } else if (!m4Box.value && response.candidates.length) {
       // 框一出来就选中第一个：让「系统已经看到目标」这件事立刻可见
       void selectM4Proposal(response.candidates[0]);
@@ -323,8 +263,7 @@ async function runDetection() {
   } catch (error) {
     if (ticket === m4DetectRequest && session === m4Session) {
       const message = error instanceof Error ? error.message : String(error);
-      m4DetectError.value = message + (engine === "dfine"
-        ? "（D-FINE 需要本地 ONNX 权重与 M4B_MODEL_SHA256）" : "");
+      m4DetectError.value = message + "（默认检测失败不等于无目标，可手动框选）";
     }
   } finally {
     if (ticket === m4DetectRequest) m4DetectBusy.value = false;
@@ -343,7 +282,7 @@ async function selectM4Proposal(proposal: M4DetectCandidate) {
   m4Observation.value = null;
   m4Features.value = null;
   category.value = proposal.object_class === "other" ? "other" : proposal.object_class;
-  if (!m4Note.value.trim()) m4Note.value = `${proposal.model_name || M4_ENGINE_TEXT[m4Engine.value]} 候选：${proposal.detector_label}`;
+  if (!m4Note.value.trim()) m4Note.value = `${proposal.model_name || "默认检测"} 候选：${proposal.detector_label}`;
   m4Error.value = null;
   await loadM4Features();
 }
@@ -360,8 +299,7 @@ async function loadM4Features() {
   m4Features.value = null;
   try {
     const result = await mainApi.analyzeM4Roi(
-      mediaId, [...box], m4Engine.value, category.value, m5PromptOverride.value,
-      modelChoices.visionModelId);
+      mediaId, [...box], m4Engine, category.value);
     if (request !== m4FeaturesRequest || session !== m4Session ||
         selectedMediaId.value !== mediaId || !ui.addElementOpen) return;
     m4Features.value = result;
@@ -378,14 +316,7 @@ async function loadM4Features() {
 watch(selectedMediaId, (id) => {
   if (id && ui.addElementOpen) void runDetection();
 });
-watch(m4Engine, () => {
-  if (!selectedMediaId.value || !ui.addElementOpen) return;
-  if (m4Engine.value === "rebucca" && !m5Models.value.length) {
-    void loadM5Models();
-  } else {
-    void runDetection();
-  }
-});
+
 
 async function analyzeM4Selection() {
   if (!selectedMediaId.value || !m4Box.value || m4Busy.value) {
@@ -440,7 +371,7 @@ async function upload(file: File) {
   m4DetectRequest += 1; m4Proposals.value = [];
   m4DetectModel.value = null; m4DetectError.value = null;
   m4Box.value = null; m4Observation.value = null; m4Error.value = null;
-  m4FeaturesRequest += 1; m5PromptOverride.value = "";
+  m4FeaturesRequest += 1;
   m4Features.value = null; m4Note.value = '';
   try {
     const media = await mainApi.uploadMedia(file, currentCase.value.id);
@@ -752,9 +683,6 @@ watch(
     if (!open) { m4Session += 1; m4HistoryEpoch += 1; return; }
     m4Session += 1;
     resetForm();
-    m5SelectedIds.value = [...modelChoices.smallModelIds];
-    if (m5SelectedIds.value.length) m4Engine.value = "rebucca";
-    void loadM5Models();
     fillFromElement();
     if (!pendingElementFile.value) void loadM4History(true);
     const linkedObservationId = editingElement.value?.m4ObservationId;
@@ -841,7 +769,7 @@ function save(keepOpen: boolean) {
   <BaseModal
     :open="ui.addElementOpen"
     :title="editingElement ? '编辑目标要素' : '添加目标要素'"
-    subtitle="先对本地图片运行 D-FINE、Qwen 或 Rebucca 检测模型；点选框后分析外观。所有模型结果均须人工核实。"
+    subtitle="按已配置的业务模型自动发现截图候选；点框或手动框选后复核外观。模型调试请使用左侧「模型测试」。"
     width="xl"
     height="92vh"
     @close="ui.addElementOpen = false"
@@ -909,53 +837,16 @@ function save(keepOpen: boolean) {
 
         
         <section v-if="selectedMedia" class="m4b-panel">
-          <div class="m4a-panel-title">识别引擎 · 点一下让系统框出来</div>
+          <div class="m4a-panel-title">默认检测 · 目标候选（待核实）</div>
           <div class="m4-engine-row">
-            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'qwen3vl' }"
-              @click="m4Engine = 'qwen3vl'">
-              Qwen3-VL 2B <small>快</small>
-            </button>
-            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'qwen3vl4b' }"
-              @click="m4Engine = 'qwen3vl4b'">
-              Qwen3-VL 4B <small>准一些/慢</small>
-            </button>
-            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'dfine' }"
-              @click="m4Engine = 'dfine'">
-              D-FINE <small>ONNX 检测器</small>
-            </button>
-            <button type="button" class="chip-btn" :class="{ 'is-active': m4Engine === 'rebucca' }"
-              @click="m4Engine = 'rebucca'">
-              Rebucca <small>多检测模型</small>
-            </button>
-            <button v-if="modelChoices.visionModelId" type="button" class="chip-btn"
-              :class="{ 'is-active': m4Engine === 'vlm' }" @click="m4Engine = 'vlm'">
-              已选视觉模型 <small>{{ modelChoices.visionModelId }} · 整图</small>
-            </button>
+            <span class="m4a-history-hint">自动使用已配置的业务检测模型；这里不进行多模型实验。</span>
             <span class="grow" />
-            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy || !selectedMedia"
-              @click="runDetection">
-              {{ m4DetectBusy ? "识别中…" : "重新识别" }}
-            </button>
+            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy"
+              @click="runDetection">{{ m4DetectBusy ? "识别中…" : "重新检测" }}</button>
           </div>
-          <div v-if="m4Engine === 'rebucca'" class="m5-model-picks">
-            <span class="m4a-history-hint">Rebucca 检测模型（可多选，对同一张图片分别推理）：</span>
-            <label v-for="model in m5Models" :key="model.id" class="m5-model-pill">
-              <input type="checkbox" :checked="m5SelectedIds.includes(model.id)"
-                @change="toggleM5Model(model.id)" />
-              {{ model.name }} <small>{{ model.engine }}</small>
-            </label>
-            <button class="chip-btn" type="button" :disabled="m5ModelsLoading"
-              @click="loadM5Models">{{ m5ModelsLoading ? '读取模型中…' : '刷新模型' }}</button>
-            <p v-if="m5ModelsError" class="ae-error">{{ m5ModelsError }}</p>
-          </div>
-          <p class="m4a-history-hint">
-            外观复核大模型：{{ modelChoices.visionModelId || "自动选择（可在左侧大模型管理设置）" }}
-            · {{ m5SelectedIds.length }} 个 Rebucca 检测模型已选
-          </p>
-          <p class="m4a-history-hint">
-            <template v-if="m4DetectBusy">正在识别画面中的目标…（首次加载模型会慢一些）</template>
-            <template v-else-if="m4DetectModel">{{ m4DetectModel }} · {{ m4DetectElapsed }}s · 框选后自动出关键特征</template>
-            <template v-else>选图后自动识别；两个引擎可以来回切换看效果</template>
+          <p class="m4a-history-hint" v-if="m4DetectBusy">正在分析原始截图…</p>
+          <p class="m4a-history-hint" v-else-if="m4DetectModel">
+            {{ m4DetectModel }} · {{ m4DetectElapsed }}s · 点击候选或手动框选
           </p>
           <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
           <div class="m4b-proposal-list">
@@ -964,7 +855,6 @@ function save(keepOpen: boolean) {
               class="chip-btn" @click="selectM4Proposal(proposal)">
               <template v-if="proposal.model_name">{{ proposal.model_name }} · </template>
               {{ proposal.detector_label }}
-              <template v-if="proposal.category_unmapped">（类别待核实）</template>
               <template v-if="proposal.confidence != null"> · {{ Math.round(proposal.confidence * 100) }}%</template>
             </button>
           </div>
@@ -985,22 +875,11 @@ function save(keepOpen: boolean) {
             </span>
             <span v-else class="dim">
               外观线索：{{ m4Features.appearance.semantic_status === "unavailable"
-                ? "视觉模型未给出（不影响框选，可换引擎重试）" : "未提取" }}
+                ? "视觉模型未给出（不影响人工框选，可在模型测试页排查）" : "未提取" }}
             </span>
             <span>画质提示：{{ m4Features.quality.flags.join("、") || "未触发规则告警" }}</span>
           </div>
           <p v-else class="m4a-history-hint">在上方候选框里点一个，或直接在画面上拖拽框选。</p>
-          <details class="m5-prompt-editor">
-            <summary>调整大模型提示词（本次图片实验，不保存为模板）</summary>
-            <p class="m4a-history-hint">
-              留空时按目标类别使用人员/车辆专用提示词；输入后仅覆盖本次 ROI 描述。
-              保存为版本模板将在后续 M5 Prompt 工作台实现。
-            </p>
-            <textarea v-model="m5PromptOverride" rows="4" maxlength="2400"
-              placeholder="例如：只描述车身颜色、可见轮数和装载物；看不清写未知。以 JSON 输出 features 数组。" />
-            <button type="button" class="chip-btn" :disabled="!m4Box || m4FeaturesBusy"
-              @click="loadM4Features">用当前提示词重新分析选中区域</button>
-          </details>
           <div class="m4a-panel-form">
             <input v-model="m4Note" class="input" placeholder="选取依据（可留空，自动生成）" maxlength="500" />
             <button class="btn btn--sm btn--primary" type="button"
