@@ -1,0 +1,810 @@
+{
+  "schema_version": "m6-track-gt-v1",
+  "video_id": "market_camera_01",
+  "annotation_version": "manual-v1-2026-11-02",
+  "annotation_note": "仅收录逐帧看过联系表并确认同一人的帧; 未逐帧核对的帧不写入",
+  "source": {
+    "path": "G:/测试数据/视频/29/3-DX-桂康菜市入口-球_20261023145956至20261023153027.mp4",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "sample_interval_seconds": 2.0,
+    "detector": "dfine-n",
+    "detector_conf": 0.3,
+    "reid_model": "osnet_x0_25_msmt17_b1.onnx"
+  },
+  "tracks": [
+    {
+      "gt_id": "person_001",
+      "category": "person",
+      "label": "菜市摊主(深色短袖, 蹲在摊前)",
+      "verified_frames": 24,
+      "reviewed_by": "human-contact-sheet",
+      "frames": [
+        {
+          "frame_id": "t_0856",
+          "timestamp_seconds": 1710,
+          "bbox": [
+            1548,
+            579,
+            1733,
+            842
+          ],
+          "detector_confidence": 0.8245,
+          "height_px": 263,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0857",
+          "timestamp_seconds": 1712,
+          "bbox": [
+            1541,
+            576,
+            1732,
+            833
+          ],
+          "detector_confidence": 0.8624,
+          "height_px": 257,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0858",
+          "timestamp_seconds": 1714,
+          "bbox": [
+            1527,
+            670,
+            1696,
+            834
+          ],
+          "detector_confidence": 0.8178,
+          "height_px": 164,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0859",
+          "timestamp_seconds": 1716,
+          "bbox": [
+            1522,
+            691,
+            1713,
+            844
+          ],
+          "detector_confidence": 0.8463,
+          "height_px": 153,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0860",
+          "timestamp_seconds": 1718,
+          "bbox": [
+            1526,
+            686,
+            1690,
+            875
+          ],
+          "detector_confidence": 0.8136,
+          "height_px": 189,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0861",
+          "timestamp_seconds": 1720,
+          "bbox": [
+            1531,
+            684,
+            1689,
+            852
+          ],
+          "detector_confidence": 0.7011,
+          "height_px": 168,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0862",
+          "timestamp_seconds": 1722,
+          "bbox": [
+            1519,
+            689,
+            1689,
+            875
+          ],
+          "detector_confidence": 0.8171,
+          "height_px": 186,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0863",
+          "timestamp_seconds": 1724,
+          "bbox": [
+            1531,
+            688,
+            1689,
+            842
+          ],
+          "detector_confidence": 0.7271,
+          "height_px": 154,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0864",
+          "timestamp_seconds": 1726,
+          "bbox": [
+            1541,
+            684,
+            1697,
+            833
+          ],
+          "detector_confidence": 0.5818,
+          "height_px": 149,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0865",
+          "timestamp_seconds": 1728,
+          "bbox": [
+            1547,
+            684,
+            1692,
+            834
+          ],
+          "detector_confidence": 0.6814,
+          "height_px": 150,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0866",
+          "timestamp_seconds": 1730,
+          "bbox": [
+            1555,
+            690,
+            1687,
+            829
+          ],
+          "detector_confidence": 0.4502,
+          "height_px": 139,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0867",
+          "timestamp_seconds": 1732,
+          "bbox": [
+            1555,
+            686,
+            1698,
+            834
+          ],
+          "detector_confidence": 0.7572,
+          "height_px": 148,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0868",
+          "timestamp_seconds": 1734,
+          "bbox": [
+            1551,
+            687,
+            1713,
+            836
+          ],
+          "detector_confidence": 0.8327,
+          "height_px": 149,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0869",
+          "timestamp_seconds": 1736,
+          "bbox": [
+            1556,
+            691,
+            1700,
+            833
+          ],
+          "detector_confidence": 0.6523,
+          "height_px": 142,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0870",
+          "timestamp_seconds": 1738,
+          "bbox": [
+            1553,
+            685,
+            1714,
+            837
+          ],
+          "detector_confidence": 0.8076,
+          "height_px": 152,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0871",
+          "timestamp_seconds": 1740,
+          "bbox": [
+            1560,
+            686,
+            1706,
+            834
+          ],
+          "detector_confidence": 0.6422,
+          "height_px": 148,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0872",
+          "timestamp_seconds": 1742,
+          "bbox": [
+            1534,
+            680,
+            1713,
+            849
+          ],
+          "detector_confidence": 0.769,
+          "height_px": 169,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0873",
+          "timestamp_seconds": 1744,
+          "bbox": [
+            1529,
+            676,
+            1700,
+            836
+          ],
+          "detector_confidence": 0.764,
+          "height_px": 160,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0874",
+          "timestamp_seconds": 1746,
+          "bbox": [
+            1551,
+            676,
+            1705,
+            837
+          ],
+          "detector_confidence": 0.8366,
+          "height_px": 161,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0875",
+          "timestamp_seconds": 1748,
+          "bbox": [
+            1558,
+            687,
+            1726,
+            839
+          ],
+          "detector_confidence": 0.4363,
+          "height_px": 152,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0876",
+          "timestamp_seconds": 1750,
+          "bbox": [
+            1551,
+            674,
+            1713,
+            837
+          ],
+          "detector_confidence": 0.8529,
+          "height_px": 163,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0877",
+          "timestamp_seconds": 1752,
+          "bbox": [
+            1556,
+            674,
+            1720,
+            837
+          ],
+          "detector_confidence": 0.8241,
+          "height_px": 163,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0878",
+          "timestamp_seconds": 1754,
+          "bbox": [
+            1553,
+            684,
+            1714,
+            836
+          ],
+          "detector_confidence": 0.8397,
+          "height_px": 152,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0879",
+          "timestamp_seconds": 1756,
+          "bbox": [
+            1561,
+            678,
+            1719,
+            835
+          ],
+          "detector_confidence": 0.7267,
+          "height_px": 157,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        }
+      ]
+    },
+    {
+      "gt_id": "person_003",
+      "category": "person",
+      "label": "行走顾客(粉紫上衣, 提橙色袋子)",
+      "verified_frames": 12,
+      "reviewed_by": "human-contact-sheet",
+      "frames": [
+        {
+          "frame_id": "t_0097",
+          "timestamp_seconds": 192,
+          "bbox": [
+            612,
+            238,
+            652,
+            300
+          ],
+          "detector_confidence": 0.4857,
+          "height_px": 62,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0098",
+          "timestamp_seconds": 194,
+          "bbox": [
+            616,
+            243,
+            652,
+            314
+          ],
+          "detector_confidence": 0.6004,
+          "height_px": 71,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0099",
+          "timestamp_seconds": 196,
+          "bbox": [
+            609,
+            257,
+            648,
+            328
+          ],
+          "detector_confidence": 0.714,
+          "height_px": 71,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0100",
+          "timestamp_seconds": 198,
+          "bbox": [
+            623,
+            269,
+            656,
+            341
+          ],
+          "detector_confidence": 0.7413,
+          "height_px": 72,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0101",
+          "timestamp_seconds": 200,
+          "bbox": [
+            628,
+            284,
+            662,
+            355
+          ],
+          "detector_confidence": 0.7567,
+          "height_px": 71,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0102",
+          "timestamp_seconds": 202,
+          "bbox": [
+            610,
+            284,
+            647,
+            371
+          ],
+          "detector_confidence": 0.7929,
+          "height_px": 87,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0103",
+          "timestamp_seconds": 204,
+          "bbox": [
+            611,
+            294,
+            649,
+            381
+          ],
+          "detector_confidence": 0.5867,
+          "height_px": 87,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0104",
+          "timestamp_seconds": 206,
+          "bbox": [
+            613,
+            306,
+            667,
+            417
+          ],
+          "detector_confidence": 0.8161,
+          "height_px": 111,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0105",
+          "timestamp_seconds": 208,
+          "bbox": [
+            613,
+            320,
+            666,
+            436
+          ],
+          "detector_confidence": 0.8644,
+          "height_px": 116,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0106",
+          "timestamp_seconds": 210,
+          "bbox": [
+            615,
+            341,
+            666,
+            473
+          ],
+          "detector_confidence": 0.7037,
+          "height_px": 132,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0107",
+          "timestamp_seconds": 212,
+          "bbox": [
+            623,
+            367,
+            675,
+            511
+          ],
+          "detector_confidence": 0.8166,
+          "height_px": 144,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0108",
+          "timestamp_seconds": 214,
+          "bbox": [
+            632,
+            395,
+            690,
+            539
+          ],
+          "detector_confidence": 0.8424,
+          "height_px": 144,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        }
+      ]
+    },
+    {
+      "gt_id": "person_004",
+      "category": "person",
+      "label": "相似外观干扰者(浅色上衣+肩包, 紧接 person_003 之后)",
+      "verified_frames": 11,
+      "reviewed_by": "human-contact-sheet",
+      "note": "IoU 跟踪在原轨迹 220 s 处换到他, 说明贪心 IoU 已发生 ID Switch",
+      "frames": [
+        {
+          "frame_id": "t_0111",
+          "timestamp_seconds": 220,
+          "bbox": [
+            643,
+            353,
+            702,
+            509
+          ],
+          "detector_confidence": 0.8603,
+          "height_px": 156,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0112",
+          "timestamp_seconds": 222,
+          "bbox": [
+            634,
+            340,
+            691,
+            480
+          ],
+          "detector_confidence": 0.8541,
+          "height_px": 140,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0113",
+          "timestamp_seconds": 224,
+          "bbox": [
+            615,
+            318,
+            674,
+            444
+          ],
+          "detector_confidence": 0.8187,
+          "height_px": 126,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0114",
+          "timestamp_seconds": 226,
+          "bbox": [
+            606,
+            311,
+            654,
+            432
+          ],
+          "detector_confidence": 0.8163,
+          "height_px": 121,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0115",
+          "timestamp_seconds": 228,
+          "bbox": [
+            604,
+            302,
+            652,
+            425
+          ],
+          "detector_confidence": 0.6774,
+          "height_px": 123,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0116",
+          "timestamp_seconds": 230,
+          "bbox": [
+            606,
+            294,
+            647,
+            379
+          ],
+          "detector_confidence": 0.5906,
+          "height_px": 85,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0117",
+          "timestamp_seconds": 232,
+          "bbox": [
+            603,
+            285,
+            642,
+            378
+          ],
+          "detector_confidence": 0.5859,
+          "height_px": 93,
+          "visibility": "visible",
+          "quality": "usable",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0118",
+          "timestamp_seconds": 234,
+          "bbox": [
+            604,
+            278,
+            647,
+            366
+          ],
+          "detector_confidence": 0.7825,
+          "height_px": 88,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0119",
+          "timestamp_seconds": 236,
+          "bbox": [
+            601,
+            268,
+            642,
+            353
+          ],
+          "detector_confidence": 0.7504,
+          "height_px": 85,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0120",
+          "timestamp_seconds": 238,
+          "bbox": [
+            595,
+            260,
+            636,
+            346
+          ],
+          "detector_confidence": 0.7303,
+          "height_px": 86,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        },
+        {
+          "frame_id": "t_0121",
+          "timestamp_seconds": 240,
+          "bbox": [
+            597,
+            258,
+            634,
+            334
+          ],
+          "detector_confidence": 0.5711,
+          "height_px": 76,
+          "visibility": "visible",
+          "quality": "low",
+          "cropped_by_frame_edge": false,
+          "cropped_by_frame_edge_bottom": false
+        }
+      ]
+    }
+  ],
+  "id_switch_evidence": {
+    "track_id_algorithm": 147,
+    "switch_at_seconds": 216,
+    "from_gt": "person_003",
+    "to_gt": "person_004",
+    "cause": "原目标离开画面后, 相邻位置的另一人接管了同一条 IoU 轨迹"
+  },
+  "pending": [
+    "静态摊主(需另选真实人物)",
+    "遮挡/交错轨迹"
+  ]
+}
