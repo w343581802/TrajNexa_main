@@ -77,6 +77,17 @@ def _resolve_model_file(spec: dict, root: Path) -> Path:
 
 def _model_labels(spec: dict, root: Path) -> list[str]:
     labels = spec.get("labels")
+    if labels is None and spec.get("labels_source") == "rebucca_coco80_cn":
+        # Load Rebucca's OWN D-FINE label order, not a hand-maintained copy.
+        source = root / "app" / "utils" / "seed_defaults.py"
+        meta = importlib.util.spec_from_file_location("_rebucca_seed_defaults_for_m5", source)
+        if not meta or not meta.loader:
+            raise ValueError("m5_rebucca_coco_labels_missing")
+        mod = importlib.util.module_from_spec(meta)
+        meta.loader.exec_module(mod)
+        labels = list(mod.COCO_80_CN)
+        if len(labels) != 80:
+            raise ValueError("m5_invalid_rebucca_coco_labels")
     if labels is None and spec.get("labels_file"):
         path = Path(spec["labels_file"])
         if not path.is_absolute():
@@ -107,6 +118,8 @@ def _load_detectors(config, root, EngineFactory):
         algo_type = spec.get("algorithm_type", "yolo8")
         if algo_type == "dfine" and not labels:
             raise ValueError("m5_dfine_requires_ordered_class_labels")
+        if spec.get("task_type", "detect") not in ("detect", "segment"):
+            raise ValueError("m5_only_detect_or_segment_for_probe")
         engine = EngineFactory.create(
             spec.get("inference_engine", "onnxruntime"),
             model_file=str(path),
@@ -119,8 +132,6 @@ def _load_detectors(config, root, EngineFactory):
             task_type=spec.get("task_type", "detect"),
             device=spec.get("device", "cpu"),
         )
-        if spec.get("task_type", "detect") not in ("detect", "segment"):
-            raise ValueError("m5_only_detect_or_segment_for_probe")
         if not engine.load():
             raise RuntimeError("m5_model_load_failed:" + model_id)
         class_map = spec.get("class_map", {})
@@ -217,7 +228,13 @@ def run(args):
     models = _load_detectors(config, root, EngineFactory)
     vlms = _load_vlms(config) if args.with_vlm else []
     source_sha = _hash_file(media)
-    source_kind = "image" if media.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".webp") else "video"
+    ext = media.suffix.lower()
+    if ext in (".jpg", ".jpeg", ".png", ".bmp", ".webp"):
+        source_kind = "image"
+    elif ext in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"):
+        source_kind = "video"
+    else:
+        raise ValueError("m5_unsupported_test_media_type")
     if source_kind == "image":
         frame = cv2.imread(str(media))
         if frame is None:
@@ -294,6 +311,8 @@ def run(args):
             }
             writer.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
             completed += 1
+    if source_kind == "video":
+        frames.close()
     print("Rebucca test-only probe finished: {} frames -> {}".format(completed, output))
 
 
