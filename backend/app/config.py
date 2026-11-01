@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     m5_rebucca_base_url: str = 'http://host.docker.internal:8766'
     m5_rebucca_token: str = ''  # sidecar 绑定非 loopback 时必须配置共享密钥
     m5_rebucca_timeout_seconds: int = 60
+    # Business workbench uses ONE server-chosen detector, not lab selection.
+    # Empty = first installed sidecar model. No sidecar = legacy D-FINE if installed.
+    m5_workspace_detector_id: str = ''
     # Extra local Ollama vision models shown in the large-model menu.
     # JSON list: [{"id":"internvl","name":"InternVL","model":"local-ollama-tag"}]
     # No arbitrary endpoint or credentials accepted from the browser.
