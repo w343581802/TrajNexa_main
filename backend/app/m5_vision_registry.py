@@ -30,6 +30,7 @@ def configured_vision_models(settings) -> list[dict]:
             models.append({
                 "id": model_id, "name": name, "provider": "ollama",
                 "model_id": model_name.strip(), "enabled": bool(settings.vision_enabled),
+                "default_for_roi": model_name.strip() == settings.vision_feature_model,
             })
             ids.add(model_id)
 
@@ -58,6 +59,7 @@ def configured_vision_models(settings) -> list[dict]:
             models.append({
                 "id": model_id, "name": name.strip(), "provider": "ollama",
                 "model_id": actual.strip(), "enabled": bool(settings.vision_enabled),
+                "default_for_roi": actual.strip() == settings.vision_feature_model,
             })
     return models
 
