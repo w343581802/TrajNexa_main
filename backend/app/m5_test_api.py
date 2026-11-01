@@ -109,7 +109,8 @@ def detect(
                 runs.append(_run({"id": mid, "kind": "detector"},
                                  "inference_error", 0, start, str(exc)))
         else:
-            candidates.extend(result["candidates"])
+            candidates.extend(detectors.proposals(
+                result["candidates"], (image.shape[1], image.shape[0])))
             for entry in result["model_runs"]:
                 runs.append(_run({"id": entry["id"], "kind": "detector"},
                                  "ok", entry["candidate_count"], start))

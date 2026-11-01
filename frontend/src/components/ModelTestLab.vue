@@ -44,6 +44,10 @@ const modelName = computed(() => new Map([
   ...visionModels.value.map(m => [m.id, m.name] as const),
 ]));
 const hasModels = computed(() => smallSelected.value.length + visionSelected.value.length > 0);
+/** 只渲染坐标合法的候选：一个坏候选不该把整块画布渲染挂掉 */
+const boxes = computed(() => (detection.value?.candidates || [])
+  .filter(c => Array.isArray(c.bbox_normalized) && c.bbox_normalized.length === 4 &&
+    c.bbox_normalized.every(Number.isFinite)));
 /** 已框选坐标的文字：在脚本里算，模板不需要对元组做类型推断 */
 const boxText = computed(() => selectedBox.value
   ? selectedBox.value.map((value) => value.toFixed(3)).join(", ")
@@ -255,7 +259,7 @@ async function analyzeRoi() {
             <img :src="preview" alt="本地实验图片" />
             <div class="image-overlay" @pointerdown.prevent="drawStart" @pointermove.prevent="drawMove"
               @pointerup.prevent="drawEnd" @pointercancel="drawEnd">
-              <button v-for="(c, i) in detection?.candidates || []"
+              <button v-for="(c, i) in boxes"
                 :key="c.model_id + '-' + i" type="button" class="candidate"
                 :title="(modelName.get(c.model_id || '') || c.model_id || '') + ' · ' + c.detector_label"
                 :style="boxStyle(c.bbox_normalized)" @pointerdown.stop.prevent="choose(c)" />
@@ -281,7 +285,7 @@ async function analyzeRoi() {
               <template v-if="run.error_code"> · {{ run.error_code }}</template></small>
           </div>
           <div class="candidates">
-            <button v-for="(c, i) in detection.candidates" :key="i" class="candidate-tag"
+            <button v-for="(c, i) in boxes" :key="i" class="candidate-tag"
               type="button" @click="choose(c)">
               {{ modelName.get(c.model_id || '') || c.model_id || "检测器" }} · {{ c.detector_label }}
               <template v-if="c.confidence !== null"> · {{ (c.confidence * 100).toFixed(0) }}%</template>

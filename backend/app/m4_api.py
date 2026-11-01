@@ -198,7 +198,7 @@ def _preview_default(db: Session, media_id: str, min_confidence: float, *, with_
         'source_sha256': asset.sha256,
         'image_size': [image.shape[1], image.shape[0]],
         'candidate_count': len(result['candidates']),
-        'candidates': result['candidates'],
+        'candidates': detectors.proposals(result['candidates'], (image.shape[1], image.shape[0])),
         'model_runs': result['model_runs'],
         'note': '候选框未确认身份，需人工复核。',
     }
@@ -269,7 +269,7 @@ def _run_local(db: Session, media_id: str, body: DetectInput, started: float) ->
         'source_sha256': asset.sha256,
         'image_size': [image.shape[1], image.shape[0]],
         'candidate_count': len(result['candidates']),
-        'candidates': result['candidates'],
+        'candidates': detectors.proposals(result['candidates'], (image.shape[1], image.shape[0])),
         'model_runs': result['model_runs'],
         'media_id': asset.id,
         'case_id': asset.case_id,

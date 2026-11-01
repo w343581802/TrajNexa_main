@@ -31,13 +31,13 @@ def test_detector_compare_no_case_writes(env, monkeypatch):
     monkeypatch.setattr(detectors, "enabled", lambda: True)
     chosen = []
     def fake(image, model_ids, min_confidence):
+        """引擎给的是像素框 + 标签，接口负责翻成归一化契约。"""
         chosen.extend(model_ids)
-        return {"candidates": [{"id": "dfine", "model_name": "D-FINE",
-            "proposal_index": 0, "object_class": "vehicle",
-            "bbox_normalized": [.2, .2, .8, .9], "detector_label": "汽车",
-            "confidence": .9, "status": "unverified_detection_proposal"}],
-            "model_runs": [{"id": "dfine", "status": "returned_unverified",
-                           "candidate_count": 1}]}
+        height, width = image.shape[0], image.shape[1]
+        return {"candidates": [{"box": [width * .2, height * .2, width * .8, height * .9],
+                                "label": "汽车", "score": .9, "model_id": "dfine",
+                                "model_name": "D-FINE", "label_index": 2}],
+                "model_runs": [{"id": "dfine", "name": "D-FINE", "candidate_count": 1}]}
     monkeypatch.setattr(detectors, "detect_flat", fake)
     r = post(client, "detect", small_model_ids='["dfine"]')
     assert r.status_code == 200, r.text
@@ -45,6 +45,10 @@ def test_detector_compare_no_case_writes(env, monkeypatch):
     assert d["test_only"] and d["case_id"] is None
     assert d["source_sha256"] == hashlib.sha256(sample()).hexdigest()
     assert d["candidate_count"] == 1 and chosen == ["dfine"]
+    first = d["candidates"][0]
+    assert first["object_class"] == "vehicle" and first["detector_label"] == "汽车"
+    assert first["bbox_normalized"] == pytest.approx([.2, .2, .8, .9], abs=1e-3)
+    assert first["status"] == "unverified_detection_proposal"
     with Session() as session:
         assert session.scalar(select(func.count(MediaAsset.id))) == 0
         assert session.scalar(select(func.count(TargetObservation.id))) == 0

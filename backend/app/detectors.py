@@ -113,9 +113,69 @@ def _build(spec: dict) -> dict:
         "conf_threshold": float(spec.get("conf_threshold", 0.35)),
         "iou_threshold": float(spec.get("iou_threshold", 0.5)),
         "model_sha256": _sha256(model_file),
+        "labels": labels,
         "engine_obj": engine,
         "failures": [],
     }
+
+
+# COCO 顺序里属于「人」和「车」的下标；标签文件就是 COCO 顺序，所以下标可靠
+_PERSON_INDEXES = {0}
+_VEHICLE_INDEXES = {1, 2, 3, 5, 6, 7}
+_PERSON_NAMES = {"person", "人", "行人", "people"}
+_VEHICLE_NAMES = {
+    "bicycle", "car", "motorcycle", "bus", "truck", "train",
+    "自行车", "汽车", "摩托车", "公共汽车", "公交车", "卡车", "货车", "火车",
+}
+
+
+def _object_class(label: str, label_index) -> str:
+    text = (label or "").strip()
+    if label_index in _PERSON_INDEXES or text.lower() in _PERSON_NAMES:
+        return "person"
+    if label_index in _VEHICLE_INDEXES or text.lower() in _VEHICLE_NAMES:
+        return "vehicle"
+    return "other"
+
+
+def proposals(candidates: list[dict], image_size) -> list[dict]:
+    """把扁平的像素框候选翻成前端契约：归一化 bbox + 类别 + 置信度。
+
+    引擎输出的是像素框，界面按 [0,1] 归一化坐标画框；不转换会让页面拿到
+    没有 bbox_normalized 的候选而整块渲染崩掉。
+    """
+    if not isinstance(image_size, (list, tuple)) or len(image_size) != 2:
+        raise DetectorError("detector_invalid_image_size")
+    width, height = int(image_size[0]), int(image_size[1])
+    if width <= 0 or height <= 0:
+        raise DetectorError("detector_invalid_image_size")
+    out = []
+    for index, item in enumerate(candidates or []):
+        box = item.get("box") or []
+        if len(box) != 4:
+            continue
+        try:
+            x1 = min(max(float(box[0]) / width, 0.0), 1.0)
+            y1 = min(max(float(box[1]) / height, 0.0), 1.0)
+            x2 = min(max(float(box[2]) / width, 0.0), 1.0)
+            y2 = min(max(float(box[3]) / height, 0.0), 1.0)
+        except (TypeError, ValueError):
+            continue
+        if not (x1 < x2 and y1 < y2):
+            continue
+        label = str(item.get("label") or "")
+        score = float(item.get("score") or 0.0)
+        out.append({
+            "proposal_index": index,
+            "object_class": _object_class(label, item.get("label_index")),
+            "detector_label": label or "未标注",
+            "confidence": round(min(max(score, 0.0), 1.0), 4),
+            "bbox_normalized": [round(x1, 6), round(y1, 6), round(x2, 6), round(y2, 6)],
+            "status": "unverified_detection_proposal",
+            "model_id": item.get("model_id"),
+            "model_name": item.get("model_name"),
+        })
+    return out
 
 
 def _load_all(force: bool = False) -> dict:
@@ -356,9 +416,12 @@ def detect_flat(image, model_ids: list[str], min_confidence: float = 0.35) -> di
     runs = []
     for run in result["models"]:
         item = models[run["id"]]
+        labels = item.get("labels") or []
         for p in run["predictions"]:
-            candidates.append({"box": p["box"], "label": p["label"], "score": p["score"],
-                               "model_id": run["id"]})
+            label = p["label"]
+            candidates.append({"box": p["box"], "label": label, "score": p["score"],
+                               "model_id": run["id"], "model_name": item["name"],
+                               "label_index": labels.index(label) if label in labels else None})
         runs.append({"id": run["id"], "name": item["name"],
                      "algorithm_type": item["algorithm_type"],
                      "model_sha256": item["model_sha256"],

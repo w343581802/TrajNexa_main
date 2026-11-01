@@ -158,3 +158,28 @@ def test_delete_spec_removes_entry_only(cfg):
     with pytest.raises(detectors.DetectorError) as err:
         detectors.delete_spec("m2")
     assert err.value.code == "detector_not_found"
+
+
+def test_proposals_normalize_and_clamp() -> None:
+    """引擎给像素框，契约要归一化坐标；越界裁剪、零面积丢弃、类别映射。"""
+    raw = [
+        {"box": [64, 48, 192, 144], "label": "人", "score": 0.9, "model_id": "m",
+         "model_name": "M", "label_index": 0},
+        {"box": [-10, -10, 700, 900], "label": "汽车", "score": 1.8, "model_id": "m",
+         "model_name": "M", "label_index": 2},
+        {"box": [10, 10, 10, 20], "label": "x", "score": 0.5, "label_index": 5},
+        {"box": [0, 0, 1], "label": "bad", "score": 0.5},
+    ]
+    out = detectors.proposals(raw, (640, 480))
+    assert [item["object_class"] for item in out] == ["person", "vehicle"]
+    assert out[0]["bbox_normalized"] == [0.1, 0.1, 0.3, 0.3]
+    assert out[1]["bbox_normalized"] == [0.0, 0.0, 1.0, 1.0]
+    assert out[1]["confidence"] == 1.0
+    assert out[0]["status"] == "unverified_detection_proposal"
+    assert out[0]["proposal_index"] == 0 and out[0]["model_name"] == "M"
+
+
+def test_proposals_reject_bad_image_size() -> None:
+    with pytest.raises(detectors.DetectorError) as exc:
+        detectors.proposals([], (0, 10))
+    assert exc.value.code == "detector_invalid_image_size"
