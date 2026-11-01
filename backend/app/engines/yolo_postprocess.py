@@ -67,6 +67,15 @@ def _is_v5(algorithm_type):
     return algorithm_type in ("yolo5", "yolov5", "v5")
 
 
+def _is_end2end(algorithm_type):
+    """端到端（NMS-free）导出：输出 [1, max_det, 6] = x1,y1,x2,y2,score,cls。
+
+    Ultralytics YOLO26 的 end2end 导出（export(..., nms=False)）走这条路径，
+    与我们已有的 yolo8/11 原始头 [1, 4+nc, N] 是两套不同契约，不能混判。
+    """
+    return algorithm_type in ("yolo_end2end", "yolo26_end2end", "end2end")
+
+
 def _xywh2xyxy(xywh):
     x, y, w, h = xywh[..., 0], xywh[..., 1], xywh[..., 2], xywh[..., 3]
     return np.stack([x - w / 2, y - h / 2, x + w / 2, y + h / 2], axis=-1)
@@ -143,6 +152,23 @@ def _decode_detect(outputs, algorithm_type, labels, input_size, conf, iou, orig_
     iw, ih = input_size
     orig_w, orig_h = orig_size
     sx, sy = float(orig_w) / iw, float(orig_h) / ih
+    if _is_end2end(algorithm_type):
+        # [1, N, 6]，坐标已在输入图（如 640×640）像素空间，直接按 sx/sy 映射回原图
+        if arr.ndim == 3 and arr.shape[0] == 1:
+            arr = arr[0]
+        if arr.ndim != 2 or arr.shape[1] != 6:
+            return []
+        scores_all = arr[:, 4]
+        mask = scores_all >= conf
+        if not np.any(mask):
+            return []
+        out = []
+        for b, c, s in zip(arr[mask, :4], arr[mask, 5].astype(int), scores_all[mask]):
+            label = labels[int(c)] if 0 <= int(c) < len(labels) else str(int(c))
+            out.append({"box": _scale_box(b, sx, sy, orig_w, orig_h),
+                        "label": str(label), "score": float(s), "task": "detect"})
+        # 端到端模型已内置去重，不再二次 NMS
+        return out
     if _is_v5(algorithm_type):
         # [1, N, 5+nc] 或 [N, 5+nc]
         if arr.ndim == 3 and arr.shape[0] == 1:

@@ -27,6 +27,20 @@
       "input_height": 640,
       "conf_threshold": 0.35,
       "iou_threshold": 0.5
+    },
+    {
+      "id": "yolo26s",
+      "name": "Ultralytics YOLO26s（端到端 NMS-free）",
+      "engine": "onnxruntime",
+      "algorithm_type": "yolo_end2end",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/yolo/yolo26s.onnx",
+      "labels_file": "config/labels/coco80_zh.txt",
+      "input_width": 640,
+      "input_height": 640,
+      "conf_threshold": 0.25,
+      "iou_threshold": 0.5
     }
   ]
 }
