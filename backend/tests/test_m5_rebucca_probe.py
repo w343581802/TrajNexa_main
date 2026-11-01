@@ -32,7 +32,7 @@ def test_only_loopback_vlm(url):
         probe()._local_llm_endpoint(url)
 
 
-def test_original_resolution_roi_and_multiple_vlms(monkeypatch):
+def test_original_resolution_roi_and_multiple_vlms():
     p = probe()
     image = np.zeros((360, 640, 3), dtype=np.uint8)
     image[100:260, 100:300] = (255, 255, 255)
@@ -48,7 +48,7 @@ def test_original_resolution_roi_and_multiple_vlms(monkeypatch):
             assert provider == "OpenAI"
             self.model = model
         def infer(self, prompt, jpeg):
-            assert jpeg.startswith(b"\\xff\\xd8".decode("unicode_escape").encode("latin1")) or jpeg[:2] == bytes([255, 216])
+            assert jpeg[:2] == bytes([255, 216])
             FakeVLM.called.append((self.model, prompt))
             return '{"features":["白色车身"]}'
 
