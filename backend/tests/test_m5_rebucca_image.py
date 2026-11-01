@@ -217,3 +217,54 @@ def test_rebucca_service_rejects_unknown_model():
     service = service_module.ImageService([], normalize_detections, cv2, np)
     with pytest.raises(service_module.ImageServiceError, match="invalid_model_selection"):
         service.infer({"image_base64": "", "model_ids": ["not-installed"]})
+
+
+def test_vehicle_prompt_is_distinct_from_person_prompt():
+    from app import m4_vision
+    assert "衣着" in m4_vision.effective_feature_prompt("person")
+    assert "车身颜色" in m4_vision.effective_feature_prompt("vehicle")
+    assert m4_vision.effective_feature_prompt(
+        "vehicle", "  只写观察到的车身颜色  ") == "只写观察到的车身颜色"
+
+
+def test_vlm_roi_crops_original_pixels_before_downsizing(monkeypatch):
+    from app import m4_vision
+    source = np.zeros((1800, 3200, 3), np.uint8)
+    source[600:1200, 2500:3100] = (240, 240, 240)
+    captured = {}
+    def fake_chat(base_url, model, prompt, jpeg, timeout):
+        frame = cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR)
+        captured["shape"] = frame.shape
+        captured["prompt"] = prompt
+        return '{"features":["白色车身"]}'
+    monkeypatch.setattr(m4_vision, "_chat", fake_chat)
+    result = m4_vision.describe_roi(
+        source, [.78, .33, .97, .67], base_url="http://localhost:11434",
+        model="fake", object_class="vehicle")
+    assert result == ["白色车身"]
+    assert captured["shape"][1] > 500  # Previous whole-frame 1280 resize gave < 300 pixels.
+    assert "车身颜色" in captured["prompt"]
+
+
+def test_roi_prompt_override_reaches_vlm_without_affecting_evidence(env, monkeypatch):
+    from app import m4_vision
+    client, _, _ = env
+    _, media = owned_image(client)
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    seen = {}
+    def fake_describe(image, box, **kwargs):
+        seen.update(kwargs)
+        return ["深色车身"]
+    monkeypatch.setattr(m4_vision, "describe_roi", fake_describe)
+    response = client.post(f"/api/v1/media/{media['id']}/roi-features",
+                           json={"engine": "rebucca",
+                                 "object_class": "vehicle",
+                                 "bbox_normalized": [.2, .1, .8, .9],
+                                 "prompt_override": "只写能够辨认的车身颜色"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert seen["object_class"] == "vehicle"
+    assert seen["prompt_override"] == "只写能够辨认的车身颜色"
+    assert body["appearance"]["semantic_attributes"]["prompt_scope"] == "single_image_experiment"
+    assert len(body["appearance"]["semantic_attributes"]["prompt_sha256"]) == 64
+    assert body["linkage"]["identity_status"] == "not_established"
