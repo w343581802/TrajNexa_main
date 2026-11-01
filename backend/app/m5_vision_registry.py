@@ -80,7 +80,8 @@ def configured_vision_models(settings) -> list[dict]:
             entry = {
                 "id": model_id, "name": name.strip(), "provider": provider,
                 "location": "local" if provider == "ollama" else "remote",
-                "model_id": actual.strip(), "enabled": bool(settings.vision_enabled),
+                "model_id": actual.strip(),
+                "enabled": bool(settings.vision_enabled) if provider == "ollama" else True,
                 "default_for_roi": actual.strip() == settings.vision_feature_model,
             }
             if provider == "openai_compatible":
