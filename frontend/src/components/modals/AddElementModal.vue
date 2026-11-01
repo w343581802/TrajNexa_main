@@ -633,7 +633,7 @@ function resetForm() {
   nameIndex.value = -1;
   selectedMedia.value = null;
   m4Box.value = null; m4Observation.value = null; m4Features.value = null;
-  m4FeaturesRequest += 1; m5PromptOverride.value = "";
+  m4FeaturesRequest += 1;
   m4DetectRequest += 1; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectError.value = null;
   m4Anchor.value = null; m4Note.value = ""; m4Error.value = null;
