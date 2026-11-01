@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 
-export type SidebarSection = "workspace" | "small-models" | "vision-models";
+type SidebarSection = "workspace" | "small-models" | "vision-models";
 const props = defineProps<{ active: SidebarSection }>();
 const emit = defineEmits<{ (event: "select", section: SidebarSection): void }>();
 
