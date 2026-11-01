@@ -24,8 +24,9 @@ from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
 from app import m4_detection, m4_vision, m5_rebucca_client
-from app.m5_vision_registry import (configured_vision_models, resolve_vision_model,
+from app.m5_vision_registry import (public_vision_models, resolve_vision_model,
                                     VisionRegistryError)
+from app.m5_vision_transport import chat_for
 
 router = APIRouter(prefix='/api/v1')
 
@@ -231,7 +232,7 @@ VISION_MODELS = {
 def available_vision_models():
     """List configured Ollama vision models, never an arbitrary URL from UI."""
     try:
-        models = configured_vision_models(settings)
+        models = public_vision_models(settings)
     except VisionRegistryError:
         fail(503, 'm5-vision-registry-invalid',
              '视觉模型配置有误，请核对本机模型配置。')
@@ -305,6 +306,38 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
     ensure_enabled()
     engine = (body.engine or '').strip().lower()
     started = time.monotonic()
+    if engine == 'auto':
+        # Business mode: server chooses one stable detector. Experiment selections
+        # in browser/localStorage can NEVER modify the investigation workflow.
+        if settings.m5_rebucca_enabled:
+            try:
+                models = m5_rebucca_client.list_models(
+                    base_url=settings.m5_rebucca_base_url,
+                    token=settings.m5_rebucca_token,
+                    timeout=min(10, settings.m5_rebucca_timeout_seconds))
+            except m5_rebucca_client.RebuccaImageError:
+                fail(503, 'm5-workspace-model-unavailable',
+                     '默认检测模型服务不可用，请手动框选；不会自动换成其他模型。')
+            configured = settings.m5_workspace_detector_id.strip()
+            selected = configured or (models[0]['id'] if models else '')
+            if not selected or selected not in {row['id'] for row in models}:
+                fail(503, 'm5-workspace-model-missing',
+                     '工作台默认检测模型未配置，请手动框选。')
+            result = _run_rebucca(db, media_id, DetectInput(
+                engine='rebucca', model_ids=[selected],
+                min_confidence=body.min_confidence), started)
+            result['effective_profile'] = 'workspace_server_default'
+            return result
+        if settings.m4b_model_sha256:
+            result = _run_dfine(db, media_id, body.min_confidence, with_ids=True)
+            result['engine'] = 'dfine'
+            result['elapsed_seconds'] = round(time.monotonic() - started, 2)
+            result['effective_profile'] = 'workspace_server_default'
+            return result
+        # No model installed: user may draw a rectangle manually; never silently
+        # send the entire case image to an unconfigured remote VLM.
+        fail(503, 'm5-workspace-model-missing',
+             '没有已配置的默认检测模型，可继续人工框选目标。')
     if engine == 'rebucca':
         return _run_rebucca(db, media_id, body, started)
     if engine == 'dfine':
@@ -318,9 +351,11 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
         except VisionRegistryError:
             fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
         label, model = chosen['name'], chosen['model_id']
+        chat_fn = chat_for(chosen)
     elif engine in VISION_MODELS:
         label, setting_name = VISION_MODELS[engine]
         model = getattr(settings, setting_name)
+        chat_fn = None
     else:
         fail(422, 'm4-unknown-engine',
              '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、vlm、rebucca。')
@@ -330,7 +365,7 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
     try:
         candidates = m4_vision.detect_objects(
             image, base_url=settings.vision_base_url, model=model,
-            timeout=settings.vision_timeout_seconds)
+            timeout=settings.vision_timeout_seconds, chat_fn=chat_fn)
     except m4_vision.VisionError as exc:
         code = str(exc)
         status = 503 if code in ('m4d_model_unavailable', 'm4d_prompt_too_long',
@@ -391,18 +426,21 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
             chosen = resolve_vision_model(settings, body.vision_model_id)
         except VisionRegistryError:
             fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
-        models = [chosen['model_id']]
+        models = [chosen]
     else:
-        models = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
+        names = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
             else [settings.vision_feature_model, settings.vision_model]
+        models = [{'model_id': name, 'provider': 'ollama'} for name in dict.fromkeys(names)]
     last_error = 'm4d_model_unavailable'
-    for model in dict.fromkeys(models):
+    for entry in models:
+        model = entry['model_id']
         try:
             features = m4_vision.describe_roi(
                 image, body.bbox_normalized, base_url=settings.vision_base_url,
                 model=model, timeout=min(120, settings.vision_timeout_seconds),
                 object_class=body.object_class,
-                prompt_override=body.prompt_override)
+                prompt_override=body.prompt_override,
+                chat_fn=chat_for(entry))
         except m4_vision.VisionError as exc:
             last_error = str(exc)
             if last_error == 'm4d_model_unavailable':
