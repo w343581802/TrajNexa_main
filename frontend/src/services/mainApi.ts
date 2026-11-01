@@ -421,7 +421,11 @@ function jsonBody(payload: Record<string, unknown>, method: string): RequestInit
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${BASE}${path}`, init);
+    // 兜底超时：连接被重置/网关卡住时不要让页面永远停留在「检测中」
+    const withTimeout: RequestInit = init?.signal || typeof AbortSignal === "undefined" ||
+      typeof AbortSignal.timeout !== "function" ? init ?? {} :
+      { ...init, signal: AbortSignal.timeout(300_000) };
+    response = await fetch(`${BASE}${path}`, withTimeout);
   } catch {
     throw new Error("无法连接主系统后端（请确认 api 服务与 /api 代理已启动）");
   }

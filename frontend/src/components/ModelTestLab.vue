@@ -14,6 +14,16 @@ const smallSelected = ref<string[]>([...modelChoices.smallModelIds]);
 const visionSelected = ref<string[]>(modelChoices.visionModelId ? [modelChoices.visionModelId] : []);
 const loadingCatalog = ref(false);
 const busy = ref(false);
+const elapsed = ref(0);
+let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+function startElapsed() {
+  elapsed.value = 0;
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => { elapsed.value += 1; }, 1000);
+}
+function stopElapsed() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+}
 const roiBusy = ref(false);
 const error = ref("");
 const catalogError = ref("");
@@ -25,6 +35,9 @@ const objectClass = ref<ObjectClass>("vehicle");
 const prompt = ref("");
 let selectionStart: [number, number] | null = null;
 let generation = 0;
+// 在途请求计数：只要还有请求在跑，按钮就保持「检测中」；全部结束必然复位
+let detectInflight = 0;
+let roiInflight = 0;
 let catalogEpoch = 0;
 const modelName = computed(() => new Map([
   ...smallModels.value.map(m => [m.id, m.name] as const),
@@ -66,6 +79,7 @@ async function loadCatalog() {
 onMounted(() => { void loadCatalog(); });
 onUnmounted(() => {
   generation++;
+  stopElapsed();
   if (preview.value) URL.revokeObjectURL(preview.value);
 });
 function loadFile(event: Event) {
@@ -106,7 +120,8 @@ async function detect() {
   const chosen = file.value;
   if (!chosen || !hasModels.value || busy.value) return;
   const ticket = ++generation;
-  busy.value = true; error.value = "";
+  detectInflight += 1;
+  busy.value = true; error.value = ""; startElapsed();
   detection.value = null; roi.value = null; selectedBox.value = null;
   try {
     const data = await mainApi.testM5Detect(chosen,
@@ -117,7 +132,10 @@ async function detect() {
     }
   } catch (err) {
     if (ticket === generation) error.value = err instanceof Error ? err.message : String(err);
-  } finally { if (ticket === generation) busy.value = false; }
+  } finally {
+    detectInflight -= 1;
+    if (detectInflight <= 0) { detectInflight = 0; busy.value = false; stopElapsed(); }
+  }
 }
 function choose(candidate: M4DetectCandidate) {
   const b = candidate.bbox_normalized;
@@ -164,6 +182,7 @@ async function analyzeRoi() {
   const chosen = file.value, b = selectedBox.value;
   if (!chosen || !b || !visionSelected.value.length || roiBusy.value) return;
   const ticket = generation;
+  roiInflight += 1;
   roiBusy.value = true; roi.value = null; error.value = "";
   try {
     const data = await mainApi.testM5Roi(chosen, b, objectClass.value,
@@ -171,7 +190,10 @@ async function analyzeRoi() {
     if (ticket === generation && file.value === chosen) roi.value = data;
   } catch (err) {
     if (ticket === generation) error.value = err instanceof Error ? err.message : String(err);
-  } finally { if (ticket === generation) roiBusy.value = false; }
+  } finally {
+    roiInflight -= 1;
+    if (roiInflight <= 0) { roiInflight = 0; roiBusy.value = false; }
+  }
 }
 </script>
 
@@ -220,7 +242,7 @@ async function analyzeRoi() {
       </div>
       <div class="config-submit">
         <button type="button" class="primary-btn" :disabled="busy || !file || !hasModels" @click="detect">
-          {{ busy ? "正在逐模型检测…" : "开始同图对比" }}</button>
+          {{ busy ? `正在逐模型检测… ${elapsed}s` : "开始同图对比" }}</button>
         <p class="hint">小模型按 Rebucca 引擎推理，大模型整图识别仅作为对照；未自动合并相似候选。</p>
       </div>
     </section>

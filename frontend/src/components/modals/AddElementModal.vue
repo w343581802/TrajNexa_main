@@ -214,6 +214,18 @@ const m4DetectError = ref<string | null>(null);
 const m4DetectModel = ref<string | null>(null);
 const m4DetectElapsed = ref<number | null>(null);
 let m4DetectRequest = 0;
+// 在途识别计数：换图/换引擎会让旧请求作废，但「识别中」必须能收回来
+let m4DetectInflight = 0;
+const m4DetectElapsedLive = ref(0);
+let m4ElapsedTimer: ReturnType<typeof setInterval> | null = null;
+function startM4Elapsed() {
+  m4DetectElapsedLive.value = 0;
+  if (m4ElapsedTimer) clearInterval(m4ElapsedTimer);
+  m4ElapsedTimer = setInterval(() => { m4DetectElapsedLive.value += 1; }, 1000);
+}
+function stopM4Elapsed() {
+  if (m4ElapsedTimer) { clearInterval(m4ElapsedTimer); m4ElapsedTimer = null; }
+}
 
 const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
   dfine: "D-FINE",
@@ -232,7 +244,8 @@ async function runDetection() {
   const ticket = ++m4DetectRequest;
   const session = m4Session;
   const engine = m4Engine;
-  m4DetectBusy.value = true;
+  m4DetectInflight += 1;
+  m4DetectBusy.value = true; startM4Elapsed();
   m4DetectError.value = null; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectElapsed.value = null;
   try {
@@ -266,7 +279,8 @@ async function runDetection() {
       m4DetectError.value = message + "（默认检测失败不等于无目标，可手动框选）";
     }
   } finally {
-    if (ticket === m4DetectRequest) m4DetectBusy.value = false;
+    m4DetectInflight -= 1;
+    if (m4DetectInflight <= 0) { m4DetectInflight = 0; m4DetectBusy.value = false; stopM4Elapsed(); }
   }
 }
 
@@ -842,7 +856,7 @@ function save(keepOpen: boolean) {
             <span class="m4a-history-hint">自动使用已配置的业务检测模型；这里不进行多模型实验。</span>
             <span class="grow" />
             <button type="button" class="btn btn--sm" :disabled="m4DetectBusy"
-              @click="runDetection">{{ m4DetectBusy ? "识别中…" : "重新检测" }}</button>
+              @click="runDetection">{{ m4DetectBusy ? `识别中… ${m4DetectElapsedLive}s` : "重新检测" }}</button>
           </div>
           <p class="m4a-history-hint" v-if="m4DetectBusy">正在分析原始截图…</p>
           <p class="m4a-history-hint" v-else-if="m4DetectModel">
