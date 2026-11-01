@@ -6,6 +6,7 @@ The existing image and OCR report remain immutable.
 from __future__ import annotations
 
 from datetime import datetime
+from hashlib import sha256
 import time
 from pathlib import Path
 from threading import BoundedSemaphore
@@ -338,6 +339,8 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
 class RoiFeatureInput(BaseModel):
     bbox_normalized: list[float] = Field(min_length=4, max_length=4)
     engine: str = 'qwen3vl'
+    object_class: str = 'person'  # image-selected category, not identity
+    prompt_override: str | None = Field(default=None, max_length=2400)
 
 
 @router.post('/media/{media_id}/roi-features')
@@ -352,6 +355,8 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
                                   'm4_image_too_large') else 409,
              str(exc).replace('_', '-'), '无法可靠分析该区域，请核查截图与框选。')
     engine = (body.engine or '').strip().lower()
+    if body.object_class not in ('person', 'vehicle', 'other'):
+        fail(422, 'm5-invalid-object-class', '目标类别只能选择人员、车辆或其他。')
     result['engine'] = engine
     if not settings.vision_enabled:
         result['appearance']['semantic_status'] = 'disabled'
@@ -364,14 +369,22 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
         try:
             features = m4_vision.describe_roi(
                 image, body.bbox_normalized, base_url=settings.vision_base_url,
-                model=model, timeout=min(120, settings.vision_timeout_seconds))
+                model=model, timeout=min(120, settings.vision_timeout_seconds),
+                object_class=body.object_class,
+                prompt_override=body.prompt_override)
         except m4_vision.VisionError as exc:
             last_error = str(exc)
             if last_error == 'm4d_model_unavailable':
                 continue  # 4B 没拉就用 2B 兜底
             break
+        prompt_used = m4_vision.effective_feature_prompt(
+            body.object_class, body.prompt_override)
         result['appearance']['semantic_attributes'] = {
-            'features_unverified': features, 'semantic_model': model}
+            'features_unverified': features, 'semantic_model': model,
+            'object_class': body.object_class,
+            'prompt_sha256': sha256(prompt_used.encode('utf-8')).hexdigest(),
+            'prompt_scope': 'single_image_experiment' if body.prompt_override else 'builtin_default',
+        }
         result['appearance']['semantic_status'] = 'vlm_unverified'
         return result
     # 关键特征里的模型部分是加分项：失败只降级，不让整次选框失败
