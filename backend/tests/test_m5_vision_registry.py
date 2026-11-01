@@ -32,6 +32,7 @@ def test_default_model_list_is_server_configured(monkeypatch):
     assert entries[0]["model_id"] == settings.vision_model
     assert entries[1]["model_id"] == settings.vision_model_large
     assert all(m["provider"] == "ollama" for m in entries)
+    assert next(m for m in entries if m["default_for_roi"])["model_id"] == settings.vision_feature_model
 
 
 def test_extra_models_are_allowlisted_and_no_untrusted_model_id(monkeypatch):
