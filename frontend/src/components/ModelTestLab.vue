@@ -41,6 +41,35 @@ const reidDetectorId = ref("");
 const reidResult = ref<M6PersonReidResult | null>(null);
 const reidBusy = ref(false);
 const reidError = ref("");
+// P1-A-5 候选池与拒识的实验旋钮；默认值来自单摄像头小样本，不作为业务规则
+const reidHighConf = ref(.4);
+const reidMinHeight = ref(70);
+const reidDedupeIou = ref(.5);
+const reidSimilarityThreshold = ref(.72);
+const REID_STATE_TEXT: Record<string, string> = {
+  candidate_for_review: "候选值得核查",
+  insufficient_evidence: "证据不足",
+  no_person_candidate: "未检测到可用人员",
+};
+const REID_REASON_TEXT: Record<string, string> = {
+  similarity_above_threshold: "最高相似度达到实验阈值，仍需人工核对",
+  similarity_below_threshold: "最高相似度低于实验阈值，不建议据此关联",
+  no_high_quality_candidate: "只有低质量候选（低置信度或过小），未进入优先比较",
+  no_valid_embedding: "候选裁剪无法提取向量",
+  detector_found_no_person: "检测层没有给出任何人员候选",
+};
+const reidDecisionText = computed(() =>
+  reidResult.value ? REID_STATE_TEXT[reidResult.value.decision.state] ?? reidResult.value.decision.state : "");
+const reidDecisionReason = computed(() =>
+  reidResult.value ? REID_REASON_TEXT[reidResult.value.decision.reason] ?? reidResult.value.decision.reason : "");
+const reidBestText = computed(() => {
+  const best = reidResult.value?.decision.best_similarity;
+  return best === null || best === undefined ? "—" : best.toFixed(4);
+});
+const reidMarginText = computed(() => {
+  const margin = reidResult.value?.decision.margin;
+  return margin === null || margin === undefined ? "—" : margin.toFixed(4);
+});
 let referenceStart: [number, number] | null = null;
 let reidRequest = 0;
 let selectionStart: [number, number] | null = null;
@@ -267,7 +296,10 @@ async function runReid() {
   reidBusy.value = true; reidError.value = ""; reidResult.value = null;
   try {
     const response = await mainApi.testM6PersonReid(
-      a, b, box, reidDetectorId.value, threshold.value);
+      a, b, box, reidDetectorId.value, threshold.value, {
+        highConf: reidHighConf.value, minHeightPx: reidMinHeight.value,
+        dedupeIou: reidDedupeIou.value, similarityThreshold: reidSimilarityThreshold.value,
+      });
     if (ticket === reidRequest && fileGeneration === generation &&
         referenceFile.value === a && file.value === b) reidResult.value = response;
   } catch (err) {
@@ -444,26 +476,71 @@ function pickReidResult(box: [number, number, number, number]) {
               </option>
             </select>
           </label>
+          <details class="reid-params">
+            <summary>实验参数 · 候选池与拒识（P1-A-5）</summary>
+            <div class="reid-param-grid">
+              <label>高质量门限
+                <input v-model.number="reidHighConf" type="number" min="0.2" max="1" step="0.05" />
+              </label>
+              <label>最小人体高度 px
+                <input v-model.number="reidMinHeight" type="number" min="24" max="1000" step="5" />
+              </label>
+              <label>去重 IoU
+                <input v-model.number="reidDedupeIou" type="number" min="0.1" max="0.95" step="0.05" />
+              </label>
+              <label>相似度阈值
+                <input v-model.number="reidSimilarityThreshold" type="number" min="-1" max="1" step="0.01" />
+              </label>
+            </div>
+            <p class="hint">默认值来自单摄像头小样本（design/43 §11），是实验旋钮不是业务规则；改完重新检索。</p>
+          </details>
           <button class="primary-btn" type="button"
             :disabled="reidBusy || !file || !referenceFile || !referenceBox || !reidDetectorId"
             @click="runReid">{{ reidBusy ? "计算外观相似度中…" : "开始指定人员检索" }}</button>
           <p v-if="reidError" class="notice error">{{ reidError }}</p>
           <template v-if="reidResult">
-            <p class="hint">状态：{{ reidResult.status }} · B 中可用人员候选
-              {{ reidResult.person_candidate_count }} 个 · {{ reidResult.elapsed_ms }}ms</p>
-            <p class="hint">OSNet 权重 SHA-256：{{ reidResult.reid_model_sha256.slice(0, 20) }}…</p>
+            <div class="reid-decision" :class="reidResult.decision.state">
+              <b>{{ reidDecisionText }}</b>
+              <span>{{ reidDecisionReason }}</span>
+            </div>
+            <p class="hint">人员候选：原始 {{ reidResult.candidate_pool.raw_person_count }} →
+              去重后 {{ reidResult.candidate_pool.after_dedupe }}
+              （移除重复 {{ reidResult.candidate_pool.duplicates_removed }}）·
+              高质量 {{ reidResult.candidate_pool.high_count }} ·
+              备用 {{ reidResult.candidate_pool.low_count }}</p>
+            <p class="hint">最高相似度 {{ reidBestText }} · 实验阈值
+              {{ reidResult.decision.threshold.toFixed(2) }} · 与次名差距 {{ reidMarginText }} ·
+              {{ reidResult.elapsed_ms }}ms</p>
             <div v-for="item in reidResult.ranking" :key="item.proposal_index" class="reid-rank">
               <div class="run-head">
-                <b>#{{ item.rank }} · {{ item.detector_label }} · {{ item.model_name || item.model_id }}</b>
+                <b>#{{ item.rank }} · {{ item.detector_label }} · {{ item.pixel_height }}px ·
+                  {{ item.detector_confidence?.toFixed(2) }}</b>
                 <b>cosine {{ item.cosine_similarity.toFixed(4) }}</b>
               </div>
               <button type="button" class="candidate-tag" @click="pickReidResult(item.bbox_normalized)">
                 选中 B 中此候选框（待核实）
               </button>
             </div>
-            <p v-if="!reidResult.ranking.length" class="hint">
-              未能取得可比较的人员向量，不代表目标不在图片 B 中。
+            <p v-if="reidResult.ranking.length && reidResult.decision.narrow_margin" class="hint">
+              前两名差距很小：去重后仍可能是同一目标的两次检测，请结合相邻帧人工核对。
             </p>
+            <details v-if="reidResult.backup.length" class="reid-backup">
+              <summary>备用候选 {{ reidResult.backup.length }} 个（低置信度或过小，未进入排序）</summary>
+              <div v-for="item in reidResult.backup" :key="'b' + item.proposal_index" class="reid-rank">
+                <div class="run-head">
+                  <b>备用 #{{ item.backup_rank }} · {{ item.pixel_height }}px ·
+                    {{ item.detector_confidence?.toFixed(2) }}</b>
+                  <b>cosine {{ item.cosine_similarity.toFixed(4) }}</b>
+                </div>
+                <button type="button" class="candidate-tag" @click="pickReidResult(item.bbox_normalized)">
+                  选中 B 中此候选框（待核实）
+                </button>
+              </div>
+            </details>
+            <p v-if="!reidResult.ranking.length && !reidResult.backup.length" class="hint">
+              检测层没有给出人员候选；这不等于目标不在图片 B 中，可降低检测置信度后重试。
+            </p>
+            <p class="hint">OSNet 权重 SHA-256：{{ reidResult.reid_model_sha256.slice(0, 20) }}…</p>
             <p class="hint">参考/搜索图片校验码：
               {{ reidResult.reference_source_sha256.slice(0, 10) }}… /
               {{ reidResult.search_source_sha256.slice(0, 10) }}…
@@ -552,6 +629,20 @@ textarea { resize: vertical; width: 100%; box-sizing: border-box; }
 .reid-selector { font-size: 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .reid-selector select { max-width: 100%; }
 .reid-rank { border-bottom: 1px solid var(--line); padding: 9px 0; display: grid; gap: 5px; }
+.reid-params, .reid-backup { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.reid-params summary, .reid-backup summary { cursor: pointer; font-size: 11px; color: var(--text-2); }
+.reid-param-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px;
+  margin-top: 8px; }
+.reid-param-grid label { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; font-size: 11px; color: var(--text-2); }
+.reid-param-grid input { width: 74px; }
+.reid-decision { display: grid; gap: 3px; border-left: 3px solid var(--line);
+  padding: 6px 10px; background: var(--bg-1); border-radius: 4px; }
+.reid-decision b { font-size: 12px; }
+.reid-decision span { font-size: 11px; color: var(--text-2); }
+.reid-decision.candidate_for_review { border-left-color: #3f9d63; }
+.reid-decision.insufficient_evidence { border-left-color: #c08a2e; }
+.reid-decision.no_person_candidate { border-left-color: #a04545; }
 @media(max-width: 1080px) { .reid-grid { grid-template-columns: 1fr; }
   .config-panel { grid-template-columns: 1fr; }
   .result-layout { grid-template-columns: 1fr; } }

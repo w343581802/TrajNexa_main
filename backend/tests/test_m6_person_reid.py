@@ -118,3 +118,75 @@ def test_person_model_path_must_stay_in_backend_models(monkeypatch):
     monkeypatch.setattr(settings, "m6_person_reid_model_path", "../secret.onnx")
     with pytest.raises(m6_person_reid.ReIDError, match="m6_reid_model_path_invalid"):
         m6_person_reid._model_path()
+
+
+def test_pool_splits_tiers_and_dedupes():
+    """两级候选池：低置信度/过小的框进备用池，重叠框去重后只留一个。"""
+    cands = [
+        {"proposal_index": 1, "object_class": "person",
+         "bbox_normalized": [0.10, 0.10, 0.30, 0.60], "confidence": 0.90},
+        {"proposal_index": 2, "object_class": "person",
+         "bbox_normalized": [0.11, 0.11, 0.31, 0.61], "confidence": 0.60},
+        {"proposal_index": 3, "object_class": "person",
+         "bbox_normalized": [0.60, 0.60, 0.66, 0.68], "confidence": 0.88},
+        {"proposal_index": 4, "object_class": "person",
+         "bbox_normalized": [0.70, 0.10, 0.90, 0.60], "confidence": 0.25},
+        {"proposal_index": 5, "object_class": "vehicle",
+         "bbox_normalized": [0.40, 0.10, 0.55, 0.60], "confidence": 0.99},
+    ]
+    pool = m6_person_reid.split_candidate_pool((2000, 1000), cands,
+                                               high_conf=0.40, min_height_px=70,
+                                               dedupe_iou=0.5)
+    assert pool["raw_person_count"] == 4
+    assert [r["proposal_index"] for r in pool["high"]] == [1, 3]
+    assert [r["proposal_index"] for r in pool["low"]] == [4]
+    assert pool["low"][0]["tier_reason"] == ["low_confidence"]
+    assert [d["proposal_index"] for d in pool["duplicates"]] == [2]
+    assert pool["duplicates"][0]["duplicate_of"] == 1
+
+
+def test_small_candidate_is_low_tier_not_dropped():
+    cands = [{"proposal_index": 7, "object_class": "person",
+              "bbox_normalized": [0.10, 0.10, 0.14, 0.16], "confidence": 0.95}]
+    pool = m6_person_reid.split_candidate_pool((2000, 1000), cands, 0.40, 70, 0.5)
+    assert pool["high"] == []
+    assert [r["proposal_index"] for r in pool["low"]] == [7]
+    assert pool["low"][0]["tier_reason"] == ["small"]
+
+
+def test_response_exposes_pool_backup_and_decision(env, setup_models):
+    client, _Session, _ = env
+    body = send(client).json()
+    assert body["candidate_pool"]["high_count"] == 2
+    assert body["candidate_pool"]["low_count"] == 0
+    assert body["candidate_pool"]["params"]["similarity_threshold"] == 0.72
+    assert body["backup"] == []
+    assert body["decision"]["state"] == "candidate_for_review"
+    assert body["decision"]["best_similarity"] > 0.8
+
+
+def test_high_conf_above_all_keeps_backup_and_reports_insufficient(env, setup_models):
+    """全部候选降到备用池时，不能说「没有候选」，而是「证据不足」。"""
+    client, _Session, _ = env
+    body = send(client, high_conf=0.99).json()
+    assert body["decision"]["state"] == "insufficient_evidence"
+    assert body["decision"]["reason"] == "no_high_quality_candidate"
+    assert body["ranking"] == []
+    assert [x["proposal_index"] for x in body["backup"]] == [0, 1]
+    assert body["candidate_pool"]["low_count"] == 2
+
+
+def test_similarity_below_threshold_is_insufficient_evidence(env, setup_models):
+    client, _Session, _ = env
+    body = send(client, similarity_threshold=0.999).json()
+    assert body["decision"]["state"] == "insufficient_evidence"
+    assert body["decision"]["reason"] == "similarity_below_threshold"
+    assert body["decision"]["best_similarity"] < 0.999
+
+
+def test_pool_parameters_are_validated(env, setup_models):
+    client, _Session, _ = env
+    for form in ({"high_conf": 0.1}, {"min_height_px": 4},
+                 {"dedupe_iou": 1.5}, {"similarity_threshold": 2}):
+        response = send(client, **form)
+        assert response.status_code == 422, (form, response.text)

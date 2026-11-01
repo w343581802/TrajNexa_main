@@ -74,6 +74,31 @@ export type M5TestRoiResult = {
   }[];
 };
 
+export type M6PersonReidCandidate = {
+  rank?: number; backup_rank?: number; proposal_index: number; model_id?: string;
+  model_name?: string; detector_label: string; detector_confidence: number | null;
+  bbox_normalized: [number, number, number, number]; pixel_height?: number;
+  /** high=优先送 ReID 的高质量候选；low=保留备用的低置信度/过小候选 */
+  tier: "high" | "low"; tier_reason?: string[];
+  cosine_similarity: number; status: "unverified_similarity";
+};
+export type M6PersonReidPool = {
+  raw_person_count: number; after_dedupe: number; duplicates_removed: number;
+  high_count: number; low_count: number;
+  duplicates: { proposal_index: number; duplicate_of: number; iou: number }[];
+  params: {
+    high_conf: number; min_height_px: number;
+    dedupe_iou: number; similarity_threshold: number;
+  };
+};
+export type M6PersonReidDecision = {
+  state: "candidate_for_review" | "insufficient_evidence" | "no_person_candidate";
+  reason: string; threshold: number; best_similarity: number | null;
+  margin: number | null; narrow_margin?: boolean;
+};
+export type M6PersonReidPoolOptions = {
+  highConf: number; minHeightPx: number; dedupeIou: number; similarityThreshold: number;
+};
 export type M6PersonReidResult = {
   test_only: true; identity_established: false; case_id: null;
   status: "ranked_unverified" | "no_person_candidates" | "no_valid_embeddings";
@@ -81,12 +106,10 @@ export type M6PersonReidResult = {
   reference_bbox_normalized: [number, number, number, number];
   detector_model_id: string; reid_model_sha256: string;
   person_candidate_count: number; elapsed_ms: number; note: string;
-  ranking: {
-    rank: number; proposal_index: number; model_id?: string;
-    model_name?: string; detector_label: string; detector_confidence: number | null;
-    bbox_normalized: [number, number, number, number];
-    cosine_similarity: number; status: "unverified_similarity";
-  }[];
+  ranking: M6PersonReidCandidate[];
+  backup: M6PersonReidCandidate[];
+  candidate_pool: M6PersonReidPool;
+  decision: M6PersonReidDecision;
 };
 
 export type M4DetectCandidate = {
@@ -564,13 +587,20 @@ export const mainApi = {
   },
   /** M6 P1-A: reference PERSON ROI in A -> ranked person candidates in B, in-memory only. */
   testM6PersonReid: (referenceFile: File, searchFile: File,
-    bbox: [number, number, number, number], detectorModelId: string, threshold = 0.35) => {
+    bbox: [number, number, number, number], detectorModelId: string, threshold = 0.35,
+    pool: M6PersonReidPoolOptions = {
+      highConf: 0.4, minHeightPx: 70, dedupeIou: 0.5, similarityThreshold: 0.72,
+    }) => {
     const body = new FormData();
     body.append("reference_file", referenceFile);
     body.append("search_file", searchFile);
     body.append("reference_bbox_normalized", JSON.stringify(bbox));
     body.append("detector_model_id", detectorModelId);
     body.append("min_confidence", String(threshold));
+    body.append("high_conf", String(pool.highConf));
+    body.append("min_height_px", String(Math.round(pool.minHeightPx)));
+    body.append("dedupe_iou", String(pool.dedupeIou));
+    body.append("similarity_threshold", String(pool.similarityThreshold));
     return request<M6PersonReidResult>("/ai/model-test/reid-search", {
       method: "POST", body,
     });

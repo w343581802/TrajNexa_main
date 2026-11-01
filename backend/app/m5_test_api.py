@@ -222,6 +222,10 @@ def reid_search(
     reference_bbox_normalized: str = Form(...),
     detector_model_id: str = Form(...),
     min_confidence: float = Form(0.35),
+    high_conf: float = Form(0.40),
+    min_height_px: int = Form(70),
+    dedupe_iou: float = Form(0.5),
+    similarity_threshold: float = Form(0.72),
 ):
     """P1-A: ONE reference-person ROI vs detector PERSON candidates in image B.
 
@@ -230,6 +234,15 @@ def reid_search(
     """
     if not math.isfinite(min_confidence) or not .2 <= min_confidence <= 1:
         fail(422, "m6-reid-confidence", "检测阈值须介于 0.2 至 1。")
+    # 以下四项都是实验旋钮：默认值来自 P1-A-4 单摄像头小样本，写死为业务规则前需更多数据
+    if not math.isfinite(high_conf) or not .2 <= high_conf <= 1:
+        fail(422, "m6-reid-pool-params", "高质量候选置信度须介于 0.2 至 1。")
+    if isinstance(min_height_px, bool) or not 24 <= min_height_px <= 1000:
+        fail(422, "m6-reid-pool-params", "最小人体高度须介于 24 至 1000 像素。")
+    if not math.isfinite(dedupe_iou) or not .1 <= dedupe_iou <= .95:
+        fail(422, "m6-reid-pool-params", "去重 IoU 须介于 0.1 至 0.95。")
+    if not math.isfinite(similarity_threshold) or not -1 <= similarity_threshold <= 1:
+        fail(422, "m6-reid-pool-params", "相似度阈值须介于 -1 至 1。")
     if not detector_model_id or len(detector_model_id) > 64:
         fail(422, "m6-reid-detector-id", "请选择已经加载的人员检测模型。")
     try:
@@ -258,7 +271,9 @@ def reid_search(
             fail(503, "m6-reid-detector-failed", "检测器推理失败；尚未进行同目标比较。")
         try:
             compared = m6_person_reid.rank_people(
-                ref_image, bbox, search_image, proposals)
+                ref_image, bbox, search_image, proposals,
+                high_conf=high_conf, min_height_px=min_height_px,
+                dedupe_iou=dedupe_iou, similarity_threshold=similarity_threshold)
         except m6_person_reid.ReIDError as exc:
             code = str(exc)
             status = 422 if code == "m6_reid_reference_box_invalid" else 503
@@ -274,6 +289,9 @@ def reid_search(
             "status": compared["status"],
             "person_candidate_count": compared["candidate_count"],
             "ranking": compared["ranking"],
+            "backup": compared.get("backup", []),
+            "candidate_pool": compared["pool"],
+            "decision": compared["decision"],
             "elapsed_ms": round((time.monotonic() - started) * 1000),
             "note": "排名仅表示 OSNet 视觉外观相似度，不是身份概率，需人工复核。",
         }
