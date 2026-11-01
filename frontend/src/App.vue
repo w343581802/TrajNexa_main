@@ -24,6 +24,13 @@ import { applyDemoHash, loadCases } from "./store/workbench";
 
 type Page = "workspace" | "small-models" | "vision-models" | "model-test";
 const page = ref<Page>("workspace");
+// 支持 ?page=small-models 直达，方便演示与自测（页面状态原本只存在内存里）
+const PAGE_IDS: Page[] = ["workspace", "small-models", "vision-models", "model-test"];
+function initialPage(): Page {
+  const raw = new URLSearchParams(window.location.search).get("page");
+  return PAGE_IDS.includes(raw as Page) ? (raw as Page) : "workspace";
+}
+page.value = initialPage();
 const mapView = ref<"demo" | "preview" | "gis">("demo");
 
 function openModelTest() {
