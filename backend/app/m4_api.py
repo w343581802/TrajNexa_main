@@ -236,7 +236,7 @@ def available_vision_models():
     except VisionRegistryError:
         fail(503, 'm5-vision-registry-invalid',
              '视觉模型配置有误，请核对本机模型配置。')
-    return {'enabled': bool(settings.vision_enabled), 'models': models}
+    return {'enabled': any(row['enabled'] for row in models), 'models': models}
 
 
 @router.get('/ai/image-models')
@@ -352,15 +352,17 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
             fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
         label, model = chosen['name'], chosen['model_id']
         chat_fn = chat_for(chosen)
+        vision_active = chosen['enabled']
     elif engine in VISION_MODELS:
         label, setting_name = VISION_MODELS[engine]
         model = getattr(settings, setting_name)
         chat_fn = None
+        vision_active = bool(settings.vision_enabled)
     else:
         fail(422, 'm4-unknown-engine',
              '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、vlm、rebucca。')
-    if not settings.vision_enabled:
-        fail(503, 'vision-disabled', 'Qwen3-VL 识别已关闭。')
+    if not vision_active:
+        fail(503, 'vision-disabled', '所选视觉模型服务未启用。')
     asset, _file, image = _case_image(db, media_id)
     try:
         candidates = m4_vision.detect_objects(
@@ -416,7 +418,7 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
     if body.object_class not in ('person', 'vehicle', 'other'):
         fail(422, 'm5-invalid-object-class', '目标类别只能选择人员、车辆或其他。')
     result['engine'] = engine
-    if not settings.vision_enabled:
+    if not body.vision_model_id and not settings.vision_enabled:
         result['appearance']['semantic_status'] = 'disabled'
         return result
     # An explicit M5 selection wins; otherwise keep existing M4 behavior.
@@ -426,6 +428,9 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
             chosen = resolve_vision_model(settings, body.vision_model_id)
         except VisionRegistryError:
             fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
+        if not chosen['enabled']:
+            result['appearance']['semantic_status'] = 'disabled'
+            return result
         models = [chosen]
     else:
         names = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
