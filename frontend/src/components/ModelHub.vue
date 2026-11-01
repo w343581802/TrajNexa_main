@@ -12,8 +12,16 @@ const visionModels = ref<M5VisionModel[]>([]);
 const enabled = ref(false);
 const busy = ref(false);
 const error = ref("");
+const engineFilter = ref("");
+const taskFilter = ref("");
 let latest = 0;
 const isSmall = computed(() => props.kind === "small");
+const filteredSmall = computed(() => smallModels.value.filter(m =>
+  (!engineFilter.value || m.engine === engineFilter.value) &&
+  (!taskFilter.value || (m.task_type || "detect") === taskFilter.value)));
+const engines = computed(() => [...new Set(smallModels.value.map(m => m.engine))]);
+const tasks = computed(() => [...new Set(smallModels.value.map(m => m.task_type || "detect"))]);
+const remoteCount = computed(() => visionModels.value.filter(m => m.location === "remote").length);
 const modelsCount = computed(() => isSmall.value ? smallModels.value.length : visionModels.value.length);
 const selectedCount = computed(() => isSmall.value ? modelChoices.smallModelIds.length :
   (modelChoices.visionModelId ? 1 : 0));
@@ -78,7 +86,7 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
         <p class="hub-intro">
           {{ isSmall
             ? "复用 Rebucca 已配置的目标检测模型。可以多选，并在同一张监控截图中对照结果。"
-            : "选择视觉理解模型，用于检测框选中后的人员、车辆外观分析。支持添加本机已配置的其他 Ollama 模型。" }}
+            : "查看本地 Ollama 和 Rebucca 式远程 OpenAI 兼容视觉模型。此处选择只用于模型实验，不影响研判业务默认模型。" }}
         </p>
       </div>
       <div class="hub-actions">
@@ -86,9 +94,9 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
           <AppIcon name="refresh" :size="14" /> {{ busy ? "读取中…" : "刷新模型" }}
         </button>
         <button type="button" class="button-primary"
-          :disabled="!enabled || selectedCount === 0"
+          :disabled="selectedCount === 0"
           @click="emit('test-image')">
-          <AppIcon name="scan" :size="14" /> 进入图片测试
+          <AppIcon name="scan" :size="14" /> 进入模型测试
         </button>
       </div>
     </div>
@@ -96,16 +104,16 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
     <div class="summary-grid">
       <div class="summary-tile">
         <span>已配置模型</span><strong>{{ modelsCount }}</strong>
-        <small>{{ isSmall ? "来自 Rebucca 独立模型服务" : "来自 TrajNexa 视觉模型配置" }}</small>
+        <small>{{ isSmall ? "Rebucca 模型目录" : "本地和远程；远程 " + remoteCount + " 项" }}</small>
       </div>
       <div class="summary-tile">
-        <span>当前选择</span><strong>{{ selectedCount }}</strong>
-        <small>{{ isSmall ? "同图支持多模型" : "图片 ROI 默认使用一个模型" }}</small>
+        <span>实验预选</span><strong>{{ selectedCount }}</strong>
+        <small>{{ isSmall ? "同图支持多模型" : "用于模型实验，不改变业务配置" }}</small>
       </div>
       <div class="summary-tile">
         <span>服务状态</span>
         <strong :class="enabled ? 'status-ok' : 'status-muted'">{{ enabled ? "已配置" : "不可用" }}</strong>
-        <small>{{ isSmall ? "以服务实际注册列表为准" : "仅表示配置启用，不代表权重已加载" }}</small>
+        <small>{{ isSmall ? "以服务实际注册列表为准" : "仅表示配置启用，真实连通性以测试为准" }}</small>
       </div>
     </div>
 
@@ -122,8 +130,18 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
       <div class="panel-header">
         <div>
           <h2>{{ isSmall ? "检测模型列表" : "视觉模型列表" }}</h2>
-          <p>{{ isSmall ? "勾选多个模型，对同一张图片分别推理；各检测结果保留来源。" :
-            "选择一个默认大模型，图片分析时应用于选中目标的外观描述。" }}</p>
+          <p>{{ isSmall ? "按 Rebucca 的推理引擎和任务筛选；此处选择仅用于模型实验。" :
+            "选择本地或远程大模型作为实验首选；业务工作台默认模型由服务端配置。" }}</p>
+        </div>
+        <div v-if="isSmall" class="catalog-filters">
+          <select v-model="engineFilter" aria-label="按推理引擎筛选">
+            <option value="">全部引擎</option>
+            <option v-for="engine in engines" :key="engine" :value="engine">{{ engine }}</option>
+          </select>
+          <select v-model="taskFilter" aria-label="按模型任务筛选">
+            <option value="">全部任务</option>
+            <option v-for="task in tasks" :key="task" :value="task">{{ task }}</option>
+          </select>
         </div>
         <span class="panel-count">{{ modelsCount }} 项</span>
       </div>
@@ -135,14 +153,16 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
           "在本地配置 Ollama 视觉模型后刷新列表。" }}</span>
       </div>
       <div v-else-if="isSmall" class="model-list">
-        <label v-for="model in smallModels" :key="model.id" class="model-row"
+        <label v-for="model in filteredSmall" :key="model.id" class="model-row"
           :class="{ chosen: modelChoices.smallModelIds.includes(model.id) }">
           <input type="checkbox" :checked="modelChoices.smallModelIds.includes(model.id)"
             :disabled="!enabled" @change="toggleSmall(model.id)" />
           <span class="model-glyph"><AppIcon name="layers" :size="19" /></span>
           <span class="model-detail">
             <strong>{{ model.name }}</strong>
-            <small>{{ model.id }} · {{ model.engine }} · 权重 {{ model.model_sha256.slice(0, 10) }}…</small>
+            <small>{{ model.id }} · {{ model.algorithm_type || "检测" }} / {{ model.task_type || "detect" }}
+              · {{ model.engine }} / {{ model.device || "cpu" }}
+              · {{ model.input_size?.join("×") || "未提供尺寸" }} · 权重 {{ model.model_sha256.slice(0, 10) }}…</small>
           </span>
           <span class="model-status">{{ modelChoices.smallModelIds.includes(model.id) ? "已选择" : "可选" }}</span>
         </label>
@@ -156,20 +176,21 @@ const selectedVisionName = computed(() => visionModels.value.find(m =>
           <span class="model-glyph"><AppIcon name="scan" :size="19" /></span>
           <span class="model-detail">
             <strong>{{ model.name }}</strong>
-            <small>{{ model.model_id }} · {{ model.provider }} · 本地已配置</small>
+            <small><b :class="model.location === 'remote' ? 'remote-tag' : 'local-tag'">{{ model.location === "remote" ? "远程 API" : "本地" }}</b>
+              · {{ model.model_id }} · {{ model.provider }} · 服务端已注册</small>
           </span>
-          <span class="model-status">{{ modelChoices.visionModelId === model.id ? "默认模型" : "可选" }}</span>
+          <span class="model-status">{{ modelChoices.visionModelId === model.id ? "实验首选" : "可选" }}</span>
         </label>
       </div>
     </div>
 
     <div class="current-selection">
-      <div class="current-heading"><AppIcon name="check" :size="16" /><b>当前图片分析配置</b></div>
+      <div class="current-heading"><AppIcon name="check" :size="16" /><b>模型测试预选配置</b></div>
       <p v-if="isSmall">检测器：{{ selectedSmallNames || "尚未选择检测模型" }}。
         检测结果只形成候选，用户点框后交给大模型描述。</p>
       <p v-else>外观描述模型：{{ selectedVisionName }}。
-        目标裁剪优先采用原始图片像素；提示词可在“添加目标要素”里临时编辑。</p>
-      <p class="disclaimer">当前为 Demo 阶段的本地选择，不自动开启摄像头视频分析，也不确认目标身份。</p>
+        测试页按原图裁剪 ROI，可在测试页修改本次提示词。</p>
+      <p class="disclaimer">模型选择只用于模型测试，不改变主工作台默认模型，也不确认目标身份。</p>
     </div>
   </section>
 </template>
@@ -211,6 +232,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .panel-header h2 { margin: 0 0 6px; font-size: 15px; color: var(--text-0); }
 .panel-header p { margin: 0; font-size: 11px; color: var(--text-3); }
 .panel-count { color: var(--text-3); font-size: 11px; white-space: nowrap; }
+.catalog-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.catalog-filters select { color: var(--text-2); background: var(--bg-2);
+  border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 11px; }
+.remote-tag { color: #f4bc85; font-weight: 600; }
+.local-tag { color: #86d4b2; font-weight: 600; }
 .model-list { padding: 7px 14px 12px; }
 .model-row { display: flex; gap: 14px; align-items: center;
   padding: 13px 14px; margin: 5px 0; border-radius: 7px; border: 1px solid transparent;
