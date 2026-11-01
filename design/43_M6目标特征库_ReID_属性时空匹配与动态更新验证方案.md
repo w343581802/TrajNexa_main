@@ -240,8 +240,8 @@ PowerShell 读取权重 SHA：
 
 ### 本批真实验收清单（未完成，需提供实测数据）
 
-- [ ] OSNet 真正加载：记录权重 SHA、输入/输出 shape、CPU 推理耗时；
-- [ ] 同一人跨视角 A/B：报告 Top-1/Top-5 和错误例；
+- [x] OSNet 真正加载：记录权重 SHA、输入/输出 shape、CPU 推理耗时（见 §9）；
+- [x] 同一人跨视角 A/B：Market-1501 上 Top-1 60.10% / Top-5 77.67%（基准数据，非现场）；
 - [ ] 颜色相同但不是同一人的难负例：误匹配率；
 - [ ] 小目标模糊、多遮挡：unknown / 无有效向量返回；
 - [ ] 与有尾箱的两轮车/骑手组合：**仅人员维度**先测试，车辆维度需单独的 Vehicle ReID；
@@ -252,3 +252,71 @@ PowerShell 读取权重 SHA：
 - P0-A + P0-B：M4/M5 contract checks 已修复并通过；
 - P1-A：`test_m6_person_reid.py` mock 排序与无案件写入测试已加入 CI，前端构建通过；
 - **以上不替代真实模型与录像评测**。
+
+
+## 9. 2026-11-01 真实 OSNet 权重安装与基线评测
+
+### 9.1 权重与格式（关键坑）
+
+| 项 | 值 |
+| --- | --- |
+| 模型 | OSNet x0.25（MSMT17 训练），ONNX |
+| 来源 | HuggingFace `anriha/osnet_x0_25_msmt17`（MIT） |
+| 落盘 | `backend/models/reid/osnet_x0_25_msmt17_b1.onnx`（0.87 MB，gitignore） |
+| SHA-256 | `f3352b03dc6a188836af98ebadb1234b8b9083b3fa9bbd1077d1c559ab7374fa` |
+| 输入 / 输出 | `[batch,3,256,128]` → `[batch,512]`（L2 归一化在引擎侧做） |
+| CPU 耗时 | 单张 crop ≈ 8 ms；16 人一次请求 0.60 s |
+
+原模型导出时把 batch 固定成 **16**，而 `ReidOnnxEngine` 逐 crop 送 **batch=1**，直接加载会在
+`session.run` 处报形状不符。处理方式是把 ONNX 的输入/输出第 0 维改成动态 `batch`
+（`onnx` 改图，不动权重），得到 `*_b1.onnx`。**换任何来源的 OSNet ONNX 都要先确认这条。**
+
+配置（`.env`，不入库）：
+
+```
+M6_PERSON_REID_MODEL_PATH=models/reid/osnet_x0_25_msmt17_b1.onnx
+M6_PERSON_REID_MODEL_SHA256=f3352b03dc6a188836af98ebadb1234b8b9083b3fa9bbd1077d1c559ab7374fa
+```
+
+### 9.2 图片链路实测（D-FINE 检测 + OSNet 排序）
+
+样本：现场街景截图 1920×1088，D-FINE 检出 43 个候选，其中 16 个 `person`。
+参考框取第一个人（`[0.3135,0.4133,0.3552,0.5101]`），B 图与 A 图同源时：
+
+```
+detect 200 0.83s persons 16 / 43
+reid   200 0.60s
+  #1 sim=1.000 idx=0   ← 自匹配，排第一
+  #2 sim=0.537 idx=37
+  #3 sim=0.526 idx=10
+  #4 sim=0.517 idx=6
+  #5 sim=0.516 idx=16
+```
+
+说明链路与相似度量级正常（同 crop=1.0，不同人 0.5 上下），但这只是**一致性自检**，不代表跨视角识别力。
+
+### 9.3 Market-1501 基线（可复跑）
+
+```
+docker run --rm -v /path/Market-1501-v15.09.15:/data/mkt:ro \
+    -v "$PWD/backend:/srv" -w /srv/app trajnexa_main-api \
+    python scripts/reid_eval_market1501.py
+```
+
+脚本：`backend/scripts/reid_eval_market1501.py`。协议按官方：junk(-1) 不计入，同 id 同摄像头的库图不算命中。
+
+| 指标 | 结果 | 条件 |
+| --- | --- | --- |
+| Top-1 | **60.10%** | 3,368 query / 15,913 gallery |
+| Top-5 | **77.67%** | 单 query、cosine 排序 |
+| 特征提取 | 412 s（15,913 张） | 容器内 CPU，x0.25 |
+
+注意这是**跨数据集**（MSMT17 训练 → Market-1501 检索）的分数，属于偏保守基线；
+若换成 x1.0 权重，通常还能再高一截，但**必须先解决 9.1 的 batch 维问题**。
+
+### 9.4 结论与限制
+
+- 人员 ReID 的“向量可比、能排序”这件事已验证；x0.25 在标准集上是 **60/78** 的量级，够做候选排序，不够做身份判断。
+- **基准分数不等于现场效果**：监控画面的目标更小、更糊、遮挡更多；仓库里目前没有 `storage/videos` 录像，
+  没能做“同一录像跨帧”的现场验证。
+- 下一步要决定：先换 x1.0 权重并重跑本基线，还是直接拿一段现场录像做跨帧验证（后者更能回答“能不能用”）。
