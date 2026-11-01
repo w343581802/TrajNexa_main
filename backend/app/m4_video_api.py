@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app import m4_video, m4_detection
+from app import m4_video, detectors
 from app.recording_api import fail
 
 router = APIRouter(prefix='/api/v1')
@@ -31,7 +31,7 @@ def enabled():
 
 
 def sample_failure(exc: m4_video.KeyframeError):
-    code = str(exc)
+    code = str(exc).replace(':', '-')
     if code == 'm4c_clip_not_found':
         status = 404
     elif code in ('m4c_clip_unavailable', 'm4c_clip_changed_rescan_required'):
@@ -60,7 +60,7 @@ def preview_clip_keyframes(case_id: str, clip_id: str, body: ClipSampleRequest,
     except m4_video.KeyframeError as exc:
         sample_failure(exc)
     if body.include_detection and not (
-        settings.m4b_enabled and settings.m4b_model_sha256
+        detectors.default_model_id()
     ):
         fail(503, 'm4c-detector-not-configured', '需要配置经过 SHA-256 校验的 D-FINE ONNX 模型。')
     if not _gate.acquire(blocking=False):
@@ -72,9 +72,9 @@ def preview_clip_keyframes(case_id: str, clip_id: str, body: ClipSampleRequest,
         return result
     except m4_video.KeyframeError as exc:
         sample_failure(exc)
-    except m4_detection.DetectionError as exc:
-        fail(503, str(exc).replace('_', '-'),
-             'D-FINE 检测不可用；不会生成模拟框。')
+    except detectors.DetectorError as exc:
+        fail(503, str(exc).replace('_', '-').replace(':', '-'),
+             '本机检测器不可用；不会生成模拟框。')
     finally:
         _gate.release()
 

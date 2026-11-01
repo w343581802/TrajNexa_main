@@ -60,14 +60,6 @@ function openFromQuery<T extends { id: string }>(models: T[]) {
   if (hit) editing.value = hit as unknown as M5ImageModel | M5VisionModel;
 }
 
-function rebuccaBase(): string {
-  const fromQuery = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("rebucca") : null;
-  const fromEnv = (import.meta.env.VITE_REBUCCA_WEB_URL as string | undefined)?.trim();
-  return (fromQuery || fromEnv || "http://127.0.0.1:10001").replace(/\/+$/, "");
-}
-const rebuccaUrl = computed(() => rebuccaBase() + (isSmall.value ? "/smallmodel/index" : "/llm/index"));
-
 async function loadModels() {
   const ticket = ++latest;
   busy.value = true;
@@ -152,8 +144,6 @@ const selectedNames = computed(() => isSmall.value
             <option v-for="engine in engines" :key="engine" :value="engine">{{ engine }}</option>
           </select>
           <button type="button" class="rb-btn" :disabled="busy" @click="loadModels">↻ 刷新</button>
-          <a class="rb-btn rb-btn-primary" :href="rebuccaUrl" target="_blank" rel="noopener noreferrer">
-            + {{ isSmall ? "添加小模型" : "添加大模型" }}</a>
         </div>
       </div>
 
@@ -202,7 +192,7 @@ const selectedNames = computed(() => isSmall.value
               <button type="button" class="rb-link" :disabled="selectedSmallIds[0] === model.id"
                 @click="makeDefault(model.id)">设默认</button>
               <button type="button" class="rb-link test" @click="runTest(model.id)">测试</button>
-              <button type="button" class="rb-link" disabled title="权重与配置在 Rebucca 中删除">删除</button>
+              <button type="button" class="rb-link" disabled title="在 backend/config/detectors.json 中移除">删除</button>
             </td>
           </tr>
         </tbody>
@@ -225,7 +215,7 @@ const selectedNames = computed(() => isSmall.value
                 @click="makeDefault(model.id)">设默认</button>
               <button type="button" class="rb-link test" :disabled="!model.enabled"
                 @click="runTest(model.id)">测试</button>
-              <button type="button" class="rb-link" disabled title="在 Rebucca 中删除">删除</button>
+              <button type="button" class="rb-link" disabled title="在 backend/config/detectors.json 中移除">删除</button>
             </td>
           </tr>
         </tbody>
@@ -272,7 +262,7 @@ const selectedNames = computed(() => isSmall.value
             <div class="rb-field"><label>模型文件</label>
               <div class="rb-input mono">{{ editing.id }} · sha256 {{
                 (editing as M5ImageModel).model_sha256.slice(0, 16) }}…</div>
-              <p class="rb-hint">权重上传/替换在 Rebucca 的「小模型管理」里完成。</p></div>
+              <p class="rb-hint">权重与阈值在 backend/config/detectors.json 中维护。</p></div>
             <div class="rb-row2">
               <div class="rb-field"><label>输入宽度</label>
                 <div class="rb-input">{{ ((editing as M5ImageModel).input_size || [])[0] || "—" }}</div></div>
@@ -306,8 +296,7 @@ const selectedNames = computed(() => isSmall.value
         </div>
         <div class="rb-modal-foot">
           <button type="button" class="rb-btn" @click="editing = null">取消</button>
-          <a class="rb-btn rb-btn-primary" :href="rebuccaUrl" target="_blank" rel="noopener noreferrer">
-            在 Rebucca 中修改</a>
+
         </div>
       </div>
     </div>

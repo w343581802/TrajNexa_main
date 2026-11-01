@@ -219,7 +219,7 @@ const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
   dfine: "D-FINE",
   qwen3vl: "Qwen3-VL 2B",
   qwen3vl4b: "Qwen3-VL 4B",
-  rebucca: "Rebucca 多模型",
+  local: "本机检测器",
   vlm: "视觉模型",
   auto: "默认检测",
 };

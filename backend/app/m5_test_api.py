@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, File, Form, UploadFile
 
-from app import m4_vision, m5_rebucca_client
+from app import detectors, m4_vision
 from app.config import settings
 from app.m5_vision_registry import VisionRegistryError, resolve_vision_model
 from app.m5_vision_transport import chat_for
@@ -96,8 +96,8 @@ def detect(
     if not small and not vision:
         fail(422, "m5-test-no-model", "请至少选择一个模型。")
     entries = _vision_models(vision)
-    if small and not settings.m5_rebucca_enabled:
-        fail(503, "m5-test-small-disabled", "Rebucca 小模型服务未启用。")
+    if small and not detectors.enabled():
+        fail(503, "m5-test-small-disabled", "本机检测器未配置。")
     image, digest = _read_image(file)
     candidates, runs = [], []
     begun_all = time.monotonic()
@@ -107,20 +107,16 @@ def detect(
         try:
             start = time.monotonic()
             try:
-                result = m5_rebucca_client.detect_image(
-                    image, model_ids=small, min_confidence=min_confidence,
-                    base_url=settings.m5_rebucca_base_url,
-                    token=settings.m5_rebucca_token,
-                    timeout=min(120, settings.m5_rebucca_timeout_seconds))
-            except m5_rebucca_client.RebuccaImageError as exc:
+                result = detectors.detect_flat(image, small, min_confidence)
+            except detectors.DetectorError as exc:
                 for mid in small:
                     runs.append(_run({"id": mid, "kind": "detector"},
                                      "inference_error", 0, start, str(exc)))
             else:
                 candidates.extend(result["candidates"])
                 for entry in result["model_runs"]:
-                    runs.append(_run({"id": entry["model_id"], "kind": "detector"},
-                                     entry["status"], entry["candidate_count"], start))
+                    runs.append(_run({"id": entry["id"], "kind": "detector"},
+                                     "ok", entry["candidate_count"], start))
         finally:
             _small_gate.release()
 

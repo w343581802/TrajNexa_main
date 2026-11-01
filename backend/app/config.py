@@ -9,15 +9,9 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2
     ocr_enabled: bool = False  # requires optional PaddleOCR CPU runtime
     # Demo 阶段默认开启（design/26 约束 0）：不设授权闸门，先让能力在界面上看得见。
-    # 要关闭仍可用 M4A_ENABLED=false / M4B_ENABLED=false 覆盖。
+    # 要关闭仍可用 M4A_ENABLED=false / M4C_ENABLED=true 覆盖。
     m4a_enabled: bool = True
     m4c_enabled: bool = False  # opt-in read-only sampled frames of registered clips
-    m4b_enabled: bool = True
-    m4b_model_path: Path = Path('/models/dfine.onnx')
-    m4b_model_sha256: str = ''  # 配了权重就必须配 SHA-256，防止权重被静默替换
-    # auto：长边 >1280 切片（2×2），>2600 切 3×3；也可写 off/2/3。
-    # 3200×1800 整幅缩到 640 目标只剩十几像素，实测漏检严重，切片后召回翻倍。
-    m4b_tiling: str = 'auto'
     # M4d 本地视觉模型（Qwen3-VL via Ollama）：与 D-FINE 并列的第二个识别引擎。
     # 容器内要用 host.docker.internal 才能回到宿主机上的 ollama serve。
     vision_enabled: bool = True
@@ -29,14 +23,9 @@ class Settings(BaseSettings):
     # 关键特征（外观短语）优先用这个模型，不可用时回落到 vision_model。
     vision_feature_model: str = 'qwen3-vl:4b-instruct'
     vision_timeout_seconds: int = 180
-    # M5 图片优先：Rebucca 模型服务在独立 Python 环境中运行，默认不启用。
-    # 容器用 host.docker.internal 访问 Windows 侧；仅限本机/受限网络。
-    m5_rebucca_enabled: bool = False
-    m5_rebucca_base_url: str = 'http://host.docker.internal:8766'
-    m5_rebucca_token: str = ''  # sidecar 绑定非 loopback 时必须配置共享密钥
-    m5_rebucca_timeout_seconds: int = 60
+    # 检测器目录：backend/config/detectors.json（引擎层自 Rebucca app/analysis/engines 移植）
     # Business workbench uses ONE server-chosen detector, not lab selection.
-    # Empty = first installed sidecar model. No sidecar = legacy D-FINE if installed.
+    # Empty = 配置里第一个已加载检测器。
     m5_workspace_detector_id: str = ''
     # Extra local Ollama vision models shown in the large-model menu.
     # JSON list: [{"id":"internvl","name":"InternVL","model":"local-ollama-tag"}]

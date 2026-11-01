@@ -1,0 +1,32 @@
+{
+  "detectors": [
+    {
+      "id": "dfine-n",
+      "name": "Rebucca D-FINE N",
+      "engine": "onnxruntime",
+      "algorithm_type": "dfine",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/dfine/dfine_n_coco_opset17_fp32_static.onnx",
+      "labels_file": "config/labels/coco80_zh.txt",
+      "input_width": 640,
+      "input_height": 640,
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5
+    },
+    {
+      "id": "yolo11n",
+      "name": "Rebucca YOLO11n",
+      "engine": "onnxruntime",
+      "algorithm_type": "yolo8",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/yolo/yolo11n.onnx",
+      "labels_file": "config/labels/coco80_zh.txt",
+      "input_width": 640,
+      "input_height": 640,
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5
+    }
+  ]
+}

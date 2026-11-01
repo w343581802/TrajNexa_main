@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from sqlalchemy import func, select
 
-from app import m4_vision, m5_rebucca_client
+from app import detectors, m4_vision
 from app.config import settings
 from app.models import MediaAsset, TargetObservation
 from app.m5_vision_registry import VisionRegistryError, configured_vision_models
@@ -28,17 +28,17 @@ def post(client, route, **data):
 
 def test_detector_compare_no_case_writes(env, monkeypatch):
     client, Session, _ = env
-    monkeypatch.setattr(settings, "m5_rebucca_enabled", True)
+    monkeypatch.setattr(detectors, "enabled", lambda: True)
     chosen = []
-    def fake(image, **kw):
-        chosen.extend(kw["model_ids"])
-        return {"candidates": [{"model_id": "dfine", "model_name": "D-FINE",
+    def fake(image, model_ids, min_confidence):
+        chosen.extend(model_ids)
+        return {"candidates": [{"id": "dfine", "model_name": "D-FINE",
             "proposal_index": 0, "object_class": "vehicle",
             "bbox_normalized": [.2, .2, .8, .9], "detector_label": "汽车",
             "confidence": .9, "status": "unverified_detection_proposal"}],
-            "model_runs": [{"model_id": "dfine", "status": "returned_unverified",
+            "model_runs": [{"id": "dfine", "status": "returned_unverified",
                            "candidate_count": 1}]}
-    monkeypatch.setattr(m5_rebucca_client, "detect_image", fake)
+    monkeypatch.setattr(detectors, "detect_flat", fake)
     r = post(client, "detect", small_model_ids='["dfine"]')
     assert r.status_code == 200, r.text
     d = r.json()
@@ -134,17 +134,17 @@ def test_remote_only_works_with_ollama_disabled(env, monkeypatch):
 
 def test_default_business_detector_ignores_experiment_selection(env, monkeypatch):
     client, _, _ = env
-    monkeypatch.setattr(settings, "m5_rebucca_enabled", True)
+    monkeypatch.setattr(detectors, "enabled", lambda: True)
     monkeypatch.setattr(settings, "m5_workspace_detector_id", "case-model")
-    monkeypatch.setattr(m5_rebucca_client, "list_models",
-        lambda **kw: [{"id": "case-model"}, {"id": "lab-only"}])
+    monkeypatch.setattr(detectors, "list_models",
+        lambda: [{"id": "case-model"}, {"id": "lab-only"}])
     selected = []
-    def fake(image, **kwargs):
-        selected.extend(kwargs["model_ids"])
+    def fake(image, model_ids, min_confidence):
+        selected.extend(model_ids)
         return {"candidates": [], "model_runs": [
-            {"model_id": "case-model", "status": "returned_unverified",
+            {"id": "case-model", "status": "returned_unverified",
              "candidate_count": 0}]}
-    monkeypatch.setattr(m5_rebucca_client, "detect_image", fake)
+    monkeypatch.setattr(detectors, "detect_flat", fake)
     case = client.post("/api/v1/cases", json={"name": "实验与案件分离"}).json()
     asset = client.post("/api/v1/media",
         files={"file": ("image.png", sample(), "image/png")},

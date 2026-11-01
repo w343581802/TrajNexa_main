@@ -23,7 +23,7 @@ from app.db import get_db
 from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
-from app import m4_detection, m4_vision, m5_rebucca_client
+from app import detectors, m4_vision, media_image
 from app.m5_vision_registry import (public_vision_models, resolve_vision_model,
                                     VisionRegistryError)
 from app.m5_vision_transport import chat_for
@@ -73,8 +73,8 @@ def _case_image(db: Session, media_id: str, prefix: str = 'm4') -> tuple[MediaAs
     if not file.is_relative_to(root):
         fail(409, f'{prefix}-invalid-source', '原始截图路径越界。')
     try:
-        image = m4_detection.verified_image(file, asset.sha256)
-    except m4_detection.DetectionError as exc:
+        image = media_image.verified_image(file, asset.sha256)
+    except media_image.MediaImageError as exc:
         code = str(exc).replace('m4b_', f'{prefix}_')
         status = 409 if code in (f'{prefix}_source_hash_mismatch', f'{prefix}_source_unavailable',
                                  f'{prefix}_source_decode_failed', f'{prefix}_invalid_frame_size') else 422
@@ -177,43 +177,37 @@ def preview_detections(media_id: str, body: DetectionPreviewInput,
 
 
 def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: bool) -> dict:
-    if not settings.m4b_enabled:
-        fail(503, 'm4b-disabled', 'D-FINE 识别已关闭。')
-    if not settings.m4b_model_sha256:
+    """兼容旧路径的预览入口：改用本地默认检测器，不再走独立 D-FINE 实现。"""
+    models = detectors.list_models()
+    if not models:
         fail(503, 'm4b-model-not-installed',
-             'D-FINE 权重未安装：把官方导出的 ONNX 放到 /models/dfine.onnx，'
-             '并配置 M4B_MODEL_SHA256（见 design/28）。')
+             '未安装检测器：请在 backend/config/detectors.json 注册模型并准备权重。')
+    configured = settings.m5_workspace_detector_id.strip()
+    chosen = configured if configured in {row['id'] for row in models} else models[0]['id']
     asset, _file, image = _case_image(db, media_id, prefix='m4b')
     if not _detection_gate.acquire(blocking=False):
         fail(429, 'm4b-detector-busy', '模型正在处理其它请求，请稍后再试。')
     try:
-        result = m4_detection.detect_image(
-            image, model_path=settings.m4b_model_path,
-            model_sha256=settings.m4b_model_sha256,
-            source_sha256=asset.sha256,
-            threshold=min_confidence,
-            tiling=settings.m4b_tiling,
-        )
-    except m4_detection.DetectionError as exc:
-        code = str(exc)
-        if code in ('m4b_source_hash_mismatch', 'm4b_source_unavailable',
-                    'm4b_source_decode_failed', 'm4b_invalid_frame_size'):
-            status = 409
-        elif code in ('m4b_model_unavailable', 'm4b_runtime_unavailable',
-                      'm4b_model_sha256_required', 'm4b_model_digest_mismatch',
-                      'm4b_model_load_failed', 'm4b_incompatible_model'):
-            status = 503
-        else:
-            status = 422 if code == 'm4b_source_image_too_large' else 500
-        fail(status, code.replace('_', '-'),
-             '无法生成可靠的自动检测候选；原图未修改。')
+        result = detectors.detect_flat(image, [chosen], min_confidence)
     finally:
         _detection_gate.release()
+    out = {
+        'schema_version': '1.0',
+        'engine': 'local',
+        'status': 'candidates_unverified',
+        'model_family': next(row['name'] for row in models if row['id'] == chosen),
+        'model_sha256': next(row['model_sha256'] for row in models if row['id'] == chosen),
+        'source_sha256': asset.sha256,
+        'image_size': [image.shape[1], image.shape[0]],
+        'candidate_count': len(result['candidates']),
+        'candidates': result['candidates'],
+        'model_runs': result['model_runs'],
+        'note': '候选框未确认身份，需人工复核。',
+    }
     if with_ids:
-        result['media_id'] = asset.id
-        result['case_id'] = asset.case_id
-    return result
-
+        out['media_id'] = asset.id
+        out['case_id'] = asset.case_id
+    return out
 
 class DetectInput(BaseModel):
     engine: str = 'qwen3vl'  # auto(workspace) | rebucca | dfine | vlm | legacy Qwen
@@ -241,50 +235,41 @@ def available_vision_models():
 
 @router.get('/ai/image-models')
 def available_image_models():
-    """Optional Rebucca detector catalog; never returns paths or credentials."""
-    if not settings.m5_rebucca_enabled:
+    """本机检测器目录（backend/config/detectors.json）；不返回路径或凭据。"""
+    if not detectors.enabled():
         return {'enabled': False, 'models': []}
     try:
-        models = m5_rebucca_client.list_models(
-            base_url=settings.m5_rebucca_base_url,
-            token=settings.m5_rebucca_token,
-            timeout=min(15, settings.m5_rebucca_timeout_seconds))
-    except m5_rebucca_client.RebuccaImageError as exc:
-        fail(503, str(exc).replace('_', '-'),
-             'Rebucca 图片模型服务不可用；其他识别引擎和人工框选仍可使用。')
-    return {'enabled': True, 'models': models}
+        models = detectors.list_models()
+    except detectors.DetectorError as exc:
+        fail(503, str(exc.code).replace('_', '-'),
+             '检测器配置有误；其他识别引擎和人工框选仍可使用。')
+    return {'enabled': bool(models), 'models': models}
 
 
-def _run_rebucca(db: Session, media_id: str, body: DetectInput, started: float) -> dict:
-    if not settings.m5_rebucca_enabled:
-        fail(503, 'm5-rebucca-disabled',
-             'Rebucca 图片模型服务未启用，请在本机配置 M5_REBUCCA_ENABLED。')
+def _run_local(db: Session, media_id: str, body: DetectInput, started: float) -> dict:
+    """本机检测器推理（引擎层自 Rebucca 移植，进程内直接调用，无 HTTP sidecar）。"""
+    if not detectors.enabled():
+        fail(503, 'local-detectors-disabled',
+             '未启用本机检测器：请在 backend/config/detectors.json 注册模型。')
     if not body.model_ids:
-        fail(422, 'm5-model-selection-required', '请至少选择一个 Rebucca 检测模型。')
+        fail(422, 'local-model-selection-required', '请至少选择一个检测模型。')
     asset, _source, image = _case_image(db, media_id, prefix='m5')
     if not _rebucca_gate.acquire(blocking=False):
-        fail(429, 'm5-rebucca-busy', 'Rebucca 检测模型正在处理其他图片，请稍后再试。')
+        fail(429, 'local-detector-busy', '检测模型正在处理其他图片，请稍后再试。')
     try:
-        result = m5_rebucca_client.detect_image(
-            image, model_ids=body.model_ids, min_confidence=body.min_confidence,
-            base_url=settings.m5_rebucca_base_url,
-            token=settings.m5_rebucca_token,
-            timeout=min(120, settings.m5_rebucca_timeout_seconds))
-    except m5_rebucca_client.RebuccaImageError as exc:
-        code = str(exc)
-        status = 422 if code in ('m5_invalid_model_selection', 'm5_invalid_image',
-                                  'm5_image_too_large') else 503 if code in (
-                                      'm5_service_unavailable', 'm5_service_forbidden',
-                                      'm5_invalid_service_endpoint') else 502
-        fail(status, code.replace('_', '-'),
-             'Rebucca 图片识别未成功；不会将错误当作无目标，也不会修改原图。')
+        result = detectors.detect_flat(image, body.model_ids, body.min_confidence)
+    except detectors.DetectorError as exc:
+        code = exc.code
+        status = 422 if code in ('invalid_model_selection', 'invalid_threshold') else 503
+        fail(status, code.replace('_', '-').replace(':', '-'),
+             '本机检测未成功；不会将错误当作无目标，也不会修改原图。')
     finally:
         _rebucca_gate.release()
     return {
         'schema_version': '1.0',
-        'engine': 'rebucca',
+        'engine': 'local',
         'status': 'candidates_unverified',
-        'model_family': 'Rebucca 多模型检测',
+        'model_family': '本机多模型检测',
         'source_sha256': asset.sha256,
         'image_size': [image.shape[1], image.shape[0]],
         'candidate_count': len(result['candidates']),
@@ -296,7 +281,6 @@ def _run_rebucca(db: Session, media_id: str, body: DetectInput, started: float) 
         'note': '多个检测模型的候选不会自动合并或确认身份，选中后由人工复核。',
     }
 
-
 @router.post('/media/{media_id}/detect')
 def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
     """统一识别入口：同一张截图上换引擎重跑，用来对比各个模型的效果。
@@ -307,46 +291,28 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
     engine = (body.engine or '').strip().lower()
     started = time.monotonic()
     if engine == 'auto':
-        # Business mode: server chooses one stable detector. Experiment selections
-        # in browser/localStorage can NEVER modify the investigation workflow.
-        if settings.m5_rebucca_enabled:
-            try:
-                models = m5_rebucca_client.list_models(
-                    base_url=settings.m5_rebucca_base_url,
-                    token=settings.m5_rebucca_token,
-                    timeout=min(10, settings.m5_rebucca_timeout_seconds))
-            except m5_rebucca_client.RebuccaImageError:
-                fail(503, 'm5-workspace-model-unavailable',
-                     '默认检测模型服务不可用，请手动框选；不会自动换成其他模型。')
+        # 业务模式：服务端固定一个检测器，浏览器里的实验选择不会影响研判流程。
+        models = detectors.list_models() if detectors.enabled() else []
+        if models:
             configured = settings.m5_workspace_detector_id.strip()
-            selected = configured or (models[0]['id'] if models else '')
-            if not selected or selected not in {row['id'] for row in models}:
-                fail(503, 'm5-workspace-model-missing',
+            selected = configured or models[0]['id']
+            if selected not in {row['id'] for row in models}:
+                fail(503, 'local-workspace-model-missing',
                      '工作台默认检测模型未配置，请手动框选。')
-            result = _run_rebucca(db, media_id, DetectInput(
-                engine='rebucca', model_ids=[selected],
+            result = _run_local(db, media_id, DetectInput(
+                engine='local', model_ids=[selected],
                 min_confidence=body.min_confidence), started)
             result['effective_profile'] = 'workspace_server_default'
             return result
-        if settings.m4b_model_sha256:
-            result = _run_dfine(db, media_id, body.min_confidence, with_ids=True)
-            result['engine'] = 'dfine'
-            result['elapsed_seconds'] = round(time.monotonic() - started, 2)
-            result['effective_profile'] = 'workspace_server_default'
-            return result
-        # Keep the existing local-VLM Demo fallback when no detector weights
-        # are installed. This is a SERVER default, not an experiment choice;
-        # it never sends the image to an unconfigured remote provider.
         if settings.vision_enabled:
             engine = 'qwen3vl'
         else:
-            fail(503, 'm5-workspace-model-missing',
+            fail(503, 'local-workspace-model-missing',
                  '没有可用的业务默认检测模型，可继续人工框选目标。')
-    if engine == 'rebucca':
-        return _run_rebucca(db, media_id, body, started)
+    if engine in ('local', 'rebucca'):
+        return _run_local(db, media_id, body, started)
     if engine == 'dfine':
         result = _run_dfine(db, media_id, body.min_confidence, with_ids=True)
-        result['engine'] = 'dfine'
         result['elapsed_seconds'] = round(time.monotonic() - started, 2)
         return result
     if engine == 'vlm':
@@ -364,7 +330,7 @@ def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
         vision_active = bool(settings.vision_enabled)
     else:
         fail(422, 'm4-unknown-engine',
-             '识别引擎只支持 dfine、qwen3vl、qwen3vl4b、vlm、rebucca。')
+             '识别引擎只支持 local、qwen3vl、qwen3vl4b、vlm。')
     if not vision_active:
         fail(503, 'vision-disabled', '所选视觉模型服务未启用。')
     asset, _file, image = _case_image(db, media_id)

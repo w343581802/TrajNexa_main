@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from uuid import uuid4
 
-from app import m4_video, m4_detection
+from app import m4_video, detectors
 from app.config import settings
 from app.models import RecordingClip, RecordingSource
 
@@ -13,7 +13,7 @@ def sample_clip(env, monkeypatch, tmp_path):
     client, Session, _ = env
     monkeypatch.setattr(settings, 'm4c_enabled', True)
     monkeypatch.setattr(settings, 'm4a_enabled', True)
-    monkeypatch.setattr(settings, 'm4b_enabled', False)
+    monkeypatch.setattr(detectors, 'default_model_id', lambda: '')
     root=tmp_path/'videos'
     (root/'day').mkdir(parents=True)
     clip_file=root/'day'/'test.mp4'
@@ -125,18 +125,18 @@ def test_no_frame_does_not_claim_no_person(sample_clip,monkeypatch):
 
 def test_detector_failure_is_reported_not_hidden(sample_clip,monkeypatch):
     client,_,case_id,clip_id,_=sample_clip
-    monkeypatch.setattr(settings,'m4b_enabled',True)
-    monkeypatch.setattr(settings,'m4b_model_sha256','a'*64)
     monkeypatch.setattr(m4_video.overlay_identity,'grab_evidence_frame',
                         lambda path,offsets:np.full((120,240,3),127,np.uint8))
+    monkeypatch.setattr(detectors,'default_model_id',lambda: 'broken')
+    monkeypatch.setattr(detectors,'model_meta',lambda mid: {'name':'broken','model_sha256':'a'*64})
     def unavailable(*args,**kwargs):
-        raise m4_detection.DetectionError('m4b_model_unavailable')
-    monkeypatch.setattr(m4_detection,'detect_image',unavailable)
+        raise detectors.DetectorError('detector_inference_failed:broken')
+    monkeypatch.setattr(detectors,'detect_flat',unavailable)
     resp=client.post(route(case_id,clip_id),
                      json={'authorized':True,'offsets_seconds':[.5],
                            'include_detection':True})
     assert resp.status_code==503
-    assert resp.json()['error']['code']=='m4b-model-unavailable'
+    assert resp.json()['error']['code']=='detector-inference-failed-broken'
 
 
 def test_feature_disabled_by_default(sample_clip,monkeypatch):

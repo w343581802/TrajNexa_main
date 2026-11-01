@@ -12,7 +12,7 @@ import math
 import cv2
 import numpy as np
 
-from app import overlay_identity, recordings, m4_detection
+from app import overlay_identity, recordings, detectors
 from app.config import settings
 from app.models import RecordingClip, RecordingSource
 
@@ -122,7 +122,7 @@ def preview_keyframes(*, clip: RecordingClip, path: Path, offsets: list[float],
                       include_detection: bool = False, detector=None):
     offsets = checked_offsets(offsets, clip)
     if include_detection and detector is None and not (
-        settings.m4b_enabled and settings.m4b_model_sha256
+        detectors.default_model_id()
     ):
         raise KeyframeError('m4c_detector_not_configured')
     frames = []
@@ -144,12 +144,16 @@ def preview_keyframes(*, clip: RecordingClip, path: Path, offsets: list[float],
         }
         if include_detection:
             if detector is None:
-                detections = m4_detection.detect_image(
-                    frame,
-                    model_path=settings.m4b_model_path,
-                    model_sha256=settings.m4b_model_sha256,
-                    source_sha256='video_clip_not_sha256_verified',
-                )
+                chosen = detectors.default_model_id()
+                if not chosen:
+                    raise detectors.DetectorError('detector_not_installed')
+                meta = detectors.model_meta(chosen)
+                flat = detectors.detect_flat(frame, [chosen], 0.35)
+                detections = {
+                    'model_family': meta.get('name') or chosen,
+                    'model_sha256': meta.get('model_sha256'),
+                    'candidates': flat['candidates'],
+                }
             else:
                 detections = detector(frame, offset)
             item['detections'] = {
