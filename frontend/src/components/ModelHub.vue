@@ -38,7 +38,8 @@ const totalPages = computed(() => Math.max(1, Math.ceil(rowsCount.value / PAGE_S
 const selectedSmallIds = computed(() => modelChoices.smallModelIds);
 
 const ALGO_LABEL: Record<string, string> = {
-  dfine: "D-FINE", yolo8: "YOLOv8", yolo11: "YOLOv11", yolov8: "YOLOv8",
+  dfine: "D-FINE", yolo5: "YOLOv5", yolo8: "YOLOv8", yolo11: "YOLOv11",
+  yolo26: "YOLO26", yolov5: "YOLOv5", yolov8: "YOLOv8",
 };
 const ENGINE_LABEL: Record<string, string> = {
   onnxruntime: "OnnxRuntime", openvino: "OpenVINO", pytorch: "PyTorch",
@@ -465,8 +466,10 @@ const selectedNames = computed(() => isSmall.value
             <div class="rb-field"><label>模型类型</label>
               <select v-model="form.algorithm_type" class="rb-input">
                 <option value="dfine">D-FINE</option>
+                <option value="yolo5">YOLOv5</option>
                 <option value="yolo8">YOLOv8</option>
                 <option value="yolo11">YOLOv11</option>
+                <option value="yolo26">YOLO26</option>
               </select></div>
             <div class="rb-field"><label>任务类型</label>
               <select v-model="form.task_type" class="rb-input">

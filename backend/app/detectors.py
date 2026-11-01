@@ -389,7 +389,9 @@ def create_spec(spec: dict) -> list[dict]:
     if known and engine not in known:
         raise DetectorError("detector_create_bad_engine")
     algorithm = str(spec.get("algorithm_type") or "yolo8").strip().lower()
-    if algorithm not in ("dfine", "yolo8", "yolov8", "yolo11", "yolo"):
+    # 引擎层 yolo_postprocess 支持 yolo5/8/11/26 四代输出格式；D-FINE 走专用引擎
+    if algorithm not in ("dfine", "yolo5", "yolov5", "yolo8", "yolov8",
+                         "yolo11", "yolo26", "yolo"):
         raise DetectorError("detector_create_bad_algorithm")
     task = str(spec.get("task_type") or "detect").strip().lower()
     if task not in ("detect", "segment"):
