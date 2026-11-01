@@ -34,8 +34,16 @@ export type M4DetectionPreview = {
   candidates: M4DetectionProposal[];
 };
 
-/** 可切换的识别引擎：D-FINE 检测器 + Qwen3-VL 2B/4B 两个视觉模型 */
-export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b";
+/** Rebucca 多个本地检测模型 + 保留的 D-FINE / Qwen 对照。 */
+export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca";
+export type M5ImageModel = {
+  id: string; name: string; engine: string; model_sha256: string;
+};
+export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
+export type M5ModelRun = {
+  model_id: string; status: "returned_unverified" | "inference_error";
+  candidate_count: number;
+};
 
 export type M4DetectCandidate = {
   proposal_index: number;
@@ -45,6 +53,7 @@ export type M4DetectCandidate = {
   confidence: number | null;
   bbox_normalized: [number, number, number, number];
   status: "unverified_detection_proposal" | "unverified_vlm_proposal";
+  model_id?: string; model_name?: string; category_unmapped?: boolean;
 };
 
 export type M4DetectResult = {
@@ -59,6 +68,7 @@ export type M4DetectResult = {
   tiling?: number;
   candidate_count: number;
   candidates: M4DetectCandidate[];
+  model_runs?: M5ModelRun[];
   media_id: string;
   case_id: string;
   elapsed_seconds: number;
@@ -464,11 +474,13 @@ export const mainApi = {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ authorized, min_confidence: minConfidence }),
     }),
-  /** M4d：统一识别入口，engine=dfine|qwen3vl；只出候选框，不落库不改图 */
-  detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4) =>
+  /** M5 Rebucca image models: catalog is optional; never reveals paths or keys. */
+  listM5ImageModels: () => request<M5ImageModels>("/ai/image-models"),
+  /** All detection results remain unverified; no automatic identity or evidence writes. */
+  detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4, modelIds: string[] = []) =>
     request<M4DetectResult>(`/media/${encodeURIComponent(mediaId)}/detect`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ engine, min_confidence: minConfidence }),
+      body: JSON.stringify({ engine, min_confidence: minConfidence, model_ids: modelIds }),
     }),
   /** M4a：选中框后的关键特征（画质、主色 + 视觉模型外观短语） */
   analyzeM4Roi: (mediaId: string, bbox: number[], engine: M4DetectEngine = "qwen3vl") =>
