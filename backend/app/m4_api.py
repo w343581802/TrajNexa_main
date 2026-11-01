@@ -75,7 +75,7 @@ def _case_image(db: Session, media_id: str, prefix: str = 'm4') -> tuple[MediaAs
     try:
         image = media_image.verified_image(file, asset.sha256)
     except media_image.MediaImageError as exc:
-        code = str(exc).replace('m4b_', f'{prefix}_')
+        code = str(exc).replace('media_', f'{prefix}_')
         status = 409 if code in (f'{prefix}_source_hash_mismatch', f'{prefix}_source_unavailable',
                                  f'{prefix}_source_decode_failed', f'{prefix}_invalid_frame_size') else 422
         fail(status, code.replace('_', '-'), '无法读取该截图；原图未修改。')
@@ -171,10 +171,10 @@ def preview_detections(media_id: str, body: DetectionPreviewInput,
                        db: Session = Depends(get_db)):
     """D-FINE 预览（旧路径保留）；新前端统一走 /detect?engine=dfine。"""
     ensure_enabled()
-    return _run_dfine(db, media_id, body.min_confidence, with_ids=True)
+    return _preview_default(db, media_id, body.min_confidence, with_ids=True)
 
 
-def _run_dfine(db: Session, media_id: str, min_confidence: float, *, with_ids: bool) -> dict:
+def _preview_default(db: Session, media_id: str, min_confidence: float, *, with_ids: bool) -> dict:
     """兼容旧路径的预览入口：改用本地默认检测器，不再走独立 D-FINE 实现。"""
     models = detectors.list_models()
     if not models:
@@ -276,6 +276,17 @@ def _run_local(db: Session, media_id: str, body: DetectInput, started: float) ->
         'elapsed_seconds': round(time.monotonic() - started, 2),
         'note': '多个检测模型的候选不会自动合并或确认身份，选中后由人工复核。',
     }
+
+@router.post('/ai/image-models/reload')
+def reload_image_models() -> dict:
+    """手改 detectors.json 后热加载：不用重启容器，失败的模型只从列表消失。"""
+    try:
+        detectors.reload()
+        models = detectors.list_models()
+    except detectors.DetectorError as exc:
+        fail(422, str(exc.code).replace('_', '-'),
+             '检测器配置有误，已保留上一次的加载结果。')
+    return {'enabled': bool(models), 'models': models}
 
 @router.post('/media/{media_id}/detect')
 def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):

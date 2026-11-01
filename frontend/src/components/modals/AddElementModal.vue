@@ -836,7 +836,7 @@ function save(keepOpen: boolean) {
         </div>
 
         
-        <section v-if="selectedMedia" class="m4b-panel">
+        <section v-if="selectedMedia" class="detect-panel">
           <div class="m4a-panel-title">默认检测 · 目标候选（待核实）</div>
           <div class="m4-engine-row">
             <span class="m4a-history-hint">自动使用已配置的业务检测模型；这里不进行多模型实验。</span>
@@ -849,7 +849,7 @@ function save(keepOpen: boolean) {
             {{ m4DetectModel }} · {{ m4DetectElapsed }}s · 点击候选或手动框选
           </p>
           <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
-          <div class="m4b-proposal-list">
+          <div class="detect-proposal-list">
             <button v-for="proposal in m4Proposals"
               :key="(proposal.model_id || m4Engine) + '-' + proposal.proposal_index" type="button"
               class="chip-btn" @click="selectM4Proposal(proposal)">
@@ -1350,11 +1350,11 @@ function save(keepOpen: boolean) {
   box-sizing: border-box; border: 1px solid var(--line-2); border-radius: 5px;
   background: var(--bg-2); color: var(--text-1); font: inherit; padding: 7px;
   margin: 6px 0; }
-.m4b-proposal-list { display: flex; gap: 6px; flex-wrap: wrap; }
-.m4b-panel { display: grid; gap: 7px; padding: 9px;
+.detect-proposal-list { display: flex; gap: 6px; flex-wrap: wrap; }
+.detect-panel { display: grid; gap: 7px; padding: 9px;
   border: 1px dashed var(--line-2); border-radius: 6px; font-size: 11px; }
-.m4b-panel p { margin: 0; color: var(--text-3); }
-.m4b-proposal { display: flex; justify-content: space-between; flex-wrap: wrap;
+.detect-panel p { margin: 0; color: var(--text-3); }
+.detect-proposal { display: flex; justify-content: space-between; flex-wrap: wrap;
   align-items: center; gap: 8px; border-top: 1px solid var(--line-2); padding-top: 5px; }
 .m4a-panel { border: 1px solid var(--line-2); border-radius: 6px; padding: 9px;
   display: grid; gap: 6px; background: var(--bg-1); font-size: 11px; }

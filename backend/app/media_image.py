@@ -18,12 +18,12 @@ def verified_image(path: Path, expected_hash: str) -> np.ndarray:
     try:
         content = path.read_bytes()
     except OSError:
-        raise MediaImageError("m4b_source_unavailable") from None
+        raise MediaImageError("media_source_unavailable") from None
     if sha256(content).hexdigest() != expected_hash:
-        raise MediaImageError("m4b_source_hash_mismatch")
+        raise MediaImageError("media_source_hash_mismatch")
     img = cv2.imdecode(np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_COLOR)
     if img is None:
-        raise MediaImageError("m4b_source_decode_failed")
+        raise MediaImageError("media_source_decode_failed")
     if img.shape[0] * img.shape[1] > MAX_PIXELS:
-        raise MediaImageError("m4b_source_image_too_large")
+        raise MediaImageError("media_source_image_too_large")
     return img

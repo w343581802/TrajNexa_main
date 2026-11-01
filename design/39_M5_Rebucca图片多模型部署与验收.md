@@ -1,3 +1,7 @@
+> **已废弃（2026-11-01）**：Rebucca sidecar 已移除，检测在 api/worker 进程内完成，
+> 引擎层见 [42_检测引擎移植.md](42_检测引擎移植.md)。`M5_REBUCCA_*` 环境变量与
+> `backend/scripts/rebucca_image_server.py` 均已删除；本文仅作变更历史。
+
 # 39｜M5 Rebucca 图片多模型联调（Windows / TrajNexa Demo）
 
 > 2026-11-01。**代码/接口与模拟测试不等于真实权重验收**。与 38 架构配套的第一批图片实施。
