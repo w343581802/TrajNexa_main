@@ -21,6 +21,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_packaged_detector_config.py \
+            tests/test_m6_person_reid.py \
             tests/test_detectors_registry.py \
             tests/test_m4a_observations.py \
             tests/test_m4c_keyframes.py \
