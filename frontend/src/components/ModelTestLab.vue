@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { mainApi, type M4DetectCandidate, type M5ImageModel, type M5VisionModel,
-  type M5TestDetectionResult, type M5TestRoiResult } from "../services/mainApi";
+  type M5TestDetectionResult, type M5TestRoiResult, type M6PersonReidResult } from "../services/mainApi";
 import { modelChoices, setSmallModelIds, setVisionModelId } from "../store/modelChoices";
 
 type ObjectClass = "person" | "vehicle" | "other";
@@ -33,6 +33,16 @@ const roi = ref<M5TestRoiResult | null>(null);
 const selectedBox = ref<[number, number, number, number] | null>(null);
 const objectClass = ref<ObjectClass>("vehicle");
 const prompt = ref("");
+// M6 P1-A: image A is a manually selected PERSON reference; existing test image = B.
+const referenceFile = ref<File | null>(null);
+const referencePreview = ref("");
+const referenceBox = ref<[number, number, number, number] | null>(null);
+const reidDetectorId = ref("");
+const reidResult = ref<M6PersonReidResult | null>(null);
+const reidBusy = ref(false);
+const reidError = ref("");
+let referenceStart: [number, number] | null = null;
+let reidRequest = 0;
 let selectionStart: [number, number] | null = null;
 let generation = 0;
 // 在途请求计数：只要还有请求在跑，按钮就保持「检测中」；全部结束必然复位
@@ -75,6 +85,8 @@ async function loadCatalog() {
       visionModels.value.find(m => m.enabled);
     visionSelected.value = preferred ? [preferred.id] : [];
   }
+  if (!smallModels.value.some(m => m.id === reidDetectorId.value))
+    reidDetectorId.value = smallModels.value[0]?.id || "";
   if (small.status === "rejected" || vision.status === "rejected") {
     catalogError.value = "部分模型服务不可用。已列出可连接的模型；也可以只测另一类模型。";
   }
@@ -85,6 +97,7 @@ onUnmounted(() => {
   generation++;
   stopElapsed();
   if (preview.value) URL.revokeObjectURL(preview.value);
+  if (referencePreview.value) URL.revokeObjectURL(referencePreview.value);
 });
 function loadFile(event: Event) {
   const input = event.target as HTMLInputElement;
@@ -94,6 +107,7 @@ function loadFile(event: Event) {
   file.value = null;
   preview.value = "";
   detection.value = null; roi.value = null; selectedBox.value = null; error.value = "";
+  reidResult.value = null; reidError.value = "";
   if (!next) return;
   if (!["image/jpeg", "image/png", "image/webp"].includes(next.type) || next.size > 12 * 1024 * 1024) {
     error.value = "请选择不超过 12MB 的 PNG/JPEG/WebP 图片。";
@@ -199,6 +213,74 @@ async function analyzeRoi() {
     if (roiInflight <= 0) { roiInflight = 0; roiBusy.value = false; }
   }
 }
+/** Reference image A is never added to case media or saved on the backend. */
+function loadReference(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const picked = input.files?.[0] || null;
+  ++reidRequest;
+  if (referencePreview.value) URL.revokeObjectURL(referencePreview.value);
+  referenceFile.value = null; referencePreview.value = "";
+  referenceBox.value = null; reidResult.value = null; reidError.value = "";
+  if (!picked) return;
+  if (!["image/png", "image/jpeg", "image/webp"].includes(picked.type) ||
+      picked.size > 12 * 1024 * 1024) {
+    reidError.value = "参考图片必须是 12MB 以下的 PNG、JPG 或 WebP。";
+    input.value = "";
+    return;
+  }
+  referenceFile.value = picked;
+  referencePreview.value = URL.createObjectURL(picked);
+}
+function referencePoint(e: PointerEvent): [number, number] {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  return [Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+    Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))];
+}
+function referencePointerDown(e: PointerEvent) {
+  if (e.button !== 0) return;
+  referenceStart = referencePoint(e);
+  referenceBox.value = [referenceStart[0], referenceStart[1],
+    referenceStart[0], referenceStart[1]];
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+}
+function referencePointerMove(e: PointerEvent) {
+  if (!referenceStart) return;
+  const p = referencePoint(e);
+  referenceBox.value = [Math.min(referenceStart[0], p[0]),
+    Math.min(referenceStart[1], p[1]),
+    Math.max(referenceStart[0], p[0]), Math.max(referenceStart[1], p[1])];
+}
+function referencePointerUp(e: PointerEvent) {
+  if (!referenceStart) return;
+  referencePointerMove(e);
+  referenceStart = null;
+  if (referenceBox.value &&
+      (referenceBox.value[2] - referenceBox.value[0] < .03 ||
+       referenceBox.value[3] - referenceBox.value[1] < .03))
+    referenceBox.value = null;
+  reidResult.value = null;
+}
+async function runReid() {
+  const a = referenceFile.value, b = file.value, box = referenceBox.value;
+  if (!a || !b || !box || !reidDetectorId.value || reidBusy.value) return;
+  const ticket = ++reidRequest, fileGeneration = generation;
+  reidBusy.value = true; reidError.value = ""; reidResult.value = null;
+  try {
+    const response = await mainApi.testM6PersonReid(
+      a, b, box, reidDetectorId.value, threshold.value);
+    if (ticket === reidRequest && fileGeneration === generation &&
+        referenceFile.value === a && file.value === b) reidResult.value = response;
+  } catch (err) {
+    if (ticket === reidRequest && fileGeneration === generation)
+      reidError.value = err instanceof Error ? err.message : String(err);
+  } finally { reidBusy.value = false; }
+}
+function pickReidResult(box: [number, number, number, number]) {
+  selectedBox.value = [...box] as [number, number, number, number];
+  objectClass.value = "person";
+  roi.value = null;
+}
+
 </script>
 
 <template>
@@ -324,6 +406,74 @@ async function analyzeRoi() {
       </div>
       <p class="hint">所有大模型输出仅供比较，不能仅凭颜色、外观或模型一致意见认定跨镜头身份。</p>
     </section>
+    <section class="roi-card reid-lab">
+      <div class="card-head"><h2>05 · 指定目标相似检索（M6 / Person ReID 实验）</h2>
+        <span>参考 A 人员框 → 图片 B 检测人 → OSNet 相似度排序</span></div>
+      <p class="hint">
+        此阶段只支持人员 OSNet；骑车人需要在 A 中框选<b>骑手本人</b>，不是整辆车。
+        YOLO / D-FINE 只负责找人员，外观相似度不代表同一身份。
+      </p>
+      <div class="reid-grid">
+        <div class="reid-left">
+          <h2>A · 参考人员图片</h2>
+          <label class="upload">选择参考图片 A
+            <input type="file" accept="image/png,image/jpeg,image/webp" @change="loadReference" />
+          </label>
+          <div class="canvas-holder reid-reference-canvas">
+            <div v-if="referencePreview" class="image-canvas">
+              <img :src="referencePreview" alt="参考人员图片 A" />
+              <div class="image-overlay" @pointerdown.prevent="referencePointerDown"
+                @pointermove.prevent="referencePointerMove"
+                @pointerup.prevent="referencePointerUp" @pointercancel="referencePointerUp">
+                <div v-if="referenceBox" class="selected" :style="boxStyle(referenceBox)" />
+              </div>
+            </div>
+            <div v-else class="empty">上传 A 后在图片上拖拽，框选参考人员。</div>
+          </div>
+          <p class="hint">{{ referenceBox ? "已选人员 ROI：" +
+            referenceBox.map(x => x.toFixed(3)).join(", ") : "请框选 A 中的人员；不要包含整幅背景。" }}</p>
+        </div>
+        <div class="reid-right">
+          <h2>B · 搜索图片（上方已选图片）</h2>
+          <p class="hint">{{ file ? file.name : "请先在上方「01 · 测试图片」上传包含多人的图片 B。" }}</p>
+          <label class="reid-selector">检测人员的小模型
+            <select v-model="reidDetectorId">
+              <option value="" disabled>请选择检测器</option>
+              <option v-for="model in smallModels" :key="model.id" :value="model.id">
+                {{ model.name }} · {{ model.engine }}
+              </option>
+            </select>
+          </label>
+          <button class="primary-btn" type="button"
+            :disabled="reidBusy || !file || !referenceFile || !referenceBox || !reidDetectorId"
+            @click="runReid">{{ reidBusy ? "计算外观相似度中…" : "开始指定人员检索" }}</button>
+          <p v-if="reidError" class="notice error">{{ reidError }}</p>
+          <template v-if="reidResult">
+            <p class="hint">状态：{{ reidResult.status }} · B 中可用人员候选
+              {{ reidResult.person_candidate_count }} 个 · {{ reidResult.elapsed_ms }}ms</p>
+            <p class="hint">OSNet 权重 SHA-256：{{ reidResult.reid_model_sha256.slice(0, 20) }}…</p>
+            <div v-for="item in reidResult.ranking" :key="item.proposal_index" class="reid-rank">
+              <div class="run-head">
+                <b>#{{ item.rank }} · {{ item.detector_label }} · {{ item.model_name || item.model_id }}</b>
+                <b>cosine {{ item.cosine_similarity.toFixed(4) }}</b>
+              </div>
+              <button type="button" class="candidate-tag" @click="pickReidResult(item.bbox_normalized)">
+                选中 B 中此候选框（待核实）
+              </button>
+            </div>
+            <p v-if="!reidResult.ranking.length" class="hint">
+              未能取得可比较的人员向量，不代表目标不在图片 B 中。
+            </p>
+            <p class="hint">参考/搜索图片校验码：
+              {{ reidResult.reference_source_sha256.slice(0, 10) }}… /
+              {{ reidResult.search_source_sha256.slice(0, 10) }}…
+            </p>
+          </template>
+        </div>
+      </div>
+      <p class="hint">不保存原图或 embedding；未安装 OSNet 权重时明确提示不可用。
+        本阶段不做车辆 ReID、跨镜头身份确认或自动更新目标参考库。</p>
+    </section>
   </main>
 </template>
 
@@ -395,6 +545,14 @@ textarea { resize: vertical; width: 100%; box-sizing: border-box; }
 .roi-result { border: 1px solid var(--line-2); background: var(--bg-2); padding: 11px; border-radius: 6px; }
 .roi-result b { font-size: 12px; }.roi-result span { display: block; color: var(--text-3); font-size: 10px; margin-top: 4px; }
 .roi-result p { line-height: 1.6; font-size: 11px; }.roi-result small { font-size: 10px; color: var(--text-4); }
-@media(max-width: 1080px) { .config-panel { grid-template-columns: 1fr; }
+.reid-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr); gap: 18px; }
+.reid-left, .reid-right { display: flex; min-width: 0; flex-direction: column; gap: 10px; }
+.reid-reference-canvas { min-height: 170px; }
+.reid-reference-canvas img { max-height: 320px; }
+.reid-selector { font-size: 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.reid-selector select { max-width: 100%; }
+.reid-rank { border-bottom: 1px solid var(--line); padding: 9px 0; display: grid; gap: 5px; }
+@media(max-width: 1080px) { .reid-grid { grid-template-columns: 1fr; }
+  .config-panel { grid-template-columns: 1fr; }
   .result-layout { grid-template-columns: 1fr; } }
 </style>
