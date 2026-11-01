@@ -74,6 +74,21 @@ export type M5TestRoiResult = {
   }[];
 };
 
+export type M6PersonReidResult = {
+  test_only: true; identity_established: false; case_id: null;
+  status: "ranked_unverified" | "no_person_candidates" | "no_valid_embeddings";
+  reference_source_sha256: string; search_source_sha256: string;
+  reference_bbox_normalized: [number, number, number, number];
+  detector_model_id: string; reid_model_sha256: string;
+  person_candidate_count: number; elapsed_ms: number; note: string;
+  ranking: {
+    rank: number; proposal_index: number; model_id?: string;
+    model_name?: string; detector_label: string; detector_confidence: number | null;
+    bbox_normalized: [number, number, number, number];
+    cosine_similarity: number; status: "unverified_similarity";
+  }[];
+};
+
 export type M4DetectCandidate = {
   proposal_index: number;
   object_class: "person" | "vehicle" | "other";
@@ -545,6 +560,19 @@ export const mainApi = {
     form.append("prompt_override", prompt);
     return request<M5TestRoiResult>("/ai/model-test/roi", {
       method: "POST", body: form,
+    });
+  },
+  /** M6 P1-A: reference PERSON ROI in A -> ranked person candidates in B, in-memory only. */
+  testM6PersonReid: (referenceFile: File, searchFile: File,
+    bbox: [number, number, number, number], detectorModelId: string, threshold = 0.35) => {
+    const body = new FormData();
+    body.append("reference_file", referenceFile);
+    body.append("search_file", searchFile);
+    body.append("reference_bbox_normalized", JSON.stringify(bbox));
+    body.append("detector_model_id", detectorModelId);
+    body.append("min_confidence", String(threshold));
+    return request<M6PersonReidResult>("/ai/model-test/reid-search", {
+      method: "POST", body,
     });
   },
   /** All detection results remain unverified; no automatic identity or evidence writes. */
