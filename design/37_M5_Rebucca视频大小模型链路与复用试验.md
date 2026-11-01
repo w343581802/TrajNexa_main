@@ -124,7 +124,7 @@ TrajNexa 人工复核 / 时空研判（不自动确认身份或凭空补轨迹�
       "task_type": "detect",
       "device": "cpu",
       "conf_threshold": 0.35,
-      "labels_file": "C:/your-model-labels/dfine-coco-80-ordered.labels",
+      "labels_source": "rebucca_coco80_cn",
       "class_map": {
         "person": "person",
         "car": "vehicle",
@@ -132,6 +132,8 @@ TrajNexa 人工复核 / 时空研判（不自动确认身份或凭空补轨迹�
         "bicycle": "vehicle",
         "人": "person",
         "汽车": "vehicle",
+        "公交车": "vehicle",
+        "卡车": "vehicle",
         "摩托车": "vehicle",
         "自行车": "vehicle"
       }
