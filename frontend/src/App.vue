@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import AppHeader from "./components/AppHeader.vue";
+import AppSidebar from "./components/AppSidebar.vue";
+import ModelHub from "./components/ModelHub.vue";
 import BottomDock from "./components/BottomDock.vue";
 import ObservationTimeline from "./components/ObservationTimeline.vue";
 import TargetFeatureBar from "./components/TargetFeatureBar.vue";
@@ -17,9 +19,17 @@ import RecordingDirModal from "./components/modals/RecordingDirModal.vue";
 import VideoNamingModal from "./components/modals/VideoNamingModal.vue";
 import ClipReviewModal from "./components/modals/ClipReviewModal.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
-import { applyDemoHash, loadCases } from "./store/workbench";
+import { actions, applyDemoHash, loadCases } from "./store/workbench";
 
+type Page = "workspace" | "small-models" | "vision-models";
+const page = ref<Page>("workspace");
 const mapView = ref<"demo" | "preview" | "gis">("demo");
+
+function testSelectedModels() {
+  page.value = "workspace";
+  // Keep the existing case-owned image-picker workflow; no second uploader.
+  void actions.openAddElement();
+}
 onMounted(() => {
   applyDemoHash();
   // 首次进入读取案件；有案件时默认选中最近创建的一个，保持原来的工作台视图
@@ -31,6 +41,13 @@ onMounted(() => {
   <div class="app">
     <AppHeader />
 
+    <div class="app-shell">
+      <AppSidebar :active="page" @select="page = $event" />
+      <div class="app-body">
+        <ModelHub v-if="page !== 'workspace'"
+          :kind="page === 'small-models' ? 'small' : 'vision'"
+          @test-image="testSelectedModels" />
+        <template v-else>
     <main class="app-main">
       <div class="stage">
         <div class="map-slot">
@@ -66,6 +83,9 @@ onMounted(() => {
     </main>
 
     <BottomDock />
+        </template>
+      </div>
+    </div>
 
     <CoverageModal />
     <AddElementModal />
@@ -91,6 +111,19 @@ onMounted(() => {
   background: var(--bg-0);
 }
 
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.app-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
 .app-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--rail-w);
