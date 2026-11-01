@@ -57,7 +57,121 @@ function engineLabel(value?: string) {
 function openFromQuery<T extends { id: string }>(models: T[]) {
   const wanted = new URLSearchParams(window.location.search).get("edit");
   const hit = wanted ? models.find(item => item.id === wanted) : undefined;
-  if (hit) editing.value = hit as unknown as M5ImageModel | M5VisionModel;
+  if (hit) openEdit(hit as unknown as M5ImageModel | M5VisionModel);
+}
+
+type ImageForm = {
+  id: string; name: string; algorithm_type: string; task_type: string;
+  engine: string; device: string; model_file: string; labels_file: string;
+  input_width: number; input_height: number;
+  conf_threshold: number; iou_threshold: number;
+};
+function blankForm(): ImageForm {
+  return { id: "", name: "", algorithm_type: "yolo8", task_type: "detect",
+    engine: "onnxruntime", device: "cpu", model_file: "",
+    labels_file: "config/labels/coco80_zh.txt", input_width: 640, input_height: 640,
+    conf_threshold: 0.35, iou_threshold: 0.5 };
+}
+const form = ref<ImageForm>(blankForm());
+const creating = ref(false);
+const saving = ref(false);
+const formError = ref("");
+const weights = ref<string[]>([]);
+const editSha = ref("");
+
+/** 服务端返回的目录直接覆盖本地状态，省一次往返 */
+function applyCatalog(catalog: { enabled: boolean; models: M5ImageModel[] }) {
+  enabled.value = catalog.enabled;
+  smallModels.value = catalog.models;
+}
+function openEdit(model: M5ImageModel | M5VisionModel) {
+  editing.value = model;
+  formError.value = "";
+  if (!isSmall.value) return;
+  const row = model as M5ImageModel;
+  form.value = { id: row.id, name: row.name,
+    algorithm_type: row.algorithm_type || "yolo8",
+    task_type: row.task_type || "detect", engine: row.engine,
+    device: row.device || "cpu", model_file: "", labels_file: "",
+    input_width: (row.input_size || [])[0] || 640,
+    input_height: (row.input_size || [])[1] || 640,
+    conf_threshold: row.conf_threshold ?? 0.35,
+    iou_threshold: row.iou_threshold ?? 0.5 };
+  editSha.value = row.model_sha256 || "";
+}
+async function openCreate() {
+  creating.value = true;
+  formError.value = "";
+  form.value = blankForm();
+  try {
+    weights.value = (await mainApi.listImageModelWeights()).weights;
+    if (!form.value.model_file && weights.value.length) form.value.model_file = weights.value[0];
+  } catch (err) {
+    weights.value = [];
+    formError.value = err instanceof Error ? err.message : String(err);
+  }
+}
+async function saveEdit() {
+  saving.value = true;
+  formError.value = "";
+  try {
+    const catalog = await mainApi.updateImageModel(form.value.id, {
+      name: form.value.name,
+      device: form.value.device,
+      conf_threshold: Number(form.value.conf_threshold),
+      iou_threshold: Number(form.value.iou_threshold),
+    });
+    applyCatalog(catalog);
+    editing.value = null;
+  } catch (err) {
+    formError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    saving.value = false;
+  }
+}
+async function saveCreate() {
+  saving.value = true;
+  formError.value = "";
+  try {
+    const payload: Record<string, unknown> = {
+      id: form.value.id, name: form.value.name,
+      algorithm_type: form.value.algorithm_type, task_type: form.value.task_type,
+      engine: form.value.engine, device: form.value.device,
+      model_file: form.value.model_file,
+      input_width: Number(form.value.input_width),
+      input_height: Number(form.value.input_height),
+      conf_threshold: Number(form.value.conf_threshold),
+      iou_threshold: Number(form.value.iou_threshold),
+    };
+    if (form.value.labels_file.trim()) payload.labels_file = form.value.labels_file.trim();
+    const catalog = await mainApi.createImageModel(payload);
+    applyCatalog(catalog);
+    creating.value = false;
+  } catch (err) {
+    formError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    saving.value = false;
+  }
+}
+async function removeModel(model: M5ImageModel | M5VisionModel) {
+  if (!window.confirm(`删除检测器「${model.name}」？只从配置里移除，权重文件不会删除。`)) return;
+  try {
+    applyCatalog(await mainApi.deleteImageModel(model.id));
+    if (editing.value?.id === model.id) editing.value = null;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  }
+}
+async function reloadConfig() {
+  busy.value = true;
+  try {
+    applyCatalog(await mainApi.reloadImageModels());
+    error.value = "";
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    busy.value = false;
+  }
 }
 
 async function loadModels() {
@@ -75,6 +189,7 @@ async function loadModels() {
       if (catalog.enabled) setSmallModelIds(kept.length ? kept :
         catalog.models[0] ? [catalog.models[0].id] : []);
       openFromQuery(catalog.models);
+      if (new URLSearchParams(window.location.search).get("new")) void openCreate();
     } else {
       const catalog = await mainApi.listM5VisionModels();
       if (ticket !== latest) return;
@@ -129,9 +244,9 @@ const selectedNames = computed(() => isSmall.value
         <template v-if="error">目录读取失败：{{ error }}</template>
         <template v-else-if="!isSmall">全部就绪 · 共 {{ visionModels.length }} 个已注册模型，已启用
           {{ visionModels.filter(m => m.enabled).length }} 个</template>
-        <template v-else-if="enabled">全部就绪 · 共 {{ smallModels.length }} 个已启用小模型
+        <template v-else-if="enabled">全部就绪 · 共 {{ smallModels.length }} 个检测器
           {{ busy ? "（检查中）" : "：" + smallModels.length + " 个成功，失败 0 个" }}</template>
-        <template v-else>Rebucca 图片模型服务未启用或未部署，无法检查</template>
+        <template v-else>未找到检测器配置：检查 backend/config/detectors.json</template>
       </span>
     </div>
 
@@ -139,11 +254,14 @@ const selectedNames = computed(() => isSmall.value
       <div class="rb-head">
         <h3><span class="dot" />{{ isSmall ? "小模型管理" : "大模型管理" }}</h3>
         <div class="rb-tools">
+          <button v-if="isSmall" type="button" class="rb-btn rb-btn-primary"
+            @click="openCreate">+ 新增小模型</button>
           <select v-if="isSmall" v-model="engineFilter" aria-label="按推理引擎筛选">
             <option value="">全部引擎</option>
             <option v-for="engine in engines" :key="engine" :value="engine">{{ engine }}</option>
           </select>
-          <button type="button" class="rb-btn" :disabled="busy" @click="loadModels">↻ 刷新</button>
+          <button type="button" class="rb-btn" :disabled="busy" @click="reloadConfig">↻ 重载配置</button>
+          <button type="button" class="rb-btn" :disabled="busy" @click="loadModels">刷新列表</button>
         </div>
       </div>
 
@@ -188,11 +306,11 @@ const selectedNames = computed(() => isSmall.value
               <span v-if="selectedSmallIds[0] === model.id" class="rb-pill def">默认</span>
             </td>
             <td class="c-act">
-              <button type="button" class="rb-link" @click="editing = model">编辑</button>
+              <button type="button" class="rb-link" @click="openEdit(model)">编辑</button>
               <button type="button" class="rb-link" :disabled="selectedSmallIds[0] === model.id"
                 @click="makeDefault(model.id)">设默认</button>
               <button type="button" class="rb-link test" @click="runTest(model.id)">测试</button>
-              <button type="button" class="rb-link" disabled title="在 backend/config/detectors.json 中移除">删除</button>
+              <button type="button" class="rb-link" :disabled="!isSmall" :title="isSmall ? '从 detectors.json 移除，权重保留' : '大模型由服务端配置'" @click="removeModel(model)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -210,12 +328,12 @@ const selectedNames = computed(() => isSmall.value
               <span v-if="modelChoices.visionModelId === model.id" class="rb-pill def">默认</span>
             </td>
             <td class="c-act">
-              <button type="button" class="rb-link" @click="editing = model">编辑</button>
+              <button type="button" class="rb-link" @click="openEdit(model)">编辑</button>
               <button type="button" class="rb-link" :disabled="!model.enabled || modelChoices.visionModelId === model.id"
                 @click="makeDefault(model.id)">设默认</button>
               <button type="button" class="rb-link test" :disabled="!model.enabled"
                 @click="runTest(model.id)">测试</button>
-              <button type="button" class="rb-link" disabled title="在 backend/config/detectors.json 中移除">删除</button>
+              <button type="button" class="rb-link" :disabled="!isSmall" :title="isSmall ? '从 detectors.json 移除，权重保留' : '大模型由服务端配置'" @click="removeModel(model)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -223,7 +341,7 @@ const selectedNames = computed(() => isSmall.value
 
       <div v-if="!rowsCount" class="rb-empty">
         {{ busy ? "正在读取模型目录…" : (isSmall
-          ? "暂无可选模型：先启动 Rebucca 图片模型服务并注册检测器。"
+          ? "暂无可选模型：点右上「+ 新增小模型」注册一个检测器。"
           : "暂无视觉模型：先配置 VISION_ENABLED 与本机 Ollama。") }}
       </div>
 
@@ -244,59 +362,147 @@ const selectedNames = computed(() => isSmall.value
           <button type="button" class="rb-modal-x" aria-label="关闭" @click="editing = null">×</button>
         </div>
         <div class="rb-modal-body">
-          <div class="rb-field"><label>模型名称</label>
-            <div class="rb-input">{{ editing.name }}</div></div>
           <template v-if="isSmall">
+            <div class="rb-field"><label>模型名称</label>
+              <input v-model="form.name" class="rb-input" maxlength="64" />
+              <p class="rb-hint">ID 是配置里的标识（{{ form.id }}），创建后不可改。</p></div>
             <div class="rb-row2">
               <div class="rb-field"><label>模型类型</label>
-                <div class="rb-input">{{ algoLabel((editing as M5ImageModel).algorithm_type) }}</div></div>
+                <div class="rb-input is-ro">{{ algoLabel(form.algorithm_type) }}</div></div>
               <div class="rb-field"><label>任务类型</label>
-                <div class="rb-input">{{ (editing as M5ImageModel).task_type || "detect" }}</div></div>
+                <div class="rb-input is-ro">{{ form.task_type }}</div></div>
             </div>
             <div class="rb-row2">
               <div class="rb-field"><label>推理引擎</label>
-                <div class="rb-input">{{ engineLabel((editing as M5ImageModel).engine) }}</div></div>
+                <div class="rb-input is-ro">{{ engineLabel(form.engine) }}</div></div>
               <div class="rb-field"><label>推理设备</label>
-                <div class="rb-input">{{ (editing as M5ImageModel).device || "cpu" }}</div></div>
+                <select v-model="form.device" class="rb-input">
+                  <option value="cpu">cpu</option>
+                  <option value="gpu">gpu</option>
+                </select></div>
             </div>
             <div class="rb-field"><label>模型文件</label>
-              <div class="rb-input mono">{{ editing.id }} · sha256 {{
-                (editing as M5ImageModel).model_sha256.slice(0, 16) }}…</div>
-              <p class="rb-hint">权重与阈值在 backend/config/detectors.json 中维护。</p></div>
+              <div class="rb-input mono is-ro">sha256 {{ editSha.slice(0, 16) }}…</div>
+              <p class="rb-hint">权重文件在 backend/models/ 下维护；这里只改配置，不动文件。</p></div>
             <div class="rb-row2">
               <div class="rb-field"><label>输入宽度</label>
-                <div class="rb-input">{{ ((editing as M5ImageModel).input_size || [])[0] || "—" }}</div></div>
+                <div class="rb-input is-ro">{{ form.input_width }}</div></div>
               <div class="rb-field"><label>输入高度</label>
-                <div class="rb-input">{{ ((editing as M5ImageModel).input_size || [])[1] || "—" }}</div></div>
+                <div class="rb-input is-ro">{{ form.input_height }}</div></div>
             </div>
             <div class="rb-row2">
               <div class="rb-field"><label>置信度阈值</label>
-                <div class="rb-input">{{ ((editing as M5ImageModel).conf_threshold ?? 0.35).toFixed(2) }}</div></div>
+                <input v-model.number="form.conf_threshold" type="number" step="0.01"
+                  min="0.01" max="1" class="rb-input" /></div>
               <div class="rb-field"><label>NMS IoU 阈值</label>
-                <div class="rb-input">{{ ((editing as M5ImageModel).iou_threshold ?? 0.5).toFixed(2) }}</div></div>
+                <input v-model.number="form.iou_threshold" type="number" step="0.01"
+                  min="0.01" max="1" class="rb-input" /></div>
             </div>
+            <div class="rb-row2">
+              <div class="rb-field"><label>状态</label>
+                <div class="rb-input is-ro">{{ enabled ? "启用" : "未就绪" }}</div></div>
+              <div class="rb-field"><label>默认</label>
+                <div class="rb-input is-ro">{{ selectedSmallIds[0] === editing.id ? "是" : "否" }}</div></div>
+            </div>
+            <p v-if="formError" class="rb-error">{{ formError }}</p>
           </template>
           <template v-else>
+            <div class="rb-field"><label>模型名称</label>
+              <div class="rb-input is-ro">{{ editing.name }}</div></div>
             <div class="rb-row2">
               <div class="rb-field"><label>供应商</label>
-                <div class="rb-input">{{ (editing as M5VisionModel).provider }}</div></div>
+                <div class="rb-input is-ro">{{ (editing as M5VisionModel).provider }}</div></div>
               <div class="rb-field"><label>位置</label>
-                <div class="rb-input">{{ (editing as M5VisionModel).location === "remote" ? "远程 API" : "本地" }}</div></div>
+                <div class="rb-input is-ro">{{ (editing as M5VisionModel).location === "remote" ? "远程 API" : "本地" }}</div></div>
             </div>
             <div class="rb-field"><label>模型 ID</label>
-              <div class="rb-input mono">{{ (editing as M5VisionModel).model_id }}</div></div>
+              <div class="rb-input mono is-ro">{{ (editing as M5VisionModel).model_id }}</div></div>
+            <div class="rb-row2">
+              <div class="rb-field"><label>状态</label>
+                <div class="rb-input is-ro">{{ (editing as M5VisionModel).enabled ? "启用" : "停用" }}</div></div>
+              <div class="rb-field"><label>默认</label>
+                <div class="rb-input is-ro">{{ modelChoices.visionModelId === editing.id ? "是" : "否" }}</div></div>
+            </div>
+            <p class="rb-hint">大模型来自服务端 M5_VISION_MODELS_JSON / Ollama 配置，暂不支持在页面上增删。</p>
           </template>
-          <div class="rb-row2">
-            <div class="rb-field"><label>状态</label>
-              <div class="rb-input">{{ enabled ? "启用" : "未启用" }}</div></div>
-            <div class="rb-field"><label>默认</label>
-              <div class="rb-input">{{ (isSmall ? selectedSmallIds[0] === editing.id
-                : modelChoices.visionModelId === editing.id) ? "是" : "否" }}</div></div>
-          </div>
         </div>
         <div class="rb-modal-foot">
           <button type="button" class="rb-btn" @click="editing = null">取消</button>
+          <button v-if="isSmall" type="button" class="rb-btn rb-btn-primary"
+            :disabled="saving" @click="saveEdit">{{ saving ? "保存中…" : "保存" }}</button>
+        </div>
+      </div>
+    </div>
 
+    <div v-if="creating" class="rb-mask" @click.self="creating = false">
+      <div class="rb-modal" role="dialog" aria-modal="true">
+        <div class="rb-modal-head">
+          <h4><span class="dot" />新增小模型</h4>
+          <button type="button" class="rb-modal-x" aria-label="关闭" @click="creating = false">×</button>
+        </div>
+        <div class="rb-modal-body">
+          <div class="rb-row2">
+            <div class="rb-field"><label>模型 ID</label>
+              <input v-model="form.id" class="rb-input mono" placeholder="如 yolo11s" maxlength="32" />
+              <p class="rb-hint">小写字母/数字/-/_，2–32 位，创建后不可改。</p></div>
+            <div class="rb-field"><label>模型名称</label>
+              <input v-model="form.name" class="rb-input" maxlength="64" placeholder="如 园区 YOLOv8s" /></div>
+          </div>
+          <div class="rb-row2">
+            <div class="rb-field"><label>模型类型</label>
+              <select v-model="form.algorithm_type" class="rb-input">
+                <option value="dfine">D-FINE</option>
+                <option value="yolo8">YOLOv8</option>
+                <option value="yolo11">YOLOv11</option>
+              </select></div>
+            <div class="rb-field"><label>任务类型</label>
+              <select v-model="form.task_type" class="rb-input">
+                <option value="detect">detect</option>
+                <option value="segment">segment</option>
+              </select></div>
+          </div>
+          <div class="rb-row2">
+            <div class="rb-field"><label>推理引擎</label>
+              <select v-model="form.engine" class="rb-input">
+                <option value="onnxruntime">OnnxRuntime</option>
+                <option value="openvino">OpenVINO</option>
+                <option value="pytorch">PyTorch</option>
+              </select></div>
+            <div class="rb-field"><label>推理设备</label>
+              <select v-model="form.device" class="rb-input">
+                <option value="cpu">cpu</option>
+                <option value="gpu">gpu</option>
+              </select></div>
+          </div>
+          <div class="rb-field"><label>权重文件</label>
+            <select v-model="form.model_file" class="rb-input mono">
+              <option value="">（models/ 下没有可用权重）</option>
+              <option v-for="file in weights" :key="file" :value="file">{{ file }}</option>
+            </select>
+            <p class="rb-hint">把 .onnx/.pt 放进 backend/models/ 后刷新列表即可选；也可用 POST /ai/image-models/upload 上传。</p></div>
+          <div class="rb-field"><label>标签文件（D-FINE 必填）</label>
+            <input v-model="form.labels_file" class="rb-input mono"
+              placeholder="config/labels/coco80_zh.txt" /></div>
+          <div class="rb-row2">
+            <div class="rb-field"><label>输入宽度</label>
+              <input v-model.number="form.input_width" type="number" min="32" max="4096" class="rb-input" /></div>
+            <div class="rb-field"><label>输入高度</label>
+              <input v-model.number="form.input_height" type="number" min="32" max="4096" class="rb-input" /></div>
+          </div>
+          <div class="rb-row2">
+            <div class="rb-field"><label>置信度阈值</label>
+              <input v-model.number="form.conf_threshold" type="number" step="0.01"
+                min="0.01" max="1" class="rb-input" /></div>
+            <div class="rb-field"><label>NMS IoU 阈值</label>
+              <input v-model.number="form.iou_threshold" type="number" step="0.01"
+                min="0.01" max="1" class="rb-input" /></div>
+          </div>
+          <p v-if="formError" class="rb-error">{{ formError }}</p>
+        </div>
+        <div class="rb-modal-foot">
+          <button type="button" class="rb-btn" @click="creating = false">取消</button>
+          <button type="button" class="rb-btn rb-btn-primary" :disabled="saving"
+            @click="saveCreate">{{ saving ? "新增中…" : "新增" }}</button>
         </div>
       </div>
     </div>
@@ -401,6 +607,11 @@ const selectedNames = computed(() => isSmall.value
   background: var(--bg-2); color: var(--text-1); min-height: 36px; display: flex; align-items: center; }
 .rb-input.mono { font-family: Consolas, Monaco, monospace; font-size: 12px; overflow-wrap: anywhere; }
 .rb-hint { margin: 0; font-size: 11px; color: var(--text-4); }
+input.rb-input, select.rb-input { font: inherit; min-height: 36px; }
+input.rb-input:focus, select.rb-input:focus { outline: none; border-color: #169f85; }
+.rb-input.is-ro { color: var(--text-3); background: rgba(255,255,255,.02); }
+.rb-error { margin: 0; font-size: 12px; color: #f0a8a8; background: rgba(239,68,68,.10);
+  border: 1px solid rgba(239,68,68,.35); border-radius: 6px; padding: 8px 10px; }
 .rb-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px;
   border-top: 1px solid var(--line); background: var(--bg-2); }
 @media (max-width: 900px) {

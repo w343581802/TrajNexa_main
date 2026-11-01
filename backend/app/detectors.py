@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -175,6 +176,172 @@ def default_model_id() -> str:
 def model_meta(model_id: str) -> dict:
     item = _load_all().get(model_id) or {}
     return {k: v for k, v in item.items() if k not in ("engine_obj", "failures")}
+
+
+EDITABLE_FIELDS = ("name", "conf_threshold", "iou_threshold", "device")
+
+
+def _read_raw() -> dict:
+    path = config_path()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise DetectorError("detector_config_missing") from None
+    except Exception as exc:
+        raise DetectorError("detector_config_invalid") from exc
+    if not isinstance(raw, dict) or not isinstance(raw.get("detectors"), list):
+        raise DetectorError("detector_config_invalid")
+    return raw
+
+
+def _validate_changes(changes: dict) -> dict:
+    if not isinstance(changes, dict) or not changes:
+        raise DetectorError("detector_update_empty")
+    unknown = set(changes) - set(EDITABLE_FIELDS)
+    if unknown:
+        raise DetectorError("detector_update_unknown_field:" + ",".join(sorted(unknown)))
+    clean: dict = {}
+    if "name" in changes:
+        name = str(changes["name"] or "").strip()
+        if not 1 <= len(name) <= 64:
+            raise DetectorError("detector_update_bad_name")
+        clean["name"] = name
+    for key in ("conf_threshold", "iou_threshold"):
+        if key in changes:
+            value = changes[key]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not (
+                    0 < float(value) <= 1.0):
+                raise DetectorError("detector_update_bad_threshold")
+            clean[key] = round(float(value), 3)
+        
+    if "device" in changes:
+        device = str(changes["device"] or "").strip().lower()
+        if device not in ("cpu", "gpu"):
+            raise DetectorError("detector_update_bad_device")
+        clean["device"] = device
+    return clean
+
+
+def update_spec(model_id: str, changes: dict) -> list[dict]:
+    """改一个检测器的可编辑字段；写盘后热加载，加载失败则回滚原文件。"""
+    clean = _validate_changes(changes)
+    path = config_path()
+    raw = _read_raw()
+    target = next((d for d in raw["detectors"]
+                   if isinstance(d, dict) and d.get("id") == model_id), None)
+    if target is None:
+        raise DetectorError("detector_not_found")
+    original = path.read_text(encoding="utf-8")
+    target.update(clean)
+    # 只写可编辑字段，保留其余键与顺序
+    _write_raw(raw)
+    _reload_or_rollback(original, model_id)
+    return list_models()
+
+
+CREATE_FIELDS = ("id", "name", "engine", "algorithm_type", "task_type", "device",
+                 "model_file", "labels_file", "input_width", "input_height",
+                 "conf_threshold", "iou_threshold")
+MODEL_ROOT = BACKEND_ROOT / "models"
+WEIGHT_SUFFIXES = (".onnx", ".pt", ".pth", ".bin", ".xml")
+
+
+def _write_raw(raw: dict) -> None:
+    path = config_path()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _reload_or_rollback(original: str, model_id: str) -> None:
+    try:
+        _load_all(force=True)
+    except DetectorError:
+        config_path().write_text(original, encoding="utf-8")
+        _load_all(force=True)
+        raise
+    if model_id not in _load_all():
+        config_path().write_text(original, encoding="utf-8")
+        _load_all(force=True)
+        raise DetectorError("detector_update_rejected:" + model_id)
+
+
+def list_weight_files() -> list[str]:
+    """models/ 下已存在的权重文件，供新增检测器时选择（相对 backend/ 的路径）。"""
+    if not MODEL_ROOT.is_dir():
+        return []
+    out = []
+    for path in sorted(MODEL_ROOT.rglob("*")):
+        if path.is_file() and path.suffix.lower() in WEIGHT_SUFFIXES:
+            out.append(str(path.relative_to(BACKEND_ROOT)).replace("\\", "/"))
+    return out[:200]
+
+
+def create_spec(spec: dict) -> list[dict]:
+    """新增一个检测器：校验 → 写盘 → 加载；加载失败则回滚。"""
+    raw = _read_raw()
+    if not isinstance(spec, dict):
+        raise DetectorError("detector_invalid")
+    unknown = set(spec) - set(CREATE_FIELDS)
+    if unknown:
+        raise DetectorError("detector_create_unknown_field:" + ",".join(sorted(unknown)))
+    model_id = str(spec.get("id") or "").strip()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,31}", model_id):
+        raise DetectorError("detector_create_bad_id")
+    if any(isinstance(d, dict) and d.get("id") == model_id for d in raw["detectors"]):
+        raise DetectorError("detector_create_duplicate_id")
+    if len(raw["detectors"]) >= MAX_MODELS:
+        raise DetectorError("detector_create_too_many")
+    entry = {"id": model_id}
+    entry.update(_validate_changes({k: v for k, v in spec.items()
+                                  if k in EDITABLE_FIELDS and v is not None}))
+    engine = str(spec.get("engine") or "onnxruntime").strip().lower()
+    known = {e.get("name") for e in list_engines() if isinstance(e, dict)}
+    if known and engine not in known:
+        raise DetectorError("detector_create_bad_engine")
+    algorithm = str(spec.get("algorithm_type") or "yolo8").strip().lower()
+    if algorithm not in ("dfine", "yolo8", "yolov8", "yolo11", "yolo"):
+        raise DetectorError("detector_create_bad_algorithm")
+    task = str(spec.get("task_type") or "detect").strip().lower()
+    if task not in ("detect", "segment"):
+        raise DetectorError("detector_create_bad_task")
+    weight = _resolve(str(spec.get("model_file") or ""))
+    if not weight.is_file():
+        raise DetectorError("detector_create_weight_missing")
+    entry.update({"engine": engine, "algorithm_type": algorithm, "task_type": task,
+                  "model_file": str(spec["model_file"]),
+                  "input_width": int(spec.get("input_width") or 640),
+                  "input_height": int(spec.get("input_height") or 640)})
+    if spec.get("labels_file"):
+        labels_path = _resolve(str(spec["labels_file"]))
+        if not labels_path.is_file():
+            raise DetectorError("detector_create_labels_missing")
+        entry["labels_file"] = str(spec["labels_file"])
+    elif entry["algorithm_type"] == "dfine":
+        raise DetectorError("detector_create_labels_required")
+    original = config_path().read_text(encoding="utf-8")
+    raw["detectors"].append(entry)
+    _write_raw(raw)
+    _reload_or_rollback(original, model_id)
+    return list_models()
+
+
+def delete_spec(model_id: str) -> list[dict]:
+    """删除一个检测器：只改配置，不碰权重文件。"""
+    raw = _read_raw()
+    kept = [d for d in raw["detectors"] if not (isinstance(d, dict) and d.get("id") == model_id)]
+    if len(kept) == len(raw["detectors"]):
+        raise DetectorError("detector_not_found")
+    original = config_path().read_text(encoding="utf-8")
+    raw["detectors"] = kept
+    _write_raw(raw)
+    try:
+        _load_all(force=True)
+    except DetectorError:
+        config_path().write_text(original, encoding="utf-8")
+        _load_all(force=True)
+        raise
+    return list_models()
 
 
 def engines_info() -> list[dict]:

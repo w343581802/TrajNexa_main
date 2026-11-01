@@ -13,7 +13,7 @@ from threading import BoundedSemaphore
 from uuid import uuid4
 
 import numpy as np
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -276,6 +276,95 @@ def _run_local(db: Session, media_id: str, body: DetectInput, started: float) ->
         'elapsed_seconds': round(time.monotonic() - started, 2),
         'note': '多个检测模型的候选不会自动合并或确认身份，选中后由人工复核。',
     }
+
+class ImageModelUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    conf_threshold: float | None = Field(default=None, gt=0, le=1)
+    iou_threshold: float | None = Field(default=None, gt=0, le=1)
+    device: str | None = Field(default=None, pattern='^(cpu|gpu)$')
+
+
+class ImageModelCreate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    id: str = Field(pattern='^[a-z0-9][a-z0-9_-]{1,31}$')
+    name: str = Field(min_length=1, max_length=64)
+    engine: str = Field(default='onnxruntime', pattern='^[a-z0-9_]{2,32}$')
+    algorithm_type: str = Field(default='yolo8', max_length=16)
+    task_type: str = Field(default='detect', max_length=16)
+    device: str = Field(default='cpu', pattern='^(cpu|gpu)$')
+    model_file: str = Field(min_length=1, max_length=240)
+    labels_file: str | None = Field(default=None, max_length=240)
+    input_width: int = Field(default=640, ge=32, le=4096)
+    input_height: int = Field(default=640, ge=32, le=4096)
+    conf_threshold: float = Field(default=0.35, gt=0, le=1)
+    iou_threshold: float = Field(default=0.5, gt=0, le=1)
+
+
+@router.get('/ai/image-models/weights')
+def list_image_model_weights() -> dict:
+    """models/ 下已有的权重文件，供新增检测器时选择。"""
+    return {'weights': detectors.list_weight_files()}
+
+
+@router.post('/ai/image-models/upload')
+def upload_image_model_weight(file: UploadFile = File(...)) -> dict:
+    """上传权重到 models/uploads/；不覆盖同名文件，返回相对路径与哈希。"""
+    name = Path(file.filename or '').name
+    if not name or Path(name).suffix.lower() not in ('.onnx', '.pt', '.pth', '.bin'):
+        fail(422, 'detector-upload-bad-type', '只接受 .onnx / .pt / .pth / .bin 权重文件。')
+    target_dir = Path(settings.storage_root).parent / 'models' / 'uploads'
+    content = file.file.read(200 * 1024 * 1024 + 1)
+    if len(content) > 200 * 1024 * 1024:
+        fail(413, 'detector-upload-too-large', '权重超过 200MB。')
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / name
+        if target.exists():
+            fail(409, 'detector-upload-exists', '同名权重已存在，请改名后再传。')
+        target.write_bytes(content)
+    except OSError:
+        fail(500, 'detector-upload-failed', '权重写入失败；检查 models/ 是否可写。')
+    return {'path': 'models/uploads/' + name,
+            'sha256': sha256(content).hexdigest(), 'bytes': len(content)}
+
+
+@router.post('/ai/image-models')
+def create_image_model(body: ImageModelCreate) -> dict:
+    """新增检测器：写 detectors.json 并热加载，加载失败回滚。"""
+    try:
+        models = detectors.create_spec(body.model_dump())
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        fail(422, code, '新增失败：请检查权重、标签与引擎是否可用。')
+    return {'enabled': True, 'models': models}
+
+
+@router.delete('/ai/image-models/{model_id}')
+def delete_image_model(model_id: str) -> dict:
+    """删除检测器：只改配置，不删除权重文件。"""
+    try:
+        models = detectors.delete_spec(model_id)
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        fail(404 if code == 'detector-not-found' else 422, code, '删除失败。')
+    return {'enabled': True, 'models': models}
+
+
+@router.put('/ai/image-models/{model_id}')
+def update_image_model(model_id: str, body: ImageModelUpdate) -> dict:
+    """保存检测器的可编辑字段（名称/阈值/设备）并热加载；失败回滚原配置。"""
+    changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not changes:
+        fail(422, 'detector-update-empty', '没有需要保存的字段。')
+    try:
+        models = detectors.update_spec(model_id, changes)
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        status = 404 if code == 'detector-not-found' else 422
+        fail(status, code, '保存失败，检测器配置保持原样。')
+    return {'enabled': True, 'models': models}
+
 
 @router.post('/ai/image-models/reload')
 def reload_image_models() -> dict:

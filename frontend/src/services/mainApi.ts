@@ -413,6 +413,11 @@ export type RecordingSummary = {
   scanning: boolean;
 };
 
+function jsonBody(payload: Record<string, unknown>, method: string): RequestInit {
+  return { method, headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload) };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -504,6 +509,14 @@ export const mainApi = {
     }),
   /** M5 Rebucca image models: catalog is optional; never reveals paths or keys. */
   listM5ImageModels: () => request<M5ImageModels>("/ai/image-models"),
+  reloadImageModels: () => request<M5ImageModels>("/ai/image-models/reload", { method: "POST" }),
+  listImageModelWeights: () => request<{ weights: string[] }>("/ai/image-models/weights"),
+  createImageModel: (payload: Record<string, unknown>) =>
+    request<M5ImageModels>("/ai/image-models", jsonBody(payload, "POST")),
+  updateImageModel: (id: string, payload: Record<string, unknown>) =>
+    request<M5ImageModels>(`/ai/image-models/${encodeURIComponent(id)}`, jsonBody(payload, "PUT")),
+  deleteImageModel: (id: string) =>
+    request<M5ImageModels>(`/ai/image-models/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listM5VisionModels: () => request<M5VisionModels>("/ai/vision-models"),
   /** Standalone M5 laboratory: upload once per request, NOT into a case. */
   testM5Detect: (file: File, smallIds: string[], visionIds: string[], threshold = 0.35) => {

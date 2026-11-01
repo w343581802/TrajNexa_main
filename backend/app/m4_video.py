@@ -148,7 +148,8 @@ def preview_keyframes(*, clip: RecordingClip, path: Path, offsets: list[float],
                 if not chosen:
                     raise detectors.DetectorError('detector_not_installed')
                 meta = detectors.model_meta(chosen)
-                flat = detectors.detect_flat(frame, [chosen], 0.35)
+                flat = detectors.detect_flat(
+                    frame, [chosen], float(meta.get('conf_threshold') or 0.35))
                 detections = {
                     'model_family': meta.get('name') or chosen,
                     'model_sha256': meta.get('model_sha256'),

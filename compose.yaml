@@ -29,8 +29,9 @@ services:
     volumes:
       - ./storage:/data/storage
       # 检测器配置与权重（权重不入库）：容器内路径固定为 /srv/config、/srv/models
-      - ./backend/config:/srv/config:ro
-      - ./backend/models:/srv/models:ro
+      # 页面上的新增/编辑/删除要写回 detectors.json，上传权重要写 models/uploads，故不设只读
+      - ./backend/config:/srv/config
+      - ./backend/models:/srv/models
     ports:
       - "127.0.0.1:8000:8000"
   worker:
@@ -42,8 +43,8 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./storage:/data/storage
-      - ./backend/config:/srv/config:ro
-      - ./backend/models:/srv/models:ro
+      - ./backend/config:/srv/config
+      - ./backend/models:/srv/models
   frontend:
     build: ./frontend
     depends_on:
