@@ -39,6 +39,7 @@ export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca" | "vl
 export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
   algorithm_type?: string; task_type?: string; device?: string; input_size?: number[];
+  conf_threshold?: number | null; iou_threshold?: number | null;
 };
 export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
 export type M5VisionModel = {

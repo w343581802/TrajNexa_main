@@ -62,7 +62,9 @@ class ImageService:
                  "algorithm_type": m.get("algorithm_type", "detect"),
                  "task_type": m.get("task_type", "detect"),
                  "device": m.get("device", "cpu"),
-                 "input_size": m.get("input_size", [640, 640])}
+                 "input_size": m.get("input_size", [640, 640]),
+                 "conf_threshold": m.get("conf_threshold"),
+                 "iou_threshold": m.get("iou_threshold")}
                 for m in self.models.values()]
 
     def infer(self, body: dict):

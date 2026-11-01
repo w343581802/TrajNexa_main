@@ -107,6 +107,8 @@ def list_models(*, base_url: str, token: str, timeout: float) -> list[dict]:
                       "task_type": str(item.get("task_type") or "detect")[:16],
                       "device": str(item.get("device") or "cpu")[:32],
                       "input_size": item.get("input_size", [640, 640]),
+                      "conf_threshold": _finite(item.get("conf_threshold")),
+                      "iou_threshold": _finite(item.get("iou_threshold")),
                       "model_sha256": digest.lower()})
     return clean
 

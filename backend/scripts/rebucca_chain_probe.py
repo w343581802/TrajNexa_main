@@ -147,6 +147,8 @@ def _load_detectors(config, root, EngineFactory):
             "device": str(spec.get("device", "cpu")),
             "input_size": [int(spec.get("input_width", 640)),
                            int(spec.get("input_height", 640))],
+            "conf_threshold": float(spec.get("conf_threshold", .35)),
+            "iou_threshold": float(spec.get("iou_threshold", .5)),
         })
     return loaded
 
