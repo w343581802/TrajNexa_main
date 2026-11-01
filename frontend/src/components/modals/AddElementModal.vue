@@ -288,7 +288,7 @@ async function runDetection() {
     return;
   }
   if (engine === "vlm" && !modelChoices.visionModelId) {
-    m4DetectError.value = "请先在左侧“大模型管理”选择一个视觉模型";
+    m4DetectError.value = "请先在左侧「大模型管理」选择一个视觉模型";
     return;
   }
   m4DetectBusy.value = true;
