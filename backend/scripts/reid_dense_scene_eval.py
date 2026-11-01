@@ -1,23 +1,34 @@
 # -*- coding: utf-8 -*-
 """密集场景 ReID 对照: 同帧去重 + IoU 跟踪真值 + 拒识阈值扫描.
 
-配套 reid_cross_frame_eval.py 产出的 gallery.json (字段: frame/i/box/h/conf/crop/vec).
+配套 reid_cross_frame_eval.py 产出的 gallery.json
+(字段: frame / i / box / h / conf / crop / vec).
+
 真值不靠人工标框: 用 IoU 跟踪从查询框向后/向前找到同一目标的逐帧框;
 在跟踪不到且距目标出现窗口足够远的帧上, 该帧最高分即"目标不在"的地板.
 
-用法:
-    python scripts/reid_dense_scene_eval.py --gallery /work/gfull/gallery.json \
-        --query t_0100#0 --absent-after 600 --sheet /work/sheet.jpg
+两个容易搞错的统计口径, 这里分开记录:
+- target_similarity: 目标本人那个框的相似度(阈值命中只能看它);
+- best_similarity: 该帧所有候选里的最高分(和"目标是否存在"无关).
+早期版本把 best_similarity 当成目标分数, 会系统性高估"目标保留率",
+所以本文件里阈值表的"保留"一律用 target_similarity.
 
-注意: 跟踪会在遮挡/离开画面处断开, 这里如实报告跟踪帧数, 不把它补成"全片".
+用法:
+    python scripts/reid_dense_scene_eval.py --gallery /work/gfull/gallery.json \\
+        --query t_0100#0 --absent-after 600
+
+注意: 跟踪会在遮挡/离开画面处断开, 这里如实报告跟踪帧数, 不把它补成"全片";
+静态目标的"缺席帧"通常是跟踪断开而非目标离场, 不能当噪声地板用.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 
 import numpy as np
+
+FRAME_INTERVAL = 2.0
+FRAME_SECONDS = lambda frame: (int(frame.split("_")[1]) - 1) * FRAME_INTERVAL  # noqa: E731
 
 
 def load(gallery_path):
@@ -26,13 +37,8 @@ def load(gallery_path):
     by_frame = {}
     for row in rec:
         by_frame.setdefault(row["frame"], []).append(row)
-    frames = sorted(by_frame, key=frame_seconds)
+    frames = sorted(by_frame, key=FRAME_SECONDS)
     return rec, by_frame, frames
-
-
-def frame_seconds(frame, interval=2.0):
-    """t_0001 视为 interval 秒, 与 0.5 fps 抽帧对应."""
-    return (int(frame.split("_")[1]) - 1) * interval
 
 
 def vec(row):
@@ -50,11 +56,24 @@ def iou(a, b):
 
 
 def dedupe(cands, thr=0.5):
+    """同帧去重: 按置信度从高到低保留, 与线上 pool 逻辑一致.
+
+    gallery 缺少 conf 字段时退化为保持原顺序(旧版脚本写出的文件),
+    并在运行时打印一次提示, 不静默改变排序依据.
+    """
+    if cands and "conf" not in cands[0]:
+        dedupe.missing_conf = True
+        ordered = cands
+    else:
+        ordered = sorted(cands, key=lambda r: -r.get("conf", 0.0))
     kept = []
-    for row in sorted(cands, key=lambda r: -r["conf"]):
+    for row in ordered:
         if all(iou(row["box"], k["box"]) < thr for k in kept):
             kept.append(row)
     return kept
+
+
+dedupe.missing_conf = False
 
 
 def track(by_frame, frames, key, thr=0.25):
@@ -81,52 +100,60 @@ def track(by_frame, frames, key, thr=0.25):
     return query, path
 
 
-def evaluate(by_frame, frames, key, absent_after=None, thresholds=(0.65, 0.70, 0.72, 0.75, 0.78, 0.80, 0.85, 0.90)):
+def evaluate(by_frame, frames, key, absent_after=None):
     query, path = track(by_frame, frames, key)
     qv = vec(query)
     rows, absent = [], []
     for frame in frames:
-        scored = sorted(
+        ranked = sorted(
             ((float(np.dot(qv, vec(r))), r) for r in dedupe(by_frame[frame])),
             key=lambda x: -x[0],
         )
+        best_sim = ranked[0][0]
         if frame in path:
             target = path[frame]
-            rank = next(
-                (i + 1 for i, (_s, r) in enumerate(scored) if iou(r["box"], target["box"]) >= 0.5),
+            match = next(
+                ((i, s) for i, (s, r) in enumerate(ranked)
+                 if iou(r["box"], target["box"]) >= 0.5),
                 None,
             )
-            rows.append((frame_seconds(frame), scored[0][0], rank, target["h"]))
+            if match is None:
+                continue  # 目标被同帧去重掉了, 不计入排名
+            rank, target_sim = match[0] + 1, match[1]
+            rows.append((FRAME_SECONDS(frame), target_sim, best_sim, rank, target["h"]))
         else:
-            if absent_after is not None and frame_seconds(frame) < absent_after:
+            if absent_after is not None and FRAME_SECONDS(frame) < absent_after:
                 continue
-            absent.append(scored[0][0])
-    return query, rows, absent, thresholds
+            absent.append(best_sim)
+    return query, rows, absent
 
 
-def report(key, query, rows, absent, thresholds):
+def report(key, query, rows, absent, thresholds=(0.65, 0.70, 0.72, 0.75, 0.78, 0.80, 0.85)):
     n = len(rows)
     if not n:
-        print(f"{key}: 跟踪不到第二帧, 跳过")
+        print(f"{key}: 跟踪不到第二帧或目标全被去重, 跳过")
         return
-    top1 = sum(1 for _s, _b, rank, _h in rows if rank == 1)
-    top5 = sum(1 for _s, _b, rank, _h in rows if rank and rank <= 5)
-    sims = np.array([b for _s, b, _r, _h in rows])
+    top1 = sum(1 for row in rows if row[3] == 1)
+    top5 = sum(1 for row in rows if row[3] <= 5)
+    target_sims = np.array([row[1] for row in rows])
+    best_sims = np.array([row[2] for row in rows])
     print(f"目标 {key} (h={query['h']}px): 跟踪 {n} 帧  "
           f"Top-1 {top1}/{n} ({top1 / n:.0%})  Top-5 {top5}/{n} ({top5 / n:.0%})")
-    print(f"  自身分数 min={sims.min():.3f} p10={np.percentile(sims, 10):.3f} "
-          f"中位数={np.median(sims):.3f}")
+    print(f"  目标自身分数 min={target_sims.min():.3f} "
+          f"p10={np.percentile(target_sims, 10):.3f} 中位数={np.median(target_sims):.3f}")
+    print(f"  该帧最高分 中位数={np.median(best_sims):.3f} "
+          f"(仅用于判断该帧是否有高分候选, 不代表目标)")
     if not absent:
         print()
         return
     a = np.array(absent)
     print(f"  缺席帧 {len(a)}: 最高={a.max():.3f} p99={np.percentile(a, 99):.3f} "
           f"p90={np.percentile(a, 90):.3f}")
-    print("  阈值   目标保留    缺席误收")
+    print("  阈值   目标被接受(目标分≥阈值)   缺席误收(该帧最高分≥阈值)")
     for thr in thresholds:
-        keep = sum(1 for s in sims if s >= thr)
+        keep = sum(1 for s in target_sims if s >= thr)
         false_accept = sum(1 for s in a if s >= thr)
-        print(f"  {thr:.2f}   {keep:>4}/{n}    {false_accept:>4}/{len(a)}")
+        print(f"  {thr:.2f}   {keep:>4}/{n}                {false_accept:>4}/{len(a)}")
     print()
 
 
@@ -140,17 +167,19 @@ def main():
     ap.add_argument("--interval", type=float, default=2.0, help="抽帧间隔秒数")
     args = ap.parse_args()
 
-    global frame_seconds
-    frame_seconds = lambda f: (int(f.split("_")[1]) - 1) * args.interval  # noqa: E731
+    global FRAME_INTERVAL, FRAME_SECONDS
+    FRAME_INTERVAL = args.interval
+    FRAME_SECONDS = lambda frame: (int(frame.split("_")[1]) - 1) * FRAME_INTERVAL  # noqa: E731
 
     _rec, by_frame, frames = load(args.gallery)
-    print(f"gallery: {args.gallery}  裁剪 {sum(len(v) for v in by_frame.values())}  "
-          f"帧 {len(frames)}")
+    total = sum(len(v) for v in by_frame.values())
+    print(f"gallery: {args.gallery}  裁剪 {total}  帧 {len(frames)}")
     for key in args.query:
-        query, rows, absent, thresholds = evaluate(
-            by_frame, frames, key, absent_after=args.absent_after
-        )
-        report(key, query, rows, absent, thresholds)
+        query, rows, absent = evaluate(by_frame, frames, key, absent_after=args.absent_after)
+        report(key, query, rows, absent)
+    if dedupe.missing_conf:
+        print("提示: gallery 缺少 conf 字段, 同帧去重退化为按原顺序保留, "
+              "结果与线上不一致; 请用 reid_cross_frame_eval.py 重新生成。")
 
 
 if __name__ == "__main__":

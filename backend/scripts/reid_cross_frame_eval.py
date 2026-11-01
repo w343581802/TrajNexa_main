@@ -58,6 +58,7 @@ def build(args, engine):
             cv2.imwrite(os.path.join(args.out, rel),
                         img[box[1]:box[3], box[0]:box[2]], [cv2.IMWRITE_JPEG_QUALITY, 95])
             records.append({"frame": name, "i": i, "box": box, "h": box[3] - box[1],
+                            "conf": round(float(item["confidence"]), 4),
                             "crop": rel, "vec": [float(v) for v in rows[0]]})
             tiles.append(tile(os.path.join(args.out, rel), f"{name}#{i}"))
         print(name, len(tiles), flush=True)
