@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, File, Form, UploadFile
 
-from app import detectors, m4_vision
+from app import detectors, m4_vision, m6_person_reid
 from app.config import settings
 from app.m5_vision_registry import VisionRegistryError, resolve_vision_model
 from app.m5_vision_transport import chat_for
@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/v1/ai/model-test")
 MAX_BYTES = 12 * 1024 * 1024
 MAX_PIXELS = 20_000_000
 _vlm_gate = BoundedSemaphore(value=1)
+_m6_gate = BoundedSemaphore(value=1)  # shared CPU ReID model for lab; no background jobs
 
 
 def _read_image(file: UploadFile):
@@ -212,3 +213,69 @@ def roi(
             "source_sha256": digest, "bbox_normalized": coords,
             "object_class": object_class, "results": rows,
             "identity_established": False, "case_id": None}
+
+
+@router.post("/reid-search")
+def reid_search(
+    reference_file: UploadFile = File(...),
+    search_file: UploadFile = File(...),
+    reference_bbox_normalized: str = Form(...),
+    detector_model_id: str = Form(...),
+    min_confidence: float = Form(0.35),
+):
+    """P1-A: ONE reference-person ROI vs detector PERSON candidates in image B.
+
+    No person identity assertion, no embeddings in response, and NO case writes.
+    A ReID model is NOT a detector; use an actually installed YOLO/D-FINE first.
+    """
+    if not math.isfinite(min_confidence) or not .2 <= min_confidence <= 1:
+        fail(422, "m6-reid-confidence", "检测阈值须介于 0.2 至 1。")
+    if not detector_model_id or len(detector_model_id) > 64:
+        fail(422, "m6-reid-detector-id", "请选择已经加载的人员检测模型。")
+    try:
+        registered = detectors.list_models()
+    except detectors.DetectorError:
+        fail(503, "m6-reid-detector-unavailable", "检测模型目录暂不可用。")
+    if detector_model_id not in {item["id"] for item in registered}:
+        fail(422, "m6-reid-detector-id", "所选检测模型未安装或不可用。")
+    try:
+        bbox = json.loads(reference_bbox_normalized)
+    except (TypeError, ValueError):
+        fail(422, "m6-reid-reference-box", "请在参考图片上框选人员。")
+    ref_image, ref_sha = _read_image(reference_file)
+    search_image, search_sha = _read_image(search_file)
+    if m6_person_reid._pixel_box(ref_image, bbox) is None:
+        fail(422, "m6-reid-reference-box", "参考人员框过小或无效，请重新框选。")
+    if not _m6_gate.acquire(blocking=False):
+        fail(429, "m6-reid-busy", "已有 ReID 实验正在进行，请稍后重试。")
+    try:
+        started = time.monotonic()
+        try:
+            detected = detectors.detect_flat(search_image, [detector_model_id], min_confidence)
+            proposals = detectors.proposals(detected["candidates"],
+                (search_image.shape[1], search_image.shape[0]))
+        except detectors.DetectorError:
+            fail(503, "m6-reid-detector-failed", "检测器推理失败；尚未进行同目标比较。")
+        try:
+            compared = m6_person_reid.rank_people(
+                ref_image, bbox, search_image, proposals)
+        except m6_person_reid.ReIDError as exc:
+            code = str(exc)
+            status = 422 if code == "m6_reid_reference_box_invalid" else 503
+            fail(status, code.replace("_", "-"),
+                 "人员 ReID 模型未配置、权重异常或无法提取向量；本次不会产生假相似度。")
+        return {
+            "test_only": True, "identity_established": False, "case_id": None,
+            "reference_source_sha256": ref_sha,
+            "search_source_sha256": search_sha,
+            "reference_bbox_normalized": bbox,
+            "detector_model_id": detector_model_id,
+            "reid_model_sha256": compared["reid_model_sha256"],
+            "status": compared["status"],
+            "person_candidate_count": compared["candidate_count"],
+            "ranking": compared["ranking"],
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "note": "排名仅表示 OSNet 视觉外观相似度，不是身份概率，需人工复核。",
+        }
+    finally:
+        _m6_gate.release()
