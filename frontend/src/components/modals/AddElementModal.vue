@@ -4,6 +4,7 @@ import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
 import { actions, currentCase, elementList, pendingElementFile, toast, ui, type ElementPayload } from "../../store/workbench";
+import { modelChoices, setSmallModelIds } from "../../store/modelChoices";
 import {
   CAMERA_STATUS_TEXT,
   TIME_STATUS_TEXT,
@@ -42,8 +43,8 @@ const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
-/** 两个可切换的识别引擎：先看效果，再决定后面接哪一个 */
-const m4Engine = ref<M4DetectEngine>("dfine");
+/** Use the selected detector from the left menu when available. */
+const m4Engine = ref<M4DetectEngine>(modelChoices.smallModelIds.length ? "rebucca" : "dfine");
 /** 选中框之后的关键特征（画质/主色 + 视觉模型外观短语） */
 const m4Features = ref<M4RoiFeatures | null>(null);
 const m4FeaturesBusy = ref(false);
@@ -216,7 +217,7 @@ const m4DetectError = ref<string | null>(null);
 const m4DetectModel = ref<string | null>(null);
 const m4DetectElapsed = ref<number | null>(null);
 const m5Models = ref<M5ImageModel[]>([]);
-const m5SelectedIds = ref<string[]>([]);
+const m5SelectedIds = ref<string[]>([...modelChoices.smallModelIds]);
 const m5ModelsLoading = ref(false);
 const m5ModelsError = ref<string | null>(null);
 let m4DetectRequest = 0;
@@ -235,8 +236,9 @@ async function loadM5Models() {
       m5ModelsError.value = "Rebucca 当前没有可选检测模型，请检查本地模型配置";
     }
     const allowed = new Set(response.models.map(item => item.id));
-    const retained = m5SelectedIds.value.filter(id => allowed.has(id));
-    m5SelectedIds.value = retained.length ? retained : response.models.map(item => item.id);
+    const retained = modelChoices.smallModelIds.filter(id => allowed.has(id));
+    m5SelectedIds.value = retained.length ? retained : response.models[0] ? [response.models[0].id] : [];
+    if (response.enabled) setSmallModelIds(m5SelectedIds.value);
     if (m4Engine.value === "rebucca" && selectedMediaId.value && m5SelectedIds.value.length) {
       void runDetection();
     }
@@ -251,9 +253,16 @@ async function loadM5Models() {
 }
 
 function toggleM5Model(id: string) {
-  m5SelectedIds.value = m5SelectedIds.value.includes(id)
+  if (!m5Models.value.some(model => model.id === id)) return;
+  const ids = m5SelectedIds.value.includes(id)
     ? m5SelectedIds.value.filter(selected => selected !== id)
     : [...m5SelectedIds.value, id];
+  if (ids.length > 5) {
+    m5ModelsError.value = "一次最多选择 5 个检测模型";
+    return;
+  }
+  m5SelectedIds.value = ids;
+  setSmallModelIds(ids);
 }
 
 
@@ -262,6 +271,7 @@ const M4_ENGINE_TEXT: Record<M4DetectEngine, string> = {
   qwen3vl: "Qwen3-VL 2B",
   qwen3vl4b: "Qwen3-VL 4B",
   rebucca: "Rebucca 多模型",
+  vlm: "已配置视觉模型",
 };
 
 /** 选完图、换引擎都会自动跑一次：框先出来，人再决定用哪一个 */
@@ -277,11 +287,16 @@ async function runDetection() {
     m4DetectError.value = m5ModelsError.value || "请先选择至少一个 Rebucca 模型";
     return;
   }
+  if (engine === "vlm" && !modelChoices.visionModelId) {
+    m4DetectError.value = "请先在左侧“大模型管理”选择一个视觉模型";
+    return;
+  }
   m4DetectBusy.value = true;
   m4DetectError.value = null; m4Proposals.value = []; m4DetectModel.value = null;
   m4DetectElapsed.value = null;
   try {
-    const response = await mainApi.detectM4(source.id, engine, .4, modelIds);
+    const response = await mainApi.detectM4(source.id, engine, .4, modelIds,
+      engine === "vlm" ? modelChoices.visionModelId : "");
     if (ticket !== m4DetectRequest || session !== m4Session ||
         selectedMediaId.value !== source.id || currentCase.value?.id !== caseId ||
         !ui.addElementOpen) return;
@@ -345,7 +360,8 @@ async function loadM4Features() {
   m4Features.value = null;
   try {
     const result = await mainApi.analyzeM4Roi(
-      mediaId, [...box], m4Engine.value, category.value, m5PromptOverride.value);
+      mediaId, [...box], m4Engine.value, category.value, m5PromptOverride.value,
+      modelChoices.visionModelId);
     if (request !== m4FeaturesRequest || session !== m4Session ||
         selectedMediaId.value !== mediaId || !ui.addElementOpen) return;
     m4Features.value = result;
@@ -736,6 +752,8 @@ watch(
     if (!open) { m4Session += 1; m4HistoryEpoch += 1; return; }
     m4Session += 1;
     resetForm();
+    m5SelectedIds.value = [...modelChoices.smallModelIds];
+    if (m5SelectedIds.value.length) m4Engine.value = "rebucca";
     void loadM5Models();
     fillFromElement();
     if (!pendingElementFile.value) void loadM4History(true);
@@ -909,6 +927,10 @@ function save(keepOpen: boolean) {
               @click="m4Engine = 'rebucca'">
               Rebucca <small>多检测模型</small>
             </button>
+            <button v-if="modelChoices.visionModelId" type="button" class="chip-btn"
+              :class="{ 'is-active': m4Engine === 'vlm' }" @click="m4Engine = 'vlm'">
+              已选视觉模型 <small>{{ modelChoices.visionModelId }} · 整图</small>
+            </button>
             <span class="grow" />
             <button type="button" class="btn btn--sm" :disabled="m4DetectBusy || !selectedMedia"
               @click="runDetection">
@@ -926,6 +948,10 @@ function save(keepOpen: boolean) {
               @click="loadM5Models">{{ m5ModelsLoading ? '读取模型中…' : '刷新模型' }}</button>
             <p v-if="m5ModelsError" class="ae-error">{{ m5ModelsError }}</p>
           </div>
+          <p class="m4a-history-hint">
+            外观复核大模型：{{ modelChoices.visionModelId || "自动选择（可在左侧大模型管理设置）" }}
+            · {{ m5SelectedIds.length }} 个 Rebucca 检测模型已选
+          </p>
           <p class="m4a-history-hint">
             <template v-if="m4DetectBusy">正在识别画面中的目标…（首次加载模型会慢一些）</template>
             <template v-else-if="m4DetectModel">{{ m4DetectModel }} · {{ m4DetectElapsed }}s · 框选后自动出关键特征</template>
