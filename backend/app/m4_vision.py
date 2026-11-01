@@ -253,11 +253,11 @@ def _dedupe_boxes(candidates: list[dict]) -> list[dict]:
 
 
 def detect_objects(image: np.ndarray, *, base_url: str, model: str,
-                   timeout: float = 180) -> list[dict]:
+                   timeout: float = 180, chat_fn=None) -> list[dict]:
     """调用本地视觉模型，返回待核实的候选框（不含身份结论）。"""
     prepared = _normalized_image(image)
     height, width = prepared.shape[:2]
-    content = _chat(base_url, model, DETECT_PROMPT, _encode_jpeg(prepared), timeout)
+    content = (chat_fn or _chat)(base_url, model, DETECT_PROMPT, _encode_jpeg(prepared), timeout)
     parsed = extract_json(content)
     objects = parsed.get('objects')
     if not isinstance(objects, list):
@@ -314,7 +314,7 @@ def _clean_features(values) -> list[str]:
 
 def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: str,
                  timeout: float = 120, object_class: str = "person",
-                 prompt_override: str | None = None) -> list[str]:
+                 prompt_override: str | None = None, chat_fn=None) -> list[str]:
     """Crop from ORIGINAL pixels before resizing only the ROI.
 
     Whole-frame downsizing previously destroyed small vehicle details; ROI-first
@@ -332,7 +332,7 @@ def describe_roi(image: np.ndarray, box: list[float], *, base_url: str, model: s
         raise VisionError('m4d_roi_too_small')
     crop = _normalized_image(image[top:bottom, left:right])
     prompt = effective_feature_prompt(object_class, prompt_override)
-    content = _chat(base_url, model, prompt, _encode_jpeg(crop, 90), timeout)
+    content = (chat_fn or _chat)(base_url, model, prompt, _encode_jpeg(crop, 90), timeout)
     try:
         parsed = extract_json(content)
     except VisionError:
