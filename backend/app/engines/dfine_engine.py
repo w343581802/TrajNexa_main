@@ -21,7 +21,7 @@ D-FINE I/O 契约（与 rebekah C++ 引擎、Train_DFINE 导出链一致）：
 import logging
 import os
 
-from app.engines.base import BaseEngine, DetectionResult
+from app.engines.base import BaseEngine, DetectionResult, EngineInferenceError
 
 logger = logging.getLogger("analysis.engines.dfine")
 
@@ -243,7 +243,7 @@ class DfineEngine(BaseEngine):
             return self._parse(named, w, h)
         except Exception as e:
             logger.warning("DfineEngine.detect() err: %s", e)
-            return []
+            raise EngineInferenceError(str(e)) from e
 
     def _run_onnx(self, blob, ots):
         feeds = {self._in_images: blob, self._in_ots: ots}

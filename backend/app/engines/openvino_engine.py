@@ -14,7 +14,7 @@
 import logging
 import os
 
-from app.engines.base import BaseEngine, DetectionResult
+from app.engines.base import BaseEngine, DetectionResult, EngineInferenceError
 
 logger = logging.getLogger("analysis.engines.openvino")
 
@@ -169,7 +169,7 @@ class OpenVinoEngine(BaseEngine):
             return [DetectionResult(**r) for r in results]
         except Exception as e:
             logger.warning("OpenVinoEngine.detect() err: %s", e)
-            return []
+            raise EngineInferenceError(str(e)) from e
 
     def info(self):
         d = super(OpenVinoEngine, self).info()

@@ -14,6 +14,13 @@ class EngineNotAvailableError(RuntimeError):
     """引擎依赖未安装"""
 
 
+class EngineInferenceError(RuntimeError):
+    """推理本身失败（形状不符、显存/内存不足、后处理崩溃等）。
+
+    与「这张图里没有目标」必须区分：上游要能回答「没检测到」还是「检测器坏了」。
+    """
+
+
 class DetectionResult(dict):
     """单条检测结果：{box:[x1,y1,x2,y2], label:str, score:float}"""
 

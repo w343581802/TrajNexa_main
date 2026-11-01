@@ -58,8 +58,9 @@ def decode_outputs(outputs, algorithm_type, task_type, labels, input_size,
         logger.warning("yolo_post: 未知任务类型 %s", task_type)
         return []
     except Exception as e:
+        # 解码失败是引擎故障，不是「图中没有目标」，交给上层区分
         logger.warning("yolo_post decode err: %s", e)
-        return []
+        raise
 
 
 def _is_v5(algorithm_type):

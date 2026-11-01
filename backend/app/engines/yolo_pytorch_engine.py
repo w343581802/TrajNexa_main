@@ -14,7 +14,7 @@ detect / segment / classify / pose / obb
 import logging
 import os
 
-from app.engines.base import BaseEngine, DetectionResult
+from app.engines.base import BaseEngine, DetectionResult, EngineInferenceError
 
 logger = logging.getLogger("analysis.engines.yolo_pytorch")
 
@@ -154,7 +154,7 @@ class YoloPytorchEngine(BaseEngine):
             return self._parse_results(results)
         except Exception as e:
             logger.warning("YoloPytorchEngine.detect() err: %s", e)
-            return []
+            raise EngineInferenceError(str(e)) from e
 
     def _parse_results(self, results):
         out = []

@@ -212,3 +212,38 @@ def test_create_with_inline_labels(cfg):
                                     "input_height": 640})
     assert [row["id"] for row in models] == ["m1", "m2"]
     assert models[1]["labels"] == ["人", "车"]
+
+
+class ExplodingEngine(FakeEngine):
+    """模拟推理失败：形状不符、内存不足、后处理崩溃。"""
+
+    def detect(self, image):
+        from app.engines.base import EngineInferenceError
+        raise EngineInferenceError("session.run 失败")
+
+
+class EmptyEngine(FakeEngine):
+    """引擎正常工作，只是这张图里没有目标。"""
+
+    def detect(self, image):
+        return []
+
+
+def test_engine_failure_is_not_reported_as_no_objects(cfg, monkeypatch):
+    """引擎故障必须抛错，不能被当成「画面里没有人」。"""
+    monkeypatch.setattr(detectors.EngineFactory, "create",
+                        staticmethod(lambda *a, **kw: ExplodingEngine(**kw)))
+    detectors.reload()
+    with pytest.raises(detectors.DetectorError) as err:
+        detectors.detect_flat(np.zeros((64, 64, 3), np.uint8), ["m1"], 0.3)
+    assert err.value.code.startswith("detector_inference_failed")
+
+
+def test_engine_returning_empty_is_not_a_failure(cfg, monkeypatch):
+    """正常返回空列表仍是成功，只是 candidate_count 为 0。"""
+    monkeypatch.setattr(detectors.EngineFactory, "create",
+                        staticmethod(lambda *a, **kw: EmptyEngine(**kw)))
+    detectors.reload()
+    out = detectors.detect_flat(np.zeros((64, 64, 3), np.uint8), ["m1"], 0.3)
+    assert out["candidates"] == []
+    assert out["model_runs"][0]["candidate_count"] == 0

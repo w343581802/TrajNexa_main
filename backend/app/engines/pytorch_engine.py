@@ -13,7 +13,7 @@
 import logging
 import os
 
-from app.engines.base import BaseEngine, DetectionResult
+from app.engines.base import BaseEngine, DetectionResult, EngineInferenceError
 
 logger = logging.getLogger("analysis.engines.pytorch")
 
@@ -128,7 +128,7 @@ class PyTorchEngine(BaseEngine):
                 return self._parse_torchhub(res, frame_bgr.shape[:2])
         except Exception as e:
             logger.warning("PyTorchEngine.detect() err: %s", e)
-            return []
+            raise EngineInferenceError(str(e)) from e
 
     def _parse_ultralytics(self, results, orig_shape):
         out = []
