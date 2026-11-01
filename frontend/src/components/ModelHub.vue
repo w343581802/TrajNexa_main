@@ -40,7 +40,8 @@ async function loadModels() {
       visionModels.value = catalog.models;
       const allowed = new Set(catalog.models.map(model => model.id));
       if (!allowed.has(modelChoices.visionModelId)) {
-        setVisionModelId(catalog.models[0]?.id || "");
+        setVisionModelId(catalog.models.find(item => item.default_for_roi)?.id ||
+          catalog.models[0]?.id || "");
       }
     }
   } catch (err) {
