@@ -1,0 +1,5 @@
+# Commit C：单镜头轨迹跟踪依赖（脚本级实验用，按需安装）
+# pip install -r requirements-track.txt
+trackers>=2.6.1        # Roboflow，Apache-2.0，ByteTrack 实现
+supervision>=0.26.1    # trackers 的 Detections 容器
+scipy>=1.13.1
