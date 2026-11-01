@@ -35,11 +35,15 @@ export type M4DetectionPreview = {
 };
 
 /** Rebucca 多个本地检测模型 + 保留的 D-FINE / Qwen 对照。 */
-export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca";
+export type M4DetectEngine = "dfine" | "qwen3vl" | "qwen3vl4b" | "rebucca" | "vlm";
 export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
 };
 export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
+export type M5VisionModel = {
+  id: string; name: string; provider: string; model_id: string; enabled: boolean;
+};
+export type M5VisionModels = { enabled: boolean; models: M5VisionModel[] };
 export type M5ModelRun = {
   model_id: string; status: "returned_unverified" | "inference_error";
   candidate_count: number;
@@ -477,19 +481,23 @@ export const mainApi = {
     }),
   /** M5 Rebucca image models: catalog is optional; never reveals paths or keys. */
   listM5ImageModels: () => request<M5ImageModels>("/ai/image-models"),
+  listM5VisionModels: () => request<M5VisionModels>("/ai/vision-models"),
   /** All detection results remain unverified; no automatic identity or evidence writes. */
-  detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4, modelIds: string[] = []) =>
+  detectM4: (mediaId: string, engine: M4DetectEngine, minConfidence = .4, modelIds: string[] = [],
+    visionModelId = "") =>
     request<M4DetectResult>(`/media/${encodeURIComponent(mediaId)}/detect`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ engine, min_confidence: minConfidence, model_ids: modelIds }),
+      body: JSON.stringify({ engine, min_confidence: minConfidence, model_ids: modelIds,
+        vision_model_id: visionModelId || null }),
     }),
   /** M4a：选中框后的关键特征（画质、主色 + 视觉模型外观短语） */
   analyzeM4Roi: (mediaId: string, bbox: number[], engine: M4DetectEngine = "qwen3vl",
-    objectClass: "person" | "vehicle" | "other" = "person", promptOverride = "") =>
+    objectClass: "person" | "vehicle" | "other" = "person", promptOverride = "", visionModelId = "") =>
     request<M4RoiFeatures>(`/media/${encodeURIComponent(mediaId)}/roi-features`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bbox_normalized: bbox, engine, object_class: objectClass,
-        prompt_override: promptOverride.trim() || null }),
+        prompt_override: promptOverride.trim() || null,
+        vision_model_id: visionModelId || null }),
     }),
   getM4Observation: (id: string) =>
     request<M4Observation>(`/observations/${encodeURIComponent(id)}`),
