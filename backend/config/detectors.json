@@ -86,6 +86,48 @@
       "input_height": 640,
       "conf_threshold": 0.35,
       "iou_threshold": 0.5
+    },
+    {
+      "id": "yolo-v5",
+      "name": "yolo-v5",
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "device": "cpu",
+      "engine": "onnxruntime",
+      "algorithm_type": "yolo8",
+      "task_type": "detect",
+      "model_file": "models/dfine/dfine_n_coco_opset17_fp32_static.onnx",
+      "input_width": 640,
+      "input_height": 640,
+      "labels_file": "config/labels/coco80_zh.txt"
+    },
+    {
+      "id": "yolo-v8",
+      "name": "yolo-v8",
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "device": "cpu",
+      "engine": "onnxruntime",
+      "algorithm_type": "yolo8",
+      "task_type": "detect",
+      "model_file": "models/dfine/dfine_n_coco_opset17_fp32_static.onnx",
+      "input_width": 640,
+      "input_height": 640,
+      "labels_file": "config/labels/coco80_zh.txt"
+    },
+    {
+      "id": "yolo-v26",
+      "name": "yolo-v26",
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "device": "cpu",
+      "engine": "onnxruntime",
+      "algorithm_type": "yolo26",
+      "task_type": "detect",
+      "model_file": "models/dfine/dfine_n_coco_opset17_fp32_static.onnx",
+      "input_width": 640,
+      "input_height": 640,
+      "labels_file": "config/labels/coco80_zh.txt"
     }
   ]
 }
