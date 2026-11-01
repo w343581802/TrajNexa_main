@@ -58,7 +58,11 @@ class ImageService:
 
     def list_models(self):
         return [{"id": m["id"], "name": m["name"],
-                 "engine": m["engine_kind"], "model_sha256": m["model_sha256"]}
+                 "engine": m["engine_kind"], "model_sha256": m["model_sha256"],
+                 "algorithm_type": m.get("algorithm_type", "detect"),
+                 "task_type": m.get("task_type", "detect"),
+                 "device": m.get("device", "cpu"),
+                 "input_size": m.get("input_size", [640, 640])}
                 for m in self.models.values()]
 
     def infer(self, body: dict):
