@@ -20,3 +20,4 @@ compose.override.yaml
 # 本机 pnpm 实验产物：仓库统一用 npm + package-lock.json
 frontend/pnpm-lock.yaml
 frontend/pnpm-workspace.yaml
+.local/
