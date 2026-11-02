@@ -75,16 +75,19 @@ def main():
     target_pairs = embed(target_labelled, loader, session, args.max_samples)
     target_group = next((g for g in groups if target_id in g), [target_id])
 
+    # 负样本池必须是"不同的人"：同一身份的其他 Tracklet（未归进目标组的那几条）不能当负样本，
+    # 否则会把真值当成错误候选，评测立刻失真。
+    identity = set(spec.get("identity_tracks", [])) | set(target_group)
     negatives = []
     for g in groups:
-        if set(g) & set(target_group):
+        if set(g) & identity:
             continue
+        pairs = []
         for tid in g:
-            if tid not in tracks:
-                continue
-            pairs = embed(label_views(tracks[tid]["observations"], []), loader, session, 4)
-            if pairs:
-                negatives.append({"candidate": "-".join(str(i) for i in g), "track_id": tid, "pairs": pairs})
+            if tid in tracks:
+                pairs.extend(embed(label_views(tracks[tid]["observations"], []), loader, session, 4))
+        if pairs:
+            negatives.append({"candidate": "-".join(str(i) for i in g), "pairs": pairs})
 
     results = []
     for case in spec["cases"]:
@@ -102,7 +105,7 @@ def main():
             scored = []
             for neg in negatives:
                 stats = compare(anchor, neg["pairs"], mode)
-                scored.append((stats["score"], neg["candidate"], neg["track_id"]))
+                scored.append((stats["score"], neg["candidate"], neg["candidate"]))
             scored.sort(reverse=True)
             better = sum(1 for s, _, _ in scored if s >= target_score["score"])
             margin = round(target_score["score"] - scored[0][0], 4) if scored else None
@@ -119,7 +122,7 @@ def main():
                 "supporting_frames": target_score["supporting_frames"],
                 "views_used": target_score["views_used"],
                 "status": status,
-                "top_negative": {"candidate": scored[0][1], "track_id": scored[0][2],
+                "top_negative": {"candidate": scored[0][1],
                                  "score": round(scored[0][0], 4)} if scored else None,
                 "margin": margin,
             }
@@ -139,7 +142,7 @@ def main():
             print("    %-14s score=%.3f rank=%d margin=%s 支撑=%d → %-21s 负样本=%s(%.3f)" % (
                 mode, m["target_score"], m["target_rank"], m["margin"], m["supporting_frames"],
                 m["status"],
-                m["top_negative"]["track_id"] if m["top_negative"] else "-",
+                m["top_negative"]["candidate"] if m["top_negative"] else "-",
                 m["top_negative"]["score"] if m["top_negative"] else 0.0))
 
 

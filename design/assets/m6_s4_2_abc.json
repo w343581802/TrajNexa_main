@@ -4,8 +4,6 @@
     41,
     46,
     47,
-    50,
-    53,
     60,
     64,
     67
@@ -49,7 +47,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "28",
-          "track_id": 28,
           "score": 0.6729
         },
         "margin": 0.131
@@ -61,8 +58,7 @@
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
-          "candidate": "49-70",
-          "track_id": 49,
+          "candidate": "49",
           "score": 0.6443
         },
         "margin": 0.24
@@ -75,7 +71,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "28",
-          "track_id": 28,
           "score": 0.6073
         },
         "margin": 0.1616
@@ -97,7 +92,6 @@
         "status": "ambiguous",
         "top_negative": {
           "candidate": "35",
-          "track_id": 35,
           "score": 0.8272
         },
         "margin": -0.0233
@@ -110,7 +104,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "35",
-          "track_id": 35,
           "score": 0.738
         },
         "margin": 0.1464
@@ -123,7 +116,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "35",
-          "track_id": 35,
           "score": 0.6678
         },
         "margin": 0.1011
@@ -145,7 +137,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "28",
-          "track_id": 28,
           "score": 0.6729
         },
         "margin": 0.0727
@@ -157,8 +148,7 @@
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
-          "candidate": "49-70",
-          "track_id": 49,
+          "candidate": "49",
           "score": 0.6443
         },
         "margin": 0.1582
@@ -171,7 +161,6 @@
         "status": "candidate",
         "top_negative": {
           "candidate": "28",
-          "track_id": 28,
           "score": 0.6073
         },
         "margin": 0.1886

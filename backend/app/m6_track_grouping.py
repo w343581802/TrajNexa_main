@@ -31,6 +31,8 @@ DEFAULT_GROUP_RULES = {
     "max_center_ratio": 0.60,
     "max_size_ratio": 3.00,
     "min_cosine_median": 0.78,
+    # 自动归组比"判定为同一目标"更严：证据只是"像"，不足以直接并档
+    "auto_merge_cosine": 0.85,
     "min_cosine_hit_ratio": 0.60,
     "cosine_hit_threshold": 0.75,
     "min_motion_agreement": 0.50,
@@ -193,7 +195,8 @@ def group_tracks(tracks, frame_vectors=None, rules=None):
         for b in tracks[i + 1:]:
             ev = pair_evidence(a, b, frame_vectors, rules)
             evidence.append(ev)
-            if ev["verdict"] == "same_object":
+            if ev["verdict"] == "same_object" and ev["cosine_median"] is not None \
+                    and ev["cosine_median"] >= rules["auto_merge_cosine"]:
                 parent[find(a["track_id"])] = find(b["track_id"])
 
     members = {}

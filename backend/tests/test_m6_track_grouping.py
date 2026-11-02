@@ -93,7 +93,7 @@ def _frames(track_id, entries, vec=(1.0, 0.0)):
         {"frame_id": str(i), "timestamp_seconds": i * 0.2,
          "bbox": [x, y, x + 60, y + 160], "confidence": 0.8}
         for i, x, y in entries]}
-    vectors = {str(i): np.asarray(vec, dtype=np.float32) for i, _, _ in entries}
+    vectors = {track_id: {str(i): np.asarray(vec, dtype=np.float32) for i, _, _ in entries}}
     return track, vectors
 
 
@@ -105,7 +105,7 @@ def test_transitive_merge_is_rejected_by_group_conflict():
     b, vb = _frames(2, [(0, 0, 100), (1, 0, 100), (2, 0, 100)]
                     + [(i, 600, 100) for i in range(10, 14)])
     c, vc = _frames(3, [(i, 600, 100) for i in range(6, 14)])
-    groups, evidence = group_tracks([a, b, c], {**dict(va.items()), **dict(vb.items()), **dict(vc.items())})
+    groups, evidence = group_tracks([a, b, c], {**va, **vb, **vc})
 
     verdicts = {(e["track_a"], e["track_b"]): e["verdict"] for e in evidence}
     assert verdicts[(1, 2)] == "same_object"
@@ -115,3 +115,15 @@ def test_transitive_merge_is_rejected_by_group_conflict():
     # 三条各自成组，且都带上冲突标记，不能输出 A-B-C 一个大组
     assert sorted(tuple(g["track_ids"]) for g in groups) == [(1,), (2,), (3,)]
     assert all(g["group_conflict"] for g in groups)
+
+
+def test_low_confidence_same_object_is_not_auto_merged():
+    """证据只到"像"（余弦 0.80）时不允许自动并档，宁可留给人工核验。"""
+    from app.m6_track_grouping import group_tracks
+
+    a = _track(1, [[100, 100, 160, 260]] * 5)
+    b = _track(2, [[100, 100, 160, 260]] * 5)
+    vecs = {**_vecs(1, [1.0, 0.0], range(5))[1], **_vecs(2, [0.80, 0.60], range(5))[1]}
+    groups, evidence = group_tracks([a, b], vecs)
+    assert evidence[0]["verdict"] == "same_object"
+    assert sorted(tuple(g["track_ids"]) for g in groups) == [(1,), (2,)]
