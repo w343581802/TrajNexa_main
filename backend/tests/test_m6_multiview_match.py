@@ -55,3 +55,34 @@ def test_view_weighted_keeps_two_views_in_evidence():
 def test_compare_without_pairs_returns_zero():
     stats = compare([], [], "per_frame")
     assert stats["score"] == 0.0 and stats["pairs"] == 0
+
+
+def test_supporting_frames_are_frames_not_pairs():
+    """锚点 5 帧、候选只有 1 帧：配对数可以很高，但候选支撑帧只有 1，不能算多帧证据。"""
+    anchor = [_pair(_obs(i, i * 0.2), "front", [1.0, 0.0]) for i in range(5)]
+    cand = [_pair(_obs(50, 20.0), "front", [0.99, 0.01])]
+    stats = compare(anchor, cand, "per_frame")
+    assert stats["supporting_pairs"] == 5
+    assert stats["supporting_anchor_frames"] == 5
+    assert stats["supporting_candidate_frames"] == 1
+
+
+def test_single_frame_share_uses_distinct_candidate_frames():
+    """两帧几乎一样好时，不能因为配对多就认为"有独立支撑"。"""
+    anchor = [_pair(_obs(i, i * 0.2), "front", [1.0, 0.0]) for i in range(3)]
+    cand = [_pair(_obs(50, 20.0), "front", [0.99, 0.01]),
+            _pair(_obs(51, 20.2), "front", [0.98, 0.02]),
+            _pair(_obs(52, 20.4), "front", [0.30, 0.95])]
+    stats = compare(anchor, cand, "per_frame")
+    assert stats["supporting_candidate_frames"] >= 2
+
+
+def test_all_modes_use_the_same_filtered_observations():
+    """A 组也必须在时间过滤之后求平均，否则三组输入不是同一批数据。"""
+    anchor = [_pair(_obs(0, 10.0), "front", [1.0, 0.0]),   # 与候选取样只差 0.2 s，应被剔除
+              _pair(_obs(1, 30.0), "front", [1.0, 0.0])]
+    cand = [_pair(_obs(9, 10.2), "front", [1.0, 0.0])]
+    for mode in ("aggregate", "per_frame", "view_weighted"):
+        stats = compare(anchor, cand, mode)
+        assert stats["anchor_frames_used"] == 1, "%s 组没有做同样的时间过滤" % mode
+        assert stats["candidate_frames_used"] == 1

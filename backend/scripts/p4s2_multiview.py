@@ -109,8 +109,11 @@ def main():
             scored.sort(reverse=True)
             better = sum(1 for s, _, _ in scored if s >= target_score["score"])
             margin = round(target_score["score"] - scored[0][0], 4) if scored else None
-            # 证据不足就明确说"不足"，不因为排到第一就当成结论
-            if len(anchor) < 2 or target_score["supporting_frames"] < 2:
+            # 证据不足就明确说"不足"，不因为排到第一就当成结论。
+            # A 组是平均向量，只有一次比较，不做"多帧支撑"判定，单独标成基线。
+            if target_score["evidence_kind"] == "aggregate":
+                status = "aggregate_baseline"
+            elif len(anchor) < 2 or target_score["supporting_candidate_frames"] < 2:
                 status = "insufficient_evidence"
             elif margin is not None and margin < 0.03:
                 status = "ambiguous"
@@ -119,7 +122,11 @@ def main():
             row[mode] = {
                 "target_score": round(target_score["score"], 4),
                 "target_rank": better + 1,
-                "supporting_frames": target_score["supporting_frames"],
+                "supporting_pairs": target_score["supporting_pairs"],
+                "supporting_anchor_frames": target_score["supporting_anchor_frames"],
+                "supporting_candidate_frames": target_score["supporting_candidate_frames"],
+                "anchor_frames_used": target_score["anchor_frames_used"],
+                "candidate_frames_used": target_score["candidate_frames_used"],
                 "views_used": target_score["views_used"],
                 "status": status,
                 "top_negative": {"candidate": scored[0][1],
@@ -139,8 +146,9 @@ def main():
         print("%-28s 锚点%d帧 候选%d帧" % (row["case"], row["anchor_frames"], row["probe_frames"]))
         for mode in MODES:
             m = row[mode]
-            print("    %-14s score=%.3f rank=%d margin=%s 支撑=%d → %-21s 负样本=%s(%.3f)" % (
-                mode, m["target_score"], m["target_rank"], m["margin"], m["supporting_frames"],
+            print("    %-14s score=%.3f rank=%d margin=%s 锚%d×候%d 支撑帧=%d → %-21s 负样本=%s(%.3f)" % (
+                mode, m["target_score"], m["target_rank"], m["margin"],
+                m["anchor_frames_used"], m["candidate_frames_used"], m["supporting_candidate_frames"],
                 m["status"],
                 m["top_negative"]["candidate"] if m["top_negative"] else "-",
                 m["top_negative"]["score"] if m["top_negative"] else 0.0))

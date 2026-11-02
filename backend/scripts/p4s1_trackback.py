@@ -170,7 +170,9 @@ def main():
             "cosine_max": round(h["cosine_max"], 4),
             "cosine_top_mean": round(h["cosine_top_mean"], 4),
             "cosine_median": round(h["cosine_median"], 4),
-            "supporting_frames": h["supporting_frames"],
+            "supporting_pairs": h["supporting_pairs"],
+            "supporting_anchor_frames": h["supporting_anchor_frames"],
+            "supporting_candidate_frames": h["supporting_candidate_frames"],
             "single_frame_share": round(h["single_frame_share"], 3),
             "margin_to_next": h["margin_to_next"],
             "samples": h["samples"],
@@ -187,7 +189,7 @@ def main():
         span = unit_meta[h["tracklet_id"]]
         print("  #%d %-34s groups=%-22s top3=%.3f median=%.3f support=%d margin=%s → %s" % (
             h["rank"], h["tracklet_id"], str(span["track_ids"]),
-            h["cosine_top_mean"], h["cosine_median"], h["supporting_frames"],
+            h["cosine_top_mean"], h["cosine_median"], h["supporting_candidate_frames"],
             h["margin_to_next"], h["status"]))
 
 

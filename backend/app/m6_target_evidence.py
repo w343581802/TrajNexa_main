@@ -79,27 +79,35 @@ def compare_sets(anchor_vectors, candidate_vectors, top_k=3, support_ratio=0.90)
     只报 cosine_max 容易被个别高分画面带偏，因此同时给出：
     - cosine_top_mean：前 k 个配对的均值；
     - cosine_median：全部配对的中位数（抗单帧噪声）；
-    - supporting_frames：有多少帧的最佳配对接近最高分（= 是否有独立支撑）；
-    - single_frame_share：最高分相对第 2 名的领先幅度（越大越依赖单帧）。
+    - supporting_pairs：达到支撑阈值的配对数；
+    - supporting_anchor_frames / supporting_candidate_frames：这些配对覆盖到的**独立原始帧**数。
+      候选只有 1 帧、锚点有 5 帧时配对数可以是 5，但候选支撑帧只有 1，不能当"多帧证据"；
+    - single_frame_share：**按独立候选帧**算的领先幅度——最高分那一帧比第二好的候选帧高多少，
+      越大说明结果越可能只靠一帧碰巧相似。
     """
     if not anchor_vectors or not candidate_vectors:
         return {"cosine_max": 0.0, "cosine_top_mean": 0.0, "cosine_median": 0.0,
-                "pairs": 0, "supporting_frames": 0, "single_frame_share": 0.0}
+                "pairs": 0, "supporting_pairs": 0, "supporting_anchor_frames": 0,
+                "supporting_candidate_frames": 0, "single_frame_share": 0.0}
     a = np.asarray([v for _, v in anchor_vectors], dtype=np.float32)
     b = np.asarray([v for _, v in candidate_vectors], dtype=np.float32)
     sim = a @ b.T
     flat = np.sort(sim.reshape(-1))[::-1]
     k = min(top_k, flat.size)
     threshold = float(flat[0]) * support_ratio
-    supporting = int((sim.max(axis=1) >= threshold).sum())
-    second = float(flat[1]) if flat.size > 1 else 0.0
-    lead = (float(flat[0]) - second) / float(flat[0]) if flat[0] > 0 else 0.0
+    per_candidate = sim.max(axis=0)          # 每个候选帧的最好匹配
+    per_candidate_sorted = np.sort(per_candidate)[::-1]
+    best = float(per_candidate_sorted[0])
+    second = float(per_candidate_sorted[1]) if per_candidate_sorted.size > 1 else 0.0
+    lead = (best - second) / best if best > 0 else 0.0
     return {
         "cosine_max": float(flat[0]),
         "cosine_top_mean": float(flat[:k].mean()),
         "cosine_median": float(np.median(flat)),
         "pairs": int(flat.size),
-        "supporting_frames": supporting,
+        "supporting_pairs": int((sim >= threshold).sum()),
+        "supporting_anchor_frames": int((sim.max(axis=1) >= threshold).sum()),
+        "supporting_candidate_frames": int((per_candidate >= threshold).sum()),
         "single_frame_share": float(lead),
     }
 
@@ -131,7 +139,8 @@ def rank_tracklets(anchor_vectors, tracklets, vectors_by_tracklet, params=None, 
             item["status"] = "excluded_by_evidence"
         elif item["samples"] < 2 or item["cosine_top_mean"] < params["weak_cosine"]:
             item["status"] = "insufficient_evidence"
-        elif item["rank"] <= 3 and item["supporting_frames"] >= 2                 and (item["margin_to_next"] is None or item["margin_to_next"] >= params["margin"]):
+        elif item["rank"] <= 3 and item["supporting_candidate_frames"] >= 2 \
+                and (item["margin_to_next"] is None or item["margin_to_next"] >= params["margin"]):
             item["status"] = "candidate"
         else:
             item["status"] = "ambiguous"

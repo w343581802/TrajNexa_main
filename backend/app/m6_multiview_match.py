@@ -62,19 +62,52 @@ def separated(anchor_obs, cand_obs, params=None):
     return abs(float(anchor_obs["timestamp_seconds"]) - float(cand_obs["timestamp_seconds"])) >= gap
 
 
-def compare(anchor_pairs, cand_pairs, mode="per_frame", params=None):
-    """anchor_pairs/cand_pairs: [(obs, view, vector), ...]。返回相似度与支撑证据。"""
+def filter_by_separation(anchor_pairs, cand_pairs, params=None):
+    """先按时间间隔筛掉不可用的观测，再让 A/B/C 用**完全相同**的数据比较。
+
+    A 组是求平均，没有"配对"概念；如果只在 B/C 里做时间过滤，
+    三组的输入数据就不是同一批，比较结论也就不干净。
+    """
     params = dict(DEFAULT_MATCH_PARAMS, **(params or {}))
+    a_keep = [a for a in anchor_pairs
+              if any(separated(a[0], c[0], params) for c in cand_pairs)]
+    c_keep = [c for c in cand_pairs
+              if any(separated(c[0], a[0], params) for a in anchor_pairs)]
+    return a_keep, c_keep
+
+
+def compare(anchor_pairs, cand_pairs, mode="per_frame", params=None):
+    """anchor_pairs/cand_pairs: [(obs, view, vector), ...]。返回相似度与支撑证据。
+
+    支撑证据拆成三项，避免把"配对数量"当成"帧数量"：
+    - `supporting_pairs`：达到支撑阈值的配对数；
+    - `supporting_anchor_frames` / `supporting_candidate_frames`：这些配对覆盖到的**独立原始帧**数。
+    候选只有 1 帧、锚点有 5 帧时，配对数可以是 5，但候选支撑帧只有 1，不能算"多帧证据"。
+    """
+    params = dict(DEFAULT_MATCH_PARAMS, **(params or {}))
+    anchor_pairs, cand_pairs = filter_by_separation(anchor_pairs, cand_pairs, params)
+    empty = {"score": 0.0, "evidence_kind": "none",
+             "supporting_pairs": 0, "supporting_anchor_frames": 0,
+             "supporting_candidate_frames": 0, "views_used": 0, "pairs": 0,
+             "anchor_frames_used": len(anchor_pairs), "candidate_frames_used": len(cand_pairs)}
     if not anchor_pairs or not cand_pairs:
-        return {"score": 0.0, "supporting_frames": 0, "views_used": 0, "pairs": 0}
+        return empty
 
     if mode == "aggregate":
         a = np.mean([v for _, _, v in anchor_pairs], axis=0)
         c = np.mean([v for _, _, v in cand_pairs], axis=0)
         a = a / (np.linalg.norm(a) or 1.0)
         c = c / (np.linalg.norm(c) or 1.0)
-        return {"score": float(a @ c), "supporting_frames": len(cand_pairs),
-                "views_used": len({view for _, view, _ in cand_pairs}), "pairs": 1}
+        # 平均向量只有"一次"比较，谈不上多帧支撑；把它记成 1 而不是 N，
+        # 否则 A 组会显得比 B 组"证据更多"，反而是失真。
+        return {"score": float(a @ c), "supporting_pairs": 1,
+                "supporting_anchor_frames": 1,
+                "supporting_candidate_frames": 1,
+                "views_used": len({view for _, view, _ in cand_pairs}),
+                "pairs": 1,
+                "evidence_kind": "aggregate",
+                "anchor_frames_used": len(anchor_pairs),
+                "candidate_frames_used": len(cand_pairs)}
 
     scored = []
     for a_obs, a_view, a_vec in anchor_pairs:
@@ -85,9 +118,10 @@ def compare(anchor_pairs, cand_pairs, mode="per_frame", params=None):
             weight = 1.0
             if mode == "view_weighted":
                 weight = quality_weight(a_obs, params) * quality_weight(c_obs, params)
-            scored.append((cos, weight, c_view, cos * weight))
+            scored.append((cos, weight, c_view, cos * weight,
+                           str(a_obs["frame_id"]), str(c_obs["frame_id"])))
     if not scored:
-        return {"score": 0.0, "supporting_frames": 0, "views_used": 0, "pairs": 0}
+        return empty
 
     if mode == "view_weighted":
         # 质量/视角只用来**挑选证据**，最终得分仍是原始余弦的均值，
@@ -105,8 +139,13 @@ def compare(anchor_pairs, cand_pairs, mode="per_frame", params=None):
         top = scored[: params["top_k"]]
 
     best = max(item[0] for item in scored)
-    support = len([1 for item in scored if item[0] >= best * params["support_ratio"]])
+    supporting = [item for item in scored if item[0] >= best * params["support_ratio"]]
     return {"score": float(np.mean([item[0] for item in top])),
-            "supporting_frames": support,
+            "evidence_kind": "pairwise",
+            "supporting_pairs": len(supporting),
+            "supporting_anchor_frames": len({item[4] for item in supporting}),
+            "supporting_candidate_frames": len({item[5] for item in supporting}),
             "views_used": len({item[2] for item in top}),
-            "pairs": len(scored)}
+            "pairs": len(scored),
+            "anchor_frames_used": len(anchor_pairs),
+            "candidate_frames_used": len(cand_pairs)}

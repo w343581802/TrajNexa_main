@@ -42,9 +42,13 @@
       "aggregate": {
         "target_score": 0.8039,
         "target_rank": 1,
-        "supporting_frames": 12,
+        "supporting_pairs": 1,
+        "supporting_anchor_frames": 1,
+        "supporting_candidate_frames": 1,
+        "anchor_frames_used": 10,
+        "candidate_frames_used": 12,
         "views_used": 1,
-        "status": "candidate",
+        "status": "aggregate_baseline",
         "top_negative": {
           "candidate": "28",
           "score": 0.6729
@@ -54,7 +58,11 @@
       "per_frame": {
         "target_score": 0.8844,
         "target_rank": 1,
-        "supporting_frames": 21,
+        "supporting_pairs": 21,
+        "supporting_anchor_frames": 9,
+        "supporting_candidate_frames": 3,
+        "anchor_frames_used": 10,
+        "candidate_frames_used": 12,
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
@@ -66,7 +74,11 @@
       "view_weighted": {
         "target_score": 0.7689,
         "target_rank": 1,
-        "supporting_frames": 21,
+        "supporting_pairs": 21,
+        "supporting_anchor_frames": 9,
+        "supporting_candidate_frames": 3,
+        "anchor_frames_used": 10,
+        "candidate_frames_used": 12,
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
@@ -87,9 +99,13 @@
       "aggregate": {
         "target_score": 0.8039,
         "target_rank": 2,
-        "supporting_frames": 10,
+        "supporting_pairs": 1,
+        "supporting_anchor_frames": 1,
+        "supporting_candidate_frames": 1,
+        "anchor_frames_used": 12,
+        "candidate_frames_used": 10,
         "views_used": 1,
-        "status": "ambiguous",
+        "status": "aggregate_baseline",
         "top_negative": {
           "candidate": "35",
           "score": 0.8272
@@ -99,7 +115,11 @@
       "per_frame": {
         "target_score": 0.8844,
         "target_rank": 1,
-        "supporting_frames": 21,
+        "supporting_pairs": 21,
+        "supporting_anchor_frames": 3,
+        "supporting_candidate_frames": 9,
+        "anchor_frames_used": 12,
+        "candidate_frames_used": 10,
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
@@ -111,7 +131,11 @@
       "view_weighted": {
         "target_score": 0.7689,
         "target_rank": 1,
-        "supporting_frames": 21,
+        "supporting_pairs": 21,
+        "supporting_anchor_frames": 3,
+        "supporting_candidate_frames": 9,
+        "anchor_frames_used": 12,
+        "candidate_frames_used": 10,
         "views_used": 1,
         "status": "candidate",
         "top_negative": {
@@ -130,23 +154,31 @@
       "anchor_frames": 10,
       "probe_frames": 2,
       "aggregate": {
-        "target_score": 0.7456,
+        "target_score": 0.7395,
         "target_rank": 1,
-        "supporting_frames": 2,
+        "supporting_pairs": 1,
+        "supporting_anchor_frames": 1,
+        "supporting_candidate_frames": 1,
+        "anchor_frames_used": 9,
+        "candidate_frames_used": 2,
         "views_used": 1,
-        "status": "candidate",
+        "status": "aggregate_baseline",
         "top_negative": {
           "candidate": "28",
           "score": 0.6729
         },
-        "margin": 0.0727
+        "margin": 0.0667
       },
       "per_frame": {
         "target_score": 0.8026,
         "target_rank": 1,
-        "supporting_frames": 9,
+        "supporting_pairs": 9,
+        "supporting_anchor_frames": 9,
+        "supporting_candidate_frames": 1,
+        "anchor_frames_used": 9,
+        "candidate_frames_used": 2,
         "views_used": 1,
-        "status": "candidate",
+        "status": "insufficient_evidence",
         "top_negative": {
           "candidate": "49",
           "score": 0.6443
@@ -156,9 +188,13 @@
       "view_weighted": {
         "target_score": 0.7959,
         "target_rank": 1,
-        "supporting_frames": 9,
+        "supporting_pairs": 9,
+        "supporting_anchor_frames": 9,
+        "supporting_candidate_frames": 1,
+        "anchor_frames_used": 9,
+        "candidate_frames_used": 2,
         "views_used": 1,
-        "status": "candidate",
+        "status": "insufficient_evidence",
         "top_negative": {
           "candidate": "28",
           "score": 0.6073

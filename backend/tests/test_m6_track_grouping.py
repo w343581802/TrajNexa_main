@@ -123,7 +123,24 @@ def test_low_confidence_same_object_is_not_auto_merged():
 
     a = _track(1, [[100, 100, 160, 260]] * 5)
     b = _track(2, [[100, 100, 160, 260]] * 5)
-    vecs = {**_vecs(1, [1.0, 0.0], range(5))[1], **_vecs(2, [0.80, 0.60], range(5))[1]}
+    # 必须是 {track_id: {frame_id: vec}}，否则外观根本没进比较，测的就不是余弦分支
+    vecs = _frame_vectors(_vecs(1, [1.0, 0.0], range(5)), _vecs(2, [0.80, 0.60], range(5)))
     groups, evidence = group_tracks([a, b], vecs)
-    assert evidence[0]["verdict"] == "same_object"
+    ev = evidence[0]
+    assert ev["cosine_median"] is not None
+    assert abs(ev["cosine_median"] - 0.80) < 0.01, "外观确实参与了比较，余弦约 0.80"
+    assert ev["verdict"] == "same_object"
+    assert sorted(tuple(g["track_ids"]) for g in groups) == [(1,), (2,)]
+
+
+def test_high_cosine_but_spatial_conflict_is_not_merged():
+    """余弦 0.86 看着很像，但两框同帧相距很远 → 是两个人，禁止归组。"""
+    a = _track(1, [[0, 100, 60, 260]] * 5)
+    b = _track(2, [[700, 100, 760, 260]] * 5)
+    vecs = _frame_vectors(_vecs(1, [1.0, 0.0], range(5)), _vecs(2, [0.86, 0.51], range(5)))
+    groups, evidence = group_tracks([a, b], vecs)
+    ev = evidence[0]
+    assert abs(ev["cosine_median"] - 0.86) < 0.02
+    assert ev["conflict_frames"] > 0
+    assert ev["verdict"] == "conflict_coexist"
     assert sorted(tuple(g["track_ids"]) for g in groups) == [(1,), (2,)]
