@@ -1,5 +1,5 @@
 """Commit E3 轨迹接回规则的确定性测试：只验证"什么时候拒绝"。"""
-from scripts.reid_track_link import link_tracks
+from scripts.reid_track_link import classify_links, link_tracks
 
 
 def _vec(seed):
@@ -17,7 +17,7 @@ def _track(tid, start, end, count=6, box=(600, 300, 640, 400)):
     return {"track_id": tid, "start_seconds": start, "end_seconds": end, "observations": obs}
 
 
-PARAMS = {"min_frames": 5, "min_similarity": 0.85, "min_margin": 0.05,
+PARAMS = {"min_observations": 5, "min_similarity": 0.85, "min_margin": 0.05,
           "max_gap_seconds": 8.0, "max_center_distance_px": 250.0, "px_per_second": 100.0}
 
 
@@ -64,6 +64,25 @@ def test_gap_beyond_limit_is_ignored():
     tracks = {"tracks": [_track(1, 10.0, 14.0), _track(2, 40.0, 44.0)]}
     links, rejected = link_tracks(feats, tracks, PARAMS)
     assert not links and not rejected   # 超过 max_gap 连候选都不生成
+
+
+def test_track_without_template_is_not_usable():
+    feats = {"tracks": [{"track_id": 1, "aggregate": [1.0, 0.0, 0.0]},
+                        {"track_id": 2, "aggregate": [1.0, 0.0, 0.0],
+                         "template_available": False}]}
+    tracks = {"tracks": [_track(1, 10.0, 14.0), _track(2, 15.0, 19.0)]}
+    links, _ = link_tracks(feats, tracks, PARAMS)
+    assert not links, "没有合格模板的轨迹不得参与接回"
+
+
+def test_verdicts_separate_unverified_from_incorrect():
+    links = [{"from": 1, "to": 2}, {"from": 3, "to": 4}, {"from": 5, "to": 6}]
+    owners = {1: "person_a", 2: "person_a", 3: "person_a", 4: "person_b", 5: "person_a", 6: None}
+    result = classify_links(links, owners)
+    assert result["correct"] == 1
+    assert result["incorrect"] == 1
+    assert result["unverified"] == 1, "真值对不上 ≠ 错误接回，必须单列"
+    assert [d["verdict"] for d in result["detail"]] == ["correct", "incorrect", "unverified"]
 
 
 def test_short_track_is_not_used_as_reference():

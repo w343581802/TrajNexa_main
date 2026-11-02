@@ -46,9 +46,31 @@ def _load_engine(root):
     return engine
 
 
+# 质量分层：实测 60–140 px 的目标轨迹级余弦只有 0.66–0.82，80 px 就饱和是错的。
+TIER_SMALL = 100.0
+TIER_MEDIUM = 150.0
+
+
+def height_tier(height):
+    if height < TIER_SMALL:
+        return "small"
+    if height < TIER_MEDIUM:
+        return "medium"
+    return "large"
+
+
 def quality(conf, height):
-    """检测质量权重：置信度 × 尺寸饱和项（太小的框裁出来几乎全是背景）。"""
-    return float(max(0.0, conf)) * min(1.0, float(height) / 80.0)
+    """聚合权重：置信度 × 尺寸饱和项，饱和点对齐 150 px（大目标才配满权重）。"""
+    return float(max(0.0, conf)) * min(1.0, float(height) / TIER_MEDIUM)
+
+
+def template_eligible(conf, height, params):
+    """能否进入参考模板。
+
+    不合格的帧仍然保留向量（供逐帧分析），但不参与模板聚合——
+    远景小框平均进去会把同人相似度从 0.91 拉到 0.31。
+    """
+    return height >= params["template_min_height"] and conf >= params["template_min_confidence"]
 
 
 def pick_observations(track, max_frames):
@@ -76,6 +98,10 @@ def main(argv=None):
     parser.add_argument("--frames-dir", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--max-frames", type=int, default=12)
+    parser.add_argument("--template-min-height", type=float, default=TIER_MEDIUM)
+    parser.add_argument("--template-min-confidence", type=float, default=0.40)
+    parser.add_argument("--crop-scale", type=float, default=1.0,
+                        help="crop 上采样倍数（1.0/1.5/2.0），用于 E4-B 对照")
     parser.add_argument("--gt")
     parser.add_argument("--gt-time-tolerance", type=float, default=0.1)
     args = parser.parse_args(argv)
@@ -83,8 +109,13 @@ def main(argv=None):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     engine = _load_engine(root)
     tracks = json.load(open(args.tracks, "r", encoding="utf-8"))["tracks"]
+    params = {"template_min_height": args.template_min_height,
+              "template_min_confidence": args.template_min_confidence}
 
-    out = {"model": MODEL, "tracks": [], "notes": []}
+    out = {"model": MODEL, "crop_scale": args.crop_scale,
+           "template_min_height": args.template_min_height,
+           "template_min_confidence": args.template_min_confidence,
+           "tracks": [], "notes": []}
     cache = {}
     for track in tracks:
         chosen = pick_observations(track, args.max_frames)
@@ -103,35 +134,61 @@ def main(argv=None):
             x2, y2 = min(img.shape[1], box[2]), min(img.shape[0], box[3])
             if x2 - x1 < 8 or y2 - y1 < 16:
                 continue
-            valid, embs = engine.extract_embeddings(img, [[x1, y1, x2, y2]])
+            crop = img[y1:y2, x1:x2]
+            if args.crop_scale > 1.0:
+                # 只是改变送进网络的采样密度：原图没有的细节不会凭空出现，
+                # 所以这组对照要看"同人提升"是否同时带来"不同人提升"。
+                crop = cv2.resize(crop, None, fx=args.crop_scale, fy=args.crop_scale,
+                                  interpolation=cv2.INTER_CUBIC)
+                valid, embs = engine.extract_embeddings(crop, [[0, 0, crop.shape[1], crop.shape[0]]])
+            else:
+                valid, embs = engine.extract_embeddings(img, [[x1, y1, x2, y2]])
             if not valid:
                 continue
             vec = _l2(np.asarray(embs[0], dtype=np.float32))
-            w = quality(o["confidence"], y2 - y1)
+            h = y2 - y1
+            w = quality(o["confidence"], h)
             frames.append({"frame_id": o["frame_id"],
                            "timestamp_seconds": o["timestamp_seconds"],
                            "bbox": [x1, y1, x2, y2],
+                           "height": h,
+                           "tier": height_tier(h),
                            "confidence": round(float(o["confidence"]), 4),
                            "weight": round(w, 4),
+                           "template_eligible": template_eligible(o["confidence"], h, params),
                            "vec": [round(float(v), 5) for v in vec]})
         if not frames:
             out["tracks"].append({"track_id": track["track_id"], "frames": [],
                                   "aggregate": None, "note": "no_usable_crop"})
             continue
-        weights = np.asarray([f["weight"] for f in frames], dtype=np.float32)
-        weights = weights / max(1e-6, float(weights.sum()))
-        stacked = np.asarray([f["vec"] for f in frames], dtype=np.float32)
-        agg = _l2((stacked * weights[:, None]).sum(axis=0))
-        out["tracks"].append({
+        usable = [f for f in frames if f["template_eligible"]]
+        heights = sorted(f["height"] for f in frames)
+        median_height = heights[len(heights) // 2]
+        entry = {
             "track_id": track["track_id"],
             "start_seconds": track["start_seconds"],
             "end_seconds": track["end_seconds"],
             "observation_count": len(track["observations"]),
             "used_frames": len(frames),
-            "mean_quality": round(float(np.mean([f["weight"] for f in frames])), 4),
-            "aggregate": [round(float(v), 5) for v in agg],
+            "template_frames": len(usable),
+            "median_height": median_height,
+            "height_tier": height_tier(median_height),
             "frames": frames,
-        })
+        }
+        if not usable:
+            entry.update(aggregate=None, template_available=False,
+                         note="no_template_eligible_frame")
+        else:
+            weights = np.asarray([f["weight"] for f in usable], dtype=np.float32)
+            weights = weights / max(1e-6, float(weights.sum()))
+            stacked = np.asarray([f["vec"] for f in usable], dtype=np.float32)
+            agg = _l2((stacked * weights[:, None]).sum(axis=0))
+            entry.update(
+                template_available=True,
+                mean_quality=round(float(np.mean([f["weight"] for f in usable])), 4),
+                aggregate=[round(float(v), 5) for v in agg],
+            )
+        out["tracks"].append(entry)
 
     if args.gt and os.path.isfile(args.gt):
         out["discrimination"] = discriminate(out["tracks"], tracks,

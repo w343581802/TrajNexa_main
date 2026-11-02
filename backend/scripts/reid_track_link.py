@@ -42,13 +42,51 @@ def gt_of_track(track, gt, tol=0.1):
     return max(votes, key=votes.get) if votes else None
 
 
+def classify_links(links, owners):
+    """接回结果的三种判定：correct / incorrect / unverified。
+
+    之前把"真值对不上"直接算 wrong，会把证据不足冤判成错误接回；
+    正确做法是单列 unverified，人工核对后再落账。
+    """
+    detail = []
+    correct = incorrect = unverified = 0
+    for link in links:
+        a, b = owners.get(link["from"]), owners.get(link["to"])
+        if a is None or b is None:
+            verdict = "unverified"
+            unverified += 1
+        elif a == b:
+            verdict = "correct"
+            correct += 1
+        else:
+            verdict = "incorrect"
+            incorrect += 1
+        detail.append({"from": link["from"], "to": link["to"],
+                       "gt_from": a, "gt_to": b, "verdict": verdict})
+    return {"links": len(links), "correct": correct, "incorrect": incorrect,
+            "unverified": unverified, "detail": detail}
+
+
 def link_tracks(features, tracks, params):
-    """返回 (accepted_links, rejected) —— rejected 里带上拒绝原因，便于复盘。"""
+    """返回 (accepted_links, rejected) —— rejected 里带上拒绝原因，便于复盘。
+
+    只有"参考模板可用"的轨迹才参与接回：模板可用的前提是至少有一帧
+    达到 `template_min_height` / `template_min_confidence`。
+    观测数达标只说明轨迹够长，**不代表身份已确认**，所以叫 min_observations。
+    """
     index = {t["track_id"]: t for t in tracks["tracks"]}
     feat = {t["track_id"]: np.asarray(t["aggregate"], dtype=np.float32)
             for t in features["tracks"] if t.get("aggregate")}
+    template_ok = {t["track_id"]: bool(t.get("template_available", True))
+                   for t in features["tracks"]}
+    # min_observations 只保证轨迹够长；真正决定能不能当参考的是合格帧数，
+    # 没有 `template_frames` 字段时退回观测数（兼容旧特征文件）。
+    template_frames = {t["track_id"]: t.get("template_frames", len(index.get(t["track_id"], {}).get("observations", [])))
+                       for t in features["tracks"]}
     usable = [tid for tid in feat
-              if len(index[tid]["observations"]) >= params["min_frames"]]
+              if template_ok.get(tid, True)
+              and len(index[tid]["observations"]) >= params["min_observations"]
+              and template_frames.get(tid, 0) >= params.get("min_template_frames", 3)]
     usable.sort(key=lambda tid: index[tid]["start_seconds"])
 
     accepted, rejected = [], []
@@ -101,7 +139,10 @@ def main(argv=None):
     parser.add_argument("--tracks", required=True)
     parser.add_argument("--gt")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--min-frames", type=int, default=5)
+    parser.add_argument("--min-observations", type=int, default=5,
+                        help="最低观测数量（够长，不等于身份已确认）")
+    parser.add_argument("--min-template-frames", type=int, default=3,
+                        help="参考模板所需的最少合格帧数")
     parser.add_argument("--min-similarity", type=float, default=0.85)
     parser.add_argument("--min-margin", type=float, default=0.05)
     parser.add_argument("--max-gap-seconds", type=float, default=8.0)
@@ -109,7 +150,9 @@ def main(argv=None):
     parser.add_argument("--px-per-second", type=float, default=100.0)
     args = parser.parse_args(argv)
 
-    params = {"min_frames": args.min_frames, "min_similarity": args.min_similarity,
+    params = {"min_observations": args.min_observations,
+              "min_template_frames": args.min_template_frames,
+              "min_similarity": args.min_similarity,
               "min_margin": args.min_margin, "max_gap_seconds": args.max_gap_seconds,
               "max_center_distance_px": args.max_center_distance_px,
               "px_per_second": args.px_per_second}
@@ -121,17 +164,7 @@ def main(argv=None):
     if args.gt:
         gt = json.load(open(args.gt, "r", encoding="utf-8"))
         owners = {t["track_id"]: gt_of_track(t, gt) for t in tracks["tracks"]}
-        same = correct = wrong = 0
-        detail = []
-        for link in links:
-            a, b = owners.get(link["from"]), owners.get(link["to"])
-            ok = a is not None and a == b
-            correct += 1 if ok else 0
-            wrong += 0 if ok else 1
-            detail.append({"from": link["from"], "to": link["to"],
-                           "gt_from": a, "gt_to": b, "correct": ok})
-        evaluation = {"links": len(links), "correct": correct, "wrong": wrong,
-                      "detail": detail}
+        evaluation = classify_links(links, owners)
     out = {"params": params, "accepted": links, "rejected": rejected,
            "evaluation": evaluation}
     json.dump(out, open(args.out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
