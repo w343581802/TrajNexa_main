@@ -1,0 +1,55 @@
+{
+  "note": "人工判定：该帧的人脸是否足以辨认（看 1280 宽原帧的裁剪，不放大）。marginal=勉强可辨。",
+  "track_id": 41,
+  "judge": "human",
+  "frames": {
+    "00204": {
+      "height_px": 207.8,
+      "face": "yes"
+    },
+    "00201": {
+      "height_px": 212.5,
+      "face": "yes"
+    },
+    "00199": {
+      "height_px": 192.2,
+      "face": "yes"
+    },
+    "00206": {
+      "height_px": 150,
+      "face": "yes"
+    },
+    "00193": {
+      "height_px": 127.4,
+      "face": "yes"
+    },
+    "00196": {
+      "height_px": 148.9,
+      "face": "yes"
+    },
+    "00150": {
+      "height_px": 34.4,
+      "face": "no"
+    },
+    "00161": {
+      "height_px": 35.5,
+      "face": "no"
+    },
+    "00170": {
+      "height_px": 34.1,
+      "face": "no"
+    },
+    "00182": {
+      "height_px": 85.9,
+      "face": "marginal"
+    },
+    "00191": {
+      "height_px": 110.7,
+      "face": "yes"
+    },
+    "00200": {
+      "height_px": 194.9,
+      "face": "yes"
+    }
+  }
+}

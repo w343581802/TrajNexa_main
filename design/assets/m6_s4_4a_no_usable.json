@@ -1,0 +1,7522 @@
+{
+  "track_id": 9,
+  "frames_above_min_height": 0,
+  "no_usable_frame": true,
+  "min_height_px": 60.0,
+  "frames_total": 399,
+  "k": 6,
+  "picked": [
+    {
+      "below_min_size": true,
+      "frame_id": "00041",
+      "timestamp_seconds": 1368.2,
+      "bbox": [
+        753.86,
+        186.46,
+        800.1,
+        218.04
+      ],
+      "height_px": 31.6,
+      "size": 0.947,
+      "sharpness": 0.985,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.3887
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00169",
+      "timestamp_seconds": 1393.8,
+      "bbox": [
+        752.26,
+        187.35,
+        798.49,
+        218.86
+      ],
+      "height_px": 31.5,
+      "size": 0.945,
+      "sharpness": 1.0,
+      "edge": 0.0,
+      "crowding": 0.434,
+      "view": "unknown",
+      "score": 0.3468
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00189",
+      "timestamp_seconds": 1397.8,
+      "bbox": [
+        755.1,
+        185.29,
+        799.35,
+        217.12
+      ],
+      "height_px": 31.8,
+      "size": 0.955,
+      "sharpness": 0.995,
+      "edge": 0.0,
+      "crowding": 0.586,
+      "view": "unknown",
+      "score": 0.3327
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00186",
+      "timestamp_seconds": 1397.2,
+      "bbox": [
+        754.41,
+        185.06,
+        799.71,
+        217.37
+      ],
+      "height_px": 32.3,
+      "size": 0.969,
+      "sharpness": 0.99,
+      "edge": 0.0,
+      "crowding": 0.607,
+      "view": "unknown",
+      "score": 0.3326
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00024",
+      "timestamp_seconds": 1364.8,
+      "bbox": [
+        752.48,
+        186.14,
+        799.06,
+        217.55
+      ],
+      "height_px": 31.4,
+      "size": 0.942,
+      "sharpness": 0.98,
+      "edge": 0.0,
+      "crowding": 0.582,
+      "view": "unknown",
+      "score": 0.329
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00290",
+      "timestamp_seconds": 1418.0,
+      "bbox": [
+        754.28,
+        187.64,
+        799.42,
+        218.51
+      ],
+      "height_px": 30.9,
+      "size": 0.926,
+      "sharpness": 0.975,
+      "edge": 0.0,
+      "crowding": 0.547,
+      "view": "unknown",
+      "score": 0.329
+    }
+  ],
+  "baseline_uniform": [
+    {
+      "below_min_size": true,
+      "frame_id": "00001",
+      "timestamp_seconds": 1360.2,
+      "bbox": [
+        752.1,
+        188.93,
+        798.02,
+        217.98
+      ],
+      "height_px": 29.0,
+      "size": 0.872,
+      "sharpness": 0.244,
+      "edge": 0.0,
+      "crowding": 0.501,
+      "view": "unknown",
+      "score": 0.236
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00067",
+      "timestamp_seconds": 1373.4,
+      "bbox": [
+        753.5,
+        189.47,
+        797.83,
+        217.85
+      ],
+      "height_px": 28.4,
+      "size": 0.851,
+      "sharpness": 0.457,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.257
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00133",
+      "timestamp_seconds": 1386.6,
+      "bbox": [
+        753.25,
+        189.28,
+        796.8,
+        217.89
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.568,
+      "edge": 0.0,
+      "crowding": 0.45,
+      "view": "unknown",
+      "score": 0.2776
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00199",
+      "timestamp_seconds": 1399.8,
+      "bbox": [
+        754.83,
+        189.32,
+        798.1,
+        217.87
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.648,
+      "edge": 0.0,
+      "crowding": 0.456,
+      "view": "unknown",
+      "score": 0.2864
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00265",
+      "timestamp_seconds": 1413.0,
+      "bbox": [
+        753.25,
+        187.44,
+        799.08,
+        217.27
+      ],
+      "height_px": 29.8,
+      "size": 0.895,
+      "sharpness": 0.533,
+      "edge": 0.0,
+      "crowding": 0.579,
+      "view": "unknown",
+      "score": 0.2671
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00331",
+      "timestamp_seconds": 1426.2,
+      "bbox": [
+        752.79,
+        190.71,
+        797.53,
+        217.97
+      ],
+      "height_px": 27.3,
+      "size": 0.818,
+      "sharpness": 0.151,
+      "edge": 0.0,
+      "crowding": 0.485,
+      "view": "unknown",
+      "score": 0.2168
+    }
+  ],
+  "baseline_size_only": [
+    {
+      "below_min_size": true,
+      "frame_id": "00041",
+      "timestamp_seconds": 1368.2,
+      "bbox": [
+        753.86,
+        186.46,
+        800.1,
+        218.04
+      ],
+      "height_px": 31.6,
+      "size": 0.947,
+      "sharpness": 0.985,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.3887
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00169",
+      "timestamp_seconds": 1393.8,
+      "bbox": [
+        752.26,
+        187.35,
+        798.49,
+        218.86
+      ],
+      "height_px": 31.5,
+      "size": 0.945,
+      "sharpness": 1.0,
+      "edge": 0.0,
+      "crowding": 0.434,
+      "view": "unknown",
+      "score": 0.3468
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00189",
+      "timestamp_seconds": 1397.8,
+      "bbox": [
+        755.1,
+        185.29,
+        799.35,
+        217.12
+      ],
+      "height_px": 31.8,
+      "size": 0.955,
+      "sharpness": 0.995,
+      "edge": 0.0,
+      "crowding": 0.586,
+      "view": "unknown",
+      "score": 0.3327
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00186",
+      "timestamp_seconds": 1397.2,
+      "bbox": [
+        754.41,
+        185.06,
+        799.71,
+        217.37
+      ],
+      "height_px": 32.3,
+      "size": 0.969,
+      "sharpness": 0.99,
+      "edge": 0.0,
+      "crowding": 0.607,
+      "view": "unknown",
+      "score": 0.3326
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00024",
+      "timestamp_seconds": 1364.8,
+      "bbox": [
+        752.48,
+        186.14,
+        799.06,
+        217.55
+      ],
+      "height_px": 31.4,
+      "size": 0.942,
+      "sharpness": 0.98,
+      "edge": 0.0,
+      "crowding": 0.582,
+      "view": "unknown",
+      "score": 0.329
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00290",
+      "timestamp_seconds": 1418.0,
+      "bbox": [
+        754.28,
+        187.64,
+        799.42,
+        218.51
+      ],
+      "height_px": 30.9,
+      "size": 0.926,
+      "sharpness": 0.975,
+      "edge": 0.0,
+      "crowding": 0.547,
+      "view": "unknown",
+      "score": 0.329
+    }
+  ],
+  "all_scores": [
+    {
+      "below_min_size": true,
+      "frame_id": "00001",
+      "timestamp_seconds": 1360.2,
+      "bbox": [
+        752.1,
+        188.93,
+        798.02,
+        217.98
+      ],
+      "height_px": 29.0,
+      "size": 0.872,
+      "sharpness": 0.244,
+      "edge": 0.0,
+      "crowding": 0.501,
+      "view": "unknown",
+      "score": 0.236
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00002",
+      "timestamp_seconds": 1360.4,
+      "bbox": [
+        752.44,
+        188.61,
+        798.17,
+        218.11
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.241,
+      "edge": 0.0,
+      "crowding": 0.497,
+      "view": "unknown",
+      "score": 0.2385
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00003",
+      "timestamp_seconds": 1360.6,
+      "bbox": [
+        751.9,
+        188.69,
+        797.94,
+        218.26
+      ],
+      "height_px": 29.6,
+      "size": 0.887,
+      "sharpness": 0.317,
+      "edge": 0.0,
+      "crowding": 0.487,
+      "view": "unknown",
+      "score": 0.249
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00004",
+      "timestamp_seconds": 1360.8,
+      "bbox": [
+        752.27,
+        188.75,
+        797.46,
+        217.86
+      ],
+      "height_px": 29.1,
+      "size": 0.873,
+      "sharpness": 0.435,
+      "edge": 0.0,
+      "crowding": 0.499,
+      "view": "unknown",
+      "score": 0.2594
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00005",
+      "timestamp_seconds": 1361.0,
+      "bbox": [
+        752.5,
+        188.12,
+        797.49,
+        217.64
+      ],
+      "height_px": 29.5,
+      "size": 0.886,
+      "sharpness": 0.188,
+      "edge": 0.0,
+      "crowding": 0.507,
+      "view": "unknown",
+      "score": 0.2313
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00006",
+      "timestamp_seconds": 1361.2,
+      "bbox": [
+        753.01,
+        185.5,
+        798.53,
+        217.27
+      ],
+      "height_px": 31.8,
+      "size": 0.953,
+      "sharpness": 0.347,
+      "edge": 0.0,
+      "crowding": 0.626,
+      "view": "unknown",
+      "score": 0.2505
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00007",
+      "timestamp_seconds": 1361.4,
+      "bbox": [
+        753.32,
+        186.67,
+        798.17,
+        217.36
+      ],
+      "height_px": 30.7,
+      "size": 0.921,
+      "sharpness": 0.148,
+      "edge": 0.0,
+      "crowding": 0.613,
+      "view": "unknown",
+      "score": 0.2222
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00008",
+      "timestamp_seconds": 1361.6,
+      "bbox": [
+        752.97,
+        188.08,
+        797.78,
+        217.65
+      ],
+      "height_px": 29.6,
+      "size": 0.887,
+      "sharpness": 0.183,
+      "edge": 0.0,
+      "crowding": 0.551,
+      "view": "unknown",
+      "score": 0.2266
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00009",
+      "timestamp_seconds": 1361.8,
+      "bbox": [
+        752.5,
+        186.22,
+        799.06,
+        217.79
+      ],
+      "height_px": 31.6,
+      "size": 0.947,
+      "sharpness": 0.977,
+      "edge": 0.0,
+      "crowding": 0.609,
+      "view": "unknown",
+      "score": 0.3269
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00010",
+      "timestamp_seconds": 1362.0,
+      "bbox": [
+        752.14,
+        188.11,
+        798.98,
+        218.89
+      ],
+      "height_px": 30.8,
+      "size": 0.923,
+      "sharpness": 0.178,
+      "edge": 0.0,
+      "crowding": 0.536,
+      "view": "unknown",
+      "score": 0.234
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00011",
+      "timestamp_seconds": 1362.2,
+      "bbox": [
+        752.94,
+        187.88,
+        799.26,
+        218.96
+      ],
+      "height_px": 31.1,
+      "size": 0.932,
+      "sharpness": 0.103,
+      "edge": 0.0,
+      "crowding": 0.564,
+      "view": "unknown",
+      "score": 0.2238
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00012",
+      "timestamp_seconds": 1362.4,
+      "bbox": [
+        751.58,
+        188.18,
+        798.47,
+        219.59
+      ],
+      "height_px": 31.4,
+      "size": 0.942,
+      "sharpness": 0.686,
+      "edge": 0.0,
+      "crowding": 0.549,
+      "view": "unknown",
+      "score": 0.297
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00013",
+      "timestamp_seconds": 1362.6,
+      "bbox": [
+        753.32,
+        185.42,
+        798.38,
+        218.47
+      ],
+      "height_px": 33.1,
+      "size": 0.992,
+      "sharpness": 0.01,
+      "edge": 0.0,
+      "crowding": 0.502,
+      "view": "unknown",
+      "score": 0.2295
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00014",
+      "timestamp_seconds": 1362.8,
+      "bbox": [
+        751.94,
+        185.97,
+        799.14,
+        218.5
+      ],
+      "height_px": 32.5,
+      "size": 0.976,
+      "sharpness": 0.553,
+      "edge": 0.0,
+      "crowding": 0.601,
+      "view": "unknown",
+      "score": 0.2819
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00015",
+      "timestamp_seconds": 1363.0,
+      "bbox": [
+        752.32,
+        184.96,
+        798.8,
+        218.29
+      ],
+      "height_px": 33.3,
+      "size": 1.0,
+      "sharpness": 0.03,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.2836
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00016",
+      "timestamp_seconds": 1363.2,
+      "bbox": [
+        751.85,
+        185.11,
+        798.91,
+        218.42
+      ],
+      "height_px": 33.3,
+      "size": 0.999,
+      "sharpness": 0.04,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.2847
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00017",
+      "timestamp_seconds": 1363.4,
+      "bbox": [
+        750.54,
+        187.18,
+        798.39,
+        219.24
+      ],
+      "height_px": 32.1,
+      "size": 0.962,
+      "sharpness": 0.947,
+      "edge": 0.0,
+      "crowding": 0.636,
+      "view": "unknown",
+      "score": 0.3232
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00018",
+      "timestamp_seconds": 1363.6,
+      "bbox": [
+        751.7,
+        185.02,
+        798.66,
+        217.98
+      ],
+      "height_px": 33.0,
+      "size": 0.989,
+      "sharpness": 0.075,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.287
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00019",
+      "timestamp_seconds": 1363.8,
+      "bbox": [
+        751.15,
+        184.97,
+        799.49,
+        218.24
+      ],
+      "height_px": 33.3,
+      "size": 0.998,
+      "sharpness": 0.043,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.2848
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00020",
+      "timestamp_seconds": 1364.0,
+      "bbox": [
+        752.51,
+        190.84,
+        797.27,
+        218.3
+      ],
+      "height_px": 27.5,
+      "size": 0.824,
+      "sharpness": 0.0,
+      "edge": 0.0,
+      "crowding": 0.522,
+      "view": "unknown",
+      "score": 0.1961
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00021",
+      "timestamp_seconds": 1364.2,
+      "bbox": [
+        754.08,
+        189.81,
+        797.96,
+        218.46
+      ],
+      "height_px": 28.7,
+      "size": 0.86,
+      "sharpness": 0.003,
+      "edge": 0.0,
+      "crowding": 0.516,
+      "view": "unknown",
+      "score": 0.2034
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00022",
+      "timestamp_seconds": 1364.4,
+      "bbox": [
+        752.67,
+        188.63,
+        797.93,
+        217.69
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.013,
+      "edge": 0.0,
+      "crowding": 0.53,
+      "view": "unknown",
+      "score": 0.2055
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00023",
+      "timestamp_seconds": 1364.6,
+      "bbox": [
+        752.45,
+        188.79,
+        797.5,
+        218.08
+      ],
+      "height_px": 29.3,
+      "size": 0.879,
+      "sharpness": 0.038,
+      "edge": 0.0,
+      "crowding": 0.515,
+      "view": "unknown",
+      "score": 0.2112
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00024",
+      "timestamp_seconds": 1364.8,
+      "bbox": [
+        752.48,
+        186.14,
+        799.06,
+        217.55
+      ],
+      "height_px": 31.4,
+      "size": 0.942,
+      "sharpness": 0.98,
+      "edge": 0.0,
+      "crowding": 0.582,
+      "view": "unknown",
+      "score": 0.329
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00025",
+      "timestamp_seconds": 1365.0,
+      "bbox": [
+        752.21,
+        188.12,
+        798.06,
+        218.32
+      ],
+      "height_px": 30.2,
+      "size": 0.906,
+      "sharpness": 0.173,
+      "edge": 0.0,
+      "crowding": 0.495,
+      "view": "unknown",
+      "score": 0.2344
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00026",
+      "timestamp_seconds": 1365.2,
+      "bbox": [
+        752.93,
+        189.76,
+        797.58,
+        218.63
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.312,
+      "edge": 0.0,
+      "crowding": 0.474,
+      "view": "unknown",
+      "score": 0.2459
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00027",
+      "timestamp_seconds": 1365.4,
+      "bbox": [
+        752.93,
+        191.95,
+        797.12,
+        219.64
+      ],
+      "height_px": 27.7,
+      "size": 0.831,
+      "sharpness": 0.337,
+      "edge": 0.0,
+      "crowding": 0.382,
+      "view": "unknown",
+      "score": 0.2517
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00028",
+      "timestamp_seconds": 1365.6,
+      "bbox": [
+        752.63,
+        191.1,
+        796.58,
+        218.52
+      ],
+      "height_px": 27.4,
+      "size": 0.823,
+      "sharpness": 0.186,
+      "edge": 0.0,
+      "crowding": 0.416,
+      "view": "unknown",
+      "score": 0.2288
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00029",
+      "timestamp_seconds": 1365.8,
+      "bbox": [
+        753.16,
+        189.05,
+        797.3,
+        218.39
+      ],
+      "height_px": 29.3,
+      "size": 0.88,
+      "sharpness": 0.42,
+      "edge": 0.0,
+      "crowding": 0.473,
+      "view": "unknown",
+      "score": 0.2615
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00030",
+      "timestamp_seconds": 1366.0,
+      "bbox": [
+        753.6,
+        187.15,
+        798.89,
+        217.64
+      ],
+      "height_px": 30.5,
+      "size": 0.915,
+      "sharpness": 0.739,
+      "edge": 0.0,
+      "crowding": 0.558,
+      "view": "unknown",
+      "score": 0.2975
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00031",
+      "timestamp_seconds": 1366.2,
+      "bbox": [
+        753.62,
+        186.73,
+        799.3,
+        217.81
+      ],
+      "height_px": 31.1,
+      "size": 0.932,
+      "sharpness": 0.741,
+      "edge": 0.0,
+      "crowding": 0.581,
+      "view": "unknown",
+      "score": 0.2987
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00032",
+      "timestamp_seconds": 1366.4,
+      "bbox": [
+        753.94,
+        186.72,
+        798.78,
+        217.57
+      ],
+      "height_px": 30.8,
+      "size": 0.926,
+      "sharpness": 0.711,
+      "edge": 0.0,
+      "crowding": 0.581,
+      "view": "unknown",
+      "score": 0.2939
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00033",
+      "timestamp_seconds": 1366.6,
+      "bbox": [
+        752.56,
+        187.29,
+        798.52,
+        217.72
+      ],
+      "height_px": 30.4,
+      "size": 0.913,
+      "sharpness": 0.764,
+      "edge": 0.0,
+      "crowding": 0.589,
+      "view": "unknown",
+      "score": 0.2971
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00034",
+      "timestamp_seconds": 1366.8,
+      "bbox": [
+        753.66,
+        187.58,
+        798.17,
+        217.89
+      ],
+      "height_px": 30.3,
+      "size": 0.909,
+      "sharpness": 0.653,
+      "edge": 0.0,
+      "crowding": 0.518,
+      "view": "unknown",
+      "score": 0.2903
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00035",
+      "timestamp_seconds": 1367.0,
+      "bbox": [
+        753.48,
+        187.11,
+        798.25,
+        217.92
+      ],
+      "height_px": 30.8,
+      "size": 0.924,
+      "sharpness": 0.673,
+      "edge": 0.0,
+      "crowding": 0.525,
+      "view": "unknown",
+      "score": 0.2947
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00036",
+      "timestamp_seconds": 1367.2,
+      "bbox": [
+        753.4,
+        188.23,
+        797.81,
+        217.96
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.291,
+      "edge": 0.0,
+      "crowding": 0.499,
+      "view": "unknown",
+      "score": 0.2456
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00037",
+      "timestamp_seconds": 1367.4,
+      "bbox": [
+        753.62,
+        186.96,
+        798.3,
+        217.18
+      ],
+      "height_px": 30.2,
+      "size": 0.907,
+      "sharpness": 0.191,
+      "edge": 0.0,
+      "crowding": 0.599,
+      "view": "unknown",
+      "score": 0.2262
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00038",
+      "timestamp_seconds": 1367.6,
+      "bbox": [
+        752.59,
+        188.21,
+        798.53,
+        218.02
+      ],
+      "height_px": 29.8,
+      "size": 0.894,
+      "sharpness": 0.181,
+      "edge": 0.0,
+      "crowding": 0.562,
+      "view": "unknown",
+      "score": 0.2265
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00039",
+      "timestamp_seconds": 1367.8,
+      "bbox": [
+        752.85,
+        189.07,
+        798.32,
+        218.12
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.095,
+      "edge": 0.0,
+      "crowding": 0.542,
+      "view": "unknown",
+      "score": 0.2142
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00040",
+      "timestamp_seconds": 1368.0,
+      "bbox": [
+        753.25,
+        186.66,
+        800.05,
+        218.36
+      ],
+      "height_px": 31.7,
+      "size": 0.951,
+      "sharpness": 0.274,
+      "edge": 0.0,
+      "crowding": 0.597,
+      "view": "unknown",
+      "score": 0.2444
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00041",
+      "timestamp_seconds": 1368.2,
+      "bbox": [
+        753.86,
+        186.46,
+        800.1,
+        218.04
+      ],
+      "height_px": 31.6,
+      "size": 0.947,
+      "sharpness": 0.985,
+      "edge": 0.0,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.3887
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00042",
+      "timestamp_seconds": 1368.4,
+      "bbox": [
+        754.06,
+        187.35,
+        798.9,
+        217.6
+      ],
+      "height_px": 30.2,
+      "size": 0.908,
+      "sharpness": 0.482,
+      "edge": 0.0,
+      "crowding": 0.544,
+      "view": "unknown",
+      "score": 0.2668
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00043",
+      "timestamp_seconds": 1368.6,
+      "bbox": [
+        754.25,
+        189.11,
+        798.24,
+        217.99
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.296,
+      "edge": 0.0,
+      "crowding": 0.493,
+      "view": "unknown",
+      "score": 0.2422
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00044",
+      "timestamp_seconds": 1368.8,
+      "bbox": [
+        753.52,
+        189.27,
+        797.51,
+        217.53
+      ],
+      "height_px": 28.3,
+      "size": 0.848,
+      "sharpness": 0.319,
+      "edge": 0.0,
+      "crowding": 0.508,
+      "view": "unknown",
+      "score": 0.2401
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00045",
+      "timestamp_seconds": 1369.0,
+      "bbox": [
+        753.84,
+        189.6,
+        798.19,
+        217.61
+      ],
+      "height_px": 28.0,
+      "size": 0.84,
+      "sharpness": 0.088,
+      "edge": 0.0,
+      "crowding": 0.521,
+      "view": "unknown",
+      "score": 0.2097
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00046",
+      "timestamp_seconds": 1369.2,
+      "bbox": [
+        753.3,
+        189.97,
+        798.07,
+        217.77
+      ],
+      "height_px": 27.8,
+      "size": 0.834,
+      "sharpness": 0.085,
+      "edge": 0.0,
+      "crowding": 0.519,
+      "view": "unknown",
+      "score": 0.2085
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00047",
+      "timestamp_seconds": 1369.4,
+      "bbox": [
+        753.95,
+        189.63,
+        797.81,
+        217.42
+      ],
+      "height_px": 27.8,
+      "size": 0.834,
+      "sharpness": 0.005,
+      "edge": 0.0,
+      "crowding": 0.53,
+      "view": "unknown",
+      "score": 0.1977
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00048",
+      "timestamp_seconds": 1369.6,
+      "bbox": [
+        754.02,
+        189.8,
+        797.91,
+        217.48
+      ],
+      "height_px": 27.7,
+      "size": 0.83,
+      "sharpness": 0.008,
+      "edge": 0.0,
+      "crowding": 0.521,
+      "view": "unknown",
+      "score": 0.1983
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00049",
+      "timestamp_seconds": 1369.8,
+      "bbox": [
+        754.12,
+        189.06,
+        798.54,
+        217.74
+      ],
+      "height_px": 28.7,
+      "size": 0.86,
+      "sharpness": 0.394,
+      "edge": 0.0,
+      "crowding": 0.545,
+      "view": "unknown",
+      "score": 0.2477
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00050",
+      "timestamp_seconds": 1370.0,
+      "bbox": [
+        753.17,
+        189.16,
+        798.68,
+        219.04
+      ],
+      "height_px": 29.9,
+      "size": 0.896,
+      "sharpness": 0.633,
+      "edge": 0.0,
+      "crowding": 0.492,
+      "view": "unknown",
+      "score": 0.2881
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00051",
+      "timestamp_seconds": 1370.2,
+      "bbox": [
+        753.36,
+        191.6,
+        797.23,
+        218.53
+      ],
+      "height_px": 26.9,
+      "size": 0.808,
+      "sharpness": 0.131,
+      "edge": 0.0,
+      "crowding": 0.449,
+      "view": "unknown",
+      "score": 0.2163
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00052",
+      "timestamp_seconds": 1370.4,
+      "bbox": [
+        752.82,
+        190.74,
+        796.69,
+        218.15
+      ],
+      "height_px": 27.4,
+      "size": 0.822,
+      "sharpness": 0.048,
+      "edge": 0.0,
+      "crowding": 0.444,
+      "view": "unknown",
+      "score": 0.2094
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00053",
+      "timestamp_seconds": 1370.6,
+      "bbox": [
+        753.16,
+        187.85,
+        798.06,
+        217.5
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.487,
+      "edge": 0.0,
+      "crowding": 0.532,
+      "view": "unknown",
+      "score": 0.2654
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00054",
+      "timestamp_seconds": 1370.8,
+      "bbox": [
+        752.5,
+        188.79,
+        797.53,
+        217.85
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.354,
+      "edge": 0.0,
+      "crowding": 0.5,
+      "view": "unknown",
+      "score": 0.2494
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00055",
+      "timestamp_seconds": 1371.0,
+      "bbox": [
+        752.19,
+        188.11,
+        797.92,
+        217.58
+      ],
+      "height_px": 29.5,
+      "size": 0.884,
+      "sharpness": 0.555,
+      "edge": 0.0,
+      "crowding": 0.54,
+      "view": "unknown",
+      "score": 0.2718
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00056",
+      "timestamp_seconds": 1371.2,
+      "bbox": [
+        752.46,
+        188.24,
+        798.02,
+        217.75
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.503,
+      "edge": 0.0,
+      "crowding": 0.508,
+      "view": "unknown",
+      "score": 0.2688
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00057",
+      "timestamp_seconds": 1371.4,
+      "bbox": [
+        752.21,
+        189.81,
+        798.02,
+        218.37
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.078,
+      "edge": 0.0,
+      "crowding": 0.474,
+      "view": "unknown",
+      "score": 0.2162
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00058",
+      "timestamp_seconds": 1371.6,
+      "bbox": [
+        752.91,
+        188.07,
+        798.73,
+        217.43
+      ],
+      "height_px": 29.4,
+      "size": 0.881,
+      "sharpness": 0.063,
+      "edge": 0.0,
+      "crowding": 0.548,
+      "view": "unknown",
+      "score": 0.2113
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00059",
+      "timestamp_seconds": 1371.8,
+      "bbox": [
+        753.39,
+        187.94,
+        798.4,
+        217.23
+      ],
+      "height_px": 29.3,
+      "size": 0.879,
+      "sharpness": 0.083,
+      "edge": 0.0,
+      "crowding": 0.548,
+      "view": "unknown",
+      "score": 0.2133
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00060",
+      "timestamp_seconds": 1372.0,
+      "bbox": [
+        754.11,
+        187.0,
+        798.81,
+        217.34
+      ],
+      "height_px": 30.3,
+      "size": 0.91,
+      "sharpness": 0.251,
+      "edge": 0.0,
+      "crowding": 0.566,
+      "view": "unknown",
+      "score": 0.2374
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00061",
+      "timestamp_seconds": 1372.2,
+      "bbox": [
+        753.98,
+        185.62,
+        799.94,
+        217.01
+      ],
+      "height_px": 31.4,
+      "size": 0.942,
+      "sharpness": 0.585,
+      "edge": 0.0,
+      "crowding": 0.598,
+      "view": "unknown",
+      "score": 0.2799
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00062",
+      "timestamp_seconds": 1372.4,
+      "bbox": [
+        754.69,
+        187.37,
+        798.81,
+        217.35
+      ],
+      "height_px": 30.0,
+      "size": 0.899,
+      "sharpness": 0.407,
+      "edge": 0.0,
+      "crowding": 0.603,
+      "view": "unknown",
+      "score": 0.2505
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00063",
+      "timestamp_seconds": 1372.6,
+      "bbox": [
+        754.13,
+        188.12,
+        797.62,
+        216.83
+      ],
+      "height_px": 28.7,
+      "size": 0.861,
+      "sharpness": 0.138,
+      "edge": 0.0,
+      "crowding": 0.574,
+      "view": "unknown",
+      "score": 0.2142
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00064",
+      "timestamp_seconds": 1372.8,
+      "bbox": [
+        753.82,
+        190.77,
+        797.14,
+        217.83
+      ],
+      "height_px": 27.1,
+      "size": 0.812,
+      "sharpness": 0.045,
+      "edge": 0.0,
+      "crowding": 0.443,
+      "view": "unknown",
+      "score": 0.2073
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00065",
+      "timestamp_seconds": 1373.0,
+      "bbox": [
+        753.48,
+        190.37,
+        797.48,
+        217.78
+      ],
+      "height_px": 27.4,
+      "size": 0.822,
+      "sharpness": 0.158,
+      "edge": 0.0,
+      "crowding": 0.483,
+      "view": "unknown",
+      "score": 0.2187
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00066",
+      "timestamp_seconds": 1373.2,
+      "bbox": [
+        753.16,
+        188.61,
+        797.98,
+        217.28
+      ],
+      "height_px": 28.7,
+      "size": 0.86,
+      "sharpness": 0.128,
+      "edge": 0.0,
+      "crowding": 0.549,
+      "view": "unknown",
+      "score": 0.2153
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00067",
+      "timestamp_seconds": 1373.4,
+      "bbox": [
+        753.5,
+        189.47,
+        797.83,
+        217.85
+      ],
+      "height_px": 28.4,
+      "size": 0.851,
+      "sharpness": 0.457,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.257
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00068",
+      "timestamp_seconds": 1373.6,
+      "bbox": [
+        753.79,
+        189.04,
+        798.22,
+        217.9
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.5,
+      "edge": 0.0,
+      "crowding": 0.515,
+      "view": "unknown",
+      "score": 0.2644
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00069",
+      "timestamp_seconds": 1373.8,
+      "bbox": [
+        754.04,
+        188.82,
+        798.3,
+        217.25
+      ],
+      "height_px": 28.4,
+      "size": 0.853,
+      "sharpness": 0.05,
+      "edge": 0.0,
+      "crowding": 0.548,
+      "view": "unknown",
+      "score": 0.2048
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00070",
+      "timestamp_seconds": 1374.0,
+      "bbox": [
+        753.5,
+        186.75,
+        798.4,
+        216.84
+      ],
+      "height_px": 30.1,
+      "size": 0.903,
+      "sharpness": 0.254,
+      "edge": 0.0,
+      "crowding": 0.574,
+      "view": "unknown",
+      "score": 0.2356
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00071",
+      "timestamp_seconds": 1374.2,
+      "bbox": [
+        753.46,
+        185.35,
+        799.16,
+        216.59
+      ],
+      "height_px": 31.2,
+      "size": 0.937,
+      "sharpness": 0.982,
+      "edge": 0.0,
+      "crowding": 0.613,
+      "view": "unknown",
+      "score": 0.3253
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00072",
+      "timestamp_seconds": 1374.4,
+      "bbox": [
+        753.24,
+        185.3,
+        799.34,
+        216.63
+      ],
+      "height_px": 31.3,
+      "size": 0.94,
+      "sharpness": 0.987,
+      "edge": 0.0,
+      "crowding": 0.616,
+      "view": "unknown",
+      "score": 0.3261
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00073",
+      "timestamp_seconds": 1374.6,
+      "bbox": [
+        752.28,
+        186.32,
+        798.77,
+        217.29
+      ],
+      "height_px": 31.0,
+      "size": 0.929,
+      "sharpness": 0.52,
+      "edge": 0.0,
+      "crowding": 0.554,
+      "view": "unknown",
+      "score": 0.2742
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00074",
+      "timestamp_seconds": 1374.8,
+      "bbox": [
+        752.54,
+        187.09,
+        798.75,
+        217.76
+      ],
+      "height_px": 30.7,
+      "size": 0.92,
+      "sharpness": 0.595,
+      "edge": 0.0,
+      "crowding": 0.539,
+      "view": "unknown",
+      "score": 0.2832
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00075",
+      "timestamp_seconds": 1375.0,
+      "bbox": [
+        752.71,
+        187.25,
+        799.12,
+        217.95
+      ],
+      "height_px": 30.7,
+      "size": 0.921,
+      "sharpness": 0.626,
+      "edge": 0.0,
+      "crowding": 0.545,
+      "view": "unknown",
+      "score": 0.2864
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00076",
+      "timestamp_seconds": 1375.2,
+      "bbox": [
+        752.63,
+        186.91,
+        798.72,
+        217.49
+      ],
+      "height_px": 30.6,
+      "size": 0.917,
+      "sharpness": 0.256,
+      "edge": 0.0,
+      "crowding": 0.549,
+      "view": "unknown",
+      "score": 0.241
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00077",
+      "timestamp_seconds": 1375.4,
+      "bbox": [
+        752.32,
+        187.75,
+        797.98,
+        217.66
+      ],
+      "height_px": 29.9,
+      "size": 0.897,
+      "sharpness": 0.51,
+      "edge": 0.0,
+      "crowding": 0.508,
+      "view": "unknown",
+      "score": 0.2719
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00078",
+      "timestamp_seconds": 1375.6,
+      "bbox": [
+        752.43,
+        187.84,
+        798.5,
+        217.85
+      ],
+      "height_px": 30.0,
+      "size": 0.9,
+      "sharpness": 0.53,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.2746
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00079",
+      "timestamp_seconds": 1375.8,
+      "bbox": [
+        752.81,
+        188.39,
+        798.37,
+        217.86
+      ],
+      "height_px": 29.5,
+      "size": 0.884,
+      "sharpness": 0.497,
+      "edge": 0.0,
+      "crowding": 0.509,
+      "view": "unknown",
+      "score": 0.2679
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00080",
+      "timestamp_seconds": 1376.0,
+      "bbox": [
+        754.3,
+        190.58,
+        797.21,
+        217.61
+      ],
+      "height_px": 27.0,
+      "size": 0.811,
+      "sharpness": 0.08,
+      "edge": 0.0,
+      "crowding": 0.477,
+      "view": "unknown",
+      "score": 0.208
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00081",
+      "timestamp_seconds": 1376.2,
+      "bbox": [
+        753.83,
+        190.47,
+        796.57,
+        217.67
+      ],
+      "height_px": 27.2,
+      "size": 0.816,
+      "sharpness": 0.266,
+      "edge": 0.0,
+      "crowding": 0.452,
+      "view": "unknown",
+      "score": 0.2337
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00082",
+      "timestamp_seconds": 1376.4,
+      "bbox": [
+        753.19,
+        190.64,
+        796.59,
+        218.58
+      ],
+      "height_px": 27.9,
+      "size": 0.838,
+      "sharpness": 0.405,
+      "edge": 0.0,
+      "crowding": 0.418,
+      "view": "unknown",
+      "score": 0.2576
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00083",
+      "timestamp_seconds": 1376.6,
+      "bbox": [
+        753.7,
+        190.93,
+        797.63,
+        218.68
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.399,
+      "edge": 0.0,
+      "crowding": 0.439,
+      "view": "unknown",
+      "score": 0.254
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00084",
+      "timestamp_seconds": 1376.8,
+      "bbox": [
+        753.79,
+        192.35,
+        797.55,
+        218.78
+      ],
+      "height_px": 26.4,
+      "size": 0.793,
+      "sharpness": 0.171,
+      "edge": 0.0,
+      "crowding": 0.404,
+      "view": "unknown",
+      "score": 0.2228
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00085",
+      "timestamp_seconds": 1377.0,
+      "bbox": [
+        754.22,
+        190.64,
+        797.75,
+        218.13
+      ],
+      "height_px": 27.5,
+      "size": 0.825,
+      "sharpness": 0.126,
+      "edge": 0.0,
+      "crowding": 0.454,
+      "view": "unknown",
+      "score": 0.2181
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00086",
+      "timestamp_seconds": 1377.2,
+      "bbox": [
+        753.77,
+        191.47,
+        797.38,
+        218.52
+      ],
+      "height_px": 27.1,
+      "size": 0.812,
+      "sharpness": 0.525,
+      "edge": 0.0,
+      "crowding": 0.417,
+      "view": "unknown",
+      "score": 0.2674
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00087",
+      "timestamp_seconds": 1377.4,
+      "bbox": [
+        753.53,
+        190.89,
+        797.07,
+        218.53
+      ],
+      "height_px": 27.6,
+      "size": 0.829,
+      "sharpness": 0.528,
+      "edge": 0.0,
+      "crowding": 0.442,
+      "view": "unknown",
+      "score": 0.2683
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00088",
+      "timestamp_seconds": 1377.6,
+      "bbox": [
+        754.1,
+        190.81,
+        797.42,
+        218.18
+      ],
+      "height_px": 27.4,
+      "size": 0.821,
+      "sharpness": 0.133,
+      "edge": 0.0,
+      "crowding": 0.455,
+      "view": "unknown",
+      "score": 0.2183
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00089",
+      "timestamp_seconds": 1377.8,
+      "bbox": [
+        754.08,
+        190.09,
+        797.71,
+        217.98
+      ],
+      "height_px": 27.9,
+      "size": 0.837,
+      "sharpness": 0.146,
+      "edge": 0.0,
+      "crowding": 0.471,
+      "view": "unknown",
+      "score": 0.221
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00090",
+      "timestamp_seconds": 1378.0,
+      "bbox": [
+        753.66,
+        186.41,
+        798.88,
+        217.37
+      ],
+      "height_px": 31.0,
+      "size": 0.929,
+      "sharpness": 0.701,
+      "edge": 0.0,
+      "crowding": 0.515,
+      "view": "unknown",
+      "score": 0.2998
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00091",
+      "timestamp_seconds": 1378.2,
+      "bbox": [
+        752.84,
+        188.46,
+        797.78,
+        217.22
+      ],
+      "height_px": 28.8,
+      "size": 0.863,
+      "sharpness": 0.196,
+      "edge": 0.0,
+      "crowding": 0.49,
+      "view": "unknown",
+      "score": 0.2298
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00092",
+      "timestamp_seconds": 1378.4,
+      "bbox": [
+        752.73,
+        187.31,
+        798.08,
+        217.65
+      ],
+      "height_px": 30.3,
+      "size": 0.91,
+      "sharpness": 0.781,
+      "edge": 0.0,
+      "crowding": 0.492,
+      "view": "unknown",
+      "score": 0.3084
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00093",
+      "timestamp_seconds": 1378.6,
+      "bbox": [
+        752.91,
+        187.84,
+        798.18,
+        217.52
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.608,
+      "edge": 0.0,
+      "crowding": 0.497,
+      "view": "unknown",
+      "score": 0.2835
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00094",
+      "timestamp_seconds": 1378.8,
+      "bbox": [
+        753.24,
+        188.61,
+        797.84,
+        217.44
+      ],
+      "height_px": 28.8,
+      "size": 0.865,
+      "sharpness": 0.118,
+      "edge": 0.0,
+      "crowding": 0.502,
+      "view": "unknown",
+      "score": 0.2197
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00095",
+      "timestamp_seconds": 1379.0,
+      "bbox": [
+        753.02,
+        189.52,
+        797.32,
+        217.45
+      ],
+      "height_px": 27.9,
+      "size": 0.838,
+      "sharpness": 0.015,
+      "edge": 0.0,
+      "crowding": 0.491,
+      "view": "unknown",
+      "score": 0.2035
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00096",
+      "timestamp_seconds": 1379.2,
+      "bbox": [
+        752.79,
+        191.22,
+        796.89,
+        218.08
+      ],
+      "height_px": 26.9,
+      "size": 0.806,
+      "sharpness": 0.053,
+      "edge": 0.0,
+      "crowding": 0.431,
+      "view": "unknown",
+      "score": 0.2083
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00097",
+      "timestamp_seconds": 1379.4,
+      "bbox": [
+        752.73,
+        190.73,
+        796.96,
+        218.12
+      ],
+      "height_px": 27.4,
+      "size": 0.822,
+      "sharpness": 0.058,
+      "edge": 0.0,
+      "crowding": 0.442,
+      "view": "unknown",
+      "score": 0.2107
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00098",
+      "timestamp_seconds": 1379.6,
+      "bbox": [
+        752.46,
+        191.83,
+        796.26,
+        218.27
+      ],
+      "height_px": 26.4,
+      "size": 0.793,
+      "sharpness": 0.035,
+      "edge": 0.0,
+      "crowding": 0.395,
+      "view": "unknown",
+      "score": 0.2075
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00099",
+      "timestamp_seconds": 1379.8,
+      "bbox": [
+        753.07,
+        189.07,
+        797.09,
+        217.15
+      ],
+      "height_px": 28.1,
+      "size": 0.842,
+      "sharpness": 0.264,
+      "edge": 0.0,
+      "crowding": 0.45,
+      "view": "unknown",
+      "score": 0.2383
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00100",
+      "timestamp_seconds": 1380.0,
+      "bbox": [
+        754.48,
+        188.89,
+        797.93,
+        217.88
+      ],
+      "height_px": 29.0,
+      "size": 0.87,
+      "sharpness": 0.621,
+      "edge": 0.0,
+      "crowding": 0.498,
+      "view": "unknown",
+      "score": 0.2812
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00101",
+      "timestamp_seconds": 1380.2,
+      "bbox": [
+        754.13,
+        187.79,
+        798.17,
+        217.38
+      ],
+      "height_px": 29.6,
+      "size": 0.888,
+      "sharpness": 0.384,
+      "edge": 0.0,
+      "crowding": 0.525,
+      "view": "unknown",
+      "score": 0.2535
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00102",
+      "timestamp_seconds": 1380.4,
+      "bbox": [
+        754.14,
+        186.63,
+        799.02,
+        217.4
+      ],
+      "height_px": 30.8,
+      "size": 0.923,
+      "sharpness": 0.565,
+      "edge": 0.0,
+      "crowding": 0.544,
+      "view": "unknown",
+      "score": 0.2796
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00103",
+      "timestamp_seconds": 1380.6,
+      "bbox": [
+        753.62,
+        188.29,
+        798.5,
+        217.81
+      ],
+      "height_px": 29.5,
+      "size": 0.886,
+      "sharpness": 0.784,
+      "edge": 0.0,
+      "crowding": 0.488,
+      "view": "unknown",
+      "score": 0.3047
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00104",
+      "timestamp_seconds": 1380.8,
+      "bbox": [
+        753.92,
+        188.13,
+        798.26,
+        217.62
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.819,
+      "edge": 0.0,
+      "crowding": 0.496,
+      "view": "unknown",
+      "score": 0.3079
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00105",
+      "timestamp_seconds": 1381.0,
+      "bbox": [
+        753.65,
+        189.51,
+        798.18,
+        218.2
+      ],
+      "height_px": 28.7,
+      "size": 0.861,
+      "sharpness": 0.372,
+      "edge": 0.0,
+      "crowding": 0.486,
+      "view": "unknown",
+      "score": 0.2509
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00106",
+      "timestamp_seconds": 1381.2,
+      "bbox": [
+        753.82,
+        188.81,
+        798.61,
+        217.71
+      ],
+      "height_px": 28.9,
+      "size": 0.867,
+      "sharpness": 0.651,
+      "edge": 0.0,
+      "crowding": 0.501,
+      "view": "unknown",
+      "score": 0.2841
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00107",
+      "timestamp_seconds": 1381.4,
+      "bbox": [
+        754.42,
+        189.96,
+        798.07,
+        217.61
+      ],
+      "height_px": 27.7,
+      "size": 0.83,
+      "sharpness": 0.339,
+      "edge": 0.0,
+      "crowding": 0.472,
+      "view": "unknown",
+      "score": 0.2428
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00108",
+      "timestamp_seconds": 1381.6,
+      "bbox": [
+        754.46,
+        189.33,
+        797.97,
+        217.56
+      ],
+      "height_px": 28.2,
+      "size": 0.847,
+      "sharpness": 0.658,
+      "edge": 0.0,
+      "crowding": 0.49,
+      "view": "unknown",
+      "score": 0.2824
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00109",
+      "timestamp_seconds": 1381.8,
+      "bbox": [
+        753.93,
+        187.61,
+        798.56,
+        217.36
+      ],
+      "height_px": 29.8,
+      "size": 0.893,
+      "sharpness": 0.216,
+      "edge": 0.0,
+      "crowding": 0.55,
+      "view": "unknown",
+      "score": 0.2316
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00110",
+      "timestamp_seconds": 1382.0,
+      "bbox": [
+        753.86,
+        187.08,
+        798.6,
+        217.15
+      ],
+      "height_px": 30.1,
+      "size": 0.902,
+      "sharpness": 0.389,
+      "edge": 0.0,
+      "crowding": 0.546,
+      "view": "unknown",
+      "score": 0.2545
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00111",
+      "timestamp_seconds": 1382.2,
+      "bbox": [
+        753.96,
+        186.78,
+        799.11,
+        216.93
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.41,
+      "edge": 0.0,
+      "crowding": 0.561,
+      "view": "unknown",
+      "score": 0.2559
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00112",
+      "timestamp_seconds": 1382.4,
+      "bbox": [
+        753.6,
+        187.08,
+        798.61,
+        217.13
+      ],
+      "height_px": 30.0,
+      "size": 0.902,
+      "sharpness": 0.492,
+      "edge": 0.0,
+      "crowding": 0.561,
+      "view": "unknown",
+      "score": 0.2653
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00113",
+      "timestamp_seconds": 1382.6,
+      "bbox": [
+        753.73,
+        187.99,
+        797.87,
+        217.25
+      ],
+      "height_px": 29.3,
+      "size": 0.878,
+      "sharpness": 0.286,
+      "edge": 0.0,
+      "crowding": 0.528,
+      "view": "unknown",
+      "score": 0.2396
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00114",
+      "timestamp_seconds": 1382.8,
+      "bbox": [
+        753.21,
+        188.68,
+        797.76,
+        216.99
+      ],
+      "height_px": 28.3,
+      "size": 0.849,
+      "sharpness": 0.201,
+      "edge": 0.0,
+      "crowding": 0.491,
+      "view": "unknown",
+      "score": 0.2279
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00115",
+      "timestamp_seconds": 1383.0,
+      "bbox": [
+        753.88,
+        188.06,
+        798.18,
+        217.25
+      ],
+      "height_px": 29.2,
+      "size": 0.876,
+      "sharpness": 0.314,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.2442
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00116",
+      "timestamp_seconds": 1383.2,
+      "bbox": [
+        753.92,
+        186.73,
+        798.42,
+        216.9
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.578,
+      "edge": 0.0,
+      "crowding": 0.547,
+      "view": "unknown",
+      "score": 0.2776
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00117",
+      "timestamp_seconds": 1383.4,
+      "bbox": [
+        754.3,
+        188.65,
+        797.81,
+        217.02
+      ],
+      "height_px": 28.4,
+      "size": 0.851,
+      "sharpness": 0.214,
+      "edge": 0.0,
+      "crowding": 0.506,
+      "view": "unknown",
+      "score": 0.2282
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00118",
+      "timestamp_seconds": 1383.6,
+      "bbox": [
+        753.21,
+        187.83,
+        798.0,
+        217.03
+      ],
+      "height_px": 29.2,
+      "size": 0.876,
+      "sharpness": 0.284,
+      "edge": 0.0,
+      "crowding": 0.537,
+      "view": "unknown",
+      "score": 0.238
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00119",
+      "timestamp_seconds": 1383.8,
+      "bbox": [
+        753.04,
+        187.47,
+        798.06,
+        217.15
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.523,
+      "edge": 0.0,
+      "crowding": 0.534,
+      "view": "unknown",
+      "score": 0.2696
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00120",
+      "timestamp_seconds": 1384.0,
+      "bbox": [
+        753.09,
+        190.21,
+        796.37,
+        217.74
+      ],
+      "height_px": 27.5,
+      "size": 0.826,
+      "sharpness": 0.294,
+      "edge": 0.0,
+      "crowding": 0.459,
+      "view": "unknown",
+      "score": 0.238
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00121",
+      "timestamp_seconds": 1384.2,
+      "bbox": [
+        753.61,
+        189.67,
+        796.58,
+        217.67
+      ],
+      "height_px": 28.0,
+      "size": 0.84,
+      "sharpness": 0.302,
+      "edge": 0.0,
+      "crowding": 0.48,
+      "view": "unknown",
+      "score": 0.2394
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00122",
+      "timestamp_seconds": 1384.4,
+      "bbox": [
+        754.02,
+        186.96,
+        798.5,
+        217.21
+      ],
+      "height_px": 30.2,
+      "size": 0.908,
+      "sharpness": 0.558,
+      "edge": 0.0,
+      "crowding": 0.583,
+      "view": "unknown",
+      "score": 0.272
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00123",
+      "timestamp_seconds": 1384.6,
+      "bbox": [
+        753.73,
+        188.33,
+        797.53,
+        217.39
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.231,
+      "edge": 0.0,
+      "crowding": 0.533,
+      "view": "unknown",
+      "score": 0.2313
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00124",
+      "timestamp_seconds": 1384.8,
+      "bbox": [
+        753.69,
+        188.82,
+        797.44,
+        217.39
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.239,
+      "edge": 0.0,
+      "crowding": 0.508,
+      "view": "unknown",
+      "score": 0.2321
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00125",
+      "timestamp_seconds": 1385.0,
+      "bbox": [
+        753.73,
+        187.01,
+        798.24,
+        216.81
+      ],
+      "height_px": 29.8,
+      "size": 0.894,
+      "sharpness": 0.54,
+      "edge": 0.0,
+      "crowding": 0.572,
+      "view": "unknown",
+      "score": 0.2685
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00126",
+      "timestamp_seconds": 1385.2,
+      "bbox": [
+        754.03,
+        187.22,
+        798.09,
+        217.02
+      ],
+      "height_px": 29.8,
+      "size": 0.894,
+      "sharpness": 0.513,
+      "edge": 0.0,
+      "crowding": 0.588,
+      "view": "unknown",
+      "score": 0.2637
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00127",
+      "timestamp_seconds": 1385.4,
+      "bbox": [
+        753.87,
+        187.69,
+        798.13,
+        216.94
+      ],
+      "height_px": 29.2,
+      "size": 0.878,
+      "sharpness": 0.249,
+      "edge": 0.0,
+      "crowding": 0.591,
+      "view": "unknown",
+      "score": 0.2287
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00128",
+      "timestamp_seconds": 1385.6,
+      "bbox": [
+        753.68,
+        187.23,
+        797.86,
+        216.87
+      ],
+      "height_px": 29.6,
+      "size": 0.889,
+      "sharpness": 0.573,
+      "edge": 0.0,
+      "crowding": 0.58,
+      "view": "unknown",
+      "score": 0.2708
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00129",
+      "timestamp_seconds": 1385.8,
+      "bbox": [
+        753.4,
+        186.76,
+        798.52,
+        216.94
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.374,
+      "edge": 0.0,
+      "crowding": 0.631,
+      "view": "unknown",
+      "score": 0.2449
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00130",
+      "timestamp_seconds": 1386.0,
+      "bbox": [
+        753.78,
+        187.6,
+        798.36,
+        218.22
+      ],
+      "height_px": 30.6,
+      "size": 0.919,
+      "sharpness": 0.719,
+      "edge": 0.0,
+      "crowding": 0.523,
+      "view": "unknown",
+      "score": 0.2993
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00131",
+      "timestamp_seconds": 1386.2,
+      "bbox": [
+        753.41,
+        187.93,
+        798.16,
+        217.84
+      ],
+      "height_px": 29.9,
+      "size": 0.897,
+      "sharpness": 0.656,
+      "edge": 0.0,
+      "crowding": 0.507,
+      "view": "unknown",
+      "score": 0.2895
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00132",
+      "timestamp_seconds": 1386.4,
+      "bbox": [
+        753.03,
+        188.86,
+        797.2,
+        217.93
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.59,
+      "edge": 0.0,
+      "crowding": 0.466,
+      "view": "unknown",
+      "score": 0.2813
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00133",
+      "timestamp_seconds": 1386.6,
+      "bbox": [
+        753.25,
+        189.28,
+        796.8,
+        217.89
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.568,
+      "edge": 0.0,
+      "crowding": 0.45,
+      "view": "unknown",
+      "score": 0.2776
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00134",
+      "timestamp_seconds": 1386.8,
+      "bbox": [
+        753.48,
+        188.55,
+        797.49,
+        218.08
+      ],
+      "height_px": 29.5,
+      "size": 0.886,
+      "sharpness": 0.583,
+      "edge": 0.0,
+      "crowding": 0.479,
+      "view": "unknown",
+      "score": 0.2815
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00135",
+      "timestamp_seconds": 1387.0,
+      "bbox": [
+        753.78,
+        189.34,
+        797.2,
+        218.18
+      ],
+      "height_px": 28.8,
+      "size": 0.865,
+      "sharpness": 0.736,
+      "edge": 0.0,
+      "crowding": 0.459,
+      "view": "unknown",
+      "score": 0.2982
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00136",
+      "timestamp_seconds": 1387.2,
+      "bbox": [
+        753.23,
+        191.26,
+        796.68,
+        218.85
+      ],
+      "height_px": 27.6,
+      "size": 0.828,
+      "sharpness": 0.47,
+      "edge": 0.0,
+      "crowding": 0.435,
+      "view": "unknown",
+      "score": 0.2619
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00137",
+      "timestamp_seconds": 1387.4,
+      "bbox": [
+        753.48,
+        189.67,
+        796.73,
+        218.24
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.327,
+      "edge": 0.0,
+      "crowding": 0.466,
+      "view": "unknown",
+      "score": 0.2469
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00138",
+      "timestamp_seconds": 1387.6,
+      "bbox": [
+        753.46,
+        191.2,
+        795.97,
+        217.93
+      ],
+      "height_px": 26.7,
+      "size": 0.802,
+      "sharpness": 0.168,
+      "edge": 0.0,
+      "crowding": 0.427,
+      "view": "unknown",
+      "score": 0.2218
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00139",
+      "timestamp_seconds": 1387.8,
+      "bbox": [
+        753.69,
+        190.49,
+        796.28,
+        217.72
+      ],
+      "height_px": 27.2,
+      "size": 0.817,
+      "sharpness": 0.309,
+      "edge": 0.0,
+      "crowding": 0.44,
+      "view": "unknown",
+      "score": 0.2401
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00140",
+      "timestamp_seconds": 1388.0,
+      "bbox": [
+        753.01,
+        191.21,
+        797.16,
+        218.49
+      ],
+      "height_px": 27.3,
+      "size": 0.818,
+      "sharpness": 0.111,
+      "edge": 0.0,
+      "crowding": 0.484,
+      "view": "unknown",
+      "score": 0.2122
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00141",
+      "timestamp_seconds": 1388.2,
+      "bbox": [
+        753.41,
+        190.57,
+        796.76,
+        218.42
+      ],
+      "height_px": 27.8,
+      "size": 0.836,
+      "sharpness": 0.121,
+      "edge": 0.0,
+      "crowding": 0.464,
+      "view": "unknown",
+      "score": 0.2185
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00142",
+      "timestamp_seconds": 1388.4,
+      "bbox": [
+        753.45,
+        192.32,
+        796.62,
+        218.55
+      ],
+      "height_px": 26.2,
+      "size": 0.787,
+      "sharpness": 0.261,
+      "edge": 0.0,
+      "crowding": 0.438,
+      "view": "unknown",
+      "score": 0.2292
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00143",
+      "timestamp_seconds": 1388.6,
+      "bbox": [
+        753.83,
+        192.95,
+        796.79,
+        219.0
+      ],
+      "height_px": 26.1,
+      "size": 0.782,
+      "sharpness": 0.106,
+      "edge": 0.0,
+      "crowding": 0.409,
+      "view": "unknown",
+      "score": 0.2125
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00144",
+      "timestamp_seconds": 1388.8,
+      "bbox": [
+        754.46,
+        192.06,
+        796.93,
+        218.77
+      ],
+      "height_px": 26.7,
+      "size": 0.801,
+      "sharpness": 0.289,
+      "edge": 0.0,
+      "crowding": 0.432,
+      "view": "unknown",
+      "score": 0.2357
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00145",
+      "timestamp_seconds": 1389.0,
+      "bbox": [
+        754.29,
+        191.95,
+        797.27,
+        218.5
+      ],
+      "height_px": 26.6,
+      "size": 0.797,
+      "sharpness": 0.06,
+      "edge": 0.0,
+      "crowding": 0.452,
+      "view": "unknown",
+      "score": 0.2054
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00146",
+      "timestamp_seconds": 1389.2,
+      "bbox": [
+        753.78,
+        191.53,
+        797.55,
+        218.73
+      ],
+      "height_px": 27.2,
+      "size": 0.816,
+      "sharpness": 0.324,
+      "edge": 0.0,
+      "crowding": 0.475,
+      "view": "unknown",
+      "score": 0.2383
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00147",
+      "timestamp_seconds": 1389.4,
+      "bbox": [
+        754.15,
+        191.76,
+        797.43,
+        218.08
+      ],
+      "height_px": 26.3,
+      "size": 0.79,
+      "sharpness": 0.098,
+      "edge": 0.0,
+      "crowding": 0.499,
+      "view": "unknown",
+      "score": 0.204
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00148",
+      "timestamp_seconds": 1389.6,
+      "bbox": [
+        753.65,
+        192.76,
+        796.86,
+        218.23
+      ],
+      "height_px": 25.5,
+      "size": 0.764,
+      "sharpness": 0.018,
+      "edge": 0.0,
+      "crowding": 0.46,
+      "view": "unknown",
+      "score": 0.1937
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00149",
+      "timestamp_seconds": 1389.8,
+      "bbox": [
+        753.7,
+        191.14,
+        797.26,
+        217.98
+      ],
+      "height_px": 26.8,
+      "size": 0.805,
+      "sharpness": 0.068,
+      "edge": 0.0,
+      "crowding": 0.487,
+      "view": "unknown",
+      "score": 0.2044
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00150",
+      "timestamp_seconds": 1390.0,
+      "bbox": [
+        752.89,
+        190.62,
+        797.28,
+        218.55
+      ],
+      "height_px": 27.9,
+      "size": 0.838,
+      "sharpness": 0.412,
+      "edge": 0.0,
+      "crowding": 0.448,
+      "view": "unknown",
+      "score": 0.2555
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00151",
+      "timestamp_seconds": 1390.2,
+      "bbox": [
+        754.06,
+        190.68,
+        797.88,
+        218.44
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.065,
+      "edge": 0.0,
+      "crowding": 0.447,
+      "view": "unknown",
+      "score": 0.213
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00152",
+      "timestamp_seconds": 1390.4,
+      "bbox": [
+        754.04,
+        191.35,
+        797.43,
+        218.41
+      ],
+      "height_px": 27.1,
+      "size": 0.812,
+      "sharpness": 0.101,
+      "edge": 0.0,
+      "crowding": 0.422,
+      "view": "unknown",
+      "score": 0.216
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00153",
+      "timestamp_seconds": 1390.6,
+      "bbox": [
+        753.98,
+        190.79,
+        797.14,
+        218.13
+      ],
+      "height_px": 27.3,
+      "size": 0.82,
+      "sharpness": 0.123,
+      "edge": 0.0,
+      "crowding": 0.445,
+      "view": "unknown",
+      "score": 0.2179
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00154",
+      "timestamp_seconds": 1390.8,
+      "bbox": [
+        753.24,
+        191.14,
+        796.85,
+        218.21
+      ],
+      "height_px": 27.1,
+      "size": 0.812,
+      "sharpness": 0.108,
+      "edge": 0.0,
+      "crowding": 0.436,
+      "view": "unknown",
+      "score": 0.2156
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00155",
+      "timestamp_seconds": 1391.0,
+      "bbox": [
+        754.18,
+        190.7,
+        797.13,
+        218.06
+      ],
+      "height_px": 27.4,
+      "size": 0.821,
+      "sharpness": 0.113,
+      "edge": 0.0,
+      "crowding": 0.447,
+      "view": "unknown",
+      "score": 0.2166
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00156",
+      "timestamp_seconds": 1391.2,
+      "bbox": [
+        754.27,
+        189.63,
+        797.43,
+        217.78
+      ],
+      "height_px": 28.2,
+      "size": 0.845,
+      "sharpness": 0.349,
+      "edge": 0.0,
+      "crowding": 0.484,
+      "view": "unknown",
+      "score": 0.2455
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00157",
+      "timestamp_seconds": 1391.4,
+      "bbox": [
+        753.46,
+        190.32,
+        796.86,
+        217.86
+      ],
+      "height_px": 27.5,
+      "size": 0.826,
+      "sharpness": 0.362,
+      "edge": 0.0,
+      "crowding": 0.451,
+      "view": "unknown",
+      "score": 0.2471
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00158",
+      "timestamp_seconds": 1391.6,
+      "bbox": [
+        754.7,
+        190.13,
+        796.83,
+        217.54
+      ],
+      "height_px": 27.4,
+      "size": 0.822,
+      "sharpness": 0.485,
+      "edge": 0.0,
+      "crowding": 0.422,
+      "view": "unknown",
+      "score": 0.264
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00159",
+      "timestamp_seconds": 1391.8,
+      "bbox": [
+        754.23,
+        190.46,
+        796.94,
+        218.13
+      ],
+      "height_px": 27.7,
+      "size": 0.83,
+      "sharpness": 0.259,
+      "edge": 0.0,
+      "crowding": 0.416,
+      "view": "unknown",
+      "score": 0.2389
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00160",
+      "timestamp_seconds": 1392.0,
+      "bbox": [
+        753.31,
+        190.32,
+        797.51,
+        219.09
+      ],
+      "height_px": 28.8,
+      "size": 0.863,
+      "sharpness": 0.56,
+      "edge": 0.0,
+      "crowding": 0.402,
+      "view": "unknown",
+      "score": 0.2824
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00161",
+      "timestamp_seconds": 1392.2,
+      "bbox": [
+        753.48,
+        190.63,
+        797.58,
+        218.79
+      ],
+      "height_px": 28.2,
+      "size": 0.845,
+      "sharpness": 0.304,
+      "edge": 0.0,
+      "crowding": 0.408,
+      "view": "unknown",
+      "score": 0.2478
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00162",
+      "timestamp_seconds": 1392.4,
+      "bbox": [
+        752.96,
+        192.06,
+        796.72,
+        218.82
+      ],
+      "height_px": 26.8,
+      "size": 0.803,
+      "sharpness": 0.141,
+      "edge": 0.0,
+      "crowding": 0.361,
+      "view": "unknown",
+      "score": 0.2254
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00163",
+      "timestamp_seconds": 1392.6,
+      "bbox": [
+        752.92,
+        190.86,
+        796.77,
+        218.61
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.342,
+      "edge": 0.0,
+      "crowding": 0.389,
+      "view": "unknown",
+      "score": 0.2519
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00164",
+      "timestamp_seconds": 1392.8,
+      "bbox": [
+        753.07,
+        190.88,
+        796.58,
+        218.75
+      ],
+      "height_px": 27.9,
+      "size": 0.836,
+      "sharpness": 0.377,
+      "edge": 0.0,
+      "crowding": 0.38,
+      "view": "unknown",
+      "score": 0.2577
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00165",
+      "timestamp_seconds": 1393.0,
+      "bbox": [
+        753.25,
+        189.37,
+        797.37,
+        218.42
+      ],
+      "height_px": 29.0,
+      "size": 0.872,
+      "sharpness": 0.515,
+      "edge": 0.0,
+      "crowding": 0.437,
+      "view": "unknown",
+      "score": 0.275
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00166",
+      "timestamp_seconds": 1393.2,
+      "bbox": [
+        753.19,
+        189.76,
+        797.61,
+        218.46
+      ],
+      "height_px": 28.7,
+      "size": 0.861,
+      "sharpness": 0.198,
+      "edge": 0.0,
+      "crowding": 0.441,
+      "view": "unknown",
+      "score": 0.2347
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00167",
+      "timestamp_seconds": 1393.4,
+      "bbox": [
+        753.2,
+        188.13,
+        798.58,
+        218.71
+      ],
+      "height_px": 30.6,
+      "size": 0.917,
+      "sharpness": 0.93,
+      "edge": 0.0,
+      "crowding": 0.448,
+      "view": "unknown",
+      "score": 0.3319
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00168",
+      "timestamp_seconds": 1393.6,
+      "bbox": [
+        752.45,
+        187.81,
+        798.68,
+        218.86
+      ],
+      "height_px": 31.1,
+      "size": 0.932,
+      "sharpness": 0.942,
+      "edge": 0.0,
+      "crowding": 0.458,
+      "view": "unknown",
+      "score": 0.3349
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00169",
+      "timestamp_seconds": 1393.8,
+      "bbox": [
+        752.26,
+        187.35,
+        798.49,
+        218.86
+      ],
+      "height_px": 31.5,
+      "size": 0.945,
+      "sharpness": 1.0,
+      "edge": 0.0,
+      "crowding": 0.434,
+      "view": "unknown",
+      "score": 0.3468
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00170",
+      "timestamp_seconds": 1394.0,
+      "bbox": [
+        754.46,
+        185.78,
+        798.85,
+        217.26
+      ],
+      "height_px": 31.5,
+      "size": 0.944,
+      "sharpness": 0.716,
+      "edge": 0.0,
+      "crowding": 0.557,
+      "view": "unknown",
+      "score": 0.3002
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00171",
+      "timestamp_seconds": 1394.2,
+      "bbox": [
+        754.09,
+        187.19,
+        797.99,
+        217.36
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.48,
+      "edge": 0.0,
+      "crowding": 0.507,
+      "view": "unknown",
+      "score": 0.2698
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00172",
+      "timestamp_seconds": 1394.4,
+      "bbox": [
+        753.73,
+        190.21,
+        796.94,
+        217.63
+      ],
+      "height_px": 27.4,
+      "size": 0.823,
+      "sharpness": 0.236,
+      "edge": 0.0,
+      "crowding": 0.434,
+      "view": "unknown",
+      "score": 0.233
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00173",
+      "timestamp_seconds": 1394.6,
+      "bbox": [
+        753.48,
+        188.41,
+        797.61,
+        217.48
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.204,
+      "edge": 0.0,
+      "crowding": 0.493,
+      "view": "unknown",
+      "score": 0.2321
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00174",
+      "timestamp_seconds": 1394.8,
+      "bbox": [
+        753.52,
+        189.35,
+        797.37,
+        217.61
+      ],
+      "height_px": 28.3,
+      "size": 0.848,
+      "sharpness": 0.628,
+      "edge": 0.0,
+      "crowding": 0.471,
+      "view": "unknown",
+      "score": 0.2809
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00175",
+      "timestamp_seconds": 1395.0,
+      "bbox": [
+        753.59,
+        188.31,
+        797.79,
+        217.55
+      ],
+      "height_px": 29.2,
+      "size": 0.877,
+      "sharpness": 0.706,
+      "edge": 0.0,
+      "crowding": 0.488,
+      "view": "unknown",
+      "score": 0.2938
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00176",
+      "timestamp_seconds": 1395.2,
+      "bbox": [
+        752.79,
+        189.92,
+        796.73,
+        217.59
+      ],
+      "height_px": 27.7,
+      "size": 0.83,
+      "sharpness": 0.209,
+      "edge": 0.0,
+      "crowding": 0.453,
+      "view": "unknown",
+      "score": 0.2292
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00177",
+      "timestamp_seconds": 1395.4,
+      "bbox": [
+        752.68,
+        190.05,
+        796.85,
+        217.36
+      ],
+      "height_px": 27.3,
+      "size": 0.819,
+      "sharpness": 0.02,
+      "edge": 0.0,
+      "crowding": 0.457,
+      "view": "unknown",
+      "score": 0.2042
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00178",
+      "timestamp_seconds": 1395.6,
+      "bbox": [
+        752.73,
+        191.35,
+        796.55,
+        217.85
+      ],
+      "height_px": 26.5,
+      "size": 0.795,
+      "sharpness": 0.055,
+      "edge": 0.0,
+      "crowding": 0.409,
+      "view": "unknown",
+      "score": 0.2089
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00179",
+      "timestamp_seconds": 1395.8,
+      "bbox": [
+        753.2,
+        191.79,
+        796.53,
+        217.9
+      ],
+      "height_px": 26.1,
+      "size": 0.783,
+      "sharpness": 0.025,
+      "edge": 0.0,
+      "crowding": 0.403,
+      "view": "unknown",
+      "score": 0.2037
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00180",
+      "timestamp_seconds": 1396.0,
+      "bbox": [
+        755.01,
+        185.97,
+        798.63,
+        217.12
+      ],
+      "height_px": 31.2,
+      "size": 0.935,
+      "sharpness": 0.681,
+      "edge": 0.0,
+      "crowding": 0.577,
+      "view": "unknown",
+      "score": 0.2923
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00181",
+      "timestamp_seconds": 1396.2,
+      "bbox": [
+        755.04,
+        187.61,
+        798.09,
+        217.38
+      ],
+      "height_px": 29.8,
+      "size": 0.893,
+      "sharpness": 0.226,
+      "edge": 0.0,
+      "crowding": 0.52,
+      "view": "unknown",
+      "score": 0.2359
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00182",
+      "timestamp_seconds": 1396.4,
+      "bbox": [
+        754.35,
+        187.31,
+        798.41,
+        217.35
+      ],
+      "height_px": 30.0,
+      "size": 0.901,
+      "sharpness": 0.417,
+      "edge": 0.0,
+      "crowding": 0.531,
+      "view": "unknown",
+      "score": 0.2592
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00183",
+      "timestamp_seconds": 1396.6,
+      "bbox": [
+        754.3,
+        187.49,
+        798.3,
+        217.1
+      ],
+      "height_px": 29.6,
+      "size": 0.888,
+      "sharpness": 0.415,
+      "edge": 0.0,
+      "crowding": 0.538,
+      "view": "unknown",
+      "score": 0.2559
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00184",
+      "timestamp_seconds": 1396.8,
+      "bbox": [
+        754.55,
+        185.87,
+        798.77,
+        216.7
+      ],
+      "height_px": 30.8,
+      "size": 0.925,
+      "sharpness": 0.696,
+      "edge": 0.0,
+      "crowding": 0.584,
+      "view": "unknown",
+      "score": 0.2916
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00185",
+      "timestamp_seconds": 1397.0,
+      "bbox": [
+        754.76,
+        184.91,
+        799.83,
+        217.02
+      ],
+      "height_px": 32.1,
+      "size": 0.963,
+      "sharpness": 0.992,
+      "edge": 0.0,
+      "crowding": 0.617,
+      "view": "unknown",
+      "score": 0.3308
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00186",
+      "timestamp_seconds": 1397.2,
+      "bbox": [
+        754.41,
+        185.06,
+        799.71,
+        217.37
+      ],
+      "height_px": 32.3,
+      "size": 0.969,
+      "sharpness": 0.99,
+      "edge": 0.0,
+      "crowding": 0.607,
+      "view": "unknown",
+      "score": 0.3326
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00187",
+      "timestamp_seconds": 1397.4,
+      "bbox": [
+        754.85,
+        185.58,
+        799.4,
+        217.32
+      ],
+      "height_px": 31.7,
+      "size": 0.952,
+      "sharpness": 0.729,
+      "edge": 0.0,
+      "crowding": 0.596,
+      "view": "unknown",
+      "score": 0.2992
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00188",
+      "timestamp_seconds": 1397.6,
+      "bbox": [
+        755.11,
+        185.29,
+        799.27,
+        216.95
+      ],
+      "height_px": 31.7,
+      "size": 0.95,
+      "sharpness": 0.997,
+      "edge": 0.0,
+      "crowding": 0.59,
+      "view": "unknown",
+      "score": 0.3317
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00189",
+      "timestamp_seconds": 1397.8,
+      "bbox": [
+        755.1,
+        185.29,
+        799.35,
+        217.12
+      ],
+      "height_px": 31.8,
+      "size": 0.955,
+      "sharpness": 0.995,
+      "edge": 0.0,
+      "crowding": 0.586,
+      "view": "unknown",
+      "score": 0.3327
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00190",
+      "timestamp_seconds": 1398.0,
+      "bbox": [
+        754.21,
+        189.22,
+        797.46,
+        217.42
+      ],
+      "height_px": 28.2,
+      "size": 0.846,
+      "sharpness": 0.166,
+      "edge": 0.0,
+      "crowding": 0.445,
+      "view": "unknown",
+      "score": 0.2277
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00191",
+      "timestamp_seconds": 1398.2,
+      "bbox": [
+        754.43,
+        188.96,
+        797.35,
+        217.39
+      ],
+      "height_px": 28.4,
+      "size": 0.853,
+      "sharpness": 0.156,
+      "edge": 0.0,
+      "crowding": 0.437,
+      "view": "unknown",
+      "score": 0.2285
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00192",
+      "timestamp_seconds": 1398.4,
+      "bbox": [
+        754.32,
+        190.71,
+        796.92,
+        217.74
+      ],
+      "height_px": 27.0,
+      "size": 0.811,
+      "sharpness": 0.07,
+      "edge": 0.0,
+      "crowding": 0.397,
+      "view": "unknown",
+      "score": 0.2148
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00193",
+      "timestamp_seconds": 1398.6,
+      "bbox": [
+        754.67,
+        188.08,
+        797.79,
+        217.6
+      ],
+      "height_px": 29.5,
+      "size": 0.886,
+      "sharpness": 0.666,
+      "edge": 0.0,
+      "crowding": 0.437,
+      "view": "unknown",
+      "score": 0.2956
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00194",
+      "timestamp_seconds": 1398.8,
+      "bbox": [
+        754.42,
+        188.84,
+        797.55,
+        218.16
+      ],
+      "height_px": 29.3,
+      "size": 0.88,
+      "sharpness": 0.452,
+      "edge": 0.0,
+      "crowding": 0.393,
+      "view": "unknown",
+      "score": 0.2733
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00195",
+      "timestamp_seconds": 1399.0,
+      "bbox": [
+        754.58,
+        188.18,
+        798.3,
+        218.18
+      ],
+      "height_px": 30.0,
+      "size": 0.9,
+      "sharpness": 0.693,
+      "edge": 0.0,
+      "crowding": 0.452,
+      "view": "unknown",
+      "score": 0.3001
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00196",
+      "timestamp_seconds": 1399.2,
+      "bbox": [
+        755.35,
+        187.79,
+        798.52,
+        218.03
+      ],
+      "height_px": 30.2,
+      "size": 0.907,
+      "sharpness": 0.643,
+      "edge": 0.0,
+      "crowding": 0.478,
+      "view": "unknown",
+      "score": 0.2927
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00197",
+      "timestamp_seconds": 1399.4,
+      "bbox": [
+        755.22,
+        188.85,
+        798.29,
+        218.17
+      ],
+      "height_px": 29.3,
+      "size": 0.88,
+      "sharpness": 0.588,
+      "edge": 0.0,
+      "crowding": 0.45,
+      "view": "unknown",
+      "score": 0.2839
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00198",
+      "timestamp_seconds": 1399.6,
+      "bbox": [
+        755.22,
+        189.86,
+        798.19,
+        218.14
+      ],
+      "height_px": 28.3,
+      "size": 0.848,
+      "sharpness": 0.344,
+      "edge": 0.0,
+      "crowding": 0.439,
+      "view": "unknown",
+      "score": 0.2501
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00199",
+      "timestamp_seconds": 1399.8,
+      "bbox": [
+        754.83,
+        189.32,
+        798.1,
+        217.87
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.648,
+      "edge": 0.0,
+      "crowding": 0.456,
+      "view": "unknown",
+      "score": 0.2864
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00200",
+      "timestamp_seconds": 1400.0,
+      "bbox": [
+        755.96,
+        187.05,
+        799.17,
+        217.59
+      ],
+      "height_px": 30.5,
+      "size": 0.916,
+      "sharpness": 0.92,
+      "edge": 0.0,
+      "crowding": 0.548,
+      "view": "unknown",
+      "score": 0.3205
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00201",
+      "timestamp_seconds": 1400.2,
+      "bbox": [
+        755.17,
+        188.19,
+        798.35,
+        217.9
+      ],
+      "height_px": 29.7,
+      "size": 0.891,
+      "sharpness": 0.809,
+      "edge": 0.0,
+      "crowding": 0.513,
+      "view": "unknown",
+      "score": 0.3062
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00202",
+      "timestamp_seconds": 1400.4,
+      "bbox": [
+        755.28,
+        187.9,
+        798.42,
+        217.37
+      ],
+      "height_px": 29.5,
+      "size": 0.884,
+      "sharpness": 0.357,
+      "edge": 0.0,
+      "crowding": 0.539,
+      "view": "unknown",
+      "score": 0.2481
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00203",
+      "timestamp_seconds": 1400.6,
+      "bbox": [
+        755.72,
+        187.72,
+        798.31,
+        217.45
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.352,
+      "edge": 0.0,
+      "crowding": 0.543,
+      "view": "unknown",
+      "score": 0.2485
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00204",
+      "timestamp_seconds": 1400.8,
+      "bbox": [
+        755.49,
+        187.49,
+        797.65,
+        216.65
+      ],
+      "height_px": 29.2,
+      "size": 0.875,
+      "sharpness": 0.623,
+      "edge": 0.0,
+      "crowding": 0.554,
+      "view": "unknown",
+      "score": 0.2769
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00205",
+      "timestamp_seconds": 1401.0,
+      "bbox": [
+        755.14,
+        188.45,
+        797.29,
+        217.12
+      ],
+      "height_px": 28.7,
+      "size": 0.86,
+      "sharpness": 0.427,
+      "edge": 0.0,
+      "crowding": 0.515,
+      "view": "unknown",
+      "score": 0.2546
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00206",
+      "timestamp_seconds": 1401.2,
+      "bbox": [
+        755.15,
+        187.64,
+        797.52,
+        217.0
+      ],
+      "height_px": 29.4,
+      "size": 0.881,
+      "sharpness": 0.45,
+      "edge": 0.0,
+      "crowding": 0.521,
+      "view": "unknown",
+      "score": 0.2604
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00207",
+      "timestamp_seconds": 1401.4,
+      "bbox": [
+        754.97,
+        189.51,
+        797.23,
+        217.69
+      ],
+      "height_px": 28.2,
+      "size": 0.845,
+      "sharpness": 0.55,
+      "edge": 0.0,
+      "crowding": 0.474,
+      "view": "unknown",
+      "score": 0.2709
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00208",
+      "timestamp_seconds": 1401.6,
+      "bbox": [
+        754.95,
+        186.9,
+        798.48,
+        216.87
+      ],
+      "height_px": 30.0,
+      "size": 0.899,
+      "sharpness": 0.766,
+      "edge": 0.0,
+      "crowding": 0.588,
+      "view": "unknown",
+      "score": 0.295
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00209",
+      "timestamp_seconds": 1401.8,
+      "bbox": [
+        755.19,
+        186.76,
+        798.95,
+        217.05
+      ],
+      "height_px": 30.3,
+      "size": 0.909,
+      "sharpness": 0.688,
+      "edge": 0.0,
+      "crowding": 0.599,
+      "view": "unknown",
+      "score": 0.2863
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00210",
+      "timestamp_seconds": 1402.0,
+      "bbox": [
+        754.52,
+        186.57,
+        798.7,
+        217.16
+      ],
+      "height_px": 30.6,
+      "size": 0.918,
+      "sharpness": 0.709,
+      "edge": 0.0,
+      "crowding": 0.575,
+      "view": "unknown",
+      "score": 0.2927
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00211",
+      "timestamp_seconds": 1402.2,
+      "bbox": [
+        754.67,
+        186.5,
+        799.06,
+        217.27
+      ],
+      "height_px": 30.8,
+      "size": 0.923,
+      "sharpness": 0.94,
+      "edge": 0.0,
+      "crowding": 0.577,
+      "view": "unknown",
+      "score": 0.3213
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00212",
+      "timestamp_seconds": 1402.4,
+      "bbox": [
+        754.64,
+        187.9,
+        798.38,
+        217.53
+      ],
+      "height_px": 29.6,
+      "size": 0.889,
+      "sharpness": 0.897,
+      "edge": 0.0,
+      "crowding": 0.537,
+      "view": "unknown",
+      "score": 0.314
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00213",
+      "timestamp_seconds": 1402.6,
+      "bbox": [
+        754.18,
+        188.3,
+        798.01,
+        217.68
+      ],
+      "height_px": 29.4,
+      "size": 0.881,
+      "sharpness": 0.874,
+      "edge": 0.0,
+      "crowding": 0.525,
+      "view": "unknown",
+      "score": 0.3111
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00214",
+      "timestamp_seconds": 1402.8,
+      "bbox": [
+        754.3,
+        187.43,
+        798.67,
+        217.55
+      ],
+      "height_px": 30.1,
+      "size": 0.904,
+      "sharpness": 0.925,
+      "edge": 0.0,
+      "crowding": 0.531,
+      "view": "unknown",
+      "score": 0.3205
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00215",
+      "timestamp_seconds": 1403.0,
+      "bbox": [
+        754.77,
+        187.21,
+        798.63,
+        217.56
+      ],
+      "height_px": 30.3,
+      "size": 0.911,
+      "sharpness": 0.962,
+      "edge": 0.0,
+      "crowding": 0.532,
+      "view": "unknown",
+      "score": 0.3261
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00216",
+      "timestamp_seconds": 1403.2,
+      "bbox": [
+        754.01,
+        188.99,
+        797.13,
+        217.8
+      ],
+      "height_px": 28.8,
+      "size": 0.864,
+      "sharpness": 0.847,
+      "edge": 0.0,
+      "crowding": 0.464,
+      "view": "unknown",
+      "score": 0.3108
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00217",
+      "timestamp_seconds": 1403.4,
+      "bbox": [
+        753.47,
+        188.26,
+        798.22,
+        217.63
+      ],
+      "height_px": 29.4,
+      "size": 0.881,
+      "sharpness": 0.812,
+      "edge": 0.0,
+      "crowding": 0.499,
+      "view": "unknown",
+      "score": 0.3061
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00218",
+      "timestamp_seconds": 1403.6,
+      "bbox": [
+        753.82,
+        188.5,
+        798.06,
+        217.81
+      ],
+      "height_px": 29.3,
+      "size": 0.879,
+      "sharpness": 0.899,
+      "edge": 0.0,
+      "crowding": 0.485,
+      "view": "unknown",
+      "score": 0.3178
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00219",
+      "timestamp_seconds": 1403.8,
+      "bbox": [
+        753.64,
+        189.25,
+        797.48,
+        217.47
+      ],
+      "height_px": 28.2,
+      "size": 0.847,
+      "sharpness": 0.276,
+      "edge": 0.0,
+      "crowding": 0.426,
+      "view": "unknown",
+      "score": 0.243
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00220",
+      "timestamp_seconds": 1404.0,
+      "bbox": [
+        753.14,
+        186.51,
+        798.98,
+        217.39
+      ],
+      "height_px": 30.9,
+      "size": 0.926,
+      "sharpness": 0.475,
+      "edge": 0.0,
+      "crowding": 0.518,
+      "view": "unknown",
+      "score": 0.272
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00221",
+      "timestamp_seconds": 1404.2,
+      "bbox": [
+        753.51,
+        187.47,
+        798.36,
+        217.43
+      ],
+      "height_px": 30.0,
+      "size": 0.899,
+      "sharpness": 0.638,
+      "edge": 0.0,
+      "crowding": 0.494,
+      "view": "unknown",
+      "score": 0.289
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00222",
+      "timestamp_seconds": 1404.4,
+      "bbox": [
+        753.51,
+        189.94,
+        797.38,
+        218.27
+      ],
+      "height_px": 28.3,
+      "size": 0.85,
+      "sharpness": 0.329,
+      "edge": 0.0,
+      "crowding": 0.433,
+      "view": "unknown",
+      "score": 0.2491
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00223",
+      "timestamp_seconds": 1404.6,
+      "bbox": [
+        753.74,
+        189.26,
+        797.64,
+        217.87
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.618,
+      "edge": 0.0,
+      "crowding": 0.492,
+      "view": "unknown",
+      "score": 0.2794
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00224",
+      "timestamp_seconds": 1404.8,
+      "bbox": [
+        753.02,
+        188.2,
+        797.6,
+        217.77
+      ],
+      "height_px": 29.6,
+      "size": 0.887,
+      "sharpness": 0.771,
+      "edge": 0.0,
+      "crowding": 0.489,
+      "view": "unknown",
+      "score": 0.3033
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00225",
+      "timestamp_seconds": 1405.0,
+      "bbox": [
+        752.76,
+        188.34,
+        797.34,
+        217.59
+      ],
+      "height_px": 29.2,
+      "size": 0.878,
+      "sharpness": 0.837,
+      "edge": 0.0,
+      "crowding": 0.472,
+      "view": "unknown",
+      "score": 0.3111
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00226",
+      "timestamp_seconds": 1405.2,
+      "bbox": [
+        752.38,
+        187.88,
+        798.03,
+        217.86
+      ],
+      "height_px": 30.0,
+      "size": 0.899,
+      "sharpness": 0.799,
+      "edge": 0.0,
+      "crowding": 0.489,
+      "view": "unknown",
+      "score": 0.3089
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00227",
+      "timestamp_seconds": 1405.4,
+      "bbox": [
+        752.87,
+        188.8,
+        797.61,
+        218.1
+      ],
+      "height_px": 29.3,
+      "size": 0.879,
+      "sharpness": 0.613,
+      "edge": 0.0,
+      "crowding": 0.443,
+      "view": "unknown",
+      "score": 0.2875
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00228",
+      "timestamp_seconds": 1405.6,
+      "bbox": [
+        752.91,
+        187.91,
+        798.24,
+        217.72
+      ],
+      "height_px": 29.8,
+      "size": 0.894,
+      "sharpness": 0.746,
+      "edge": 0.0,
+      "crowding": 0.479,
+      "view": "unknown",
+      "score": 0.3027
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00229",
+      "timestamp_seconds": 1405.8,
+      "bbox": [
+        753.69,
+        186.69,
+        798.8,
+        217.16
+      ],
+      "height_px": 30.5,
+      "size": 0.914,
+      "sharpness": 0.575,
+      "edge": 0.0,
+      "crowding": 0.554,
+      "view": "unknown",
+      "score": 0.2782
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00230",
+      "timestamp_seconds": 1406.0,
+      "bbox": [
+        753.4,
+        188.21,
+        798.99,
+        218.11
+      ],
+      "height_px": 29.9,
+      "size": 0.897,
+      "sharpness": 0.761,
+      "edge": 0.0,
+      "crowding": 0.546,
+      "view": "unknown",
+      "score": 0.2983
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00231",
+      "timestamp_seconds": 1406.2,
+      "bbox": [
+        752.88,
+        189.43,
+        798.89,
+        218.74
+      ],
+      "height_px": 29.3,
+      "size": 0.879,
+      "sharpness": 0.902,
+      "edge": 0.0,
+      "crowding": 0.522,
+      "view": "unknown",
+      "score": 0.3143
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00232",
+      "timestamp_seconds": 1406.4,
+      "bbox": [
+        753.81,
+        187.51,
+        799.41,
+        217.95
+      ],
+      "height_px": 30.4,
+      "size": 0.913,
+      "sharpness": 0.817,
+      "edge": 0.0,
+      "crowding": 0.553,
+      "view": "unknown",
+      "score": 0.3071
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00233",
+      "timestamp_seconds": 1406.6,
+      "bbox": [
+        753.72,
+        188.62,
+        798.97,
+        218.05
+      ],
+      "height_px": 29.4,
+      "size": 0.883,
+      "sharpness": 0.744,
+      "edge": 0.0,
+      "crowding": 0.537,
+      "view": "unknown",
+      "score": 0.2944
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00234",
+      "timestamp_seconds": 1406.8,
+      "bbox": [
+        753.72,
+        188.66,
+        798.83,
+        218.38
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.749,
+      "edge": 0.0,
+      "crowding": 0.49,
+      "view": "unknown",
+      "score": 0.3013
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00235",
+      "timestamp_seconds": 1407.0,
+      "bbox": [
+        753.93,
+        189.02,
+        798.87,
+        218.74
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.922,
+      "edge": 0.0,
+      "crowding": 0.456,
+      "view": "unknown",
+      "score": 0.3256
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00236",
+      "timestamp_seconds": 1407.2,
+      "bbox": [
+        753.78,
+        187.81,
+        799.17,
+        218.35
+      ],
+      "height_px": 30.5,
+      "size": 0.916,
+      "sharpness": 0.807,
+      "edge": 0.0,
+      "crowding": 0.496,
+      "view": "unknown",
+      "score": 0.3121
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00237",
+      "timestamp_seconds": 1407.4,
+      "bbox": [
+        753.54,
+        187.98,
+        798.74,
+        218.37
+      ],
+      "height_px": 30.4,
+      "size": 0.912,
+      "sharpness": 0.884,
+      "edge": 0.0,
+      "crowding": 0.488,
+      "view": "unknown",
+      "score": 0.3215
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00238",
+      "timestamp_seconds": 1407.6,
+      "bbox": [
+        753.4,
+        188.18,
+        798.52,
+        218.15
+      ],
+      "height_px": 30.0,
+      "size": 0.899,
+      "sharpness": 0.862,
+      "edge": 0.0,
+      "crowding": 0.498,
+      "view": "unknown",
+      "score": 0.3154
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00239",
+      "timestamp_seconds": 1407.8,
+      "bbox": [
+        753.25,
+        189.38,
+        797.86,
+        218.35
+      ],
+      "height_px": 29.0,
+      "size": 0.869,
+      "sharpness": 0.472,
+      "edge": 0.0,
+      "crowding": 0.466,
+      "view": "unknown",
+      "score": 0.2665
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00240",
+      "timestamp_seconds": 1408.0,
+      "bbox": [
+        752.15,
+        186.96,
+        798.08,
+        216.81
+      ],
+      "height_px": 29.8,
+      "size": 0.896,
+      "sharpness": 0.397,
+      "edge": 0.0,
+      "crowding": 0.548,
+      "view": "unknown",
+      "score": 0.254
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00241",
+      "timestamp_seconds": 1408.2,
+      "bbox": [
+        752.31,
+        186.9,
+        798.63,
+        217.48
+      ],
+      "height_px": 30.6,
+      "size": 0.917,
+      "sharpness": 0.334,
+      "edge": 0.0,
+      "crowding": 0.543,
+      "view": "unknown",
+      "score": 0.251
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00242",
+      "timestamp_seconds": 1408.4,
+      "bbox": [
+        751.89,
+        187.99,
+        797.87,
+        217.16
+      ],
+      "height_px": 29.2,
+      "size": 0.875,
+      "sharpness": 0.163,
+      "edge": 0.0,
+      "crowding": 0.53,
+      "view": "unknown",
+      "score": 0.2242
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00243",
+      "timestamp_seconds": 1408.6,
+      "bbox": [
+        752.36,
+        187.26,
+        798.01,
+        216.59
+      ],
+      "height_px": 29.3,
+      "size": 0.88,
+      "sharpness": 0.382,
+      "edge": 0.0,
+      "crowding": 0.589,
+      "view": "unknown",
+      "score": 0.2453
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00244",
+      "timestamp_seconds": 1408.8,
+      "bbox": [
+        752.95,
+        188.46,
+        797.43,
+        216.92
+      ],
+      "height_px": 28.5,
+      "size": 0.854,
+      "sharpness": 0.246,
+      "edge": 0.0,
+      "crowding": 0.523,
+      "view": "unknown",
+      "score": 0.231
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00245",
+      "timestamp_seconds": 1409.0,
+      "bbox": [
+        753.7,
+        188.88,
+        797.16,
+        217.27
+      ],
+      "height_px": 28.4,
+      "size": 0.852,
+      "sharpness": 0.219,
+      "edge": 0.0,
+      "crowding": 0.492,
+      "view": "unknown",
+      "score": 0.2303
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00246",
+      "timestamp_seconds": 1409.2,
+      "bbox": [
+        753.71,
+        189.22,
+        797.13,
+        217.38
+      ],
+      "height_px": 28.2,
+      "size": 0.845,
+      "sharpness": 0.211,
+      "edge": 0.0,
+      "crowding": 0.508,
+      "view": "unknown",
+      "score": 0.2266
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00247",
+      "timestamp_seconds": 1409.4,
+      "bbox": [
+        753.02,
+        189.75,
+        796.78,
+        217.61
+      ],
+      "height_px": 27.9,
+      "size": 0.836,
+      "sharpness": 0.176,
+      "edge": 0.0,
+      "crowding": 0.47,
+      "view": "unknown",
+      "score": 0.2246
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00248",
+      "timestamp_seconds": 1409.6,
+      "bbox": [
+        753.92,
+        189.14,
+        797.17,
+        217.43
+      ],
+      "height_px": 28.3,
+      "size": 0.849,
+      "sharpness": 0.224,
+      "edge": 0.0,
+      "crowding": 0.5,
+      "view": "unknown",
+      "score": 0.2296
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00249",
+      "timestamp_seconds": 1409.8,
+      "bbox": [
+        752.76,
+        189.72,
+        797.09,
+        218.0
+      ],
+      "height_px": 28.3,
+      "size": 0.848,
+      "sharpness": 0.206,
+      "edge": 0.0,
+      "crowding": 0.464,
+      "view": "unknown",
+      "score": 0.2311
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00250",
+      "timestamp_seconds": 1410.0,
+      "bbox": [
+        754.01,
+        188.66,
+        797.91,
+        217.09
+      ],
+      "height_px": 28.4,
+      "size": 0.853,
+      "sharpness": 0.229,
+      "edge": 0.0,
+      "crowding": 0.531,
+      "view": "unknown",
+      "score": 0.2278
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00251",
+      "timestamp_seconds": 1410.2,
+      "bbox": [
+        753.76,
+        188.41,
+        798.21,
+        217.28
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.281,
+      "edge": 0.0,
+      "crowding": 0.546,
+      "view": "unknown",
+      "score": 0.235
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00252",
+      "timestamp_seconds": 1410.4,
+      "bbox": [
+        753.18,
+        188.04,
+        798.25,
+        216.97
+      ],
+      "height_px": 28.9,
+      "size": 0.868,
+      "sharpness": 0.279,
+      "edge": 0.0,
+      "crowding": 0.542,
+      "view": "unknown",
+      "score": 0.2355
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00253",
+      "timestamp_seconds": 1410.6,
+      "bbox": [
+        753.13,
+        185.64,
+        799.12,
+        216.87
+      ],
+      "height_px": 31.2,
+      "size": 0.937,
+      "sharpness": 0.794,
+      "edge": 0.0,
+      "crowding": 0.612,
+      "view": "unknown",
+      "score": 0.3028
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00254",
+      "timestamp_seconds": 1410.8,
+      "bbox": [
+        753.09,
+        186.21,
+        798.73,
+        216.94
+      ],
+      "height_px": 30.7,
+      "size": 0.922,
+      "sharpness": 0.769,
+      "edge": 0.0,
+      "crowding": 0.572,
+      "view": "unknown",
+      "score": 0.3011
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00255",
+      "timestamp_seconds": 1411.0,
+      "bbox": [
+        752.82,
+        186.11,
+        799.29,
+        217.17
+      ],
+      "height_px": 31.1,
+      "size": 0.932,
+      "sharpness": 0.802,
+      "edge": 0.0,
+      "crowding": 0.603,
+      "view": "unknown",
+      "score": 0.3036
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00256",
+      "timestamp_seconds": 1411.2,
+      "bbox": [
+        753.05,
+        187.4,
+        799.15,
+        217.47
+      ],
+      "height_px": 30.1,
+      "size": 0.902,
+      "sharpness": 0.548,
+      "edge": 0.0,
+      "crowding": 0.563,
+      "view": "unknown",
+      "score": 0.2718
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00257",
+      "timestamp_seconds": 1411.4,
+      "bbox": [
+        752.63,
+        186.44,
+        799.02,
+        217.09
+      ],
+      "height_px": 30.7,
+      "size": 0.92,
+      "sharpness": 0.839,
+      "edge": 0.0,
+      "crowding": 0.595,
+      "view": "unknown",
+      "score": 0.3068
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00258",
+      "timestamp_seconds": 1411.6,
+      "bbox": [
+        752.39,
+        187.94,
+        797.87,
+        217.38
+      ],
+      "height_px": 29.4,
+      "size": 0.883,
+      "sharpness": 0.271,
+      "edge": 0.0,
+      "crowding": 0.541,
+      "view": "unknown",
+      "score": 0.2375
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00259",
+      "timestamp_seconds": 1411.8,
+      "bbox": [
+        752.41,
+        187.22,
+        798.2,
+        217.28
+      ],
+      "height_px": 30.1,
+      "size": 0.902,
+      "sharpness": 0.465,
+      "edge": 0.0,
+      "crowding": 0.554,
+      "view": "unknown",
+      "score": 0.2627
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00260",
+      "timestamp_seconds": 1412.0,
+      "bbox": [
+        752.55,
+        189.52,
+        798.66,
+        218.87
+      ],
+      "height_px": 29.3,
+      "size": 0.881,
+      "sharpness": 0.543,
+      "edge": 0.0,
+      "crowding": 0.575,
+      "view": "unknown",
+      "score": 0.2662
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00261",
+      "timestamp_seconds": 1412.2,
+      "bbox": [
+        753.02,
+        189.15,
+        798.86,
+        218.49
+      ],
+      "height_px": 29.3,
+      "size": 0.88,
+      "sharpness": 0.447,
+      "edge": 0.0,
+      "crowding": 0.558,
+      "view": "unknown",
+      "score": 0.2564
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00262",
+      "timestamp_seconds": 1412.4,
+      "bbox": [
+        753.36,
+        188.68,
+        799.0,
+        218.19
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.495,
+      "edge": 0.0,
+      "crowding": 0.541,
+      "view": "unknown",
+      "score": 0.2647
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00263",
+      "timestamp_seconds": 1412.6,
+      "bbox": [
+        753.09,
+        188.42,
+        798.81,
+        218.2
+      ],
+      "height_px": 29.8,
+      "size": 0.893,
+      "sharpness": 0.663,
+      "edge": 0.0,
+      "crowding": 0.55,
+      "view": "unknown",
+      "score": 0.2855
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00264",
+      "timestamp_seconds": 1412.8,
+      "bbox": [
+        753.07,
+        188.59,
+        798.72,
+        217.75
+      ],
+      "height_px": 29.2,
+      "size": 0.875,
+      "sharpness": 0.518,
+      "edge": 0.0,
+      "crowding": 0.54,
+      "view": "unknown",
+      "score": 0.2656
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00265",
+      "timestamp_seconds": 1413.0,
+      "bbox": [
+        753.25,
+        187.44,
+        799.08,
+        217.27
+      ],
+      "height_px": 29.8,
+      "size": 0.895,
+      "sharpness": 0.533,
+      "edge": 0.0,
+      "crowding": 0.579,
+      "view": "unknown",
+      "score": 0.2671
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00266",
+      "timestamp_seconds": 1413.2,
+      "bbox": [
+        753.41,
+        186.12,
+        799.61,
+        217.3
+      ],
+      "height_px": 31.2,
+      "size": 0.935,
+      "sharpness": 0.804,
+      "edge": 0.0,
+      "crowding": 0.587,
+      "view": "unknown",
+      "score": 0.3062
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00267",
+      "timestamp_seconds": 1413.4,
+      "bbox": [
+        753.74,
+        186.53,
+        799.61,
+        217.46
+      ],
+      "height_px": 30.9,
+      "size": 0.928,
+      "sharpness": 0.57,
+      "edge": 0.0,
+      "crowding": 0.593,
+      "view": "unknown",
+      "score": 0.2761
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00268",
+      "timestamp_seconds": 1413.6,
+      "bbox": [
+        753.77,
+        186.37,
+        799.21,
+        216.89
+      ],
+      "height_px": 30.5,
+      "size": 0.916,
+      "sharpness": 0.869,
+      "edge": 0.0,
+      "crowding": 0.599,
+      "view": "unknown",
+      "score": 0.3092
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00269",
+      "timestamp_seconds": 1413.8,
+      "bbox": [
+        753.43,
+        187.5,
+        798.94,
+        217.99
+      ],
+      "height_px": 30.5,
+      "size": 0.915,
+      "sharpness": 0.641,
+      "edge": 0.0,
+      "crowding": 0.555,
+      "view": "unknown",
+      "score": 0.286
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00270",
+      "timestamp_seconds": 1414.0,
+      "bbox": [
+        754.56,
+        187.61,
+        798.83,
+        217.47
+      ],
+      "height_px": 29.9,
+      "size": 0.896,
+      "sharpness": 0.322,
+      "edge": 0.0,
+      "crowding": 0.535,
+      "view": "unknown",
+      "score": 0.2463
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00271",
+      "timestamp_seconds": 1414.2,
+      "bbox": [
+        754.32,
+        187.32,
+        799.13,
+        217.5
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.849,
+      "edge": 0.0,
+      "crowding": 0.562,
+      "view": "unknown",
+      "score": 0.3087
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00272",
+      "timestamp_seconds": 1414.4,
+      "bbox": [
+        754.79,
+        187.61,
+        798.84,
+        217.81
+      ],
+      "height_px": 30.2,
+      "size": 0.906,
+      "sharpness": 0.751,
+      "edge": 0.0,
+      "crowding": 0.488,
+      "view": "unknown",
+      "score": 0.3044
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00273",
+      "timestamp_seconds": 1414.6,
+      "bbox": [
+        753.8,
+        187.02,
+        799.04,
+        217.42
+      ],
+      "height_px": 30.4,
+      "size": 0.912,
+      "sharpness": 0.593,
+      "edge": 0.0,
+      "crowding": 0.539,
+      "view": "unknown",
+      "score": 0.2815
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00274",
+      "timestamp_seconds": 1414.8,
+      "bbox": [
+        753.98,
+        187.07,
+        799.09,
+        217.42
+      ],
+      "height_px": 30.3,
+      "size": 0.911,
+      "sharpness": 0.598,
+      "edge": 0.0,
+      "crowding": 0.533,
+      "view": "unknown",
+      "score": 0.2824
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00275",
+      "timestamp_seconds": 1415.0,
+      "bbox": [
+        754.35,
+        188.13,
+        798.82,
+        217.22
+      ],
+      "height_px": 29.1,
+      "size": 0.873,
+      "sharpness": 0.43,
+      "edge": 0.0,
+      "crowding": 0.539,
+      "view": "unknown",
+      "score": 0.2548
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00276",
+      "timestamp_seconds": 1415.2,
+      "bbox": [
+        753.93,
+        187.17,
+        798.92,
+        217.26
+      ],
+      "height_px": 30.1,
+      "size": 0.903,
+      "sharpness": 0.616,
+      "edge": 0.0,
+      "crowding": 0.537,
+      "view": "unknown",
+      "score": 0.2827
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00277",
+      "timestamp_seconds": 1415.4,
+      "bbox": [
+        754.18,
+        187.24,
+        798.75,
+        217.31
+      ],
+      "height_px": 30.1,
+      "size": 0.902,
+      "sharpness": 0.631,
+      "edge": 0.0,
+      "crowding": 0.541,
+      "view": "unknown",
+      "score": 0.284
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00278",
+      "timestamp_seconds": 1415.6,
+      "bbox": [
+        754.21,
+        187.57,
+        798.69,
+        217.24
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.44,
+      "edge": 0.0,
+      "crowding": 0.539,
+      "view": "unknown",
+      "score": 0.2591
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00279",
+      "timestamp_seconds": 1415.8,
+      "bbox": [
+        754.05,
+        186.83,
+        798.74,
+        217.31
+      ],
+      "height_px": 30.5,
+      "size": 0.914,
+      "sharpness": 0.508,
+      "edge": 0.0,
+      "crowding": 0.559,
+      "view": "unknown",
+      "score": 0.2696
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00280",
+      "timestamp_seconds": 1416.0,
+      "bbox": [
+        752.88,
+        187.27,
+        798.61,
+        218.28
+      ],
+      "height_px": 31.0,
+      "size": 0.93,
+      "sharpness": 0.832,
+      "edge": 0.0,
+      "crowding": 0.537,
+      "view": "unknown",
+      "score": 0.3135
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00281",
+      "timestamp_seconds": 1416.2,
+      "bbox": [
+        753.2,
+        187.51,
+        797.93,
+        218.07
+      ],
+      "height_px": 30.6,
+      "size": 0.917,
+      "sharpness": 0.698,
+      "edge": 0.0,
+      "crowding": 0.543,
+      "view": "unknown",
+      "score": 0.2945
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00282",
+      "timestamp_seconds": 1416.4,
+      "bbox": [
+        752.27,
+        188.15,
+        797.73,
+        218.35
+      ],
+      "height_px": 30.2,
+      "size": 0.906,
+      "sharpness": 0.734,
+      "edge": 0.0,
+      "crowding": 0.503,
+      "view": "unknown",
+      "score": 0.3008
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00283",
+      "timestamp_seconds": 1416.6,
+      "bbox": [
+        752.18,
+        187.67,
+        798.23,
+        218.25
+      ],
+      "height_px": 30.6,
+      "size": 0.917,
+      "sharpness": 0.759,
+      "edge": 0.0,
+      "crowding": 0.518,
+      "view": "unknown",
+      "score": 0.3044
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00284",
+      "timestamp_seconds": 1416.8,
+      "bbox": [
+        752.56,
+        188.83,
+        797.75,
+        218.07
+      ],
+      "height_px": 29.2,
+      "size": 0.877,
+      "sharpness": 0.606,
+      "edge": 0.0,
+      "crowding": 0.489,
+      "view": "unknown",
+      "score": 0.2816
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00285",
+      "timestamp_seconds": 1417.0,
+      "bbox": [
+        752.49,
+        189.61,
+        797.82,
+        218.5
+      ],
+      "height_px": 28.9,
+      "size": 0.867,
+      "sharpness": 0.234,
+      "edge": 0.0,
+      "crowding": 0.489,
+      "view": "unknown",
+      "score": 0.2352
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00286",
+      "timestamp_seconds": 1417.2,
+      "bbox": [
+        752.28,
+        189.56,
+        797.78,
+        218.54
+      ],
+      "height_px": 29.0,
+      "size": 0.869,
+      "sharpness": 0.676,
+      "edge": 0.0,
+      "crowding": 0.49,
+      "view": "unknown",
+      "score": 0.2886
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00287",
+      "timestamp_seconds": 1417.4,
+      "bbox": [
+        752.14,
+        188.52,
+        798.02,
+        218.51
+      ],
+      "height_px": 30.0,
+      "size": 0.9,
+      "sharpness": 0.877,
+      "edge": 0.0,
+      "crowding": 0.495,
+      "view": "unknown",
+      "score": 0.3176
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00288",
+      "timestamp_seconds": 1417.6,
+      "bbox": [
+        752.23,
+        189.07,
+        798.17,
+        218.75
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.915,
+      "edge": 0.0,
+      "crowding": 0.497,
+      "view": "unknown",
+      "score": 0.3203
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00289",
+      "timestamp_seconds": 1417.8,
+      "bbox": [
+        752.65,
+        189.52,
+        797.81,
+        218.13
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.467,
+      "edge": 0.0,
+      "crowding": 0.499,
+      "view": "unknown",
+      "score": 0.2607
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00290",
+      "timestamp_seconds": 1418.0,
+      "bbox": [
+        754.28,
+        187.64,
+        799.42,
+        218.51
+      ],
+      "height_px": 30.9,
+      "size": 0.926,
+      "sharpness": 0.975,
+      "edge": 0.0,
+      "crowding": 0.547,
+      "view": "unknown",
+      "score": 0.329
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00291",
+      "timestamp_seconds": 1418.2,
+      "bbox": [
+        753.78,
+        188.47,
+        798.32,
+        217.82
+      ],
+      "height_px": 29.3,
+      "size": 0.881,
+      "sharpness": 0.932,
+      "edge": 0.0,
+      "crowding": 0.54,
+      "view": "unknown",
+      "score": 0.3164
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00292",
+      "timestamp_seconds": 1418.4,
+      "bbox": [
+        754.07,
+        186.69,
+        799.34,
+        217.53
+      ],
+      "height_px": 30.8,
+      "size": 0.925,
+      "sharpness": 0.972,
+      "edge": 0.0,
+      "crowding": 0.593,
+      "view": "unknown",
+      "score": 0.3239
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00293",
+      "timestamp_seconds": 1418.6,
+      "bbox": [
+        754.15,
+        187.4,
+        798.86,
+        217.85
+      ],
+      "height_px": 30.4,
+      "size": 0.914,
+      "sharpness": 0.967,
+      "edge": 0.0,
+      "crowding": 0.576,
+      "view": "unknown",
+      "score": 0.323
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00294",
+      "timestamp_seconds": 1418.8,
+      "bbox": [
+        754.02,
+        186.18,
+        799.19,
+        217.48
+      ],
+      "height_px": 31.3,
+      "size": 0.939,
+      "sharpness": 0.96,
+      "edge": 0.0,
+      "crowding": 0.591,
+      "view": "unknown",
+      "score": 0.3251
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00295",
+      "timestamp_seconds": 1419.0,
+      "bbox": [
+        754.07,
+        186.29,
+        798.86,
+        217.38
+      ],
+      "height_px": 31.1,
+      "size": 0.933,
+      "sharpness": 0.957,
+      "edge": 0.0,
+      "crowding": 0.573,
+      "view": "unknown",
+      "score": 0.3255
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00296",
+      "timestamp_seconds": 1419.2,
+      "bbox": [
+        754.45,
+        186.26,
+        798.84,
+        217.3
+      ],
+      "height_px": 31.0,
+      "size": 0.931,
+      "sharpness": 0.955,
+      "edge": 0.0,
+      "crowding": 0.604,
+      "view": "unknown",
+      "score": 0.3218
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00297",
+      "timestamp_seconds": 1419.4,
+      "bbox": [
+        754.11,
+        188.35,
+        798.67,
+        217.93
+      ],
+      "height_px": 29.6,
+      "size": 0.887,
+      "sharpness": 0.894,
+      "edge": 0.0,
+      "crowding": 0.532,
+      "view": "unknown",
+      "score": 0.3138
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00298",
+      "timestamp_seconds": 1419.6,
+      "bbox": [
+        753.41,
+        189.24,
+        798.21,
+        217.89
+      ],
+      "height_px": 28.6,
+      "size": 0.86,
+      "sharpness": 0.829,
+      "edge": 0.0,
+      "crowding": 0.531,
+      "view": "unknown",
+      "score": 0.3011
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00299",
+      "timestamp_seconds": 1419.8,
+      "bbox": [
+        753.08,
+        189.42,
+        798.09,
+        218.3
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.636,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.2812
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00300",
+      "timestamp_seconds": 1420.0,
+      "bbox": [
+        753.76,
+        189.73,
+        797.55,
+        218.28
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.364,
+      "edge": 0.0,
+      "crowding": 0.444,
+      "view": "unknown",
+      "score": 0.2535
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00301",
+      "timestamp_seconds": 1420.2,
+      "bbox": [
+        753.96,
+        188.86,
+        797.31,
+        218.14
+      ],
+      "height_px": 29.3,
+      "size": 0.878,
+      "sharpness": 0.776,
+      "edge": 0.0,
+      "crowding": 0.464,
+      "view": "unknown",
+      "score": 0.3049
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00302",
+      "timestamp_seconds": 1420.4,
+      "bbox": [
+        754.35,
+        188.74,
+        798.06,
+        217.88
+      ],
+      "height_px": 29.1,
+      "size": 0.874,
+      "sharpness": 0.726,
+      "edge": 0.0,
+      "crowding": 0.493,
+      "view": "unknown",
+      "score": 0.2952
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00303",
+      "timestamp_seconds": 1420.6,
+      "bbox": [
+        754.08,
+        187.99,
+        798.2,
+        217.71
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.867,
+      "edge": 0.0,
+      "crowding": 0.518,
+      "view": "unknown",
+      "score": 0.3127
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00304",
+      "timestamp_seconds": 1420.8,
+      "bbox": [
+        754.32,
+        187.48,
+        798.37,
+        217.32
+      ],
+      "height_px": 29.8,
+      "size": 0.895,
+      "sharpness": 0.731,
+      "edge": 0.0,
+      "crowding": 0.535,
+      "view": "unknown",
+      "score": 0.2954
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00305",
+      "timestamp_seconds": 1421.0,
+      "bbox": [
+        754.36,
+        188.73,
+        798.38,
+        217.78
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.714,
+      "edge": 0.0,
+      "crowding": 0.509,
+      "view": "unknown",
+      "score": 0.2916
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00306",
+      "timestamp_seconds": 1421.2,
+      "bbox": [
+        753.88,
+        187.98,
+        798.83,
+        217.85
+      ],
+      "height_px": 29.9,
+      "size": 0.896,
+      "sharpness": 0.814,
+      "edge": 0.0,
+      "crowding": 0.51,
+      "view": "unknown",
+      "score": 0.308
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00307",
+      "timestamp_seconds": 1421.4,
+      "bbox": [
+        753.65,
+        186.48,
+        798.8,
+        217.4
+      ],
+      "height_px": 30.9,
+      "size": 0.928,
+      "sharpness": 0.937,
+      "edge": 0.0,
+      "crowding": 0.543,
+      "view": "unknown",
+      "score": 0.3251
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00308",
+      "timestamp_seconds": 1421.6,
+      "bbox": [
+        753.85,
+        188.36,
+        798.42,
+        218.07
+      ],
+      "height_px": 29.7,
+      "size": 0.891,
+      "sharpness": 0.864,
+      "edge": 0.0,
+      "crowding": 0.52,
+      "view": "unknown",
+      "score": 0.3122
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00309",
+      "timestamp_seconds": 1421.8,
+      "bbox": [
+        753.7,
+        189.03,
+        798.11,
+        218.27
+      ],
+      "height_px": 29.2,
+      "size": 0.877,
+      "sharpness": 0.724,
+      "edge": 0.0,
+      "crowding": 0.497,
+      "view": "unknown",
+      "score": 0.295
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00310",
+      "timestamp_seconds": 1422.0,
+      "bbox": [
+        752.97,
+        187.04,
+        798.39,
+        216.79
+      ],
+      "height_px": 29.8,
+      "size": 0.893,
+      "sharpness": 0.611,
+      "edge": 0.0,
+      "crowding": 0.594,
+      "view": "unknown",
+      "score": 0.2745
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00311",
+      "timestamp_seconds": 1422.2,
+      "bbox": [
+        753.24,
+        187.77,
+        798.3,
+        217.02
+      ],
+      "height_px": 29.2,
+      "size": 0.878,
+      "sharpness": 0.432,
+      "edge": 0.0,
+      "crowding": 0.552,
+      "view": "unknown",
+      "score": 0.2546
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00312",
+      "timestamp_seconds": 1422.4,
+      "bbox": [
+        752.87,
+        187.36,
+        798.17,
+        216.95
+      ],
+      "height_px": 29.6,
+      "size": 0.888,
+      "sharpness": 0.678,
+      "edge": 0.0,
+      "crowding": 0.569,
+      "view": "unknown",
+      "score": 0.2843
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00313",
+      "timestamp_seconds": 1422.6,
+      "bbox": [
+        753.27,
+        187.65,
+        797.87,
+        216.85
+      ],
+      "height_px": 29.2,
+      "size": 0.876,
+      "sharpness": 0.402,
+      "edge": 0.0,
+      "crowding": 0.53,
+      "view": "unknown",
+      "score": 0.253
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00314",
+      "timestamp_seconds": 1422.8,
+      "bbox": [
+        752.97,
+        187.06,
+        797.84,
+        216.78
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.668,
+      "edge": 0.0,
+      "crowding": 0.568,
+      "view": "unknown",
+      "score": 0.2839
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00315",
+      "timestamp_seconds": 1423.0,
+      "bbox": [
+        752.93,
+        188.23,
+        797.72,
+        217.17
+      ],
+      "height_px": 28.9,
+      "size": 0.868,
+      "sharpness": 0.49,
+      "edge": 0.0,
+      "crowding": 0.553,
+      "view": "unknown",
+      "score": 0.2598
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00316",
+      "timestamp_seconds": 1423.2,
+      "bbox": [
+        753.0,
+        188.25,
+        797.68,
+        216.99
+      ],
+      "height_px": 28.7,
+      "size": 0.862,
+      "sharpness": 0.46,
+      "edge": 0.0,
+      "crowding": 0.597,
+      "view": "unknown",
+      "score": 0.2507
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00317",
+      "timestamp_seconds": 1423.4,
+      "bbox": [
+        753.52,
+        189.17,
+        797.01,
+        216.95
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.477,
+      "edge": 0.0,
+      "crowding": 0.527,
+      "view": "unknown",
+      "score": 0.2547
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00318",
+      "timestamp_seconds": 1423.6,
+      "bbox": [
+        752.8,
+        188.64,
+        797.21,
+        216.88
+      ],
+      "height_px": 28.2,
+      "size": 0.847,
+      "sharpness": 0.392,
+      "edge": 0.0,
+      "crowding": 0.573,
+      "view": "unknown",
+      "score": 0.2423
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00319",
+      "timestamp_seconds": 1423.8,
+      "bbox": [
+        753.15,
+        187.5,
+        797.74,
+        217.0
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.369,
+      "edge": 0.0,
+      "crowding": 0.545,
+      "view": "unknown",
+      "score": 0.2492
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00320",
+      "timestamp_seconds": 1424.0,
+      "bbox": [
+        753.59,
+        189.34,
+        797.89,
+        217.41
+      ],
+      "height_px": 28.1,
+      "size": 0.842,
+      "sharpness": 0.307,
+      "edge": 0.0,
+      "crowding": 0.471,
+      "view": "unknown",
+      "score": 0.2413
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00321",
+      "timestamp_seconds": 1424.2,
+      "bbox": [
+        753.0,
+        192.09,
+        796.72,
+        218.19
+      ],
+      "height_px": 26.1,
+      "size": 0.783,
+      "sharpness": 0.09,
+      "edge": 0.0,
+      "crowding": 0.386,
+      "view": "unknown",
+      "score": 0.2132
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00322",
+      "timestamp_seconds": 1424.4,
+      "bbox": [
+        752.7,
+        193.46,
+        795.77,
+        218.41
+      ],
+      "height_px": 24.9,
+      "size": 0.749,
+      "sharpness": 0.023,
+      "edge": 0.0,
+      "crowding": 0.371,
+      "view": "unknown",
+      "score": 0.2004
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00323",
+      "timestamp_seconds": 1424.6,
+      "bbox": [
+        752.8,
+        192.97,
+        795.75,
+        218.11
+      ],
+      "height_px": 25.1,
+      "size": 0.754,
+      "sharpness": 0.028,
+      "edge": 0.0,
+      "crowding": 0.396,
+      "view": "unknown",
+      "score": 0.1995
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00324",
+      "timestamp_seconds": 1424.8,
+      "bbox": [
+        752.84,
+        192.36,
+        795.95,
+        217.9
+      ],
+      "height_px": 25.5,
+      "size": 0.766,
+      "sharpness": 0.136,
+      "edge": 0.0,
+      "crowding": 0.408,
+      "view": "unknown",
+      "score": 0.2134
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00325",
+      "timestamp_seconds": 1425.0,
+      "bbox": [
+        752.51,
+        193.04,
+        796.33,
+        218.47
+      ],
+      "height_px": 25.4,
+      "size": 0.763,
+      "sharpness": 0.033,
+      "edge": 0.0,
+      "crowding": 0.396,
+      "view": "unknown",
+      "score": 0.2017
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00326",
+      "timestamp_seconds": 1425.2,
+      "bbox": [
+        752.46,
+        190.55,
+        797.24,
+        217.97
+      ],
+      "height_px": 27.4,
+      "size": 0.823,
+      "sharpness": 0.161,
+      "edge": 0.0,
+      "crowding": 0.477,
+      "view": "unknown",
+      "score": 0.2197
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00327",
+      "timestamp_seconds": 1425.4,
+      "bbox": [
+        752.31,
+        190.3,
+        797.19,
+        217.69
+      ],
+      "height_px": 27.4,
+      "size": 0.822,
+      "sharpness": 0.425,
+      "edge": 0.0,
+      "crowding": 0.468,
+      "view": "unknown",
+      "score": 0.252
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00328",
+      "timestamp_seconds": 1425.6,
+      "bbox": [
+        753.05,
+        191.45,
+        797.3,
+        218.04
+      ],
+      "height_px": 26.6,
+      "size": 0.798,
+      "sharpness": 0.193,
+      "edge": 0.0,
+      "crowding": 0.422,
+      "view": "unknown",
+      "score": 0.2246
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00329",
+      "timestamp_seconds": 1425.8,
+      "bbox": [
+        752.94,
+        192.21,
+        796.9,
+        218.25
+      ],
+      "height_px": 26.0,
+      "size": 0.781,
+      "sharpness": 0.093,
+      "edge": 0.0,
+      "crowding": 0.394,
+      "view": "unknown",
+      "score": 0.2124
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00330",
+      "timestamp_seconds": 1426.0,
+      "bbox": [
+        753.65,
+        189.46,
+        798.26,
+        218.12
+      ],
+      "height_px": 28.7,
+      "size": 0.86,
+      "sharpness": 0.683,
+      "edge": 0.0,
+      "crowding": 0.52,
+      "view": "unknown",
+      "score": 0.2848
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00331",
+      "timestamp_seconds": 1426.2,
+      "bbox": [
+        752.79,
+        190.71,
+        797.53,
+        217.97
+      ],
+      "height_px": 27.3,
+      "size": 0.818,
+      "sharpness": 0.151,
+      "edge": 0.0,
+      "crowding": 0.485,
+      "view": "unknown",
+      "score": 0.2168
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00332",
+      "timestamp_seconds": 1426.4,
+      "bbox": [
+        753.39,
+        190.37,
+        798.27,
+        218.14
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.359,
+      "edge": 0.0,
+      "crowding": 0.498,
+      "view": "unknown",
+      "score": 0.2433
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00333",
+      "timestamp_seconds": 1426.6,
+      "bbox": [
+        753.5,
+        189.33,
+        798.6,
+        217.87
+      ],
+      "height_px": 28.5,
+      "size": 0.856,
+      "sharpness": 0.756,
+      "edge": 0.0,
+      "crowding": 0.524,
+      "view": "unknown",
+      "score": 0.2925
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00334",
+      "timestamp_seconds": 1426.8,
+      "bbox": [
+        753.0,
+        189.58,
+        798.5,
+        218.02
+      ],
+      "height_px": 28.4,
+      "size": 0.853,
+      "sharpness": 0.379,
+      "edge": 0.0,
+      "crowding": 0.507,
+      "view": "unknown",
+      "score": 0.2484
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00335",
+      "timestamp_seconds": 1427.0,
+      "bbox": [
+        752.62,
+        189.47,
+        798.36,
+        217.96
+      ],
+      "height_px": 28.5,
+      "size": 0.855,
+      "sharpness": 0.754,
+      "edge": 0.0,
+      "crowding": 0.509,
+      "view": "unknown",
+      "score": 0.2934
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00336",
+      "timestamp_seconds": 1427.2,
+      "bbox": [
+        752.77,
+        189.13,
+        798.6,
+        218.17
+      ],
+      "height_px": 29.0,
+      "size": 0.871,
+      "sharpness": 0.671,
+      "edge": 0.0,
+      "crowding": 0.515,
+      "view": "unknown",
+      "score": 0.2858
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00337",
+      "timestamp_seconds": 1427.4,
+      "bbox": [
+        753.43,
+        189.66,
+        798.48,
+        218.03
+      ],
+      "height_px": 28.4,
+      "size": 0.851,
+      "sharpness": 0.422,
+      "edge": 0.0,
+      "crowding": 0.513,
+      "view": "unknown",
+      "score": 0.2526
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00338",
+      "timestamp_seconds": 1427.6,
+      "bbox": [
+        753.45,
+        189.19,
+        798.62,
+        218.19
+      ],
+      "height_px": 29.0,
+      "size": 0.87,
+      "sharpness": 0.691,
+      "edge": 0.0,
+      "crowding": 0.531,
+      "view": "unknown",
+      "score": 0.2864
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00339",
+      "timestamp_seconds": 1427.8,
+      "bbox": [
+        753.5,
+        189.64,
+        798.39,
+        218.13
+      ],
+      "height_px": 28.5,
+      "size": 0.855,
+      "sharpness": 0.462,
+      "edge": 0.0,
+      "crowding": 0.514,
+      "view": "unknown",
+      "score": 0.2579
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00340",
+      "timestamp_seconds": 1428.0,
+      "bbox": [
+        753.89,
+        188.53,
+        798.52,
+        218.29
+      ],
+      "height_px": 29.8,
+      "size": 0.893,
+      "sharpness": 0.789,
+      "edge": 0.0,
+      "crowding": 0.485,
+      "view": "unknown",
+      "score": 0.3069
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00341",
+      "timestamp_seconds": 1428.2,
+      "bbox": [
+        753.54,
+        187.63,
+        798.61,
+        218.04
+      ],
+      "height_px": 30.4,
+      "size": 0.912,
+      "sharpness": 0.872,
+      "edge": 0.0,
+      "crowding": 0.526,
+      "view": "unknown",
+      "score": 0.3163
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00342",
+      "timestamp_seconds": 1428.4,
+      "bbox": [
+        753.93,
+        189.75,
+        798.01,
+        218.52
+      ],
+      "height_px": 28.8,
+      "size": 0.863,
+      "sharpness": 0.786,
+      "edge": 0.0,
+      "crowding": 0.484,
+      "view": "unknown",
+      "score": 0.3013
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00343",
+      "timestamp_seconds": 1428.6,
+      "bbox": [
+        754.18,
+        189.23,
+        798.27,
+        218.29
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.774,
+      "edge": 0.0,
+      "crowding": 0.486,
+      "view": "unknown",
+      "score": 0.3012
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00344",
+      "timestamp_seconds": 1428.8,
+      "bbox": [
+        753.46,
+        189.6,
+        798.09,
+        218.84
+      ],
+      "height_px": 29.2,
+      "size": 0.877,
+      "sharpness": 0.827,
+      "edge": 0.0,
+      "crowding": 0.464,
+      "view": "unknown",
+      "score": 0.3107
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00345",
+      "timestamp_seconds": 1429.0,
+      "bbox": [
+        752.98,
+        189.04,
+        798.66,
+        219.21
+      ],
+      "height_px": 30.2,
+      "size": 0.905,
+      "sharpness": 0.927,
+      "edge": 0.0,
+      "crowding": 0.47,
+      "view": "unknown",
+      "score": 0.3272
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00346",
+      "timestamp_seconds": 1429.2,
+      "bbox": [
+        752.96,
+        189.05,
+        798.25,
+        218.53
+      ],
+      "height_px": 29.5,
+      "size": 0.884,
+      "sharpness": 0.945,
+      "edge": 0.0,
+      "crowding": 0.481,
+      "view": "unknown",
+      "score": 0.3245
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00347",
+      "timestamp_seconds": 1429.4,
+      "bbox": [
+        753.35,
+        188.9,
+        797.99,
+        218.76
+      ],
+      "height_px": 29.9,
+      "size": 0.896,
+      "sharpness": 0.95,
+      "edge": 0.0,
+      "crowding": 0.475,
+      "view": "unknown",
+      "score": 0.3277
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00348",
+      "timestamp_seconds": 1429.6,
+      "bbox": [
+        753.14,
+        189.37,
+        797.73,
+        218.23
+      ],
+      "height_px": 28.9,
+      "size": 0.866,
+      "sharpness": 0.796,
+      "edge": 0.0,
+      "crowding": 0.48,
+      "view": "unknown",
+      "score": 0.3034
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00349",
+      "timestamp_seconds": 1429.8,
+      "bbox": [
+        752.96,
+        189.44,
+        797.93,
+        218.69
+      ],
+      "height_px": 29.2,
+      "size": 0.878,
+      "sharpness": 0.952,
+      "edge": 0.0,
+      "crowding": 0.465,
+      "view": "unknown",
+      "score": 0.3257
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00350",
+      "timestamp_seconds": 1430.0,
+      "bbox": [
+        753.39,
+        189.2,
+        798.08,
+        218.2
+      ],
+      "height_px": 29.0,
+      "size": 0.87,
+      "sharpness": 0.791,
+      "edge": 0.0,
+      "crowding": 0.422,
+      "view": "unknown",
+      "score": 0.3094
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00351",
+      "timestamp_seconds": 1430.2,
+      "bbox": [
+        753.92,
+        190.08,
+        798.33,
+        218.52
+      ],
+      "height_px": 28.4,
+      "size": 0.853,
+      "sharpness": 0.882,
+      "edge": 0.0,
+      "crowding": 0.421,
+      "view": "unknown",
+      "score": 0.3173
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00352",
+      "timestamp_seconds": 1430.4,
+      "bbox": [
+        754.09,
+        188.46,
+        798.84,
+        218.46
+      ],
+      "height_px": 30.0,
+      "size": 0.9,
+      "sharpness": 0.889,
+      "edge": 0.0,
+      "crowding": 0.479,
+      "view": "unknown",
+      "score": 0.3208
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00353",
+      "timestamp_seconds": 1430.6,
+      "bbox": [
+        754.09,
+        189.57,
+        798.42,
+        218.58
+      ],
+      "height_px": 29.0,
+      "size": 0.87,
+      "sharpness": 0.887,
+      "edge": 0.0,
+      "crowding": 0.459,
+      "view": "unknown",
+      "score": 0.3172
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00354",
+      "timestamp_seconds": 1430.8,
+      "bbox": [
+        754.48,
+        189.87,
+        798.71,
+        218.98
+      ],
+      "height_px": 29.1,
+      "size": 0.873,
+      "sharpness": 0.912,
+      "edge": 0.0,
+      "crowding": 0.457,
+      "view": "unknown",
+      "score": 0.3209
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00355",
+      "timestamp_seconds": 1431.0,
+      "bbox": [
+        753.57,
+        189.14,
+        798.89,
+        218.67
+      ],
+      "height_px": 29.5,
+      "size": 0.886,
+      "sharpness": 0.965,
+      "edge": 0.0,
+      "crowding": 0.488,
+      "view": "unknown",
+      "score": 0.3265
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00356",
+      "timestamp_seconds": 1431.2,
+      "bbox": [
+        753.25,
+        190.0,
+        797.68,
+        218.35
+      ],
+      "height_px": 28.3,
+      "size": 0.851,
+      "sharpness": 0.545,
+      "edge": 0.0,
+      "crowding": 0.438,
+      "view": "unknown",
+      "score": 0.2747
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00357",
+      "timestamp_seconds": 1431.4,
+      "bbox": [
+        753.8,
+        189.77,
+        798.06,
+        218.53
+      ],
+      "height_px": 28.8,
+      "size": 0.863,
+      "sharpness": 0.917,
+      "edge": 0.0,
+      "crowding": 0.456,
+      "view": "unknown",
+      "score": 0.3197
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00358",
+      "timestamp_seconds": 1431.6,
+      "bbox": [
+        753.56,
+        190.84,
+        797.59,
+        218.48
+      ],
+      "height_px": 27.6,
+      "size": 0.829,
+      "sharpness": 0.299,
+      "edge": 0.0,
+      "crowding": 0.416,
+      "view": "unknown",
+      "score": 0.2436
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00359",
+      "timestamp_seconds": 1431.8,
+      "bbox": [
+        753.61,
+        191.92,
+        797.18,
+        218.59
+      ],
+      "height_px": 26.7,
+      "size": 0.8,
+      "sharpness": 0.603,
+      "edge": 0.0,
+      "crowding": 0.402,
+      "view": "unknown",
+      "score": 0.2762
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00360",
+      "timestamp_seconds": 1432.0,
+      "bbox": [
+        753.0,
+        188.97,
+        797.92,
+        218.08
+      ],
+      "height_px": 29.1,
+      "size": 0.873,
+      "sharpness": 0.834,
+      "edge": 0.0,
+      "crowding": 0.476,
+      "view": "unknown",
+      "score": 0.3097
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00361",
+      "timestamp_seconds": 1432.2,
+      "bbox": [
+        753.14,
+        189.12,
+        798.05,
+        218.27
+      ],
+      "height_px": 29.2,
+      "size": 0.875,
+      "sharpness": 0.842,
+      "edge": 0.0,
+      "crowding": 0.487,
+      "view": "unknown",
+      "score": 0.3097
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00362",
+      "timestamp_seconds": 1432.4,
+      "bbox": [
+        752.93,
+        188.64,
+        798.19,
+        218.15
+      ],
+      "height_px": 29.5,
+      "size": 0.885,
+      "sharpness": 0.852,
+      "edge": 0.0,
+      "crowding": 0.503,
+      "view": "unknown",
+      "score": 0.3113
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00363",
+      "timestamp_seconds": 1432.6,
+      "bbox": [
+        753.29,
+        189.27,
+        797.93,
+        218.31
+      ],
+      "height_px": 29.0,
+      "size": 0.871,
+      "sharpness": 0.859,
+      "edge": 0.0,
+      "crowding": 0.465,
+      "view": "unknown",
+      "score": 0.3135
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00364",
+      "timestamp_seconds": 1432.8,
+      "bbox": [
+        753.33,
+        189.85,
+        798.28,
+        218.45
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.563,
+      "edge": 0.0,
+      "crowding": 0.463,
+      "view": "unknown",
+      "score": 0.2757
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00365",
+      "timestamp_seconds": 1433.0,
+      "bbox": [
+        753.06,
+        188.61,
+        797.99,
+        217.88
+      ],
+      "height_px": 29.3,
+      "size": 0.878,
+      "sharpness": 0.854,
+      "edge": 0.0,
+      "crowding": 0.494,
+      "view": "unknown",
+      "score": 0.3112
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00366",
+      "timestamp_seconds": 1433.2,
+      "bbox": [
+        753.13,
+        189.24,
+        797.45,
+        217.64
+      ],
+      "height_px": 28.4,
+      "size": 0.852,
+      "sharpness": 0.879,
+      "edge": 0.0,
+      "crowding": 0.479,
+      "view": "unknown",
+      "score": 0.311
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00367",
+      "timestamp_seconds": 1433.4,
+      "bbox": [
+        752.49,
+        190.2,
+        797.57,
+        218.03
+      ],
+      "height_px": 27.8,
+      "size": 0.835,
+      "sharpness": 0.535,
+      "edge": 0.0,
+      "crowding": 0.442,
+      "view": "unknown",
+      "score": 0.2704
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00368",
+      "timestamp_seconds": 1433.6,
+      "bbox": [
+        752.6,
+        190.5,
+        797.51,
+        218.28
+      ],
+      "height_px": 27.8,
+      "size": 0.833,
+      "sharpness": 0.505,
+      "edge": 0.0,
+      "crowding": 0.43,
+      "view": "unknown",
+      "score": 0.2676
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00369",
+      "timestamp_seconds": 1433.8,
+      "bbox": [
+        753.07,
+        188.59,
+        797.34,
+        217.66
+      ],
+      "height_px": 29.1,
+      "size": 0.872,
+      "sharpness": 0.721,
+      "edge": 0.0,
+      "crowding": 0.473,
+      "view": "unknown",
+      "score": 0.2962
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00370",
+      "timestamp_seconds": 1434.0,
+      "bbox": [
+        752.7,
+        189.56,
+        797.06,
+        217.06
+      ],
+      "height_px": 27.5,
+      "size": 0.825,
+      "sharpness": 0.073,
+      "edge": 0.0,
+      "crowding": 0.478,
+      "view": "unknown",
+      "score": 0.2095
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00371",
+      "timestamp_seconds": 1434.2,
+      "bbox": [
+        752.93,
+        188.96,
+        797.31,
+        216.83
+      ],
+      "height_px": 27.9,
+      "size": 0.836,
+      "sharpness": 0.332,
+      "edge": 0.0,
+      "crowding": 0.505,
+      "view": "unknown",
+      "score": 0.2398
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00372",
+      "timestamp_seconds": 1434.4,
+      "bbox": [
+        752.68,
+        189.13,
+        797.3,
+        217.28
+      ],
+      "height_px": 28.2,
+      "size": 0.845,
+      "sharpness": 0.367,
+      "edge": 0.0,
+      "crowding": 0.456,
+      "view": "unknown",
+      "score": 0.2504
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00373",
+      "timestamp_seconds": 1434.6,
+      "bbox": [
+        753.59,
+        188.09,
+        797.96,
+        216.84
+      ],
+      "height_px": 28.8,
+      "size": 0.863,
+      "sharpness": 0.58,
+      "edge": 0.0,
+      "crowding": 0.509,
+      "view": "unknown",
+      "score": 0.274
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00374",
+      "timestamp_seconds": 1434.8,
+      "bbox": [
+        753.39,
+        188.55,
+        797.66,
+        217.12
+      ],
+      "height_px": 28.6,
+      "size": 0.857,
+      "sharpness": 0.455,
+      "edge": 0.0,
+      "crowding": 0.514,
+      "view": "unknown",
+      "score": 0.2575
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00375",
+      "timestamp_seconds": 1435.0,
+      "bbox": [
+        753.09,
+        189.81,
+        797.03,
+        217.43
+      ],
+      "height_px": 27.6,
+      "size": 0.829,
+      "sharpness": 0.153,
+      "edge": 0.0,
+      "crowding": 0.519,
+      "view": "unknown",
+      "score": 0.2157
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00376",
+      "timestamp_seconds": 1435.2,
+      "bbox": [
+        753.03,
+        188.89,
+        797.52,
+        217.25
+      ],
+      "height_px": 28.4,
+      "size": 0.851,
+      "sharpness": 0.442,
+      "edge": 0.0,
+      "crowding": 0.5,
+      "view": "unknown",
+      "score": 0.2562
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00377",
+      "timestamp_seconds": 1435.4,
+      "bbox": [
+        753.12,
+        191.06,
+        796.97,
+        218.1
+      ],
+      "height_px": 27.0,
+      "size": 0.811,
+      "sharpness": 0.269,
+      "edge": 0.0,
+      "crowding": 0.422,
+      "view": "unknown",
+      "score": 0.2361
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00378",
+      "timestamp_seconds": 1435.6,
+      "bbox": [
+        753.42,
+        191.51,
+        796.9,
+        217.86
+      ],
+      "height_px": 26.4,
+      "size": 0.791,
+      "sharpness": 0.143,
+      "edge": 0.0,
+      "crowding": 0.411,
+      "view": "unknown",
+      "score": 0.2184
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00379",
+      "timestamp_seconds": 1435.8,
+      "bbox": [
+        752.65,
+        192.2,
+        796.44,
+        218.18
+      ],
+      "height_px": 26.0,
+      "size": 0.779,
+      "sharpness": 0.116,
+      "edge": 0.0,
+      "crowding": 0.378,
+      "view": "unknown",
+      "score": 0.2164
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00380",
+      "timestamp_seconds": 1436.0,
+      "bbox": [
+        752.88,
+        188.37,
+        797.99,
+        218.57
+      ],
+      "height_px": 30.2,
+      "size": 0.906,
+      "sharpness": 0.97,
+      "edge": 0.0,
+      "crowding": 0.511,
+      "view": "unknown",
+      "score": 0.3284
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00381",
+      "timestamp_seconds": 1436.2,
+      "bbox": [
+        753.6,
+        187.07,
+        797.9,
+        217.5
+      ],
+      "height_px": 30.4,
+      "size": 0.913,
+      "sharpness": 0.935,
+      "edge": 0.0,
+      "crowding": 0.544,
+      "view": "unknown",
+      "score": 0.3221
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00382",
+      "timestamp_seconds": 1436.4,
+      "bbox": [
+        753.75,
+        186.93,
+        797.66,
+        216.95
+      ],
+      "height_px": 30.0,
+      "size": 0.901,
+      "sharpness": 0.646,
+      "edge": 0.0,
+      "crowding": 0.559,
+      "view": "unknown",
+      "score": 0.2837
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00383",
+      "timestamp_seconds": 1436.6,
+      "bbox": [
+        753.45,
+        187.96,
+        797.67,
+        217.7
+      ],
+      "height_px": 29.7,
+      "size": 0.892,
+      "sharpness": 0.779,
+      "edge": 0.0,
+      "crowding": 0.524,
+      "view": "unknown",
+      "score": 0.3017
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00384",
+      "timestamp_seconds": 1436.8,
+      "bbox": [
+        753.93,
+        187.86,
+        798.0,
+        217.53
+      ],
+      "height_px": 29.7,
+      "size": 0.89,
+      "sharpness": 0.844,
+      "edge": 0.0,
+      "crowding": 0.529,
+      "view": "unknown",
+      "score": 0.3086
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00385",
+      "timestamp_seconds": 1437.0,
+      "bbox": [
+        753.54,
+        188.41,
+        797.58,
+        217.39
+      ],
+      "height_px": 29.0,
+      "size": 0.869,
+      "sharpness": 0.437,
+      "edge": 0.0,
+      "crowding": 0.525,
+      "view": "unknown",
+      "score": 0.2565
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00386",
+      "timestamp_seconds": 1437.2,
+      "bbox": [
+        753.72,
+        187.85,
+        798.09,
+        217.41
+      ],
+      "height_px": 29.6,
+      "size": 0.887,
+      "sharpness": 0.445,
+      "edge": 0.0,
+      "crowding": 0.534,
+      "view": "unknown",
+      "score": 0.2596
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00387",
+      "timestamp_seconds": 1437.4,
+      "bbox": [
+        754.04,
+        187.55,
+        798.24,
+        217.56
+      ],
+      "height_px": 30.0,
+      "size": 0.9,
+      "sharpness": 0.892,
+      "edge": 0.0,
+      "crowding": 0.521,
+      "view": "unknown",
+      "score": 0.317
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00388",
+      "timestamp_seconds": 1437.6,
+      "bbox": [
+        754.26,
+        188.38,
+        798.02,
+        217.79
+      ],
+      "height_px": 29.4,
+      "size": 0.882,
+      "sharpness": 0.907,
+      "edge": 0.0,
+      "crowding": 0.491,
+      "view": "unknown",
+      "score": 0.3186
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00389",
+      "timestamp_seconds": 1437.8,
+      "bbox": [
+        754.48,
+        187.42,
+        798.04,
+        217.24
+      ],
+      "height_px": 29.8,
+      "size": 0.895,
+      "sharpness": 0.704,
+      "edge": 0.0,
+      "crowding": 0.514,
+      "view": "unknown",
+      "score": 0.294
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00390",
+      "timestamp_seconds": 1438.0,
+      "bbox": [
+        753.74,
+        192.03,
+        797.8,
+        219.01
+      ],
+      "height_px": 27.0,
+      "size": 0.809,
+      "sharpness": 0.387,
+      "edge": 0.0,
+      "crowding": 0.432,
+      "view": "unknown",
+      "score": 0.2489
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00391",
+      "timestamp_seconds": 1438.2,
+      "bbox": [
+        753.72,
+        191.38,
+        797.4,
+        218.61
+      ],
+      "height_px": 27.2,
+      "size": 0.817,
+      "sharpness": 0.661,
+      "edge": 0.0,
+      "crowding": 0.42,
+      "view": "unknown",
+      "score": 0.2843
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00392",
+      "timestamp_seconds": 1438.4,
+      "bbox": [
+        753.73,
+        190.92,
+        797.36,
+        218.4
+      ],
+      "height_px": 27.5,
+      "size": 0.824,
+      "sharpness": 0.221,
+      "edge": 0.0,
+      "crowding": 0.428,
+      "view": "unknown",
+      "score": 0.2321
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00393",
+      "timestamp_seconds": 1438.6,
+      "bbox": [
+        754.12,
+        190.22,
+        797.52,
+        217.74
+      ],
+      "height_px": 27.5,
+      "size": 0.826,
+      "sharpness": 0.538,
+      "edge": 0.0,
+      "crowding": 0.442,
+      "view": "unknown",
+      "score": 0.269
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00394",
+      "timestamp_seconds": 1438.8,
+      "bbox": [
+        753.69,
+        189.07,
+        797.65,
+        217.7
+      ],
+      "height_px": 28.6,
+      "size": 0.859,
+      "sharpness": 0.824,
+      "edge": 0.0,
+      "crowding": 0.477,
+      "view": "unknown",
+      "score": 0.3058
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00395",
+      "timestamp_seconds": 1439.0,
+      "bbox": [
+        753.73,
+        188.99,
+        798.05,
+        217.81
+      ],
+      "height_px": 28.8,
+      "size": 0.865,
+      "sharpness": 0.822,
+      "edge": 0.0,
+      "crowding": 0.487,
+      "view": "unknown",
+      "score": 0.3055
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00396",
+      "timestamp_seconds": 1439.2,
+      "bbox": [
+        753.76,
+        189.96,
+        797.68,
+        218.03
+      ],
+      "height_px": 28.1,
+      "size": 0.842,
+      "sharpness": 0.601,
+      "edge": 0.0,
+      "crowding": 0.469,
+      "view": "unknown",
+      "score": 0.2767
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00397",
+      "timestamp_seconds": 1439.4,
+      "bbox": [
+        754.56,
+        189.31,
+        798.34,
+        218.05
+      ],
+      "height_px": 28.7,
+      "size": 0.862,
+      "sharpness": 0.905,
+      "edge": 0.0,
+      "crowding": 0.489,
+      "view": "unknown",
+      "score": 0.3149
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00398",
+      "timestamp_seconds": 1439.6,
+      "bbox": [
+        754.21,
+        188.71,
+        798.41,
+        217.61
+      ],
+      "height_px": 28.9,
+      "size": 0.867,
+      "sharpness": 0.857,
+      "edge": 0.0,
+      "crowding": 0.516,
+      "view": "unknown",
+      "score": 0.3072
+    },
+    {
+      "below_min_size": true,
+      "frame_id": "00399",
+      "timestamp_seconds": 1439.8,
+      "bbox": [
+        754.57,
+        189.33,
+        798.36,
+        217.92
+      ],
+      "height_px": 28.6,
+      "size": 0.858,
+      "sharpness": 0.91,
+      "edge": 0.0,
+      "crowding": 0.497,
+      "view": "unknown",
+      "score": 0.3138
+    }
+  ]
+}
