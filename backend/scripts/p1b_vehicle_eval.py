@@ -184,7 +184,12 @@ def main(argv=None):
                        "start_seconds": round(t.first_seen_seconds, 2),
                        "end_seconds": round(t.last_seen_seconds, 2),
                        "observations": len(t.observations),
-                       "label": _majority_label(t)}
+                       "label": _majority_label(t),
+                       "frames": [{"frame_id": o.frame_id,
+                                   "timestamp_seconds": round(o.timestamp_seconds, 3),
+                                   "bbox": [round(float(v), 2) for v in o.bbox],
+                                   "confidence": round(float(o.confidence), 4)}
+                                  for o in t.observations]}
                       for t in tracks]}
     json.dump(out, open(args.out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
