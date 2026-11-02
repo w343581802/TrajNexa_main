@@ -200,16 +200,32 @@ def group_tracks(tracks, frame_vectors=None, rules=None):
     for track in tracks:
         members.setdefault(find(track["track_id"]), []).append(track["track_id"])
 
-    groups = []
-    ordered = sorted(members.values(), key=lambda ids: (-len(ids), min(ids)))
-    for index, ids in enumerate(ordered, start=1):
+    # 传递合并防护：A~B、B~C 成立，不代表 A~C 成立。
+    # 每次归组都要回头检查"整个组内"是否存在 conflict_coexist，有冲突就拒绝自动归组。
+    components = []
+    for ids in members.values():
         ids = sorted(ids)
+        intra = [e for e in evidence if e["track_a"] in ids and e["track_b"] in ids]
+        conflicts = [e for e in intra if e["verdict"] == "conflict_coexist"]
+        if conflicts:
+            for tid in ids:
+                components.append(([tid], conflicts))
+        else:
+            components.append((ids, []))
+
+    groups = []
+    ordered = sorted(components, key=lambda item: (-len(item[0]), min(item[0])))
+    for index, (ids, conflicts) in enumerate(ordered, start=1):
         gaps = coverage_gaps([t for t in tracks if t["track_id"] in ids], max_gap_seconds=0.45)
         groups.append({
             "candidate_id": "PhysicalObjectCandidate_%03d" % index,
             "track_ids": ids,
             "grouped": len(ids) > 1,
             "coverage_gaps": gaps,
+            "group_conflict": bool(conflicts),
+            "conflicts": [{"track_a": e["track_a"], "track_b": e["track_b"],
+                           "conflict_frames": e["conflict_frames"],
+                           "mean_iou": e["mean_iou"]} for e in conflicts],
             "evidence": [e for e in evidence
                          if e["track_a"] in ids and e["track_b"] in ids and e["verdict"] == "same_object"],
         })

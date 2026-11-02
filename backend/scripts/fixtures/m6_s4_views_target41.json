@@ -1,0 +1,16 @@
+{
+  "target_track": 41,
+  "note": "视角由人工核对 1390-1402s 连续帧后标注：远距正面、近距正面、出画前侧脸；该目标全程未回头，本片没有背面段。",
+  "views": [
+    {"from": 1390.0, "to": 1396.2, "view": "front_far"},
+    {"from": 1396.2, "to": 1401.0, "view": "front_near"},
+    {"from": 1401.0, "to": 1401.5, "view": "profile"},
+    {"from": 1401.5, "to": 1401.9, "view": "tail_clipped"}
+  ],
+  "cases": [
+    {"name": "front_near_to_front_far", "anchor_view": "front_near", "candidate_views": ["front_far"]},
+    {"name": "front_far_to_front_near", "anchor_view": "front_far", "candidate_views": ["front_near"]},
+    {"name": "front_near_to_profile", "anchor_view": "front_near", "candidate_views": ["profile"]},
+    {"name": "clipped_tail_anchor", "anchor_view": "tail_clipped", "candidate_views": ["front_near"]}
+  ]
+}

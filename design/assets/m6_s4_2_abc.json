@@ -1,0 +1,187 @@
+{
+  "target_track": 41,
+  "target_group": [
+    41,
+    46,
+    47,
+    50,
+    53,
+    60,
+    64,
+    67
+  ],
+  "views": [
+    {
+      "from": 1390.0,
+      "to": 1396.2,
+      "view": "front_far"
+    },
+    {
+      "from": 1396.2,
+      "to": 1401.0,
+      "view": "front_near"
+    },
+    {
+      "from": 1401.0,
+      "to": 1401.5,
+      "view": "profile"
+    },
+    {
+      "from": 1401.5,
+      "to": 1401.9,
+      "view": "tail_clipped"
+    }
+  ],
+  "cases": [
+    {
+      "case": "front_near_to_front_far",
+      "anchor_view": "front_near",
+      "candidate_views": [
+        "front_far"
+      ],
+      "anchor_frames": 10,
+      "probe_frames": 12,
+      "aggregate": {
+        "target_score": 0.8039,
+        "target_rank": 1,
+        "supporting_frames": 12,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "28",
+          "track_id": 28,
+          "score": 0.6729
+        },
+        "margin": 0.131
+      },
+      "per_frame": {
+        "target_score": 0.8844,
+        "target_rank": 1,
+        "supporting_frames": 21,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "49-70",
+          "track_id": 49,
+          "score": 0.6443
+        },
+        "margin": 0.24
+      },
+      "view_weighted": {
+        "target_score": 0.7689,
+        "target_rank": 1,
+        "supporting_frames": 21,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "28",
+          "track_id": 28,
+          "score": 0.6073
+        },
+        "margin": 0.1616
+      }
+    },
+    {
+      "case": "front_far_to_front_near",
+      "anchor_view": "front_far",
+      "candidate_views": [
+        "front_near"
+      ],
+      "anchor_frames": 12,
+      "probe_frames": 10,
+      "aggregate": {
+        "target_score": 0.8039,
+        "target_rank": 2,
+        "supporting_frames": 10,
+        "views_used": 1,
+        "status": "ambiguous",
+        "top_negative": {
+          "candidate": "35",
+          "track_id": 35,
+          "score": 0.8272
+        },
+        "margin": -0.0233
+      },
+      "per_frame": {
+        "target_score": 0.8844,
+        "target_rank": 1,
+        "supporting_frames": 21,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "35",
+          "track_id": 35,
+          "score": 0.738
+        },
+        "margin": 0.1464
+      },
+      "view_weighted": {
+        "target_score": 0.7689,
+        "target_rank": 1,
+        "supporting_frames": 21,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "35",
+          "track_id": 35,
+          "score": 0.6678
+        },
+        "margin": 0.1011
+      }
+    },
+    {
+      "case": "front_near_to_profile",
+      "anchor_view": "front_near",
+      "candidate_views": [
+        "profile"
+      ],
+      "anchor_frames": 10,
+      "probe_frames": 2,
+      "aggregate": {
+        "target_score": 0.7456,
+        "target_rank": 1,
+        "supporting_frames": 2,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "28",
+          "track_id": 28,
+          "score": 0.6729
+        },
+        "margin": 0.0727
+      },
+      "per_frame": {
+        "target_score": 0.8026,
+        "target_rank": 1,
+        "supporting_frames": 9,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "49-70",
+          "track_id": 49,
+          "score": 0.6443
+        },
+        "margin": 0.1582
+      },
+      "view_weighted": {
+        "target_score": 0.7959,
+        "target_rank": 1,
+        "supporting_frames": 9,
+        "views_used": 1,
+        "status": "candidate",
+        "top_negative": {
+          "candidate": "28",
+          "track_id": 28,
+          "score": 0.6073
+        },
+        "margin": 0.1886
+      }
+    },
+    {
+      "case": "clipped_tail_anchor",
+      "skipped": "视角段内没有可用观测",
+      "anchor_frames": 0,
+      "probe_frames": 10
+    }
+  ]
+}

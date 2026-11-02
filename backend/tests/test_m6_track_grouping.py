@@ -85,3 +85,33 @@ def test_coverage_gaps_expose_false_extension():
     report = coverage_gaps([a, b], max_gap_seconds=0.45)
     assert report["gaps"], "归组后出现的空档必须被记录"
     assert report["max_gap_seconds"] > 0.45
+
+
+def _frames(track_id, entries, vec=(1.0, 0.0)):
+    """entries: [(frame_index, x, y)] -> (track, frame_vectors 片段)"""
+    track = {"track_id": track_id, "observations": [
+        {"frame_id": str(i), "timestamp_seconds": i * 0.2,
+         "bbox": [x, y, x + 60, y + 160], "confidence": 0.8}
+        for i, x, y in entries]}
+    vectors = {str(i): np.asarray(vec, dtype=np.float32) for i, _, _ in entries}
+    return track, vectors
+
+
+def test_transitive_merge_is_rejected_by_group_conflict():
+    """A~B 与 B~C 成立，但 A 与 C 同帧相距很远（不可能是同一人）→ 拒绝自动归组。"""
+    from app.m6_track_grouping import group_tracks
+
+    a, va = _frames(1, [(i, 0, 100) for i in range(10)])
+    b, vb = _frames(2, [(0, 0, 100), (1, 0, 100), (2, 0, 100)]
+                    + [(i, 600, 100) for i in range(10, 14)])
+    c, vc = _frames(3, [(i, 600, 100) for i in range(6, 14)])
+    groups, evidence = group_tracks([a, b, c], {**dict(va.items()), **dict(vb.items()), **dict(vc.items())})
+
+    verdicts = {(e["track_a"], e["track_b"]): e["verdict"] for e in evidence}
+    assert verdicts[(1, 2)] == "same_object"
+    assert verdicts[(2, 3)] == "same_object"
+    assert verdicts[(1, 3)] == "conflict_coexist"
+
+    # 三条各自成组，且都带上冲突标记，不能输出 A-B-C 一个大组
+    assert sorted(tuple(g["track_ids"]) for g in groups) == [(1,), (2,), (3,)]
+    assert all(g["group_conflict"] for g in groups)
