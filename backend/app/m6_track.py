@@ -64,6 +64,8 @@ class TrackObservation:
 @dataclass
 class Tracklet:
     track_id: int
+    session_id: int = 1
+    local_track_id: int = -1
     observations: list = field(default_factory=list)
     first_seen_seconds: float = 0.0
     last_seen_seconds: float = 0.0
@@ -78,6 +80,8 @@ class Tracklet:
     def to_dict(self) -> dict:
         return {
             "track_id": self.track_id,
+            "session_id": self.session_id,
+            "local_track_id": self.local_track_id,
             "state": self.state,
             "start_seconds": round(self.first_seen_seconds, 3),
             "end_seconds": round(self.last_seen_seconds, 3),
@@ -122,7 +126,13 @@ class ByteTrackAdapter:
         self._tracks: dict[int, Tracklet] = {}
         self._events: list[dict] = []
         self._warnings: list[str] = []
-        self._pending: dict[int, int] = {}
+        # 轨迹号由适配器统一分配：ByteTrack 重置后本地号会从 0 重新开始，
+        # 若直接沿用会与历史轨迹撞号（两段素材被误认成同一条轨迹）。
+        self._session_id = 1
+        self._local_to_global: dict[int, int] = {}
+        self._next_global_id = 1
+        # 只按“输入时间轴”判断断档；单条轨迹暂时丢失走 _age，不重置整段。
+        self._last_frame_seconds = None
         if self.sample_interval_seconds >= 1.0:
             self._warnings.append(
                 "sample_interval_ge_1s: 采样间隔 %.2fs，短时遮挡与交错无法用本素材判断"
@@ -150,63 +160,69 @@ class ByteTrackAdapter:
     # ---- 主流程 ----
     def update(self, observations: Sequence[TrackObservation]) -> list[Tracklet]:
         """喂入一帧的观测，返回当前仍然活跃的轨迹。"""
-        tracker = self._ensure_tracker()
         try:
             import numpy as np
             from supervision import Detections
         except Exception as exc:  # pragma: no cover
             raise TrackDependencyError("supervision_unavailable") from exc
 
+        if observations:
+            now = min(o.timestamp_seconds for o in observations)
+            # 先判断档、再取跟踪器：否则本帧仍会调用已经被丢弃的旧实例，
+            # 重置要拖到下一帧才生效（断档当帧就可能在旧状态上接错人）。
+            self._handle_stream_gap(now)
+            self._last_frame_seconds = now
+        tracker = self._ensure_tracker()
         if not observations:
             # 本帧没有任何检测：不喂跟踪器（空 Detections 的内部状态不可靠），
-            # 只推进轨迹老化，lost 事件由 _age 负责。
+            # 只推进适配器的老化，lost 事件由 _age 负责。
             self._age(set())
             return [t for t in self._tracks.values() if t.state == "active"]
-        if observations:
-            xyxy = np.asarray([o.bbox for o in observations], dtype=np.float32)
-            conf = np.asarray([o.confidence for o in observations], dtype=np.float32)
-            cls = np.asarray([o.class_id for o in observations], dtype=np.int32)
-            # 把观测编号随检测一起传给跟踪器，输出时可直接对回原始检测（比按坐标反查可靠）
-            detections = Detections(xyxy=xyxy, confidence=conf, class_id=cls,
-                                    data={"obs_index": np.arange(len(observations))})
-        else:
-            detections = Detections.empty() if hasattr(Detections, "empty") else None
-        if detections is None:
-            detections = Detections(
-                xyxy=np.zeros((0, 4), dtype=np.float32),
-                confidence=np.zeros((0,), dtype=np.float32),
-                class_id=np.zeros((0,), dtype=np.int32),
-            )
-        self._check_time_jump(observations)
+
+        xyxy = np.asarray([o.bbox for o in observations], dtype=np.float32)
+        conf = np.asarray([o.confidence for o in observations], dtype=np.float32)
+        cls = np.asarray([o.class_id for o in observations], dtype=np.int32)
+        # 把观测编号随检测一起传给跟踪器，输出时可直接对回原始检测（比按坐标反查可靠）
+        detections = Detections(xyxy=xyxy, confidence=conf, class_id=cls,
+                                data={"obs_index": np.arange(len(observations))})
         tracked = tracker.update(detections)
         return self._absorb(tracked, observations)
 
-    def _check_time_jump(self, observations: Sequence[TrackObservation]):
-        """素材分段或跳帧时，按真实时间关闭超期轨迹。
+    def _handle_stream_gap(self, now: float):
+        """输入时间轴出现断档时，结束全部在跟踪的轨迹并重建跟踪器。
 
-        只按“连续缺失帧数”计数会漏掉时间断档：170s 与 1698s 两段之间隔着 25 分钟，
-        但输入里只有相邻的两帧，绝不能把它们接成同一条轨迹。
+        判断依据只有“上一帧输入时间”与“本帧时间”。某条轨迹自己暂时丢失
+        （被挡住两帧）不应该牵连其他正常轨迹，那属于 _age 的职责。
         """
-        if not observations:
+        if self._last_frame_seconds is None:
             return
-        now = min(o.timestamp_seconds for o in observations)
-        reset = False
+        gap = now - self._last_frame_seconds
+        limit = float(self._params["max_gap_seconds"])
+        if gap <= limit:
+            return
         for tid, track in list(self._tracks.items()):
             if track.state == "ended":
                 continue
-            gap = now - track.last_seen_seconds
-            if gap <= float(self._params["max_gap_seconds"]):
-                continue
             track.state = "ended"
-            reset = True
             self._event("track_ended", tid, None,
-                        {"reason": "time_gap", "gap_seconds": round(gap, 3),
-                         "gap_limit_seconds": float(self._params["max_gap_seconds"])})
-        if reset:
-            # 跨时间断档时重建跟踪器，避免内部卡尔曼状态把两段素材接成一条轨迹
-            self._tracker = None
-            self._warnings.append(
-                "tracker_reset_after_time_gap: %.1fs 处的时间断档超过 max_gap，已重建跟踪器" % now)
+                        {"reason": "stream_gap", "gap_seconds": round(gap, 3),
+                         "gap_limit_seconds": limit})
+        # 跨断档重建跟踪器：内部卡尔曼状态会把两段素材接成一条轨迹
+        self._tracker = None
+        self._local_to_global.clear()
+        self._session_id += 1
+        self._warnings.append(
+            "tracker_reset_after_stream_gap: %.1fs 处断档 %.1fs 超过 max_gap，"
+            "已重建跟踪器（新 session=%d）" % (now, gap, self._session_id))
+
+    def _global_id(self, local_track_id: int) -> int:
+        """把 ByteTrack 的本地号映射成适配器全局号，重置后不会撞号。"""
+        gid = self._local_to_global.get(local_track_id)
+        if gid is None:
+            gid = self._next_global_id
+            self._next_global_id += 1
+            self._local_to_global[local_track_id] = gid
+        return gid
 
     def _absorb(self, tracked, observations: Sequence[TrackObservation]) -> list[Tracklet]:
         ids = getattr(tracked, "tracker_id", None)
@@ -217,11 +233,12 @@ class ByteTrackAdapter:
         seen: set[int] = set()
         if ids is not None and len(ids):
             for idx, tid in enumerate(ids):
-                tid = int(tid)
-                if tid < 0:
+                local = int(tid)
+                if local < 0:
                     # ByteTrack 用 -1 表示“本帧输出但未归属任何轨迹”，
                     # 把它当轨迹会把整段素材并成一条假长轨，必须丢弃。
                     continue
+                tid = self._global_id(local)
                 seen.add(tid)
                 obs = None
                 if obs_index is not None and idx < len(obs_index):
@@ -234,7 +251,7 @@ class ByteTrackAdapter:
                 if obs is None:
                     self._warnings.append("observation_unresolved: track %d 无法对回原始检测" % tid)
                     continue
-                self._push(tid, obs)
+                self._push(tid, obs, local)
         self._age(seen)
         return [t for t in self._tracks.values() if t.state == "active"]
 
@@ -253,11 +270,13 @@ class ByteTrackAdapter:
             return None
         return best if best_err is not None and best_err <= tol else None
 
-    def _push(self, tid: int, obs: TrackObservation):
+    def _push(self, tid: int, obs: TrackObservation, local: int | None = None):
         track = self._tracks.get(tid)
         created = track is None
         if created:
-            track = Tracklet(track_id=tid, first_seen_seconds=obs.timestamp_seconds)
+            track = Tracklet(track_id=tid, session_id=self._session_id,
+                             local_track_id=tid if local is None else local,
+                             first_seen_seconds=obs.timestamp_seconds)
             self._tracks[tid] = track
             self._event("track_created", tid, obs, {"reason": "first_observation"})
         elif track.state == "lost":

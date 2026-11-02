@@ -28,7 +28,26 @@ jobs:
             tests/test_m4c_api.py \
             tests/test_m5_vision_registry.py \
             tests/test_m5_model_test_api.py \
+            tests/test_yolo_end2end_decode.py \
             tests/test_architecture_contracts.py
+  m6-tracking:
+    # 跟踪用例依赖 trackers/supervision（requirements-track.txt）；单独安装并显式执行，
+    # 避免 importorskip 让新功能在 CI 里被整体跳过。
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements-track.txt
+      - name: ByteTrack adapter regression (must not be skipped)
+        run: |
+          python -c "import trackers, supervision; print('tracking deps ok')"
+          python -m pytest tests/test_m6_track.py -q -rs
   frontend-build:
     runs-on: ubuntu-latest
     defaults:

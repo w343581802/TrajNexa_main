@@ -38,6 +38,32 @@ def _iou(a, b):
     return inter / area if area > 0 else 0.0
 
 
+def _frame_seconds(frame):
+    """取帧时间；缺字段返回 None，不要用 0.0 兜底（会把整段素材压到同一时刻）。"""
+    for key in ("timestamp_seconds", "seconds"):
+        value = frame.get(key)
+        if value is not None:
+            return float(value)
+    return None
+
+
+def validate_frames(frames, source):
+    """时间必须存在、单调、帧号不重复，否则后面的跟踪结论全部不可信。"""
+    if not frames:
+        raise SystemExit("frames_empty: %s 里没有任何帧" % source)
+    seen, last = set(), None
+    for frame in frames:
+        fid = frame["frame_id"]
+        if fid in seen:
+            raise SystemExit("frame_duplicated: %s 重复出现" % fid)
+        seen.add(fid)
+        if last is not None and frame["timestamp_seconds"] < last:
+            raise SystemExit("timestamp_not_monotonic: %s 时间倒退（%.3f < %.3f）"
+                             % (fid, frame["timestamp_seconds"], last))
+        last = frame["timestamp_seconds"]
+    return frames
+
+
 def load_frames(path, sample_interval, min_conf):
     """读取逐帧检测，按时间排序；低分框保留给 ByteTrack 的第二阶段。"""
     with open(path, "r", encoding="utf-8") as fh:
@@ -47,37 +73,58 @@ def load_frames(path, sample_interval, min_conf):
         raise SystemExit("detections_invalid: frames 不是数组")
     out = []
     for frame in frames:
+        if "frame_id" not in frame:
+            raise SystemExit("frame_id_missing: 第 %d 条没有 frame_id" % len(out))
+        sec = _frame_seconds(frame)
+        if sec is None:
+            raise SystemExit("timestamp_missing: %s 缺少 timestamp_seconds，"
+                             "无法按真实采样间隔跟踪" % frame["frame_id"])
         dets = [d for d in frame.get("detections", [])
                 if float(d.get("confidence", d.get("score", 1.0))) >= min_conf]
-        out.append({
-            "frame_id": frame["frame_id"],
-            "timestamp_seconds": float(frame.get("timestamp_seconds",
-                                                 frame.get("seconds", 0.0))),
-            "detections": dets,
-        })
+        out.append({"frame_id": frame["frame_id"],
+                    "timestamp_seconds": sec, "detections": dets})
     out.sort(key=lambda f: f["timestamp_seconds"])
-    return out
+    return validate_frames(out, path)
 
 
 def frames_from_gallery(path, sample_interval, min_conf):
+    """旧 gallery 兼容入口。返回 (frames, notes)。
+
+    没有 timestamp_seconds 时只能按帧号 × 请求抽帧间隔推算：这是“请求参数推算值”，
+    不是视频里核验过的时间，评测结论里必须单独标注。
+    """
     with open(path, "r", encoding="utf-8") as fh:
         rows = json.load(fh)
-    by = {}
+    by, inferred = {}, 0
     for row in rows:
-        frame_id = row["frame"]
-        sec = float(row.get("timestamp_seconds"))
-        if sec is None:
-            index = int(frame_id.split("_")[1])
-            sec = (index - 1) * sample_interval
-        by.setdefault(frame_id, {"frame_id": frame_id, "timestamp_seconds": sec, "detections": []})
+        frame_id = row.get("frame")
+        if not frame_id:
+            raise SystemExit("gallery_frame_missing: 存在没有 frame 字段的行")
+        raw = row.get("timestamp_seconds")
+        if raw is None:
+            try:
+                index = int(str(frame_id).split("_")[1])
+            except (IndexError, ValueError) as exc:
+                raise SystemExit("gallery_frame_unparsable: 无法从 %s 推算时间" % frame_id) from exc
+            sec = (index - 1) * float(sample_interval)
+            inferred += 1
+        else:
+            sec = float(raw)
+        item = by.setdefault(frame_id, {"frame_id": frame_id,
+                                        "timestamp_seconds": sec, "detections": []})
         conf = float(row.get("conf", 1.0))
         if conf < min_conf:
             continue
-        by[frame_id]["detections"].append({
+        item["detections"].append({
             "bbox": row["box"], "confidence": conf,
             "class_id": 0, "label": row.get("label", "person"), "index": row.get("i"),
         })
-    return sorted(by.values(), key=lambda f: f["timestamp_seconds"])
+    frames = sorted(by.values(), key=lambda f: f["timestamp_seconds"])
+    notes = []
+    if inferred:
+        notes.append("gallery_timestamps_inferred: %d 行缺少 timestamp_seconds，"
+                     "时间由帧号×%.2fs 推算，非视频核验值" % (inferred, float(sample_interval)))
+    return validate_frames(frames, path), notes
 
 
 def evaluate(adapter, frames, gt):
@@ -162,10 +209,12 @@ def main(argv=None):
 
     if not args.detections and not args.from_gallery:
         raise SystemExit("需要 --detections 或 --from-gallery")
+    notes = []
     if args.detections:
         frames = load_frames(args.detections, args.sample_interval, args.min_detection_conf)
     else:
-        frames = frames_from_gallery(args.from_gallery, args.sample_interval, args.min_detection_conf)
+        frames, notes = frames_from_gallery(
+            args.from_gallery, args.sample_interval, args.min_detection_conf)
 
     adapter = ByteTrackAdapter(
         sample_interval_seconds=args.sample_interval,
@@ -198,9 +247,10 @@ def main(argv=None):
             gt = json.load(fh)
         errors, metrics = evaluate(adapter, frames, gt)
     errors.extend(adapter.duplicate_overlaps())
+    warnings = notes + list(adapter._warnings)  # noqa: SLF001
     with open(os.path.join(args.out, "errors.json"), "w", encoding="utf-8") as fh:
         json.dump({"error_count": len(errors), "evaluation": metrics,
-                   "warnings": adapter._warnings, "errors": errors},  # noqa: SLF001
+                   "input_notes": notes, "warnings": warnings, "errors": errors},
                   fh, ensure_ascii=False, indent=2)
 
     summary = adapter.summary()

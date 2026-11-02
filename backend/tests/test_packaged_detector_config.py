@@ -37,4 +37,13 @@ def test_packaged_detector_models_have_consistent_weight_paths_and_labels():
         if algo == "dfine":
             assert spec.get("labels_file") == "config/labels/coco80_zh.txt"
             assert "labels" not in spec, "Do not shrink/misorder COCO class indexes"
-    assert {x["id"] for x in specs} == {"dfine-n", "yolo11n"}
+    # YOLO26s 用端到端（NMS-free）解码契约，与 YOLO8 原头张量不同，必须单独登记
+    assert {x["id"] for x in specs} == {"dfine-n", "yolo11n", "yolo26s"}
+
+    end2end = [x for x in specs if x["algorithm_type"] == "yolo_end2end"]
+    assert [x["id"] for x in end2end] == ["yolo26s"]
+    spec = end2end[0]
+    assert spec["model_file"].replace("\\", "/") == "models/yolo/yolo26s.onnx"
+    assert spec.get("labels_file") == "config/labels/coco80_zh.txt"
+    assert "labels" not in spec, "Do not shrink/misorder COCO class indexes"
+    assert 0.2 <= float(spec["conf_threshold"]) <= 0.5
