@@ -41,6 +41,8 @@ DEFAULT_PARAMS = {
     # 共动：用整段的位移方向（不是相邻两帧），并在 5 fps 下取 12 px 为最小可判位移
     "co_move_min_cos": 0.6,
     "co_move_min_px": 12.0,
+    # 骑乘必须看到车真的走了：整段车内位移不足该值 → 不可能是骑乘（停放的车上坐着人另说）
+    "riding_min_vehicle_travel_px": 25.0,
 }
 
 
@@ -80,6 +82,11 @@ def rider_geometry(person_box, vehicle_box, params):
     vertical = person_box[3] <= limit
     horizontal = person_box[0] < vehicle_box[2] and person_box[2] > vehicle_box[0]
     return vertical and horizontal
+
+
+def _travel_px(segment):
+    first, last = segment[0]["vehicle_bbox"], segment[-1]["vehicle_bbox"]
+    return math.hypot(_center(last)[0] - _center(first)[0], _center(last)[1] - _center(first)[1])
 
 
 def _co_move(segment, params):
@@ -281,6 +288,7 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
         for segment, gap_frames in riding:
             co_move = _co_move(segment, params)
             co_move = round(co_move, 3) if co_move is not None else None
+            travel = _travel_px(segment)
             status = "unverified"
             relation = "riding_candidate"
             if competed:
@@ -289,17 +297,25 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                                "vehicle_track_id": vehicle_id,
                                "start_seconds": segment[0]["timestamp_seconds"],
                                "end_seconds": segment[-1]["timestamp_seconds"]})
+            elif co_move is not None and co_move < params["co_move_min_cos"]:
+                # 人和车各走各的：先判运动不一致，这比"车没动"更具体
+                relation, status = "unknown", "motion_inconsistent"
+                errors.append({"type": "motion_inconsistent", "person_track_id": person_id,
+                               "vehicle_track_id": vehicle_id,
+                               "start_seconds": segment[0]["timestamp_seconds"],
+                               "end_seconds": segment[-1]["timestamp_seconds"]})
+            elif travel < params["riding_min_vehicle_travel_px"]:
+                # 车几乎没动：市场里"人站在停放的踏板车旁"会大量出现，不能算骑乘
+                relation, status = "unknown", "vehicle_not_moving"
+                errors.append({"type": "vehicle_not_moving", "person_track_id": person_id,
+                               "vehicle_track_id": vehicle_id,
+                               "start_seconds": segment[0]["timestamp_seconds"],
+                               "end_seconds": segment[-1]["timestamp_seconds"]})
             elif co_move is None:
                 # 车没动（或人和车都没动）：单靠框的位置分不清"坐在车上"和"站在车后"。
                 # 实测这类候选全是误判，一律降为 unknown。
                 relation, status = "unknown", "stationary_vehicle_unverifiable"
                 errors.append({"type": "stationary_vehicle_unverifiable", "person_track_id": person_id,
-                               "vehicle_track_id": vehicle_id,
-                               "start_seconds": segment[0]["timestamp_seconds"],
-                               "end_seconds": segment[-1]["timestamp_seconds"]})
-            elif co_move < params["co_move_min_cos"]:
-                relation, status = "unknown", "motion_inconsistent"
-                errors.append({"type": "motion_inconsistent", "person_track_id": person_id,
                                "vehicle_track_id": vehicle_id,
                                "start_seconds": segment[0]["timestamp_seconds"],
                                "end_seconds": segment[-1]["timestamp_seconds"]})
@@ -318,6 +334,7 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                     "frame_ids": [s["frame_id"] for s in segment],
                     "mean_overlap": round(sum(s["overlap"] for s in segment) / len(segment), 3),
                     "co_move_cos": co_move,
+                    "vehicle_travel_px": round(travel, 1),
                 },
             })
             events.append({"type": "riding_started" if relation == "riding_candidate" else "relation_unknown",

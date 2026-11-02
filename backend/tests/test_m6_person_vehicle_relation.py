@@ -38,7 +38,9 @@ def test_stationary_overlap_is_not_riding():
     vehicle = _person(10, frames, lambda i: (600, 300, 700, 400))
     result = build_relations([person], [vehicle])
     assert not [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
-    assert any(e["type"] == "stationary_vehicle_unverifiable" for e in result["errors"])
+    # 车没动：现在先命中"车没动"，同样不算骑乘
+    assert any(e["type"] in ("vehicle_not_moving", "stationary_vehicle_unverifiable")
+               for e in result["errors"])
 
 
 def test_pedestrian_beside_parked_vehicle_is_not_riding():
