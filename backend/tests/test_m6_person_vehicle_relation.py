@@ -61,8 +61,8 @@ def test_single_frame_overlap_is_not_enough():
 def test_two_people_on_one_vehicle_stays_unknown():
     frames = _seq(100.0, 12)
     a = _person(1, frames, lambda i: (620, 220, 660, 340))
-    b = _person(2, frames, lambda i: (625, 225, 665, 342))
-    vehicle = _person(10, frames, lambda i: (600, 300, 700, 400))
+    b = _person(2, frames, lambda i: (700, 224, 740, 338))
+    vehicle = _person(10, frames, lambda i: (600, 250, 760, 400))
     result = build_relations([a, b], [vehicle])
     assert result["candidates"]
     assert all(c["relation"] == "unknown" for c in result["candidates"])
@@ -86,3 +86,39 @@ def test_approaching_is_candidate_not_riding():
     result = build_relations([person], [vehicle])
     kinds = {c["relation"] for c in result["candidates"]}
     assert "approaching_candidate" in kinds
+
+
+def test_short_detection_gap_is_tolerated():
+    """骑手中途漏检 2 帧、随后恢复：应仍然是一条骑乘关系，并记录漏检帧数。"""
+    frames = _seq(100.0, 14)
+    person = _person(1, frames, lambda i: (620 + i * 3, 220, 660 + i * 3, 340))
+    vehicle = _person(10, frames, lambda i: (600 + i * 3, 300, 700 + i * 3, 400))
+    # 第 5、6 帧的人框消失（模拟漏检）
+    person["observations"] = [o for i, o in enumerate(person["observations"]) if i not in (5, 6)]
+    result = build_relations([person], [vehicle])
+    riding = [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
+    assert len(riding) == 1
+    assert riding[0]["evidence"]["gap_frames"] >= 1
+
+
+def test_long_gap_splits_relation_instead_of_bridging():
+    """漏检 6 帧超过上限：不能把两段强行缝成一段。"""
+    frames = _seq(100.0, 18)
+    person = _person(1, frames, lambda i: (620 + i * 2, 220, 660 + i * 2, 340))
+    vehicle = _person(10, frames, lambda i: (600 + i * 2, 300, 700 + i * 2, 400))
+    person["observations"] = [o for i, o in enumerate(person["observations"]) if i not in (7, 8, 9, 10, 11, 12)]
+    result = build_relations([person], [vehicle])
+    for cand in result["candidates"]:
+        assert cand["evidence"]["frames"] <= 10
+
+
+def test_duplicate_rider_track_is_suppressed():
+    """同一骑手被切成两条人轨迹：只保留一条骑乘候选。"""
+    frames = _seq(100.0, 12)
+    a = _person(1, frames, lambda i: (620 + i * 3, 220, 660 + i * 3, 340))
+    b = _person(2, frames, lambda i: (622 + i * 3, 221, 662 + i * 3, 341))
+    vehicle = _person(10, frames, lambda i: (600 + i * 3, 300, 700 + i * 3, 400))
+    result = build_relations([a, b], [vehicle])
+    riding = [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
+    assert len(riding) == 1
+    assert any(e["type"] == "duplicate_rider_track" for e in result["errors"])

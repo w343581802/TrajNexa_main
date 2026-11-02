@@ -18,8 +18,11 @@ DEFAULT_PARAMS = {
     "min_overlap_ratio": 0.25,
     # 骑手：人框底边必须高于"车框中线 + margin×车高"（站在车旁时脚会落到车框下方）
     "rider_bottom_margin": 0.10,
-    # 连续多少帧才成立
+    # 连续多少帧才成立（允许中间短暂漏检，见 max_gap_frames）
     "riding_min_frames": 8,
+    # 一个关系段内允许的最大漏检帧数（0.2 s/帧时 3 帧 = 0.6 s）；
+    # 超过就断开，不强行把两段缝起来
+    "max_gap_frames": 3,
     "approach_min_frames": 5,
     # 靠近：人车中心距离小于该值、整段确实在缩短，且不是"长时间站在车旁"
     "approach_distance_px": 140.0,
@@ -27,6 +30,11 @@ DEFAULT_PARAMS = {
     "approach_max_seconds": 8.0,
     # 分离：连续多少帧不再重叠才算结束
     "separation_frames": 3,
+    # 同一帧里两个"人"框重叠超过该值，视为同一个人被切成两条轨迹，不算竞争
+    "person_duplicate_iou": 0.35,
+    # 只有"压在同一辆车上"（重叠 ≥0.5）的人才算竞争；
+    # 0.25~0.5 只是骑手与旁边车/行人的相邻，不构成竞争
+    "competition_min_overlap": 0.5,
     # 共动：用整段的位移方向（不是相邻两帧），并在 5 fps 下取 12 px 为最小可判位移
     "co_move_min_cos": 0.6,
     "co_move_min_px": 12.0,
@@ -40,6 +48,16 @@ def _center(box):
 def _distance(a, b):
     ca, cb = _center(a), _center(b)
     return math.hypot(cb[0] - ca[0], cb[1] - ca[1])
+
+
+def _iou(a, b):
+    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
+    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+    inter = (x2 - x1) * (y2 - y1)
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
 
 
 def overlap_ratio(person_box, vehicle_box):
@@ -95,19 +113,94 @@ def _frame_pairs(persons, vehicles, params):
     return pairs
 
 
-def _runs(per_frame, predicate, min_frames):
-    """把逐帧判定压成连续区间。"""
-    segments, current = [], []
-    for item in per_frame:
-        if predicate(item):
-            current.append(item)
+def _drop_duplicate_riders(candidates, pair_history, params, errors):
+    """同一个骑手被切成两条人轨迹时，同一辆车上会出两条骑乘候选，只保留更长的那条。"""
+    boxes = {}
+    for items in pair_history.values():
+        for item in items:
+            boxes[(item["frame_id"], id(item))] = item["person_bbox"]
+    by_pair = {}
+    for (pid, vid), items in pair_history.items():
+        for item in items:
+            by_pair.setdefault((pid, item["frame_id"]), item["person_bbox"])
+
+    riders = sorted([c for c in candidates if c["relation"] == "riding_candidate"],
+                    key=lambda c: -c["evidence"]["frames"])
+    kept = []
+    for cand in riders:
+        duplicate_of = None
+        for other in kept:
+            if other["vehicle_track_id"] != cand["vehicle_track_id"]:
+                continue
+            overlap = min(other["end_seconds"], cand["end_seconds"]) - max(other["start_seconds"], cand["start_seconds"])
+            if overlap <= 0:
+                continue
+            common = set(cand["evidence"]["frame_ids"]) & set(other["evidence"]["frame_ids"])
+            ious = [_iou(by_pair[(cand["person_track_id"], f)], by_pair[(other["person_track_id"], f)])
+                    for f in common
+                    if (cand["person_track_id"], f) in by_pair and (other["person_track_id"], f) in by_pair]
+            if ious and sum(ious) / len(ious) >= params["person_duplicate_iou"]:
+                duplicate_of = other
+                break
+        if duplicate_of is None:
+            kept.append(cand)
         else:
-            if len(current) >= min_frames:
-                segments.append(current)
-            current = []
-    if len(current) >= min_frames:
-        segments.append(current)
-    return segments
+            errors.append({"type": "duplicate_rider_track",
+                           "person_track_id": cand["person_track_id"],
+                           "vehicle_track_id": cand["vehicle_track_id"],
+                           "duplicate_of": duplicate_of["person_track_id"],
+                           "start_seconds": cand["start_seconds"],
+                           "end_seconds": cand["end_seconds"]})
+    return kept + [c for c in candidates if c["relation"] != "riding_candidate"], errors
+
+
+def _median_dt(per_frame):
+    times = [item["timestamp_seconds"] for item in per_frame]
+    diffs = [b - a for a, b in zip(times, times[1:]) if b > a]
+    if not diffs:
+        return 0.2
+    diffs.sort()
+    return diffs[len(diffs) // 2]
+
+
+def _runs(per_frame, predicate, min_frames, max_gap=0):
+    """把逐帧判定压成区间。
+
+    漏检/遮挡在数据里表现为**时间跳跃**（这一帧根本没有观测）。
+    `max_gap` 允许区间内跳过的时间不超过 max_gap 个采样间隔；
+    超过就断开，绝不把两段缝成一段。
+    """
+    if not per_frame:
+        return []
+    dt = _median_dt(per_frame)
+    segments, current, gaps = [], [], 0
+    previous_time = None
+    for item in per_frame:
+        skipped = 0
+        if previous_time is not None:
+            skipped = max(0, int(round((item["timestamp_seconds"] - previous_time) / dt)) - 1)
+        previous_time = item["timestamp_seconds"]
+        if predicate(item):
+            if current and skipped > max_gap:
+                if sum(1 for i in current if predicate(i)) >= min_frames:
+                    segments.append((current, gaps))
+                current, gaps = [], 0
+            current.append(item)
+            gaps += skipped
+        elif current:
+            if skipped > max_gap:
+                if sum(1 for i in current if predicate(i)) >= min_frames:
+                    segments.append((current, gaps))
+                current, gaps = [], 0
+        # 首尾的不满足帧在收尾时裁掉
+    if current and sum(1 for i in current if predicate(i)) >= min_frames:
+        segments.append((current, gaps))
+    cleaned = []
+    for seg, gap_count in segments:
+        first = next(i for i, item in enumerate(seg) if predicate(item))
+        last = max(i for i, item in enumerate(seg) if predicate(item))
+        cleaned.append((seg[first:last + 1], gap_count))
+    return cleaned
 
 
 def _observations(track):
@@ -155,27 +248,34 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                 "person_bbox": pair["person"]["bbox"],
                 "vehicle_bbox": pair["vehicle"]["bbox"],
             })
+        # 同一辆车、同一帧里，先按"人框重叠"把重复检测合并，再判断是否真的多人竞争。
         by_vehicle = {}
         for pair in pairs:
-            if pair["overlap"] >= params["min_overlap_ratio"] and pair["rider_geometry"]:
-                by_vehicle.setdefault(pair["vehicle"]["track_id"], []).append(pair["person"]["track_id"])
+            if pair["overlap"] < params["competition_min_overlap"] or not pair["rider_geometry"]:
+                continue
+            bucket = by_vehicle.setdefault(pair["vehicle"]["track_id"], [])
+            duplicate = any(_iou(pair["person"]["bbox"], kept["bbox"]) >= params["person_duplicate_iou"]
+                            for kept in bucket)
+            if not duplicate:
+                bucket.append({"track_id": pair["person"]["track_id"], "bbox": pair["person"]["bbox"]})
         for vehicle_id, people in by_vehicle.items():
             if len(people) > 1:
-                competition.setdefault(vehicle_id, []).append({"frame_id": fid, "persons": people})
+                competition.setdefault(vehicle_id, []).append(
+                    {"frame_id": fid, "persons": [p["track_id"] for p in people]})
 
     candidates, events, errors = [], [], []
     for (person_id, vehicle_id), history in sorted(pair_history.items()):
         history.sort(key=lambda h: h["timestamp_seconds"])
         riding = _runs(history,
                        lambda h: h["overlap"] >= params["min_overlap_ratio"] and h["rider_geometry"],
-                       params["riding_min_frames"])
+                       params["riding_min_frames"], params["max_gap_frames"])
         approaching = _runs(history,
                             lambda h: h["overlap"] < params["min_overlap_ratio"]
                             and h["distance"] <= params["approach_distance_px"],
                             params["approach_min_frames"])
         competed = any(person_id in c["persons"] for c in competition.get(vehicle_id, []))
         vehicle_type = vehicle_types.get(vehicle_id, {})
-        for segment in riding:
+        for segment, gap_frames in riding:
             co_move = _co_move(segment, params)
             co_move = round(co_move, 3) if co_move is not None else None
             status = "unverified"
@@ -211,6 +311,7 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                 "status": status,
                 "evidence": {
                     "frames": len(segment),
+                    "gap_frames": gap_frames,
                     "frame_ids": [s["frame_id"] for s in segment],
                     "mean_overlap": round(sum(s["overlap"] for s in segment) / len(segment), 3),
                     "co_move_cos": co_move,
@@ -222,7 +323,7 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
             events.append({"type": "riding_ended",
                            "person_track_id": person_id, "vehicle_track_id": vehicle_id,
                            "timestamp_seconds": round(segment[-1]["timestamp_seconds"], 2)})
-        for segment in approaching:
+        for segment, _ in approaching:
             # 只在"确实在靠近"时输出：整段距离明显缩短、且过程不拖长。
             # 否则只是人在车旁边走了很久，不能叫 approaching。
             if segment[0]["distance"] - segment[-1]["distance"] < params["approach_min_delta_px"]:
@@ -241,4 +342,5 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                 "evidence": {"frames": len(segment),
                              "mean_distance": round(sum(s["distance"] for s in segment) / len(segment), 1)},
             })
+    candidates, errors = _drop_duplicate_riders(candidates, pair_history, params, errors)
     return {"candidates": candidates, "events": events, "errors": errors}
