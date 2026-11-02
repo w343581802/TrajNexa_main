@@ -48,9 +48,11 @@ class TrackObservation:
     class_id: int = 0
     detection_index: int = 0
     label: str = ""
+    # F2 把碎片框并进主体框时，这里记录被并入的原始检测编号，保证仍可回溯
+    merged_from: list = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        out = {
             "frame_id": self.frame_id,
             "timestamp_seconds": round(float(self.timestamp_seconds), 3),
             "bbox": [round(float(v), 2) for v in self.bbox],
@@ -59,6 +61,9 @@ class TrackObservation:
             "label": self.label,
             "detection_index": int(self.detection_index),
         }
+        if self.merged_from:
+            out["merged_from"] = list(self.merged_from)
+        return out
 
 
 @dataclass
@@ -394,5 +399,6 @@ def observations_from_detections(frame_id: str, timestamp_seconds: float,
             class_id=int(det.get("class_id", 0)),
             detection_index=int(det.get("index", idx)),
             label=str(det.get("label") or ""),
+            merged_from=list(det.get("merged_from") or []),
         ))
     return out

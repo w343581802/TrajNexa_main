@@ -21,6 +21,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.m6_fragments import (  # noqa: E402
+    attribute_fragments,
+    dedupe_same_frame,
+    to_detections,
+)
 from app.m6_track import (  # noqa: E402
     ByteTrackAdapter,
     TrackDependencyError,
@@ -217,6 +222,9 @@ def main(argv=None):
                         help="新建轨迹的最低置信度")
     parser.add_argument("--min-iou", type=float, default=0.1)
     parser.add_argument("--min-detection-conf", type=float, default=0.15)
+    parser.add_argument("--stage", choices=["f0", "f1", "f2"], default="f0",
+                        help="f0 原生；f1 加同帧 IoU 去重；f2 再加碎片归属")
+    parser.add_argument("--dedupe-iou", type=float, default=0.5)
     parser.add_argument("--gt", help="人工真值 JSON")
     parser.add_argument("--gt-time-tolerance", type=float, default=0.05,
                         help="按时间匹配真值的窗口（秒）；跨采样率复核时设 0.25~0.4")
@@ -242,11 +250,23 @@ def main(argv=None):
             "minimum_iou_threshold": args.min_iou,
         },
     )
+    stats = {"stage": args.stage, "dedupe_dropped": 0, "fragments_merged": 0, "ambiguous": 0}
+    prev_boxes = []
     try:
         for frame in frames:
-            observations = observations_from_detections(
-                frame["frame_id"], frame["timestamp_seconds"], frame["detections"])
-            adapter.update(observations)
+            dets = [dict(d, index=i) for i, d in enumerate(frame["detections"])]
+            if args.stage in ("f1", "f2"):
+                kept, dropped = dedupe_same_frame(to_detections(dets), args.dedupe_iou)
+                stats["dedupe_dropped"] += len(dropped)
+                dets = [d.to_dict() for d in kept]
+            if args.stage == "f2":
+                kept, merged, ambiguous = attribute_fragments(to_detections(dets), prev_boxes)
+                stats["fragments_merged"] += len(merged)
+                stats["ambiguous"] += len(ambiguous)
+                dets = [d.to_dict() for d in kept]
+            active = adapter.update(observations_from_detections(
+                frame["frame_id"], frame["timestamp_seconds"], dets))
+            prev_boxes = [t.observations[-1].bbox for t in active if t.observations]
     except TrackDependencyError as exc:
         raise SystemExit("track_dependency_error: %s" % exc)
 
@@ -266,11 +286,16 @@ def main(argv=None):
     warnings = notes + list(adapter._warnings)  # noqa: SLF001
     with open(os.path.join(args.out, "errors.json"), "w", encoding="utf-8") as fh:
         json.dump({"error_count": len(errors), "evaluation": metrics,
+                   "preprocessing": stats,
                    "input_notes": notes, "warnings": warnings, "errors": errors},
                   fh, ensure_ascii=False, indent=2)
 
     summary = adapter.summary()
     summary.update(metrics)
+    summary.update({"stage": stats["stage"],
+                    "dedupe_dropped": stats["dedupe_dropped"],
+                    "fragments_merged": stats["fragments_merged"],
+                    "ambiguous": stats["ambiguous"]})
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
