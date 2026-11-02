@@ -1,0 +1,1536 @@
+{
+  "groups": [
+    [
+      2,
+      14,
+      22,
+      23,
+      27,
+      34,
+      54,
+      55,
+      71,
+      74,
+      75,
+      80,
+      83,
+      84,
+      91
+    ],
+    [
+      3,
+      5,
+      7,
+      18,
+      33,
+      39,
+      45,
+      52
+    ],
+    [
+      41,
+      46,
+      47,
+      50,
+      53,
+      60,
+      64,
+      67
+    ],
+    [
+      4,
+      12,
+      21
+    ],
+    [
+      9,
+      10,
+      62
+    ],
+    [
+      87,
+      89,
+      93
+    ],
+    [
+      92,
+      97,
+      101
+    ],
+    [
+      94,
+      95,
+      96
+    ],
+    [
+      102,
+      103,
+      104
+    ],
+    [
+      8,
+      13
+    ],
+    [
+      15,
+      31
+    ],
+    [
+      19,
+      20
+    ],
+    [
+      24,
+      25
+    ],
+    [
+      43,
+      61
+    ],
+    [
+      49,
+      70
+    ],
+    [
+      56,
+      65
+    ],
+    [
+      100,
+      109
+    ],
+    [
+      106,
+      108
+    ],
+    [
+      6
+    ],
+    [
+      11
+    ],
+    [
+      28
+    ],
+    [
+      29
+    ],
+    [
+      35
+    ],
+    [
+      37
+    ],
+    [
+      38
+    ],
+    [
+      40
+    ],
+    [
+      48
+    ],
+    [
+      57
+    ],
+    [
+      63
+    ],
+    [
+      77
+    ],
+    [
+      81
+    ],
+    [
+      85
+    ],
+    [
+      86
+    ],
+    [
+      88
+    ]
+  ],
+  "detailed": [
+    {
+      "candidate_id": "PhysicalObjectCandidate_001",
+      "track_ids": [
+        2,
+        14,
+        22,
+        23,
+        27,
+        34,
+        54,
+        55,
+        71,
+        74,
+        75,
+        80,
+        83,
+        84,
+        91
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 2,
+          "track_b": 14,
+          "overlap_frames": 38,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.524,
+          "median_containment": 0.999,
+          "median_center_ratio": 0.152,
+          "max_size_ratio": 1.98,
+          "motion_agreement": null,
+          "cosine_frames": 1,
+          "cosine_median": 0.871,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 22,
+          "overlap_frames": 32,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.572,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.131,
+          "max_size_ratio": 1.41,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 23,
+          "overlap_frames": 186,
+          "overlap_ratio": 0.894,
+          "mean_iou": 0.581,
+          "median_containment": 0.993,
+          "median_center_ratio": 0.144,
+          "max_size_ratio": 1.74,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 27,
+          "overlap_frames": 31,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.567,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.125,
+          "max_size_ratio": 1.71,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 34,
+          "overlap_frames": 25,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.318,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.264,
+          "max_size_ratio": 1.75,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 55,
+          "overlap_frames": 7,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.293,
+          "median_containment": 0.946,
+          "median_center_ratio": 0.283,
+          "max_size_ratio": 1.7,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 2,
+          "track_b": 71,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.549,
+          "median_containment": 0.998,
+          "median_center_ratio": 0.193,
+          "max_size_ratio": 1.73,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 14,
+          "track_b": 23,
+          "overlap_frames": 15,
+          "overlap_ratio": 0.395,
+          "mean_iou": 0.501,
+          "median_containment": 0.994,
+          "median_center_ratio": 0.156,
+          "max_size_ratio": 1.52,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 22,
+          "track_b": 23,
+          "overlap_frames": 28,
+          "overlap_ratio": 0.875,
+          "mean_iou": 0.316,
+          "median_containment": 0.472,
+          "median_center_ratio": 0.334,
+          "max_size_ratio": 1.35,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 23,
+          "track_b": 27,
+          "overlap_frames": 31,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.494,
+          "median_containment": 0.657,
+          "median_center_ratio": 0.215,
+          "max_size_ratio": 1.58,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 23,
+          "track_b": 55,
+          "overlap_frames": 7,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.489,
+          "median_containment": 0.997,
+          "median_center_ratio": 0.184,
+          "max_size_ratio": 1.6,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 23,
+          "track_b": 71,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.326,
+          "median_containment": 0.993,
+          "median_center_ratio": 0.235,
+          "max_size_ratio": 1.71,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 23,
+          "track_b": 74,
+          "overlap_frames": 11,
+          "overlap_ratio": 0.846,
+          "mean_iou": 0.512,
+          "median_containment": 0.995,
+          "median_center_ratio": 0.176,
+          "max_size_ratio": 1.47,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 74,
+          "overlap_frames": 13,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.624,
+          "median_containment": 0.988,
+          "median_center_ratio": 0.162,
+          "max_size_ratio": 1.6,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 75,
+          "overlap_frames": 12,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.46,
+          "median_containment": 0.987,
+          "median_center_ratio": 0.154,
+          "max_size_ratio": 1.71,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 80,
+          "overlap_frames": 86,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.625,
+          "median_containment": 0.991,
+          "median_center_ratio": 0.132,
+          "max_size_ratio": 1.71,
+          "motion_agreement": null,
+          "cosine_frames": 2,
+          "cosine_median": 0.906,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 83,
+          "overlap_frames": 30,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.587,
+          "median_containment": 0.996,
+          "median_center_ratio": 0.144,
+          "max_size_ratio": 1.32,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 84,
+          "overlap_frames": 12,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.354,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.277,
+          "max_size_ratio": 1.64,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 54,
+          "track_b": 91,
+          "overlap_frames": 5,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.408,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.121,
+          "max_size_ratio": 1.66,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 80,
+          "track_b": 83,
+          "overlap_frames": 30,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.336,
+          "median_containment": 0.51,
+          "median_center_ratio": 0.298,
+          "max_size_ratio": 1.32,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 80,
+          "track_b": 84,
+          "overlap_frames": 12,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.547,
+          "median_containment": 0.998,
+          "median_center_ratio": 0.178,
+          "max_size_ratio": 1.57,
+          "motion_agreement": null,
+          "cosine_frames": 1,
+          "cosine_median": 0.839,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 80,
+          "track_b": 91,
+          "overlap_frames": 5,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.385,
+          "median_containment": 0.519,
+          "median_center_ratio": 0.286,
+          "max_size_ratio": 1.56,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_002",
+      "track_ids": [
+        3,
+        5,
+        7,
+        18,
+        33,
+        39,
+        45,
+        52
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 3,
+          "track_b": 7,
+          "overlap_frames": 111,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.416,
+          "median_containment": 0.737,
+          "median_center_ratio": 0.228,
+          "max_size_ratio": 1.36,
+          "motion_agreement": null,
+          "cosine_frames": 1,
+          "cosine_median": 0.897,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 3,
+          "track_b": 18,
+          "overlap_frames": 47,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.316,
+          "median_containment": 0.919,
+          "median_center_ratio": 0.229,
+          "max_size_ratio": 1.71,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 3,
+          "track_b": 33,
+          "overlap_frames": 7,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.393,
+          "median_containment": 0.888,
+          "median_center_ratio": 0.239,
+          "max_size_ratio": 1.55,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 3,
+          "track_b": 39,
+          "overlap_frames": 14,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.403,
+          "median_containment": 0.74,
+          "median_center_ratio": 0.238,
+          "max_size_ratio": 1.32,
+          "motion_agreement": null,
+          "cosine_frames": 1,
+          "cosine_median": 0.859,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 3,
+          "track_b": 45,
+          "overlap_frames": 217,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.386,
+          "median_containment": 0.616,
+          "median_center_ratio": 0.258,
+          "max_size_ratio": 1.42,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 3,
+          "track_b": 52,
+          "overlap_frames": 27,
+          "overlap_ratio": 0.931,
+          "mean_iou": 0.344,
+          "median_containment": 0.9,
+          "median_center_ratio": 0.231,
+          "max_size_ratio": 1.65,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 5,
+          "track_b": 18,
+          "overlap_frames": 47,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.609,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.08,
+          "max_size_ratio": 1.31,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 5,
+          "track_b": 33,
+          "overlap_frames": 7,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.613,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.084,
+          "max_size_ratio": 1.23,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 5,
+          "track_b": 52,
+          "overlap_frames": 29,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.596,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.083,
+          "max_size_ratio": 1.34,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_003",
+      "track_ids": [
+        41,
+        46,
+        47,
+        50,
+        53,
+        60,
+        64,
+        67
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 41,
+          "track_b": 46,
+          "overlap_frames": 7,
+          "overlap_ratio": 0.778,
+          "mean_iou": 0.51,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.199,
+          "max_size_ratio": 1.77,
+          "motion_agreement": 0.713,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 47,
+          "overlap_frames": 6,
+          "overlap_ratio": 0.75,
+          "mean_iou": 0.558,
+          "median_containment": 0.988,
+          "median_center_ratio": 0.198,
+          "max_size_ratio": 1.86,
+          "motion_agreement": 0.954,
+          "cosine_frames": 1,
+          "cosine_median": 0.873,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 50,
+          "overlap_frames": 29,
+          "overlap_ratio": 0.967,
+          "mean_iou": 0.463,
+          "median_containment": 0.998,
+          "median_center_ratio": 0.26,
+          "max_size_ratio": 2.53,
+          "motion_agreement": 0.996,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 53,
+          "overlap_frames": 11,
+          "overlap_ratio": 0.917,
+          "mean_iou": 0.487,
+          "median_containment": 0.985,
+          "median_center_ratio": 0.236,
+          "max_size_ratio": 2.42,
+          "motion_agreement": 0.874,
+          "cosine_frames": 1,
+          "cosine_median": 0.795,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 60,
+          "overlap_frames": 8,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.259,
+          "median_containment": 0.791,
+          "median_center_ratio": 0.282,
+          "max_size_ratio": 5.3,
+          "motion_agreement": 0.999,
+          "cosine_frames": 1,
+          "cosine_median": 0.87,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 64,
+          "overlap_frames": 11,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.307,
+          "median_containment": 0.75,
+          "median_center_ratio": 0.263,
+          "max_size_ratio": 1.42,
+          "motion_agreement": 0.947,
+          "cosine_frames": 1,
+          "cosine_median": 0.85,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 41,
+          "track_b": 67,
+          "overlap_frames": 7,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.502,
+          "median_containment": 0.828,
+          "median_center_ratio": 0.16,
+          "max_size_ratio": 2.52,
+          "motion_agreement": 0.999,
+          "cosine_frames": 1,
+          "cosine_median": 0.94,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 46,
+          "track_b": 47,
+          "overlap_frames": 7,
+          "overlap_ratio": 0.875,
+          "mean_iou": 0.709,
+          "median_containment": 0.963,
+          "median_center_ratio": 0.133,
+          "max_size_ratio": 1.36,
+          "motion_agreement": null,
+          "cosine_frames": 5,
+          "cosine_median": 0.937,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 50,
+          "track_b": 53,
+          "overlap_frames": 11,
+          "overlap_ratio": 0.917,
+          "mean_iou": 0.552,
+          "median_containment": 0.99,
+          "median_center_ratio": 0.199,
+          "max_size_ratio": 2.16,
+          "motion_agreement": 0.744,
+          "cosine_frames": 2,
+          "cosine_median": 0.862,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 64,
+          "track_b": 67,
+          "overlap_frames": 5,
+          "overlap_ratio": 0.714,
+          "mean_iou": 0.397,
+          "median_containment": 0.878,
+          "median_center_ratio": 0.26,
+          "max_size_ratio": 1.82,
+          "motion_agreement": 0.998,
+          "cosine_frames": 3,
+          "cosine_median": 0.831,
+          "cosine_hit_ratio": 0.667,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_004",
+      "track_ids": [
+        4,
+        12,
+        21
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 4,
+          "track_b": 12,
+          "overlap_frames": 399,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.459,
+          "median_containment": 0.959,
+          "median_center_ratio": 0.202,
+          "max_size_ratio": 1.74,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 4,
+          "track_b": 21,
+          "overlap_frames": 5,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.401,
+          "median_containment": 0.99,
+          "median_center_ratio": 0.221,
+          "max_size_ratio": 1.81,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 12,
+          "track_b": 21,
+          "overlap_frames": 5,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.184,
+          "median_containment": 0.942,
+          "median_center_ratio": 0.341,
+          "max_size_ratio": 2.78,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_005",
+      "track_ids": [
+        9,
+        10,
+        62
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 9,
+          "track_b": 10,
+          "overlap_frames": 394,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.504,
+          "median_containment": 0.741,
+          "median_center_ratio": 0.265,
+          "max_size_ratio": 1.53,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 9,
+          "track_b": 62,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.312,
+          "median_containment": 0.554,
+          "median_center_ratio": 0.438,
+          "max_size_ratio": 1.62,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 10,
+          "track_b": 62,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.481,
+          "median_containment": 0.755,
+          "median_center_ratio": 0.308,
+          "max_size_ratio": 1.26,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_006",
+      "track_ids": [
+        87,
+        89,
+        93
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 87,
+          "track_b": 89,
+          "overlap_frames": 13,
+          "overlap_ratio": 0.929,
+          "mean_iou": 0.697,
+          "median_containment": 0.935,
+          "median_center_ratio": 0.105,
+          "max_size_ratio": 1.31,
+          "motion_agreement": null,
+          "cosine_frames": 1,
+          "cosine_median": 0.952,
+          "cosine_hit_ratio": 1.0,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 89,
+          "track_b": 93,
+          "overlap_frames": 83,
+          "overlap_ratio": 0.954,
+          "mean_iou": 0.379,
+          "median_containment": 0.914,
+          "median_center_ratio": 0.254,
+          "max_size_ratio": 2.16,
+          "motion_agreement": 0.889,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_007",
+      "track_ids": [
+        92,
+        97,
+        101
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 92,
+          "track_b": 97,
+          "overlap_frames": 8,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.478,
+          "median_containment": 0.739,
+          "median_center_ratio": 0.234,
+          "max_size_ratio": 1.83,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 92,
+          "track_b": 101,
+          "overlap_frames": 47,
+          "overlap_ratio": 0.979,
+          "mean_iou": 0.38,
+          "median_containment": 0.611,
+          "median_center_ratio": 0.255,
+          "max_size_ratio": 2.04,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_008",
+      "track_ids": [
+        94,
+        95,
+        96
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 94,
+          "track_b": 95,
+          "overlap_frames": 8,
+          "overlap_ratio": 0.727,
+          "mean_iou": 0.343,
+          "median_containment": 0.761,
+          "median_center_ratio": 0.354,
+          "max_size_ratio": 1.92,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 95,
+          "track_b": 96,
+          "overlap_frames": 8,
+          "overlap_ratio": 0.889,
+          "mean_iou": 0.519,
+          "median_containment": 0.902,
+          "median_center_ratio": 0.187,
+          "max_size_ratio": 1.3,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_009",
+      "track_ids": [
+        102,
+        103,
+        104
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 102,
+          "track_b": 103,
+          "overlap_frames": 25,
+          "overlap_ratio": 0.926,
+          "mean_iou": 0.455,
+          "median_containment": 0.675,
+          "median_center_ratio": 0.312,
+          "max_size_ratio": 1.17,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 102,
+          "track_b": 104,
+          "overlap_frames": 11,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.444,
+          "median_containment": 0.704,
+          "median_center_ratio": 0.282,
+          "max_size_ratio": 1.06,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        },
+        {
+          "track_a": 103,
+          "track_b": 104,
+          "overlap_frames": 11,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.61,
+          "median_containment": 0.86,
+          "median_center_ratio": 0.14,
+          "max_size_ratio": 1.06,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_010",
+      "track_ids": [
+        8,
+        13
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 8,
+          "track_b": 13,
+          "overlap_frames": 141,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.47,
+          "median_containment": 0.683,
+          "median_center_ratio": 0.257,
+          "max_size_ratio": 1.41,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_011",
+      "track_ids": [
+        15,
+        31
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 15,
+          "track_b": 31,
+          "overlap_frames": 5,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.539,
+          "median_containment": 0.976,
+          "median_center_ratio": 0.171,
+          "max_size_ratio": 1.59,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_012",
+      "track_ids": [
+        19,
+        20
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 19,
+          "track_b": 20,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.303,
+          "median_containment": 1.0,
+          "median_center_ratio": 0.286,
+          "max_size_ratio": 2.37,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_013",
+      "track_ids": [
+        24,
+        25
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 24,
+          "track_b": 25,
+          "overlap_frames": 9,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.315,
+          "median_containment": 0.678,
+          "median_center_ratio": 0.366,
+          "max_size_ratio": 2.04,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_014",
+      "track_ids": [
+        43,
+        61
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 43,
+          "track_b": 61,
+          "overlap_frames": 214,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.456,
+          "median_containment": 0.675,
+          "median_center_ratio": 0.266,
+          "max_size_ratio": 1.35,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_015",
+      "track_ids": [
+        49,
+        70
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 49,
+          "track_b": 70,
+          "overlap_frames": 71,
+          "overlap_ratio": 0.947,
+          "mean_iou": 0.325,
+          "median_containment": 0.678,
+          "median_center_ratio": 0.382,
+          "max_size_ratio": 1.61,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_016",
+      "track_ids": [
+        56,
+        65
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 56,
+          "track_b": 65,
+          "overlap_frames": 6,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.504,
+          "median_containment": 0.821,
+          "median_center_ratio": 0.251,
+          "max_size_ratio": 1.09,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_017",
+      "track_ids": [
+        100,
+        109
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 100,
+          "track_b": 109,
+          "overlap_frames": 10,
+          "overlap_ratio": 1.0,
+          "mean_iou": 0.837,
+          "median_containment": 0.933,
+          "median_center_ratio": 0.078,
+          "max_size_ratio": 1.05,
+          "motion_agreement": null,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_018",
+      "track_ids": [
+        106,
+        108
+      ],
+      "grouped": true,
+      "evidence": [
+        {
+          "track_a": 106,
+          "track_b": 108,
+          "overlap_frames": 35,
+          "overlap_ratio": 0.972,
+          "mean_iou": 0.378,
+          "median_containment": 0.521,
+          "median_center_ratio": 0.424,
+          "max_size_ratio": 1.49,
+          "motion_agreement": 0.813,
+          "cosine_frames": 0,
+          "cosine_median": null,
+          "cosine_hit_ratio": null,
+          "conflict_frames": 0,
+          "verdict": "same_object"
+        }
+      ]
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_019",
+      "track_ids": [
+        6
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_020",
+      "track_ids": [
+        11
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_021",
+      "track_ids": [
+        28
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_022",
+      "track_ids": [
+        29
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_023",
+      "track_ids": [
+        35
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_024",
+      "track_ids": [
+        37
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_025",
+      "track_ids": [
+        38
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_026",
+      "track_ids": [
+        40
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_027",
+      "track_ids": [
+        48
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_028",
+      "track_ids": [
+        57
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_029",
+      "track_ids": [
+        63
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_030",
+      "track_ids": [
+        77
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_031",
+      "track_ids": [
+        81
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_032",
+      "track_ids": [
+        85
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_033",
+      "track_ids": [
+        86
+      ],
+      "grouped": false,
+      "evidence": []
+    },
+    {
+      "candidate_id": "PhysicalObjectCandidate_034",
+      "track_ids": [
+        88
+      ],
+      "grouped": false,
+      "evidence": []
+    }
+  ]
+}

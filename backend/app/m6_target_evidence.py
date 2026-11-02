@@ -64,30 +64,75 @@ def embed_observations(observations, frame_loader, session, max_samples=5):
     return vectors
 
 
-def compare_sets(anchor_vectors, candidate_vectors, top_k=3):
-    """两组逐帧向量两两求 cosine，返回最大值与前 k 均值。"""
+DEFAULT_RANK_PARAMS = {
+    "top_k": 3,
+    # 支撑帧：某帧的最佳匹配 ≥ 最高分 × 该比例，即视为"独立支撑"
+    "support_ratio": 0.90,
+    "weak_cosine": 0.60,       # 低于它连"候选"都算不上，只能算证据不足
+    "margin": 0.03,            # 与下一名的差距小于它 → ambiguous
+}
+
+
+def compare_sets(anchor_vectors, candidate_vectors, top_k=3, support_ratio=0.90):
+    """两组逐帧向量两两求 cosine，并给出多帧一致性统计。
+
+    只报 cosine_max 容易被个别高分画面带偏，因此同时给出：
+    - cosine_top_mean：前 k 个配对的均值；
+    - cosine_median：全部配对的中位数（抗单帧噪声）；
+    - supporting_frames：有多少帧的最佳配对接近最高分（= 是否有独立支撑）；
+    - single_frame_share：最高分相对第 2 名的领先幅度（越大越依赖单帧）。
+    """
     if not anchor_vectors or not candidate_vectors:
-        return {"cosine_max": 0.0, "cosine_top_mean": 0.0, "pairs": 0}
+        return {"cosine_max": 0.0, "cosine_top_mean": 0.0, "cosine_median": 0.0,
+                "pairs": 0, "supporting_frames": 0, "single_frame_share": 0.0}
     a = np.asarray([v for _, v in anchor_vectors], dtype=np.float32)
     b = np.asarray([v for _, v in candidate_vectors], dtype=np.float32)
     sim = a @ b.T
     flat = np.sort(sim.reshape(-1))[::-1]
     k = min(top_k, flat.size)
+    threshold = float(flat[0]) * support_ratio
+    supporting = int((sim.max(axis=1) >= threshold).sum())
+    second = float(flat[1]) if flat.size > 1 else 0.0
+    lead = (float(flat[0]) - second) / float(flat[0]) if flat[0] > 0 else 0.0
     return {
         "cosine_max": float(flat[0]),
         "cosine_top_mean": float(flat[:k].mean()),
+        "cosine_median": float(np.median(flat)),
         "pairs": int(flat.size),
+        "supporting_frames": supporting,
+        "single_frame_share": float(lead),
     }
 
 
-def rank_tracklets(anchor_vectors, tracklets, vectors_by_tracklet, top_k=3):
-    """对候选 Tracklet 排序；返回候选列表，不做阈值裁决。"""
+def rank_tracklets(anchor_vectors, tracklets, vectors_by_tracklet, params=None, excluded=None):
+    """对候选排序并给出证据状态。
+
+    状态含义（对齐 design/45 §9.2 "不确定性与拒绝质量"）：
+    - candidate：有稳定多帧支持、且在候选前列；
+    - ambiguous：分数不低但与竞争者差距太小，不能据此下结论；
+    - excluded_by_evidence：**只有拿到明确冲突证据**（调用方通过 excluded 传入）才可标；
+    - insufficient_evidence：样本不足或整体相似度太低，连比较都不成立。
+
+    排名靠后本身**不是**排除证据，因此不再出现 rejected_by_rank。
+    """
+    params = dict(DEFAULT_RANK_PARAMS, **(params or {}))
+    excluded = set(excluded or ())
     ranked = []
     for key, vectors in vectors_by_tracklet.items():
-        stats = compare_sets(anchor_vectors, vectors, top_k)
+        stats = compare_sets(anchor_vectors, vectors, params["top_k"], params["support_ratio"])
         ranked.append(dict(stats, tracklet_id=key, samples=len(vectors)))
     ranked.sort(key=lambda r: (-r["cosine_top_mean"], -r["cosine_max"]))
-    for index, item in enumerate(ranked, start=1):
-        item["rank"] = index
-        item["status"] = "candidate" if index <= 3 else "rejected_by_rank"
+
+    for index, item in enumerate(ranked):
+        item["rank"] = index + 1
+        nxt = ranked[index + 1] if index + 1 < len(ranked) else None
+        item["margin_to_next"] = round(item["cosine_top_mean"] - nxt["cosine_top_mean"], 4) if nxt else None
+        if item["tracklet_id"] in excluded:
+            item["status"] = "excluded_by_evidence"
+        elif item["samples"] < 2 or item["cosine_top_mean"] < params["weak_cosine"]:
+            item["status"] = "insufficient_evidence"
+        elif item["rank"] <= 3 and item["supporting_frames"] >= 2                 and (item["margin_to_next"] is None or item["margin_to_next"] >= params["margin"]):
+            item["status"] = "candidate"
+        else:
+            item["status"] = "ambiguous"
     return ranked

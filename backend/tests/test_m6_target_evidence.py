@@ -46,11 +46,30 @@ def test_compare_sets_empty_returns_zero():
 
 
 def test_rank_tracklets_prefers_higher_similarity():
-    anchor = [({"frame_id": "0"}, np.array([1.0, 0.0], dtype=np.float32))]
+    anchor = [({"frame_id": str(i)}, np.array([1.0, 0.0], dtype=np.float32)) for i in range(3)]
     vectors = {
-        "close": [({"frame_id": "1"}, np.array([0.9, 0.1], dtype=np.float32))],
-        "far": [({"frame_id": "2"}, np.array([0.0, 1.0], dtype=np.float32))],
+        "close": [({"frame_id": str(i)}, np.array([0.9, 0.1], dtype=np.float32)) for i in range(3)],
+        "far": [({"frame_id": str(i)}, np.array([0.0, 1.0], dtype=np.float32)) for i in range(3)],
     }
     ranked = rank_tracklets(anchor, list(vectors), vectors)
     assert [r["tracklet_id"] for r in ranked] == ["close", "far"]
     assert ranked[0]["status"] == "candidate"
+    # 排名靠后不是排除证据：far 只能是"证据不足"，不能是 rejected
+    assert ranked[1]["status"] == "insufficient_evidence"
+
+
+def test_low_rank_is_not_exclusion():
+    anchor = [({"frame_id": str(i)}, np.array([1.0, 0.0], dtype=np.float32)) for i in range(3)]
+    vectors = {}
+    for name, vec in (("a", [1.0, 0.0]), ("b", [0.95, 0.05]), ("c", [0.9, 0.1]), ("d", [0.85, 0.15])):
+        vectors[name] = [({"frame_id": str(i)}, np.array(vec, dtype=np.float32)) for i in range(3)]
+    ranked = rank_tracklets(anchor, list(vectors), vectors)
+    assert all(r["status"] != "rejected_by_rank" for r in ranked)
+    assert ranked[-1]["status"] in ("ambiguous", "insufficient_evidence")
+
+
+def test_excluded_only_with_explicit_evidence():
+    anchor = [({"frame_id": str(i)}, np.array([1.0, 0.0], dtype=np.float32)) for i in range(3)]
+    vectors = {"x": [({"frame_id": str(i)}, np.array([1.0, 0.0], dtype=np.float32)) for i in range(3)]}
+    ranked = rank_tracklets(anchor, list(vectors), vectors, excluded={"x"})
+    assert ranked[0]["status"] == "excluded_by_evidence"
