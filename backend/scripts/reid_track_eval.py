@@ -127,26 +127,40 @@ def frames_from_gallery(path, sample_interval, min_conf):
     return validate_frames(frames, path), notes
 
 
-def evaluate(adapter, frames, gt):
-    """轨迹与人工真值对照。返回 errors 列表与指标。"""
+def evaluate(adapter, frames, gt, time_tolerance=0.05):
+    """轨迹与人工真值对照。返回 errors 列表与指标。
+
+    真值是按 0.5 fps 标的；D1 用 5/10 fps 复核时帧号对不上，只能按“时间接近 + IoU”
+    匹配。time_tolerance 就是这个时间窗，跨采样率对照时必须显式给出。
+    """
     errors = []
-    # 每条预测轨迹在每个真值帧上的最佳匹配
     gt_frames = []
     for track in gt.get("tracks", []):
         for item in track.get("frames", []):
             gt_frames.append({"gt_id": track["gt_id"], "frame_id": item["frame_id"],
+                              "timestamp_seconds": item.get("timestamp_seconds"),
                               "bbox": item["bbox"], "track": track.get("label", "")})
     pred = {}
+    pred_by_time = []
     for tid, track in adapter._tracks.items():  # noqa: SLF001 - 同仓评测脚本
         for obs in track.observations:
             pred.setdefault(obs.frame_id, []).append((tid, obs))
+            pred_by_time.append((obs.timestamp_seconds, tid, obs))
+    pred_by_time.sort(key=lambda p: p[0])
+
+    def candidates(item):
+        ts = item.get("timestamp_seconds")
+        if ts is None or time_tolerance <= 0:
+            return pred.get(item["frame_id"], [])
+        return [(tid, obs) for t, tid, obs in pred_by_time
+                if abs(t - float(ts)) <= time_tolerance]
 
     covered = 0
     gt_to_pred = {}
     pred_to_gt = {}
     for item in gt_frames:
         best, best_iou = None, 0.0
-        for tid, obs in pred.get(item["frame_id"], []):
+        for tid, obs in candidates(item):
             value = _iou(item["bbox"], obs.bbox)
             if value > best_iou:
                 best, best_iou = tid, value
@@ -204,6 +218,8 @@ def main(argv=None):
     parser.add_argument("--min-iou", type=float, default=0.1)
     parser.add_argument("--min-detection-conf", type=float, default=0.15)
     parser.add_argument("--gt", help="人工真值 JSON")
+    parser.add_argument("--gt-time-tolerance", type=float, default=0.05,
+                        help="按时间匹配真值的窗口（秒）；跨采样率复核时设 0.25~0.4")
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
 
@@ -245,7 +261,7 @@ def main(argv=None):
     if args.gt and os.path.isfile(args.gt):
         with open(args.gt, "r", encoding="utf-8") as fh:
             gt = json.load(fh)
-        errors, metrics = evaluate(adapter, frames, gt)
+        errors, metrics = evaluate(adapter, frames, gt, args.gt_time_tolerance)
     errors.extend(adapter.duplicate_overlaps())
     warnings = notes + list(adapter._warnings)  # noqa: SLF001
     with open(os.path.join(args.out, "errors.json"), "w", encoding="utf-8") as fh:
