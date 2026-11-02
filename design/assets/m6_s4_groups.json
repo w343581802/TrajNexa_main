@@ -173,6 +173,17 @@
         91
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 378,
+        "gaps": [
+          {
+            "from_seconds": 1435.8,
+            "to_seconds": 1436.4,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 2,
@@ -541,6 +552,11 @@
         52
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 399,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 3,
@@ -701,6 +717,17 @@
         67
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 58,
+        "gaps": [
+          {
+            "from_seconds": 1394.0,
+            "to_seconds": 1394.6,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 41,
@@ -872,6 +899,11 @@
         21
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 399,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 4,
@@ -931,6 +963,11 @@
         62
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 399,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 9,
@@ -990,6 +1027,11 @@
         93
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 107,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 87,
@@ -1033,6 +1075,17 @@
         101
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 77,
+        "gaps": [
+          {
+            "from_seconds": 1437.2,
+            "to_seconds": 1437.8,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 92,
@@ -1076,6 +1129,22 @@
         96
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 19,
+        "gaps": [
+          {
+            "from_seconds": 1425.8,
+            "to_seconds": 1426.6,
+            "gap_seconds": 0.8
+          },
+          {
+            "from_seconds": 1426.6,
+            "to_seconds": 1427.2,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": [
         {
           "track_a": 94,
@@ -1119,6 +1188,22 @@
         104
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 35,
+        "gaps": [
+          {
+            "from_seconds": 1431.2,
+            "to_seconds": 1432.0,
+            "gap_seconds": 0.8
+          },
+          {
+            "from_seconds": 1434.0,
+            "to_seconds": 1434.8,
+            "gap_seconds": 0.8
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": [
         {
           "track_a": 102,
@@ -1177,6 +1262,11 @@
         13
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 143,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 8,
@@ -1203,6 +1293,17 @@
         31
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 103,
+        "gaps": [
+          {
+            "from_seconds": 1360.4,
+            "to_seconds": 1361.0,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 15,
@@ -1229,6 +1330,11 @@
         20
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 15,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 19,
@@ -1255,6 +1361,17 @@
         25
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 36,
+        "gaps": [
+          {
+            "from_seconds": 1370.6,
+            "to_seconds": 1371.4,
+            "gap_seconds": 0.8
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": [
         {
           "track_a": 24,
@@ -1281,6 +1398,17 @@
         61
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 246,
+        "gaps": [
+          {
+            "from_seconds": 1390.4,
+            "to_seconds": 1391.0,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 43,
@@ -1307,6 +1435,22 @@
         70
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 130,
+        "gaps": [
+          {
+            "from_seconds": 1396.0,
+            "to_seconds": 1396.6,
+            "gap_seconds": 0.6
+          },
+          {
+            "from_seconds": 1397.8,
+            "to_seconds": 1398.6,
+            "gap_seconds": 0.8
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": [
         {
           "track_a": 49,
@@ -1333,6 +1477,11 @@
         65
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 35,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": [
         {
           "track_a": 56,
@@ -1359,6 +1508,27 @@
         109
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 67,
+        "gaps": [
+          {
+            "from_seconds": 1425.4,
+            "to_seconds": 1426.0,
+            "gap_seconds": 0.6
+          },
+          {
+            "from_seconds": 1426.2,
+            "to_seconds": 1427.0,
+            "gap_seconds": 0.8
+          },
+          {
+            "from_seconds": 1427.8,
+            "to_seconds": 1428.4,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": [
         {
           "track_a": 100,
@@ -1385,6 +1555,17 @@
         108
       ],
       "grouped": true,
+      "coverage_gaps": {
+        "time_points": 54,
+        "gaps": [
+          {
+            "from_seconds": 1436.8,
+            "to_seconds": 1437.4,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": [
         {
           "track_a": 106,
@@ -1410,6 +1591,11 @@
         6
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 399,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1418,6 +1604,17 @@
         11
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 36,
+        "gaps": [
+          {
+            "from_seconds": 1365.8,
+            "to_seconds": 1366.6,
+            "gap_seconds": 0.8
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": []
     },
     {
@@ -1426,6 +1623,17 @@
         28
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 9,
+        "gaps": [
+          {
+            "from_seconds": 1373.2,
+            "to_seconds": 1373.8,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": []
     },
     {
@@ -1434,6 +1642,11 @@
         29
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 41,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1442,6 +1655,17 @@
         35
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 16,
+        "gaps": [
+          {
+            "from_seconds": 1384.2,
+            "to_seconds": 1384.8,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": []
     },
     {
@@ -1450,6 +1674,17 @@
         37
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 5,
+        "gaps": [
+          {
+            "from_seconds": 1386.8,
+            "to_seconds": 1387.6,
+            "gap_seconds": 0.8
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": []
     },
     {
@@ -1458,6 +1693,17 @@
         38
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 16,
+        "gaps": [
+          {
+            "from_seconds": 1387.6,
+            "to_seconds": 1388.2,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": []
     },
     {
@@ -1466,6 +1712,11 @@
         40
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 13,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1474,6 +1725,17 @@
         48
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 27,
+        "gaps": [
+          {
+            "from_seconds": 1391.8,
+            "to_seconds": 1392.4,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": []
     },
     {
@@ -1482,6 +1744,11 @@
         57
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 20,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1490,6 +1757,11 @@
         63
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 6,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1498,6 +1770,22 @@
         77
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 6,
+        "gaps": [
+          {
+            "from_seconds": 1408.2,
+            "to_seconds": 1408.8,
+            "gap_seconds": 0.6
+          },
+          {
+            "from_seconds": 1409.2,
+            "to_seconds": 1409.8,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.6
+      },
       "evidence": []
     },
     {
@@ -1506,6 +1794,27 @@
         81
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 70,
+        "gaps": [
+          {
+            "from_seconds": 1423.2,
+            "to_seconds": 1424.0,
+            "gap_seconds": 0.8
+          },
+          {
+            "from_seconds": 1429.8,
+            "to_seconds": 1430.4,
+            "gap_seconds": 0.6
+          },
+          {
+            "from_seconds": 1430.4,
+            "to_seconds": 1431.0,
+            "gap_seconds": 0.6
+          }
+        ],
+        "max_gap_seconds": 0.8
+      },
       "evidence": []
     },
     {
@@ -1514,6 +1823,11 @@
         85
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 21,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1522,6 +1836,11 @@
         86
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 33,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     },
     {
@@ -1530,6 +1849,11 @@
         88
       ],
       "grouped": false,
+      "coverage_gaps": {
+        "time_points": 7,
+        "gaps": [],
+        "max_gap_seconds": 0.0
+      },
       "evidence": []
     }
   ]

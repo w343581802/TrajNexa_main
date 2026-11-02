@@ -160,6 +160,23 @@ def verdict_for(ev, rules=None):
     return "same_object" if all(checks) else "needs_review"
 
 
+def coverage_gaps(tracks, max_gap_seconds=0.45):
+    """归组后的时间覆盖检查：成员轨迹的观测并起来是否仍然连续。
+
+    归组只合并"同一目标的重复轨迹"，**不允许**由此产生一段谁都没看到的空白后再接上，
+    否则就是"用归组换来的虚假延长"。这里把超过阈值的空档全部列出来，供人工复核。
+    """
+    times = sorted({round(float(o["timestamp_seconds"]), 3)
+                    for track in tracks for o in track["observations"]})
+    gaps = []
+    for earlier, later in zip(times, times[1:]):
+        if later - earlier > max_gap_seconds:
+            gaps.append({"from_seconds": round(earlier, 2), "to_seconds": round(later, 2),
+                         "gap_seconds": round(later - earlier, 2)})
+    return {"time_points": len(times), "gaps": gaps,
+            "max_gap_seconds": round(max((g["gap_seconds"] for g in gaps), default=0.0), 2)}
+
+
 def group_tracks(tracks, frame_vectors=None, rules=None):
     """把轨迹并成 PhysicalObjectCandidate；原始 Track ID 全部保留。"""
     rules = dict(DEFAULT_GROUP_RULES, **(rules or {}))
@@ -187,10 +204,12 @@ def group_tracks(tracks, frame_vectors=None, rules=None):
     ordered = sorted(members.values(), key=lambda ids: (-len(ids), min(ids)))
     for index, ids in enumerate(ordered, start=1):
         ids = sorted(ids)
+        gaps = coverage_gaps([t for t in tracks if t["track_id"] in ids], max_gap_seconds=0.45)
         groups.append({
             "candidate_id": "PhysicalObjectCandidate_%03d" % index,
             "track_ids": ids,
             "grouped": len(ids) > 1,
+            "coverage_gaps": gaps,
             "evidence": [e for e in evidence
                          if e["track_a"] in ids and e["track_b"] in ids and e["verdict"] == "same_object"],
         })

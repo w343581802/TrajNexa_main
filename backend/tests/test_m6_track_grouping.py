@@ -75,3 +75,13 @@ def test_group_tracks_keeps_original_ids():
     tags = sorted(tuple(g["track_ids"]) for g in groups)
     assert tags == [(1, 2), (3,)]
     assert groups[0]["candidate_id"].startswith("PhysicalObjectCandidate_")
+
+
+def test_coverage_gaps_expose_false_extension():
+    from app.m6_track_grouping import coverage_gaps
+
+    a = _track(1, [[100, 100, 160, 260]] * 5, start=0)
+    b = _track(2, [[100, 100, 160, 260]] * 5, start=9)  # 中间空了 0.8 秒
+    report = coverage_gaps([a, b], max_gap_seconds=0.45)
+    assert report["gaps"], "归组后出现的空档必须被记录"
+    assert report["max_gap_seconds"] > 0.45
