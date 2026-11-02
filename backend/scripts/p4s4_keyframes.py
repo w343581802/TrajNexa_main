@@ -124,6 +124,10 @@ def main():
     uniform = scored[::step][:args.k]
 
     above_min = [s for s in scored if not s.get("below_min_size")]
+    # 无可用画面时不能把低质量帧当"推荐"：它们只进诊断信息
+    diagnostics = [] if above_min else picked
+    if not above_min:
+        picked = []
     report = {
         "track_id": args.track,
         "frames_above_min_height": len(above_min),
@@ -132,6 +136,7 @@ def main():
         "frames_total": len(scored),
         "k": args.k,
         "picked": picked,
+        "diagnostics_only": diagnostics,
         "baseline_uniform": uniform,
         "baseline_size_only": by_size,
         "all_scores": scored,
@@ -139,7 +144,8 @@ def main():
     Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tiles = []
-    for name, rows in (("KEY", picked), ("UNI", uniform), ("SIZE", by_size)):
+    shown = [("KEY", picked)] if picked else [("DIAG(不推荐)", diagnostics)]
+    for name, rows in (shown + [("UNI", uniform), ("SIZE", by_size)]):
         for item in rows:
             image = images[item["frame_id"]]
             tiles.append(render(image, item["bbox"],

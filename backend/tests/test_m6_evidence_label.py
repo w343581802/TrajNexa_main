@@ -48,14 +48,26 @@ def test_top_k_hit_rate_counts_usable_and_marginal():
     assert stats["usable_rate"] == 0.25
 
 
-def test_key_evidence_detects_miss():
-    labels = [_row("1"), _row("2"), _row("3")]
-    assert key_evidence_found(labels, ["1", "3"], ["2"])["hit"] is False
-    assert key_evidence_found(labels, ["1", "2"], ["2"])["hit"] is True
+def test_key_evidence_reports_any_and_all_hit():
+    labels = [_row("1"), _row("2"), _row("3"), _row("4")]
+    keys = ["1", "2", "3"]
+    partial = key_evidence_found(labels, ["1", "3"], keys)
+    assert partial["any_hit"] is True
+    assert partial["all_hit"] is False
+    assert partial["key_recall"] == 0.667
+    assert partial["missed"] == ["2"]
+
+    miss = key_evidence_found(labels, ["4"], keys)
+    assert miss["any_hit"] is False and miss["all_hit"] is False and miss["key_recall"] == 0.0
+
+    full = key_evidence_found(labels, ["1", "2", "3"], keys)
+    assert full["all_hit"] is True and full["key_recall"] == 1.0
 
 
 def test_association_and_quality_are_separate():
-    assert evidence_value("candidate", "usable")["verdict"] == "high_value_evidence"
+    assert evidence_value("confirmed", "usable")["verdict"] == "high_value_evidence_verified"
+    assert evidence_value("candidate", "usable")["verdict"] == \
+        "high_value_evidence_pending_review"
     assert evidence_value("candidate", "blurry")["verdict"] == "trace_ok_but_picture_unusable"
     assert evidence_value("ambiguous", "usable")["verdict"] == \
         "clear_picture_but_identity_unconfirmed"

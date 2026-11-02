@@ -1,0 +1,288 @@
+{
+  "ok": true,
+  "archive": {
+    "target_track": 41,
+    "reference_frames": [
+      "00159",
+      "00173",
+      "00175",
+      "00177",
+      "00181",
+      "00183",
+      "00185",
+      "00188",
+      "00190",
+      "00192",
+      "00195",
+      "00197",
+      "00199",
+      "00202",
+      "00204",
+      "00206"
+    ],
+    "frame_count": 16
+  },
+  "stages": [
+    {
+      "stage": "reference_archive",
+      "status": "ok",
+      "detail": {
+        "frames": 16
+      }
+    },
+    {
+      "stage": "grouping",
+      "status": "ok",
+      "detail": {
+        "objects": 100,
+        "multi_track_groups": 6,
+        "merged_relations": 10,
+        "group_conflicts": 0
+      }
+    },
+    {
+      "stage": "reid_match",
+      "status": "ok",
+      "detail": {
+        "mode": "per_frame",
+        "candidates": 53
+      }
+    },
+    {
+      "stage": "trackback",
+      "status": "ok",
+      "detail": {
+        "tracks": 3,
+        "max_gap_seconds": 0.6
+      }
+    }
+  ],
+  "candidates": [
+    {
+      "candidate": "41-46-47",
+      "is_reference": true,
+      "score": 1.0,
+      "supporting_pairs": 31,
+      "supporting_anchor_frames": 31,
+      "supporting_candidate_frames": 31,
+      "views_used": 0,
+      "pairs": 0,
+      "evidence_kind": "reference",
+      "anchor_frames_used": 31,
+      "candidate_frames_used": 31,
+      "rank": 1,
+      "margin_to_next": 0.0672,
+      "status": "reference"
+    },
+    {
+      "candidate": "64",
+      "is_reference": false,
+      "score": 0.9328420956929525,
+      "evidence_kind": "pairwise",
+      "supporting_pairs": 18,
+      "supporting_anchor_frames": 8,
+      "supporting_candidate_frames": 3,
+      "views_used": 1,
+      "pairs": 298,
+      "anchor_frames_used": 31,
+      "candidate_frames_used": 11,
+      "rank": 2,
+      "margin_to_next": 0.0052,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "50-53",
+      "is_reference": false,
+      "score": 0.9276817440986633,
+      "evidence_kind": "pairwise",
+      "supporting_pairs": 112,
+      "supporting_anchor_frames": 24,
+      "supporting_candidate_frames": 14,
+      "views_used": 1,
+      "pairs": 751,
+      "anchor_frames_used": 31,
+      "candidate_frames_used": 27,
+      "rank": 3,
+      "margin_to_next": 0.0169,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "67",
+      "is_reference": false,
+      "score": 0.910798708597819,
+      "evidence_kind": "pairwise",
+      "supporting_pairs": 33,
+      "supporting_anchor_frames": 11,
+      "supporting_candidate_frames": 5,
+      "views_used": 1,
+      "pairs": 189,
+      "anchor_frames_used": 31,
+      "candidate_frames_used": 7,
+      "rank": 4,
+      "margin_to_next": 0.0112,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "69",
+      "is_reference": false,
+      "score": 0.8996302882830302,
+      "evidence_kind": "pairwise",
+      "supporting_pairs": 19,
+      "supporting_anchor_frames": 9,
+      "supporting_candidate_frames": 3,
+      "views_used": 1,
+      "pairs": 109,
+      "anchor_frames_used": 29,
+      "candidate_frames_used": 4,
+      "rank": 5,
+      "margin_to_next": 0.0181,
+      "status": "ambiguous"
+    }
+  ],
+  "association_status": "candidate",
+  "grouping": {
+    "objects": 100,
+    "multi_track_groups": 6
+  },
+  "trackback": {
+    "time_points": 57,
+    "gaps": [
+      {
+        "from_seconds": 1394.0,
+        "to_seconds": 1394.6,
+        "gap_seconds": 0.6
+      }
+    ],
+    "max_gap_seconds": 0.6
+  },
+  "evidence_pairs": 5886,
+  "keyframes": [
+    {
+      "below_min_size": false,
+      "frame_id": "00202",
+      "timestamp_seconds": 1400.4,
+      "bbox": [
+        494.65,
+        461.17,
+        624.89,
+        689.46
+      ],
+      "height_px": 228.3,
+      "size": 0.971,
+      "sharpness": 0.981,
+      "outside_ratio": 0.0,
+      "border_touch": false,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.9813
+    },
+    {
+      "below_min_size": false,
+      "frame_id": "00199",
+      "timestamp_seconds": 1399.8,
+      "bbox": [
+        515.67,
+        401.49,
+        628.99,
+        593.73
+      ],
+      "height_px": 192.2,
+      "size": 0.818,
+      "sharpness": 0.926,
+      "outside_ratio": 0.0,
+      "border_touch": false,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.8957
+    },
+    {
+      "below_min_size": false,
+      "frame_id": "00196",
+      "timestamp_seconds": 1399.2,
+      "bbox": [
+        538.62,
+        356.88,
+        633.84,
+        505.78
+      ],
+      "height_px": 148.9,
+      "size": 0.633,
+      "sharpness": 0.852,
+      "outside_ratio": 0.0,
+      "border_touch": false,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.7905
+    },
+    {
+      "below_min_size": false,
+      "frame_id": "00193",
+      "timestamp_seconds": 1398.6,
+      "bbox": [
+        544.8,
+        320.56,
+        633.63,
+        448.0
+      ],
+      "height_px": 127.4,
+      "size": 0.542,
+      "sharpness": 0.796,
+      "outside_ratio": 0.0,
+      "border_touch": false,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.7328
+    },
+    {
+      "below_min_size": false,
+      "frame_id": "00190",
+      "timestamp_seconds": 1398.0,
+      "bbox": [
+        536.23,
+        293.41,
+        607.15,
+        393.1
+      ],
+      "height_px": 99.7,
+      "size": 0.424,
+      "sharpness": 0.722,
+      "outside_ratio": 0.0,
+      "border_touch": false,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.6574
+    },
+    {
+      "below_min_size": false,
+      "frame_id": "00205",
+      "timestamp_seconds": 1401.0,
+      "bbox": [
+        492.45,
+        538.75,
+        629.4,
+        718.75
+      ],
+      "height_px": 180.0,
+      "size": 0.765,
+      "sharpness": 0.815,
+      "outside_ratio": 0.0,
+      "border_touch": true,
+      "subject_truncated": null,
+      "crowding": 0.0,
+      "view": "unknown",
+      "score": 0.6389
+    }
+  ],
+  "quality_status": "usable",
+  "evidence": {
+    "association_ok": true,
+    "association_confirmed": false,
+    "quality_ok": true,
+    "verdict": "high_value_evidence_pending_review"
+  }
+}

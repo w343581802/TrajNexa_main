@@ -87,24 +87,44 @@ def top_k_hit_rate(labels, picks):
 
 
 def key_evidence_found(labels, picks, key_frames):
-    """关键证据（例如全片段里唯一一张清晰正脸）有没有被推荐出来。"""
+    """关键证据的覆盖情况。
+
+    区分两种"命中"：
+    - `any_hit`：至少找到一张合格关键画面（很多研判任务到此就够用）；
+    - `all_hit`：覆盖人工标注的全部关键画面（用于判断是否存在漏检）；
+    - `key_recall`：找到数量占关键画面的比例。
+
+    `key_frames` 必须**独立标注**（例如全片段扫一遍挑出所有清晰正脸），
+    不能拿某个策略的推荐结果反过来定义关键帧，否则评测自带偏差。
+    """
     picked = {str(p) for p in picks}
-    return {"key_frames": [str(k) for k in key_frames],
-            "found": [str(k) for k in key_frames if str(k) in picked],
-            "missed": [str(k) for k in key_frames if str(k) not in picked],
-            "hit": bool(key_frames) and all(str(k) in picked for k in key_frames)}
+    keys = [str(k) for k in key_frames]
+    found = [k for k in keys if k in picked]
+    missed = [k for k in keys if k not in picked]
+    return {"key_frames": keys, "found": found, "missed": missed,
+            "any_hit": bool(found),
+            "all_hit": bool(keys) and not missed,
+            "key_recall": round(len(found) / len(keys), 3) if keys else 0.0}
 
 
 def evidence_value(association_status, quality_status):
-    """目标关联状态与画面质量必须分开表达，只有两者都成立才是高价值证据。"""
+    """目标关联状态与画面质量必须分开表达，两者都成立才算高价值证据。
+
+    **candidate 不等于身份已确认**：普通候选轨迹的清晰画面只能是"待核验的高价值证据"，
+    只有走过人工/规则核实（`confirmed`）的才能标成"已核实的高价值证据"。
+    """
+    confirmed = association_status == "confirmed"
     association_ok = association_status in ("candidate", "confirmed")
     quality_ok = quality_status in ("usable", "yes")
-    if association_ok and quality_ok:
-        verdict = "high_value_evidence"
+    if confirmed and quality_ok:
+        verdict = "high_value_evidence_verified"
+    elif association_ok and quality_ok:
+        verdict = "high_value_evidence_pending_review"
     elif association_ok and not quality_ok:
         verdict = "trace_ok_but_picture_unusable"
     elif not association_ok and quality_ok:
         verdict = "clear_picture_but_identity_unconfirmed"
     else:
         verdict = "not_evidence"
-    return {"association_ok": association_ok, "quality_ok": quality_ok, "verdict": verdict}
+    return {"association_ok": association_ok, "association_confirmed": confirmed,
+            "quality_ok": quality_ok, "verdict": verdict}

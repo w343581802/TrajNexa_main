@@ -44,15 +44,16 @@ def main():
         found = key_evidence_found(labels, picks, keys)
         results[name] = {"picks": picks, "top_k": hit, "key_evidence": found}
 
-    print("%-13s %-34s 可用 边缘 未标  命中率   关键证据" % ("策略", "推荐帧"))
+    print("%-13s %-38s 可用 边缘 未标  命中率   Any  All  召回" % ("策略", "推荐帧"))
     for name, _ in STRATEGIES:
         item = results[name]
-        print("%-13s %-34s %4d %4d %4d  %5.0f%%   %s" % (
+        print("%-13s %-38s %4d %4d %4d  %5.0f%%   %3s  %3s  %4.0f%%" % (
             name, ",".join(item["picks"]), item["top_k"]["usable"],
             item["top_k"]["marginal"], item["top_k"]["unlabeled"],
             item["top_k"]["usable_rate"] * 100,
-            "命中" if item["key_evidence"]["hit"] else "漏掉(%s)" % ",".join(
-                item["key_evidence"]["missed"] or ["-"]) ))
+            "是" if item["key_evidence"]["any_hit"] else "否",
+            "是" if item["key_evidence"]["all_hit"] else "否",
+            item["key_evidence"]["key_recall"] * 100))
 
     Path(args.out).write_text(json.dumps(
         {"labels": args.labels, "key_frames": keys, "key_evidence_source":
