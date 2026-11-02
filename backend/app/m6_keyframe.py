@@ -19,6 +19,8 @@ DEFAULT_KEYFRAME_PARAMS = {
     "sharpness_weight": 0.30,
     "crowding_weight": 0.25,
     "edge_penalty": 0.60,
+    "border_penalty": 0.20,
+    "truncated_penalty": 0.30,
     "orientation_bonus": 0.15,
     "min_gap_seconds": 0.4,
     "preferred_views": ("front",),
@@ -41,11 +43,11 @@ def crop_box(bbox, frame_width=0, frame_height=0, pad_ratio=0.0):
     return [int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))]
 
 
-def edge_ratio(bbox, frame_width, frame_height, margin=2):
-    """框有多少比例被画面边界切掉（0 = 完整，1 = 完全在画外）。
+def outside_ratio(bbox, frame_width, frame_height):
+    """检测框有多少面积落到画面外（0 = 完全在画面内）。
 
-    按**面积**而不是周长折算：宽 90 的框被切掉 30 px，丢的是三分之一的主体像素，
-    按周长算只有 0.08，会明显低估"脸已经被切掉一块"的严重程度。
+    注意：检测器通常已经把框裁到画面边界，所以这个值经常是 0，
+    **不能**据此认为"目标没有被截断"——头已经出画、框从 y=0 开始，外面面积同样是 0。
     """
     x1, y1, x2, y2 = [float(v) for v in bbox]
     area = max((x2 - x1) * (y2 - y1), 1.0)
@@ -53,6 +55,18 @@ def edge_ratio(bbox, frame_width, frame_height, margin=2):
     vis_x2, vis_y2 = min(x2, float(frame_width)), min(y2, float(frame_height))
     visible = max(0.0, vis_x2 - vis_x1) * max(0.0, vis_y2 - vis_y1)
     return round(min(1.0, max(0.0, 1.0 - visible / area)), 6)
+
+
+def border_touch(bbox, frame_width, frame_height, margin=2.0):
+    """框是否贴住/紧挨画面边界（框被裁到边界就是这个状态）。"""
+    x1, y1, x2, y2 = [float(v) for v in bbox]
+    return bool(x1 <= margin or y1 <= margin
+                or x2 >= frame_width - margin or y2 >= frame_height - margin)
+
+
+def edge_ratio(bbox, frame_width, frame_height, margin=2):
+    """兼容旧接口：返回超出画面的面积比例（不含贴边判断）。"""
+    return outside_ratio(bbox, frame_width, frame_height)
 
 
 def crowding(bbox, others):
@@ -92,11 +106,18 @@ def _ranks(values):
 
 
 def score_frames(observations, sharpness_by_frame, others_by_frame=None, views_by_frame=None,
-                 params=None):
-    """给一条轨迹的每一帧打分，返回每帧的分项与总分（均在轨迹内归一化）。"""
+                 params=None, truncated_by_frame=None):
+    """给一条轨迹的每一帧打分，返回每帧的分项与总分（均在轨迹内归一化）。
+
+    `others_by_frame` 必须是**其他目标**的框：同一 PhysicalObjectCandidate 的重复轨迹
+    要先排除，否则同一个人的重复检测会被当成"遮挡"。
+    `truncated_by_frame` 是人工标注的"主体是否真的被截断"，与 `outside_ratio`/`border_touch`
+    分开记录——框贴边不等于主体被截断，反之亦然。
+    """
     params = dict(DEFAULT_KEYFRAME_PARAMS, **(params or {}))
     others_by_frame = others_by_frame or {}
     views_by_frame = views_by_frame or {}
+    truncated_by_frame = truncated_by_frame or {}
     heights = [max(float(o["bbox"][3]) - float(o["bbox"][1]), 1.0) for o in observations]
     max_height = max(heights) if heights else 1.0
     sharp = [float(sharpness_by_frame.get(str(o["frame_id"]), 0.0)) for o in observations]
@@ -105,17 +126,23 @@ def score_frames(observations, sharpness_by_frame, others_by_frame=None, views_b
     scored = []
     for index, obs in enumerate(observations):
         bbox = [float(v) for v in obs["bbox"]]
+        frame_w = obs.get("frame_width", 100000)
+        frame_h = obs.get("frame_height", 100000)
         size = heights[index] / max_height if max_height > 0 else 0.0
-        edge = edge_ratio(bbox, obs.get("frame_width", 100000), obs.get("frame_height", 100000))
+        outside = outside_ratio(bbox, frame_w, frame_h)
+        touch = border_touch(bbox, frame_w, frame_h)
         crowd = crowding(bbox, others_by_frame.get(str(obs["frame_id"]), []))
         view = views_by_frame.get(str(obs["frame_id"]), "unknown")
         orientation = params["orientation_bonus"] if view in params["preferred_views"] else 0.0
+        truncated = truncated_by_frame.get(str(obs["frame_id"]))
 
         total = (params["size_weight"] * size
                  + params["sharpness_weight"] * sharp_rank[index]
                  + params["crowding_weight"] * (1.0 - crowd)
                  + orientation
-                 - params["edge_penalty"] * edge)
+                 - params["edge_penalty"] * outside
+                 - (params["border_penalty"] if touch else 0.0)
+                 - (params["truncated_penalty"] if truncated else 0.0))
         below_min = heights[index] < params["min_height_px"]
         if below_min:
             total *= params["below_min_penalty"]
@@ -127,7 +154,9 @@ def score_frames(observations, sharpness_by_frame, others_by_frame=None, views_b
             "height_px": round(heights[index], 1),
             "size": round(size, 3),
             "sharpness": round(sharp_rank[index], 3),
-            "edge": round(edge, 3),
+            "outside_ratio": round(outside, 3),
+            "border_touch": touch,
+            "subject_truncated": truncated,
             "crowding": round(crowd, 3),
             "view": view,
             "score": round(total, 4),
@@ -135,13 +164,16 @@ def score_frames(observations, sharpness_by_frame, others_by_frame=None, views_b
     return scored
 
 
-def select_keyframes(scored, k=6, min_gap_seconds=0.4, prefer_above_min_size=True):
-    """贪心挑选：先按分数排序，再按时间间隔去重，避免挑出连续 5 帧几乎一样的画面。
+def select_keyframes(scored, k=6, min_gap_seconds=0.4, sort_key="score",
+                     prefer_above_min_size=True):
+    """按指定依据排序后做时间去重，避免挑出连续 5 帧几乎一样的画面。
 
+    `sort_key=None` 表示**尊重调用方给的顺序**——对照组必须用自己的排序依据，
+    否则"只按框大小"会被综合评分悄悄覆盖，两种策略的对照就没有意义了。
     `prefer_above_min_size` 优先挑"框足够大"的帧：太小的高分帧对人脸/车牌没有价值，
     只有在确实凑不够 k 帧时才回退到它们。
     """
-    ordered = sorted(scored, key=lambda s: -s["score"])
+    ordered = list(scored) if sort_key is None else sorted(scored, key=lambda s: -s[sort_key])
     if prefer_above_min_size:
         ordered = [s for s in ordered if not s.get("below_min_size")] + \
                   [s for s in ordered if s.get("below_min_size")]

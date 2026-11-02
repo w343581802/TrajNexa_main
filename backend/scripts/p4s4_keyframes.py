@@ -72,6 +72,7 @@ def main():
     parser.add_argument("--track", type=int, required=True)
     parser.add_argument("--k", type=int, default=6)
     parser.add_argument("--views", help="可选：{frame_id: view} 人工朝向标注")
+    parser.add_argument("--groups", help="可选：归组结果；同一候选对象的重复轨迹不计入遮挡")
     parser.add_argument("--out", required=True)
     parser.add_argument("--sheet", required=True)
     args = parser.parse_args()
@@ -83,9 +84,18 @@ def main():
     if args.views:
         views = json.loads(Path(args.views).read_text(encoding="utf-8"))
 
+    # 同一 PhysicalObjectCandidate 的并行轨迹是"同一个人的重复检测"，
+    # 不能当成遮挡——否则拥挤度会把自己的重复框算成别人挡住自己。
+    same_candidate = {args.track}
+    if args.groups:
+        groups = json.loads(Path(args.groups).read_text(encoding="utf-8"))["groups"]
+        for group in groups:
+            if args.track in group:
+                same_candidate.update(group)
+
     others_by_frame = {}
     for track in tracks:
-        if track["track_id"] == args.track:
+        if track["track_id"] in same_candidate:
             continue
         for obs in track["observations"]:
             others_by_frame.setdefault(str(obs["frame_id"]), []).append(
@@ -107,8 +117,9 @@ def main():
     scored = score_frames(observations, sharpness, others_by_frame, views)
     picked = select_keyframes(scored, k=args.k, min_gap_seconds=0.4)
 
+    # 对照组必须用自己的排序依据：sort_key=None 表示不按综合分重排
     by_size = select_keyframes(sorted(scored, key=lambda s: -s["height_px"]),
-                               k=args.k, min_gap_seconds=0.4)
+                               k=args.k, min_gap_seconds=0.4, sort_key=None)
     step = max(1, len(scored) // args.k)
     uniform = scored[::step][:args.k]
 
@@ -145,9 +156,9 @@ def main():
     if not above_min:
         print("  ⚠ 全部帧都低于最小可用高度：不推荐安排人工查看，标为 no_usable_frame")
     for item in picked:
-        print("  f%-5s h=%.0f size=%.2f sharp=%.2f edge=%.2f crowd=%.2f → %.3f" % (
+        print("  f%-5s h=%.0f size=%.2f sharp=%.2f outside=%.2f touch=%s crowd=%.2f → %.3f" % (
             item["frame_id"], item["height_px"], item["size"], item["sharpness"],
-            item["edge"], item["crowding"], item["score"]))
+            item["outside_ratio"], item["border_touch"], item["crowding"], item["score"]))
 
 
 if __name__ == "__main__":

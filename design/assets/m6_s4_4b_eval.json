@@ -1,0 +1,100 @@
+{
+  "labels": "/work/mk/s4_4b_labels.json",
+  "key_frames": [
+    "00201",
+    "00204"
+  ],
+  "key_evidence_source": "人工标注的清晰大脸帧；全片段真值尚未全量标注",
+  "results": {
+    "A_uniform": {
+      "picks": [
+        "00150",
+        "00161",
+        "00170",
+        "00182",
+        "00191",
+        "00200"
+      ],
+      "top_k": {
+        "picks": 6,
+        "usable": 1,
+        "marginal": 1,
+        "unlabeled": 0,
+        "usable_rate": 0.167,
+        "usable_or_marginal_rate": 0.333
+      },
+      "key_evidence": {
+        "key_frames": [
+          "00201",
+          "00204"
+        ],
+        "found": [],
+        "missed": [
+          "00201",
+          "00204"
+        ],
+        "hit": false
+      }
+    },
+    "B_size_only": {
+      "picks": [
+        "00203",
+        "00200",
+        "00205",
+        "00198",
+        "00195",
+        "00193"
+      ],
+      "top_k": {
+        "picks": 6,
+        "usable": 4,
+        "marginal": 2,
+        "unlabeled": 0,
+        "usable_rate": 0.667,
+        "usable_or_marginal_rate": 1.0
+      },
+      "key_evidence": {
+        "key_frames": [
+          "00201",
+          "00204"
+        ],
+        "found": [],
+        "missed": [
+          "00201",
+          "00204"
+        ],
+        "hit": false
+      }
+    },
+    "C_composite": {
+      "picks": [
+        "00204",
+        "00201",
+        "00199",
+        "00196",
+        "00193",
+        "00190"
+      ],
+      "top_k": {
+        "picks": 6,
+        "usable": 3,
+        "marginal": 2,
+        "unlabeled": 0,
+        "usable_rate": 0.5,
+        "usable_or_marginal_rate": 0.833
+      },
+      "key_evidence": {
+        "key_frames": [
+          "00201",
+          "00204"
+        ],
+        "found": [
+          "00201",
+          "00204"
+        ],
+        "missed": [],
+        "hit": true
+      }
+    }
+  }
+}
