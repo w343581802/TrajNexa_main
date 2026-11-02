@@ -30,6 +30,9 @@ DEFAULT_PARAMS = {
     "approach_max_seconds": 8.0,
     # 分离：连续多少帧不再重叠才算结束
     "separation_frames": 3,
+    # 骑乘结束后看多久、多远内的分离（人和车都还在画面里）
+    "separation_window_seconds": 6.0,
+    "separation_distance_px": 220.0,
     # 同一帧里两个"人"框重叠超过该值，视为同一个人被切成两条轨迹，不算竞争
     "person_duplicate_iou": 0.35,
     # 只有"压在同一辆车上"（重叠 ≥0.5）的人才算竞争；
@@ -343,4 +346,59 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                              "mean_distance": round(sum(s["distance"] for s in segment) / len(segment), 1)},
             })
     candidates, errors = _drop_duplicate_riders(candidates, pair_history, params, errors)
+    separated = _detect_separation(candidates, person_tracks, vehicle_tracks, params)
+    candidates.extend(separated)
+    for item in separated:
+        events.append({"type": "riding_ended_separated",
+                       "person_track_id": item["person_track_id"],
+                       "vehicle_track_id": item["vehicle_track_id"],
+                       "timestamp_seconds": item["start_seconds"]})
     return {"candidates": candidates, "events": events, "errors": errors}
+
+
+def _track_timeline(track):
+    return [(obs["timestamp_seconds"], obs["bbox"]) for obs in _observations(track)]
+
+
+def _detect_separation(candidates, person_tracks, vehicle_tracks, params):
+    """骑乘结束之后，人和车都还在画面里、但已经分开 → 记一条 separated。
+
+    只对 riding_candidate 的结束时刻往后看 `separation_window_seconds`，
+    并且要求两边都还有观测，避免把"人走出画面"当成下车。
+    """
+    people = {t["track_id"]: _track_timeline(t) for t in person_tracks}
+    vehicles = {t["track_id"]: _track_timeline(t) for t in vehicle_tracks}
+    out = []
+    for cand in candidates:
+        if cand["relation"] != "riding_candidate":
+            continue
+        pid, vid = cand["person_track_id"], cand["vehicle_track_id"]
+        p_after = [(ts, b) for ts, b in people.get(pid, []) if ts > cand["end_seconds"]]
+        v_after = [(ts, b) for ts, b in vehicles.get(vid, []) if ts > cand["end_seconds"]]
+        if not p_after or not v_after:
+            continue
+        window_end = cand["end_seconds"] + params["separation_window_seconds"]
+        p_after = [(ts, b) for ts, b in p_after if ts <= window_end]
+        v_after = [(ts, b) for ts, b in v_after if ts <= window_end]
+        if len(p_after) < params["separation_frames"] or len(v_after) < params["separation_frames"]:
+            continue
+        far = []
+        for ts, pb in p_after:
+            vb = min(v_after, key=lambda x: abs(x[0] - ts))[1]
+            if overlap_ratio(pb, vb) < params["min_overlap_ratio"] and _distance(pb, vb) <= params["separation_distance_px"]:
+                far.append(ts)
+        if len(far) < params["separation_frames"]:
+            continue
+        out.append({
+            "person_track_id": pid,
+            "vehicle_track_id": vid,
+            "vehicle_type": cand["vehicle_type"],
+            "vehicle_type_status": cand["vehicle_type_status"],
+            "relation": "separated",
+            "start_seconds": round(cand["end_seconds"], 2),
+            "end_seconds": round(max(far), 2),
+            "status": "unverified",
+            "after_riding_seconds": round(cand["end_seconds"] - cand["start_seconds"], 2),
+            "evidence": {"frames": len(far), "separation_frames": len(far)},
+        })
+    return out

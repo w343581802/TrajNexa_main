@@ -122,3 +122,37 @@ def test_duplicate_rider_track_is_suppressed():
     riding = [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
     assert len(riding) == 1
     assert any(e["type"] == "duplicate_rider_track" for e in result["errors"])
+
+
+def test_dismount_produces_separated_after_riding():
+    """骑手停车、下车走开，人和车都还在画面里：骑乘结束后应有 separated。"""
+    frames = _seq(100.0, 20)
+
+    def person_box(i):
+        if i <= 9:                      # 骑车：与车同步右移
+            return (620 + i * 3, 220, 660 + i * 3, 340)
+        return (646 + (i - 10) * 10, 220, 686 + (i - 10) * 10, 340)   # 下车后向右走开
+
+    def vehicle_box(i):
+        if i <= 9:
+            return (600 + i * 3, 300, 700 + i * 3, 400)
+        return (627, 300, 727, 400)     # 停车不动
+
+    person = _person(1, frames, person_box)
+    vehicle = _person(10, frames, vehicle_box)
+    result = build_relations([person], [vehicle])
+    riding = [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
+    separated = [c for c in result["candidates"] if c["relation"] == "separated"]
+    assert len(riding) == 1
+    assert len(separated) == 1
+    assert separated[0]["start_seconds"] >= riding[0]["end_seconds"]
+    assert separated[0]["status"] == "unverified"
+
+
+def test_riding_that_leaves_frame_is_not_called_separated():
+    """骑手骑出画面：没有后续观测，不能当成下车分离。"""
+    frames = _seq(100.0, 12)
+    person = _person(1, frames, lambda i: (620 + i * 4, 220, 660 + i * 4, 340))
+    vehicle = _person(10, frames, lambda i: (600 + i * 4, 300, 700 + i * 4, 400))
+    result = build_relations([person], [vehicle])
+    assert not [c for c in result["candidates"] if c["relation"] == "separated"]
