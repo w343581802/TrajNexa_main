@@ -1,0 +1,56 @@
+{
+ "experiment": "P1-B-1C-2 检测链路对照",
+ "fixed": {
+  "model": "dfine_n_coco_opset17_fp32_static.onnx",
+  "model_input": [
+   640,
+   640
+  ],
+  "conf": 0.2,
+  "tracker": "ByteTrack(high 0.25 / activation 0.20 / max_missing 20 / gap 4s)",
+  "fps": 5,
+  "dedupe_iou": 0.5
+ },
+ "configs": {
+  "A_1280": {
+   "source_resolution": [
+    1920,
+    1080
+   ],
+   "preprocessing": "ffmpeg scale=1280 (lanczos) → cv2.resize(640,640) INTER_LINEAR",
+   "model_input": [
+    640,
+    640
+   ],
+   "postprocessing": "无 NMS（D-FINE 自带）",
+   "tracking": "ByteTrack"
+  },
+  "B_1920": {
+   "source_resolution": [
+    1920,
+    1080
+   ],
+   "preprocessing": "cv2.resize(640,640) INTER_LINEAR",
+   "model_input": [
+    640,
+    640
+   ],
+   "postprocessing": "无 NMS",
+   "tracking": "ByteTrack"
+  },
+  "C_1920_area": {
+   "source_resolution": [
+    1920,
+    1080
+   ],
+   "preprocessing": "cv2.resize(640,640) INTER_AREA",
+   "model_input": [
+    640,
+    640
+   ],
+   "postprocessing": "无 NMS",
+   "tracking": "未跑（仅检测对照）"
+  }
+ },
+ "verdict": "B 不通过：小目标覆盖率从 1.00 掉到 0.08；当前基线保持 A_1280"
+}
