@@ -1,7 +1,8 @@
 """P1-B-1C-1 轨迹质量约束的单元测试。"""
 import pytest
 
-from app.m6_track_quality import DEFAULT_PARAMS, audit_track, refine_tracks, split_track
+from app.m6_track_quality import (DEFAULT_PARAMS, assess_tracks, audit_track, quality_of,
+                                  refine_tracks, split_track)
 
 
 def _obs(index, bbox, step=0.2, start=100.0):
@@ -75,3 +76,26 @@ def test_persistent_wide_box_splits_once():
     segments, breaks = split_track([_obs(i, b) for i, b in enumerate(boxes)])
     assert len(segments) == 2
     assert len(breaks) == 1
+
+
+
+
+def test_quality_labels_are_marking_only():
+    """质量标签只标注，不改轨迹、不删轨迹。"""
+    clean = _track(1, [(600 + i * 4, 300, 680 + i * 4, 380) for i in range(12)])
+    jitter = _track(2, [(600, 300, 680, 380)] * 6 + [(560, 260, 800, 460)] * 6)
+    enriched, counts = assess_tracks([clean, jitter])
+    assert counts["reliable"] == 1
+    assert counts["suspicious"] == 1
+    assert len(enriched) == len([clean, jitter])
+    assert enriched[0]["quality_status"] == "reliable"
+    assert "area_jump" in enriched[1]["quality_reasons"]
+    assert enriched[1]["evidence_frames"] == 12
+
+
+
+def test_short_track_is_unknown_quality():
+    short = _track(5, [(600 + i * 2, 300, 640 + i * 2, 340) for i in range(2)])
+    result = quality_of(short["frames"])
+    assert result["quality_status"] == "unknown"
+    assert "too_few_frames" in result["quality_reasons"]

@@ -202,3 +202,44 @@ def refine_tracks(tracks, params=None):
         for item in breaks:
             splits.append(dict(item, parent_track_id=track["track_id"]))
     return {"tracks": refined, "splits": splits, "fragments": fragments, "despiked": despiked}
+
+
+QUALITY_STATUSES = ("reliable", "suspicious", "unknown")
+
+
+def quality_of(observations, params=None):
+    """给一条轨迹打质量标签：reliable / suspicious / unknown。
+
+    只做标注，不改轨迹、不删轨迹——上游证据可疑时，下游不给确定结论。
+    """
+    params = dict(DEFAULT_PARAMS, **(params or {}))
+    metrics = audit_track(observations, params)
+    reasons = []
+    if metrics["frames"] < params["split_min_frames"]:
+        reasons.append("too_few_frames")
+    if metrics["area_jump"]:
+        reasons.append("area_jump")
+    if metrics["center_jump"]:
+        reasons.append("center_jump")
+    if metrics["aspect_out_of_range"]:
+        reasons.append("aspect_out_of_range")
+    if not reasons:
+        return {"quality_status": "reliable", "quality_reasons": [], "evidence_frames": metrics["frames"]}
+    status = "unknown" if metrics["frames"] < params["split_min_frames"] else "suspicious"
+    return {"quality_status": status, "quality_reasons": reasons, "evidence_frames": metrics["frames"]}
+
+
+def assess_tracks(tracks, params=None):
+    """给一组车辆轨迹补 `quality_status` / `quality_reasons` / `evidence_frames`。
+
+    返回 (tracks, {"reliable": n, "suspicious": n, "unknown": n})。
+    """
+    params = dict(DEFAULT_PARAMS, **(params or {}))
+    counts = {name: 0 for name in QUALITY_STATUSES}
+    enriched = []
+    for track in tracks:
+        observations = track.get("frames") or track.get("observations") or []
+        quality = quality_of(observations, params)
+        counts[quality["quality_status"]] += 1
+        enriched.append(dict(track, **quality))
+    return enriched, counts

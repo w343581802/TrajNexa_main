@@ -158,3 +158,16 @@ def test_riding_that_leaves_frame_is_not_called_separated():
     vehicle = _person(10, frames, lambda i: (600 + i * 4, 300, 700 + i * 4, 400))
     result = build_relations([person], [vehicle])
     assert not [c for c in result["candidates"] if c["relation"] == "separated"]
+
+
+
+
+def test_suspicious_vehicle_track_blocks_riding_candidate():
+    """车辆轨迹被判 suspicious 时，不能给确定性骑乘结论。"""
+    frames = _seq(100.0, 12)
+    person = _person(1, frames, lambda i: (620 + i * 3, 220, 660 + i * 3, 340))
+    vehicle = _person(10, frames, lambda i: (600 + i * 3, 300, 700 + i * 3, 400))
+    result = build_relations([person], [vehicle], vehicle_quality={10: {"quality_status": "suspicious"}})
+    assert not [c for c in result["candidates"] if c["relation"] == "riding_candidate"]
+    assert any(e["type"] == "vehicle_track_suspicious" for e in result["errors"])
+    assert any(c["status"] == "vehicle_track_suspicious" for c in result["candidates"])

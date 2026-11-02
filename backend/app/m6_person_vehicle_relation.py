@@ -224,9 +224,13 @@ def _observations(track):
     return frames if isinstance(frames, list) else []
 
 
-def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=None):
+def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=None,
+                    vehicle_quality=None):
     params = dict(DEFAULT_PARAMS, **(params or {}))
     vehicle_types = vehicle_types or {}
+    # 车辆轨迹质量（reliable/suspicious/unknown）。suspicious 的车辆不产出确定性骑乘候选：
+    # 上游证据不可信时，下游不能强行给结论，只保留 raw 轨迹供人工核验。
+    vehicle_quality = vehicle_quality or {}
 
     person_by_frame = {}
     for track in person_tracks:
@@ -319,9 +323,18 @@ def build_relations(person_tracks, vehicle_tracks, params=None, vehicle_types=No
                                "vehicle_track_id": vehicle_id,
                                "start_seconds": segment[0]["timestamp_seconds"],
                                "end_seconds": segment[-1]["timestamp_seconds"]})
+            vehicle_quality_status = (vehicle_quality.get(vehicle_id) or {}).get("quality_status")
+            if relation == "riding_candidate" and vehicle_quality_status == "suspicious":
+                # 车辆轨迹本身不可信：不给确定性结论，只保留证据供人工核验
+                relation, status = "unknown", "vehicle_track_suspicious"
+                errors.append({"type": "vehicle_track_suspicious", "person_track_id": person_id,
+                               "vehicle_track_id": vehicle_id,
+                               "start_seconds": segment[0]["timestamp_seconds"],
+                               "end_seconds": segment[-1]["timestamp_seconds"]})
             candidates.append({
                 "person_track_id": person_id,
                 "vehicle_track_id": vehicle_id,
+                "vehicle_quality_status": vehicle_quality_status or "unknown",
                 "vehicle_type": vehicle_type.get("vehicle_type", "unknown"),
                 "vehicle_type_status": vehicle_type.get("vehicle_type_status", "unverified"),
                 "relation": relation,
