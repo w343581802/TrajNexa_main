@@ -128,6 +128,8 @@ def review_status(observation_id, events):
     for event in events or []:
         if event.get("candidate_id") != observation_id:
             continue
+        if event.get("reviewer") is None and event.get("source") != "human_review":
+            continue
         try:
             validate_event(event, require_human=True)
         except ReviewEventError:
@@ -142,29 +144,89 @@ def review_status(observation_id, events):
             "revoke": "revoked"}.get(kind, "none")
 
 
-def confirmed_target_quality(samples, observation_id, evidence_refs=(),
-                             review_events=None, params=None):
-    """只有能关联到有效 human_confirmed 审核记录的观测，才算目标清晰证据。"""
-    if not evidence_refs:
-        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
-                "refused": True, "reason": "missing_human_review_evidence",
-                "observation_id": observation_id, "review_status": "unknown"}
-    status = review_status(observation_id, review_events)
-    if status != "confirmed":
-        reason = {"none": "confirmation_unverifiable",
-                  "revoked": "confirmation_revoked",
-                  "rejected": "observation_rejected"}.get(status, "confirmation_unverifiable")
-        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
-                "refused": True, "reason": reason,
-                "observation_id": observation_id,
-                "review_status": status}
-    result = evaluate_target(samples, params)
-    result["attribution"] = "confirmed_target"
-    result["observation_id"] = observation_id
-    result["evidence_refs"] = list(evidence_refs)
-    result["usable_as_target_evidence"] = True
-    return result
+def _registry_record(registry, observation_id):
+    for record in (registry or {}).get("observations", []):
+        if record.get("observation_id") == observation_id:
+            return record
+    return None
 
+
+def verify_confirmation(observation_id, registry=None, review_events=None,
+                        evidence_refs=(), evidence_root=None,
+                        case_id=None, target_id=None):
+    """只读同源校验：登记器状态、人工审核来源与证据可解析性三者一致才放行。"""
+    if registry is not None:
+        record = _registry_record(registry, observation_id)
+        if record is None:
+            return {"ok": False, "reason": "observation_not_in_registry",
+                    "observation_id": observation_id}
+        if case_id is not None and record.get("case_id") != case_id:
+            return {"ok": False, "reason": "cross_case_review"}
+        if target_id is not None and record.get("target_id") != target_id:
+            return {"ok": False, "reason": "cross_target_review"}
+        if record.get("synthetic"):
+            return {"ok": False, "reason": "synthetic_observation"}
+        if record.get("revoked_reason") or record.get("status") == "revoked":
+            return {"ok": False, "reason": "confirmation_revoked"}
+        if record.get("status") != "human_confirmed" or not record.get("reviewer"):
+            return {"ok": False, "reason": "observation_not_human_confirmed"}
+    refs = [r for r in (evidence_refs or [])] or list(
+        (_registry_record(registry, observation_id) or {}).get("evidence") or [])
+    if not refs:
+        return {"ok": False, "reason": "missing_human_review_evidence"}
+    status = review_status(observation_id, review_events)
+    if status == "revoked":
+        return {"ok": False, "reason": "confirmation_revoked"}
+    if status == "rejected":
+        return {"ok": False, "reason": "observation_rejected"}
+    if registry is None and status != "confirmed":
+        return {"ok": False, "reason": "confirmation_unverifiable"}
+    if review_events and status == "none":
+        return {"ok": False, "reason": "confirmation_unverifiable"}
+    # 登记器自身的人工审核字段即可作为记录来源（status == "none" 且无事件时）
+    checked = 0
+    if evidence_root:
+        from pathlib import Path
+        for ref in refs:
+            kind, _, rel = str(ref).partition(":")
+            if kind not in ("file", "frame"):
+                continue
+            checked += 1
+            if not (Path(evidence_root) / rel).is_file():
+                return {"ok": False, "reason": "evidence_unresolvable",
+                        "reference": ref}
+    return {"ok": True, "reason": "confirmed", "review_status": status,
+            "evidence_refs": refs, "evidence_checked": checked,
+            "registry_record": _registry_record(registry, observation_id)}
+
+
+def confirmed_target_quality(samples, observation_id, evidence_refs=(),
+                             review_events=None, params=None, registry=None,
+                             evidence_root=None, case_id=None, target_id=None):
+    """只有同源登记器确认、审核链有效且证据可解析的观测，才算目标清晰证据。"""
+    if not samples or all(s is None for s in samples):
+        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
+                "refused": True, "reason": "no_valid_quality_samples",
+                "observation_id": observation_id}
+    verify = verify_confirmation(observation_id, registry=registry,
+                                 review_events=review_events,
+                                 evidence_refs=evidence_refs,
+                                 evidence_root=evidence_root,
+                                 case_id=case_id, target_id=target_id)
+    if not verify["ok"]:
+        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
+                "refused": True, "reason": verify["reason"],
+                "observation_id": observation_id,
+                "review_status": verify.get("review_status")}
+    result = evaluate_target(samples, params)
+    result.update({"attribution": "confirmed_target",
+                   "usable_as_target_evidence": True,
+                   "refused": False, "observation_id": observation_id,
+                   "evidence_refs": verify["evidence_refs"],
+                   "review_status": verify["review_status"],
+                   "evidence_checked": verify["evidence_checked"],
+                   "registry_verified": registry is not None})
+    return result
 
 def rank_cameras(members, quality_by_camera, params=None):
     """把实测画质并入排序：disabled 时原样返回；verify_all 时只排序不裁剪。"""

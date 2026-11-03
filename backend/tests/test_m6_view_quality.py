@@ -165,3 +165,75 @@ def test_tiny_but_sharp_target_is_low_not_medium():
     result = evaluate_target(_samples(_sharp_image(), 18))
     assert result["band"] == "low"
     assert result["too_small_for_identity"] is True
+
+
+def _registry(status="human_confirmed", case="purple-rider", target="purple",
+              cid="B1", revoked=None, synthetic=False, evidence=None):
+    return {"observations": [{"observation_id": cid, "case_id": case,
+                              "target_id": target, "status": status,
+                              "reviewer": "case-owner" if status == "human_confirmed" else None,
+                              "evidence": evidence or ["frame:2-1/0013.jpg"],
+                              "synthetic": synthetic, "revoked_reason": revoked}]}
+
+
+def test_registry_confirmed_observation_is_accepted():
+    result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                      registry=_registry(),
+                                      case_id="purple-rider", target_id="purple")
+    assert result["usable_as_target_evidence"] is True
+    assert result["registry_verified"] is True
+
+
+def test_registry_candidate_is_not_confirmed_evidence():
+    result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                      registry=_registry(status="candidate"))
+    assert result["refused"] is True
+    assert result["reason"] == "observation_not_human_confirmed"
+
+
+def test_registry_cross_case_and_target_are_rejected():
+    cross_case = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                          registry=_registry(),
+                                          case_id="other-case")
+    assert cross_case["reason"] == "cross_case_review"
+    cross_target = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                            registry=_registry(), target_id="cyan")
+    assert cross_target["reason"] == "cross_target_review"
+
+
+def test_registry_revocation_takes_effect_immediately():
+    revoked = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                       registry=_registry(revoked="wrong_person"))
+    assert revoked["refused"] is True
+    assert revoked["reason"] == "confirmation_revoked"
+    late_event = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                          registry=_registry(),
+                                          review_events=[_event("confirm"),
+                                                         _event("revoke", at="2026-11-04T00:00:00Z")])
+    assert late_event["reason"] == "confirmation_revoked"
+
+
+def test_registry_synthetic_observation_is_rejected():
+    result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                      registry=_registry(synthetic=True))
+    assert result["reason"] == "synthetic_observation"
+
+
+def test_evidence_must_resolve_when_root_given(tmp_path):
+    ok = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                  registry=_registry(),
+                                  evidence_root=str(tmp_path))
+    assert ok["refused"] is True and ok["reason"] == "evidence_unresolvable"
+    (tmp_path / "2-1").mkdir()
+    (tmp_path / "2-1" / "0013.jpg").write_bytes(b"x")
+    good = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                    registry=_registry(),
+                                    evidence_root=str(tmp_path))
+    assert good["usable_as_target_evidence"] is True
+    assert good["evidence_checked"] == 1
+
+
+def test_missing_samples_cannot_be_target_evidence():
+    result = confirmed_target_quality([], "B1", registry=_registry())
+    assert result["refused"] is True
+    assert result["reason"] == "no_valid_quality_samples"
