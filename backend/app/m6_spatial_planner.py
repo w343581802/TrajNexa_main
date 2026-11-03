@@ -152,7 +152,8 @@ def transit_window(gap_m, movement_mode, same_site=False, overlap=False, max_sec
             "uncertainty": "detour_and_dwell_not_modelled"}
 
 
-def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
+def plan_spatial_candidates(state, cameras, params=None, manual_links=(),
+                            observed_cameras=()):
     """从目标空间状态生成候选摄像头；不依赖人工 camera_link，也不因此排除任何摄像头。"""
     fixed = {**DEFAULT_SPATIAL_PARAMS, **(params or {})}
     source_id = state.get("map_camera_id")
@@ -203,6 +204,10 @@ def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
             priority = "low"
         if camera["map_camera_id"] in manual_links and priority == "medium":
             priority = "high"
+        if camera["map_camera_id"] in observed_cameras:
+            # 刚看过（含刚才所在镜头）：不是不可能，但优先度降低，避免原地打转
+            reason.append("recently_observed_camera")
+            priority = "low"
         candidates.append({
             "candidate_camera": camera["map_camera_id"],
             "display_name": camera.get("display_name"),

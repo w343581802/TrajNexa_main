@@ -1,0 +1,214 @@
+{
+ "schema": "m6-one-hop-chain/1",
+ "exploratory": true,
+ "binding_status": "pending_human_review",
+ "clock_quality": "uncalibrated",
+ "steps": [
+  {
+   "camera": "1-1",
+   "window": [
+    54007.6,
+    54013.6
+   ],
+   "tracks": 26,
+   "candidates": [
+    {
+     "track_id": "1-1@54007.6:24",
+     "retrieval_score": 0.628,
+     "margin_top1_top2": 0.025,
+     "state": "weak_candidate",
+     "supports": [
+      "appearance_similarity"
+     ],
+     "conflicts": [],
+     "unknown": [
+      "spatiotemporal_unverified"
+     ]
+    }
+   ],
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54013.6,
+    54019.6
+   ],
+   "tracks": 36,
+   "candidates": [
+    {
+     "track_id": "1-1@54013.6:14",
+     "retrieval_score": 0.584,
+     "margin_top1_top2": 0.022,
+     "state": "weak_candidate",
+     "supports": [
+      "appearance_similarity"
+     ],
+     "conflicts": [],
+     "unknown": [
+      "spatiotemporal_unverified"
+     ]
+    }
+   ],
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54019.6,
+    54025.6
+   ],
+   "tracks": 26,
+   "candidates": [
+    {
+     "track_id": "1-1@54019.6:4",
+     "retrieval_score": 0.661,
+     "margin_top1_top2": 0.032,
+     "state": "weak_candidate",
+     "supports": [
+      "appearance_similarity"
+     ],
+     "conflicts": [],
+     "unknown": [
+      "spatiotemporal_unverified"
+     ]
+    }
+   ],
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54025.6,
+    54029.6
+   ],
+   "tracks": 17,
+   "candidates": [
+    {
+     "track_id": "1-1@54025.6:8",
+     "retrieval_score": 0.631,
+     "margin_top1_top2": 0.055,
+     "state": "weak_candidate",
+     "supports": [
+      "appearance_similarity"
+     ],
+     "conflicts": [],
+     "unknown": [
+      "spatiotemporal_unverified"
+     ]
+    }
+   ],
+   "state": "no_target_candidate",
+   "frames_decoded": 21
+  },
+  {
+   "camera": "2-1",
+   "window": [
+    54008.6,
+    54014.6
+   ],
+   "tracks": 33,
+   "candidates": [
+    {
+     "track_id": "2-1@54008.6:20",
+     "retrieval_score": 0.705,
+     "margin_top1_top2": 0.154,
+     "state": "candidate",
+     "supports": [
+      "appearance_similarity"
+     ],
+     "conflicts": [],
+     "unknown": [
+      "spatiotemporal_unverified"
+     ]
+    }
+   ],
+   "state": "needs_review",
+   "frames_decoded": 31
+  }
+ ],
+ "hop": {
+  "camera": "2-1",
+  "track": "2-1@54008.6:20",
+  "retrieval_score": 0.705,
+  "margin": 0.154,
+  "evidence": [
+   "tracks:2-1#2-1@54008.6:20",
+   "window:[54008.6, 54014.6]"
+  ],
+  "simulated_review": true
+ },
+ "next_round": {
+  "from_camera": "2-1",
+  "level": "L1",
+  "top5": [
+   {
+    "camera": "9000000000000037",
+    "relation": "disjoint",
+    "installation_distance_m": 36.74,
+    "fov_gap_m": 5.19,
+    "window": [
+     54015.34,
+     54046.6
+    ]
+   },
+   {
+    "camera": "9000000000000038",
+    "relation": "disjoint",
+    "installation_distance_m": 49.65,
+    "fov_gap_m": 49.52,
+    "window": [
+     54021.67,
+     54046.6
+    ]
+   },
+   {
+    "camera": "9000000000000031",
+    "relation": "disjoint",
+    "installation_distance_m": 72.07,
+    "fov_gap_m": 49.72,
+    "window": [
+     54021.7,
+     54046.6
+    ]
+   },
+   {
+    "camera": "9000000000000039",
+    "relation": "disjoint",
+    "installation_distance_m": 50.99,
+    "fov_gap_m": 50.3,
+    "window": [
+     54021.79,
+     54046.6
+    ]
+   },
+   {
+    "camera": "9000000000000030",
+    "relation": "disjoint",
+    "installation_distance_m": 133.83,
+    "fov_gap_m": 82.61,
+    "window": [
+     54026.4,
+     54063.799999999996
+    ]
+   }
+  ]
+ },
+ "profile_version": "V2",
+ "ledger": {
+  "planned_frames": 244,
+  "estimated_frames_run": 140,
+  "measured_frames": 145,
+  "detector_frames": 145,
+  "segments": 5,
+  "cameras_visited": 2,
+  "reid_calls": 0,
+  "vlm_calls": 0,
+  "review_count": 1,
+  "simulated_reviews": 1
+ },
+ "elapsed_seconds": 25.4
+}

@@ -186,3 +186,14 @@ def test_overlap_detection_and_distance():
     assert fov_relation(a, b)["relation"] == "overlap"
     rel = fov_relation(a, c)
     assert rel["relation"] == "disjoint" and rel["distance_m"] > 10
+
+
+def test_recently_observed_camera_is_deprioritized_not_dropped():
+    src = _cam("2-1", 110.2109, 25.2573, 331.0)
+    back = _cam("2-2", 110.210883, 25.257293, 161.0)
+    state = target_spatial_state(src, 54015.6)
+    cands = plan_spatial_candidates(state, [src, back], observed_cameras=["2-2"])
+    entry = [c for c in cands if c["candidate_camera"] == "2-2"]
+    assert entry, "刚看过的镜头仍应保留为候选"
+    assert entry[0]["priority"] == "low"
+    assert "recently_observed_camera" in entry[0]["reasons"]
