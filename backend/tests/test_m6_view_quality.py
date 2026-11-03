@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 
 from app.m6_observation_group import group_observers
-from app.m6_view_quality import (DEFAULT_PARAMS, evaluate_target, rank_cameras,
-                                 sharpness)
+from app.m6_view_quality import (DEFAULT_PARAMS, candidate_quality,
+                                 confirmed_target_quality, evaluate_target,
+                                 rank_cameras, sharpness, tracklet_quality)
 
 
 def _sharp_image(size=200):
@@ -100,3 +101,40 @@ def test_no_sample_falls_back_to_unverified_prior():
 def test_sharpness_detects_flat_versus_textured():
     assert sharpness(_flat_image()) < 1.0
     assert sharpness(_sharp_image()) > 100.0
+
+
+def test_tracklet_quality_never_counts_as_target_evidence():
+    result = tracklet_quality(_samples(_sharp_image(), 90))
+    assert result["attribution"] == "tracklet"
+    assert result["usable_as_target_evidence"] is False
+
+
+def test_candidate_quality_keeps_identity_uncertainty():
+    result = candidate_quality(_samples(_sharp_image(), 90), "2-2/2-2@54008.6:403")
+    assert result["attribution"] == "candidate"
+    assert result["identity_confirmed"] is False
+    assert result["usable_as_target_evidence"] is False
+    assert result["uncertainty"] == "candidate_identity_unconfirmed"
+
+
+def test_wrong_target_high_quality_cannot_become_confirmed_evidence():
+    other = candidate_quality(_samples(_sharp_image(), 120), "2-1/x:999")
+    refused = confirmed_target_quality(_samples(_sharp_image(), 120), "B1", [])
+    assert other["band"] == "high"
+    assert refused["refused"] is True
+    assert refused["usable_as_target_evidence"] is False
+    assert refused["reason"] == "missing_human_review_evidence"
+
+
+def test_confirmed_target_quality_requires_and_records_evidence():
+    result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                      ["review-event:evt-1"])
+    assert result["attribution"] == "confirmed_target"
+    assert result["usable_as_target_evidence"] is True
+    assert result["evidence_refs"] == ["review-event:evt-1"]
+
+
+def test_tiny_but_sharp_target_is_low_not_medium():
+    result = evaluate_target(_samples(_sharp_image(), 18))
+    assert result["band"] == "low"
+    assert result["too_small_for_identity"] is True

@@ -82,7 +82,10 @@ def evaluate_target(samples, params=None):
     score = float(np.mean([m["score"] for m in metrics]))
     median_size = float(np.median([m["height_px"] for m in metrics]))
     median_sharp = float(np.median([m["sharpness"] for m in metrics]))
-    if score >= 0.6 and median_size >= params["min_target_height_px"]:
+    too_small = median_size < params["min_target_height_px"] / 2.0
+    if too_small:
+        band = "low"
+    elif score >= 0.6 and median_size >= params["min_target_height_px"]:
         band = "high"
     elif score >= 0.35:
         band = "medium"
@@ -91,7 +94,44 @@ def evaluate_target(samples, params=None):
     return {"enabled": True, "band": band, "score": round(score, 3), "basis": "measured",
             "median_height_px": round(median_size, 1),
             "median_sharpness": round(median_sharp, 2),
-            "samples": len(metrics), "failures": failures}
+            "samples": len(metrics), "failures": failures,
+            "too_small_for_identity": too_small}
+
+
+ATTRIBUTION_LEVELS = ("tracklet", "candidate", "confirmed_target")
+
+
+def tracklet_quality(samples, params=None):
+    """某条检测轨迹的画质；只说明这条轨迹清不清楚，不涉及身份。"""
+    result = evaluate_target(samples, params)
+    result["attribution"] = "tracklet"
+    result["usable_as_target_evidence"] = False
+    return result
+
+
+def candidate_quality(samples, candidate_id, params=None):
+    """某个未确认候选的画质：可用于探索性补查，不能当已确认目标证据。"""
+    result = evaluate_target(samples, params)
+    result["attribution"] = "candidate"
+    result["candidate_id"] = candidate_id
+    result["identity_confirmed"] = False
+    result["usable_as_target_evidence"] = False
+    result["uncertainty"] = "candidate_identity_unconfirmed"
+    return result
+
+
+def confirmed_target_quality(samples, observation_id, evidence_refs, params=None):
+    """只有带人工审核证据的观测，才允许标成已确认目标的清晰证据。"""
+    if not evidence_refs:
+        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
+                "refused": True, "reason": "missing_human_review_evidence",
+                "observation_id": observation_id}
+    result = evaluate_target(samples, params)
+    result["attribution"] = "confirmed_target"
+    result["observation_id"] = observation_id
+    result["evidence_refs"] = list(evidence_refs)
+    result["usable_as_target_evidence"] = True
+    return result
 
 
 def rank_cameras(members, quality_by_camera, params=None):

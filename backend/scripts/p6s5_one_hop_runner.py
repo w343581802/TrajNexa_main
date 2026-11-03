@@ -26,7 +26,7 @@ from app.m6_truth_registry import starting_observation  # noqa: E402
 from app.m6_observer_batch import select_batch  # noqa: E402
 from app.m6_window_analysis import analyze_window  # noqa: E402
 from app.m6_view_quality import DEFAULT_PARAMS as QUALITY_DEFAULTS  # noqa: E402
-from app.m6_view_quality import evaluate_target  # noqa: E402
+from app.m6_view_quality import candidate_quality  # noqa: E402
 
 
 def _load_maps(path):
@@ -171,8 +171,9 @@ def main():
             image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, int(obs["frame_id"]) + 1))
             if image is not None:
                 samples.append({"image": image, "bbox": obs["bbox"]})
-        quality = evaluate_target(samples, {"mode": args.quality_mode,
-                                            "enabled": args.quality_mode != "off"})
+        quality = candidate_quality(samples, "%s/%s" % (name, candidates[0]["track_id"]),
+                                    {"mode": args.quality_mode,
+                                     "enabled": args.quality_mode != "off"})
         quality["cost_ms"] = round((time.time() - started_q) * 1000.0, 1)
         quality_state["ms"] += quality["cost_ms"]
         quality_by_camera[name] = quality

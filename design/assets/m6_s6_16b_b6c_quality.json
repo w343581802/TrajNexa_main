@@ -1,0 +1,81 @@
+{
+ "schema": "m6-b6c-quality-evidence/1",
+ "note": "低画质样本 #403 身份未确认；这里只验证画质评价与归属，不验证它是不是目标",
+ "samples": [
+  {
+   "tracklet": "2-2#403",
+   "frames": "287-318",
+   "median_height_from_detector_px": 17.3,
+   "tracklet_quality": {
+    "enabled": true,
+    "band": "low",
+    "score": 0.592,
+    "basis": "measured",
+    "median_height_px": 17.8,
+    "median_sharpness": 3286.29,
+    "samples": 5,
+    "failures": [],
+    "too_small_for_identity": true,
+    "attribution": "tracklet",
+    "usable_as_target_evidence": false
+   },
+   "candidate_quality": {
+    "enabled": true,
+    "band": "low",
+    "score": 0.592,
+    "basis": "measured",
+    "median_height_px": 17.8,
+    "median_sharpness": 3286.29,
+    "samples": 5,
+    "failures": [],
+    "too_small_for_identity": true,
+    "attribution": "candidate",
+    "candidate_id": "2-2/2-2@54053.4:403",
+    "identity_confirmed": false,
+    "usable_as_target_evidence": false,
+    "uncertainty": "candidate_identity_unconfirmed"
+   },
+   "attempt_as_confirmed": {
+    "attribution": "confirmed_target",
+    "usable_as_target_evidence": false,
+    "refused": true,
+    "reason": "missing_human_review_evidence",
+    "observation_id": "B1"
+   }
+  },
+  {
+   "tracklet": "2-2#23",
+   "median_height_from_detector_px": 61.3,
+   "tracklet_quality": {
+    "enabled": true,
+    "band": "high",
+    "score": 0.82,
+    "basis": "measured",
+    "median_height_px": 61.3,
+    "median_sharpness": 152.86,
+    "samples": 3,
+    "failures": [],
+    "too_small_for_identity": false,
+    "attribution": "tracklet",
+    "usable_as_target_evidence": false
+   }
+  }
+ ],
+ "attribution_rules": {
+  "tracklet": "只说明该轨迹是否清楚",
+  "candidate": "未确认身份的候选，可用于探索性补查，不能作为目标清晰证据",
+  "confirmed_target": "必须带人工审核证据，否则 refused"
+ },
+ "complementary_recordings": {
+  "window_seconds": [
+   54053.4,
+   54060.6
+  ],
+  "available_recordings": [
+   "1-1",
+   "2-1"
+  ],
+  "claimed_clearer_target_evidence": false,
+  "reason": "该时段没有已确认目标观测，不能宣称取得了更清晰的目标证据"
+ }
+}

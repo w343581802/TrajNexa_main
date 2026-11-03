@@ -238,3 +238,27 @@ def test_batch_mode_analyses_multiple_cameras_in_one_batch():
     assert len({step["batch_id"] for step in result["steps"]}) >= 1
     for name, spans in windows.items():
         assert len(spans) == len(set(spans))          # 同一窗口不重复分析
+
+
+def test_low_quality_candidate_boosts_complementary_camera_without_dropping_it():
+    predictions = [{"camera": "58", "priority": "high",
+                    "estimated_window": [54010.0, 54022.0],
+                    "search_window": [54010.0, 54028.0]},
+                   {"camera": "37", "priority": "high",
+                    "estimated_window": [54010.0, 54022.0],
+                    "search_window": [54010.0, 54028.0]}]
+    boosted = []
+
+    def on_window(sched, name, result, window):
+        if result.get("target_candidates") and not boosted:
+            boosted.extend(sched.boost_cameras(["37"]))
+
+    result = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=predictions, analyze=_analyze, score=_score,
+                         spatial=_spatial, on_window=on_window)
+    assert boosted
+    cameras = [step["camera"] for step in result["steps"]]
+    assert "1-1" in cameras                       # 互补镜头被提前执行
+    assert "2-1" in cameras                       # 原镜头仍在，没有被删
+    assert len({(step["camera"], tuple(step["scheduled_window"]))
+                for step in result["steps"]}) == len(result["steps"])
