@@ -47,7 +47,7 @@ jobs:
       - name: ByteTrack adapter regression (must not be skipped)
         run: |
           python -c "import trackers, supervision; print('tracking deps ok')"
-          python -m pytest tests/test_m6_track.py tests/test_m6_fragments.py tests/test_m6_link.py tests/test_m6_botsort.py tests/test_m6_reid_link.py tests/test_m6_target_evidence.py tests/test_m6_track_grouping.py tests/test_m6_multiview_match.py tests/test_m6_keyframe.py tests/test_m6_evidence_label.py tests/test_m6_pipeline.py tests/test_m6_camera_select.py tests/test_p1b_vehicle_type.py tests/test_m6_person_vehicle_relation.py tests/test_m6_track_quality.py -q -rs
+          python -m pytest tests/test_m6_track.py tests/test_m6_fragments.py tests/test_m6_link.py tests/test_m6_botsort.py tests/test_m6_reid_link.py tests/test_m6_target_evidence.py tests/test_m6_track_grouping.py tests/test_m6_multiview_match.py tests/test_m6_keyframe.py tests/test_m6_evidence_label.py tests/test_m6_pipeline.py tests/test_m6_cross_camera.py tests/test_m6_camera_select.py tests/test_p1b_vehicle_type.py tests/test_m6_person_vehicle_relation.py tests/test_m6_track_quality.py -q -rs
   frontend-build:
     runs-on: ubuntu-latest
     defaults:
