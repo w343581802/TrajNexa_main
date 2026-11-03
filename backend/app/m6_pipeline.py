@@ -126,12 +126,19 @@ def run_pipeline(*, tracks, frame_vectors, reference_track, params=None):
                          "conflicts": _conflict_between(group["track_ids"],
                                                         anchor_group["track_ids"], evidence_index)})
 
-    # —— 重复候选复核：像但没冲突 → 疑似同一个人；不删除、不并档 ——
-    duplicates, independents = [], []
+    # —— 重复候选复核：像但没冲突 → 疑似同一个人；有同帧冲突 → 证据排除 ——
+    duplicates, independents, excluded = [], [], []
     for item in compared:
         looks_same = (item["score"] >= params["duplicate_cosine"]
                       and item["supporting_candidate_frames"] >= params["duplicate_min_support"])
-        if looks_same and not item["conflicts"]:
+        if item["conflicts"]:
+            # 同一时间出现在不同位置：外观再像也不可能是指定目标，保留证据但排除身份
+            item["review"] = "excluded_by_evidence"
+            item["review_reason"] = ("与参考组存在 %d 个同帧冲突（不同位置同时出现），"
+                                     "外观相似度 %.3f 不足以推翻时空证据"
+                                     % (len(item["conflicts"]), item["score"]))
+            excluded.append(item)
+        elif looks_same:
             item["review"] = "suspected_duplicate_of_reference"
             item["review_reason"] = ("余弦 %.3f ≥ %.2f、支撑帧 %d ≥ %d，且与参考组无同帧冲突证据"
                                      % (item["score"], params["duplicate_cosine"],
@@ -139,8 +146,7 @@ def run_pipeline(*, tracks, frame_vectors, reference_track, params=None):
                                         params["duplicate_min_support"]))
             duplicates.append(item)
         else:
-            item["review"] = ("independent_conflict_evidence" if item["conflicts"]
-                              else "independent_insufficient_duplicate_evidence")
+            item["review"] = "independent_insufficient_duplicate_evidence"
             independents.append(item)
 
     independents.sort(key=lambda item: -item["score"])
@@ -155,14 +161,21 @@ def run_pipeline(*, tracks, frame_vectors, reference_track, params=None):
         else:
             item["status"] = "candidate"
     duplicates.sort(key=lambda item: -item["score"])
+    excluded.sort(key=lambda item: -item["score"])
+    for item in excluded:
+        item["rank"] = None
+        item["margin_to_next"] = None
+        item["status"] = "excluded_by_evidence"
     stages.append({"stage": "reid_match", "status": "ok",
                    "detail": {"mode": params["match_mode"],
                               "independent": len(independents),
-                              "suspected_duplicates": len(duplicates)}})
+                              "suspected_duplicates": len(duplicates),
+                              "excluded_by_evidence": len(excluded)}})
     stages.append({"stage": "candidate_duplicate_review", "status": "ok",
                    "detail": {"duplicates": len(duplicates),
                               "independent": len(independents),
-                              "policy": "不自动并档；疑似重复单独列出供人工复核"}})
+                              "excluded_by_evidence": len(excluded),
+                              "policy": "不自动并档；疑似重复与证据排除分别列出供人工复核"}})
 
     # —— 参考轨迹覆盖检查（注意：这不是"沿独立候选向前回溯"的完整回溯）——
     owner_tracks = [tr for tr in tracks if tr["track_id"] in set(anchor_group["track_ids"])]
@@ -182,6 +195,7 @@ def run_pipeline(*, tracks, frame_vectors, reference_track, params=None):
         "grouping": {"objects": len(groups), "multi_track_groups": len(multi)},
         "suspected_duplicates_of_reference": duplicates,
         "independent_candidates": independents[: params["top_k_candidates"]],
+        "excluded_by_evidence": excluded,
         "association_status": "supported_by_independent_candidates" if supported else "unconfirmed",
         "reference_track_coverage": coverage,
         "evidence_pairs": len(pair_evidence),

@@ -117,15 +117,22 @@ def evidence_value(association_status, quality_status):
     association_ok = association_status in ("candidate", "confirmed",
                                             "supported_by_independent_candidates")
     quality_ok = quality_status in ("usable", "yes")
+    # unverified：还没检查画面；unusable：检查过、确认不可用。两者不能混为一谈。
+    quality_pending = quality_status in ("unverified", "unknown")
     if confirmed and quality_ok:
         verdict = "high_value_evidence_verified"
     elif association_ok and quality_ok:
         verdict = "high_value_evidence_pending_review"
-    elif association_ok and not quality_ok:
+    elif association_ok and quality_pending:
+        verdict = "picture_quality_pending_review"
+    elif association_ok:
         verdict = "trace_ok_but_picture_unusable"
     elif not association_ok and quality_ok:
         verdict = "clear_picture_but_identity_unconfirmed"
+    elif not association_ok and quality_pending:
+        verdict = "identity_unconfirmed_quality_pending"
     else:
         verdict = "not_evidence"
     return {"association_ok": association_ok, "association_confirmed": confirmed,
-            "quality_ok": quality_ok, "verdict": verdict}
+            "quality_ok": quality_ok, "quality_pending": quality_pending,
+            "verdict": verdict}

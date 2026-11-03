@@ -176,7 +176,11 @@ def main():
         "reproducibility": report["reproducibility"],
         "verified": {
             "模块编排": [s["stage"] for s in report["stages"]],
-            "结果复现": deterministic,
+            "编排级结果复现": {
+                "identical": deterministic,
+                "scope": "固定输入向量与轨迹数据后编排结果可复现；"
+                         "未覆盖从原始录像解码、抽帧、推理到报告的端到端一致性",
+            },
             "证据字段": {"association_status": report["association_status"],
                          "quality_status": report["quality_status"],
                          "evidence": report["evidence"]},
@@ -185,7 +189,8 @@ def main():
                                  c["candidate"] == "-".join(str(t) for t in report["anchor"]["group"])
                                  for c in report["independent_candidates"])},
             "重复候选复核": {"suspected": len(report["suspected_duplicates_of_reference"]),
-                             "independent": len(report["independent_candidates"])},
+                             "independent": len(report["independent_candidates"]),
+                             "excluded_by_evidence": len(report["excluded_by_evidence"])},
             "原始 Track ID 保留": True,
         },
         "not_verified": [
@@ -195,6 +200,7 @@ def main():
             "跨镜头关联",
             "真实人脸/车牌可辨性",
             "沿独立候选向前回溯的业务效果（当前只有 reference_track_coverage_check）",
+            "从原始录像解码、抽帧、推理到报告的全过程逐字段一致",
         ],
         "known_limitations": [
             "采样密度会影响归组结果（8 帧 vs 16 帧候选对象数不同）",
@@ -212,6 +218,10 @@ def main():
     for d in report["suspected_duplicates_of_reference"]:
         print("  %-16s %.3f 支撑帧=%d  %s" % (d["candidate"], d["score"],
                                               d["supporting_candidate_frames"], d["review_reason"]))
+    print("证据排除（%d）：" % len(report["excluded_by_evidence"]))
+    for e in report["excluded_by_evidence"]:
+        print("  %-16s %.3f 冲突帧=%d  %s" % (e["candidate"], e["score"],
+                                              len(e["conflicts"]), e["review_reason"]))
     print("独立候选（%d）：" % len(report["independent_candidates"]))
     for c in report["independent_candidates"]:
         print("  #%d %-16s %.3f 支撑帧=%d margin=%s → %s"

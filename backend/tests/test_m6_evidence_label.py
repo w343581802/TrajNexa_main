@@ -71,4 +71,8 @@ def test_association_and_quality_are_separate():
     assert evidence_value("candidate", "blurry")["verdict"] == "trace_ok_but_picture_unusable"
     assert evidence_value("ambiguous", "usable")["verdict"] == \
         "clear_picture_but_identity_unconfirmed"
-    assert evidence_value("ambiguous", "blurry")["verdict"] == "not_evidence"
+    assert evidence_value("ambiguous", "unverified")["verdict"] == \
+        "identity_unconfirmed_quality_pending"
+    assert evidence_value("supported_by_independent_candidates", "unverified")["verdict"] == \
+        "picture_quality_pending_review"
+    assert evidence_value("ambiguous", "unusable")["verdict"] == "not_evidence"
