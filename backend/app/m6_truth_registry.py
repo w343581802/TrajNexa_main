@@ -189,3 +189,29 @@ def save_package(package, path):
 def load_package(path):
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+class StartingAnchorError(ValueError):
+    """起点不合格时的稳定错误码。"""
+
+
+def starting_observation(package, target_id):
+    """从真值包里取人工确认过的起点 A；只取起点，B 的答案不随包下发。"""
+    anchors = [r for r in package.get("observations", [])
+               if r.get("target_id") == target_id and r.get("status") == "human_confirmed"
+               and not r.get("synthetic")]
+    if not anchors:
+        raise StartingAnchorError("no_confirmed_anchor")
+    anchors.sort(key=lambda r: r["osd_anchor_seconds"])
+    anchor = anchors[0]
+    if not anchor.get("evidence"):
+        raise StartingAnchorError("anchor_without_evidence")
+    binding = next((b for b in package.get("bindings", [])
+                    if b.get("camera_uuid") == anchor.get("camera_uuid")), None)
+    return {"case_id": package["case_id"], "target_id": target_id,
+            "camera_uuid": anchor["camera_uuid"], "map_camera_id": anchor["map_camera_id"],
+            "tracklet_id": anchor["tracklet_id"],
+            "observed_start": anchor["osd_anchor_seconds"],
+            "observed_end": anchor.get("osd_end_seconds", anchor["osd_anchor_seconds"]),
+            "recording_id": anchor["recording_id"], "evidence": anchor["evidence"],
+            "camera_label": (binding or {}).get("label"),
+            "binding_status": (binding or {}).get("binding_status", "pending_human_review")}

@@ -192,3 +192,16 @@ def revoke_association(profile, candidate_id):
                            for c in profile["candidates"]],
             "history": profile["history"] + [{"action": "revoke_association",
                                               "candidate_id": candidate_id}]}
+
+def advance_from_review(profile, candidate_id, decision, simulated=False):
+    """审核结果 → 档案版本。只有真人 confirmed 才推进 V2。"""
+    if decision == "confirmed" and not simulated:
+        return confirm_association(profile, candidate_id)
+    candidates = []
+    for candidate in profile["candidates"]:
+        if candidate["candidate_id"] == candidate_id:
+            candidate = {**candidate, "state": "rejected" if decision == "rejected" else "candidate"}
+            if simulated and decision != "rejected":
+                candidate = {**candidate, "simulated_confirmed": True}
+        candidates.append(candidate)
+    return {**profile, "candidates": candidates, "version": profile["version"]}

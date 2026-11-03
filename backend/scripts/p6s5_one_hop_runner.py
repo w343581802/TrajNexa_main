@@ -1,9 +1,6 @@
-"""S6-15E：单跳真实闭环 runner（B4.1 修正版）。
+"""B4.2：由真值包里的已确认起点自动执行 A→B 检索。
 
-与上一版的区别：
-  1. 每路录像用自己的 frame_time_map（2-1 锚点 53998，1-1/2-2 为 53997），不再共用 --anchor；
-  2. B 的起止时间来自模型候选 Tracklet 的实际观测帧，不再写 54012.6/54015.6 常量；
-  3. 审核以 review_event 表达，simulated 只写模拟结果，不推进正式 TargetProfile。
+脚本不知道 B 是哪台镜头、什么时间、哪条轨迹；这些只用于运行后的评估。
 """
 from __future__ import annotations
 
@@ -18,19 +15,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
-from app.m6_camera_scheduler import CameraScheduler  # noqa: E402
+from app.m6_one_hop import run_one_hop  # noqa: E402
 from app.m6_person_reid import _get_engine  # noqa: E402
-from app.m6_review_events import apply_events, review_event  # noqa: E402
 from app.m6_spatial_adapter import bind_channel, camera_spec, load_bindings  # noqa: E402
 from app.m6_spatial_planner import plan_spatial_candidates, windows_for_candidates  # noqa: E402
-from app.m6_target_candidate_adapter import candidates_from_scores  # noqa: E402
-from app.m6_target_profile import attach_candidate, new_profile  # noqa: E402
+from app.m6_target_reference import extract_reference  # noqa: E402
 from app.m6_target_spatial import target_spatial_state  # noqa: E402
-from app.m6_time_map import frame_time_map, span_for_window, time_at  # noqa: E402
-from app.m6_truth_registry import add_observation, observation  # noqa: E402
+from app.m6_time_map import frame_time_map, time_at  # noqa: E402
+from app.m6_truth_registry import starting_observation  # noqa: E402
 from app.m6_window_analysis import analyze_window  # noqa: E402
-
-CANON = {"1-1": "9000000000000037", "2-1": "9000000000000058", "2-2": "9000000000000057"}
 
 
 def _load_maps(path):
@@ -45,170 +38,154 @@ def _load_maps(path):
     return maps
 
 
-def _score(window, frames_dir, reference, engine, max_tracks=25):
-    scored = []
-    for track in (window.get("tracks") or [])[:max_tracks]:
-        best = None
-        for obs in track["observations"][:2]:
-            image = cv2.imread("%s/%04d.jpg" % (frames_dir, int(obs["frame_id"]) + 1))
-            if image is None:
-                continue
-            try:
-                _, vectors = engine.extract_embeddings(image, [[int(v) for v in obs["bbox"]]])
-            except Exception:
-                continue
-            vector = vectors[0] / np.linalg.norm(vectors[0])
-            score = float(np.dot(reference, vector))
-            best = score if best is None else max(best, score)
-        scored.append({"track_id": track["track_id"],
-                       "retrieval_score": None if best is None else round(best, 3)})
-    return scored
+def _unwrap_tracks(payload):
+    """兼容 {results:{bytetrack:{tracks:[...]}}} 与裸列表两种形态。"""
+    node = payload
+    for _ in range(6):
+        if isinstance(node, list):
+            return node
+        if not isinstance(node, dict):
+            return []
+        if isinstance(node.get("tracks"), list):
+            return node["tracks"]
+        for key in ("results", "bytetrack", "bytetracker"):
+            if key in node:
+                node = node[key]
+                break
+        else:
+            node = next(iter(node.values()), [])
+    return []
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--truth-package", required=True)
+    parser.add_argument("--target", required=True)
     parser.add_argument("--frames", required=True)
+    parser.add_argument("--anchor-tracks", required=True, help="A 录像的跟踪输出，用于参考特征")
     parser.add_argument("--time-maps", required=True)
     parser.add_argument("--map", default="/work/mk/s6b/map_spatial.json")
     parser.add_argument("--bindings", default="/srv/app/config/m6_camera_bindings.json")
-    parser.add_argument("--plan", default="/work/mk/s6b/map_only_plan.json")
+    parser.add_argument("--review-events", default=None)
+    parser.add_argument("--segment-seconds", type=float, default=6.0)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
-    base = Path(args.frames)
-    maps = _load_maps(args.time_maps)
-    labels = {v: k for k, v in CANON.items()}
-
-    def index(camera, start, end):
-        name = labels.get(camera)
-        if name is None or name == "2-2":
-            return {"available": False, "reason": "no_recording"}
-        time_map = maps[name]
-        first = time_at(time_map, time_map["start_index"])
-        last = time_at(time_map, time_map["start_index"] + time_map["frame_count"] - 1)
-        if start < first - 0.2 or end > last + 0.2:
-            return {"available": False, "reason": "outside_frozen_frames"}
-        return {"available": True}
-
-    plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
-    forward = {w["camera"]: w for w in plan["windows_forward"]}
-    predictions = []
-    for camera in ["9000000000000037", "9000000000000058", "9000000000000039",
-                   "9000000000000038"]:
-        window = forward[camera]
-        predictions.append({"camera": camera, "priority": window["priority"],
-                            "estimated_window": window["estimated_window"],
-                            "search_window": window["window"], "exploratory": True,
-                            "uncertainties": window["uncertainties"]})
-
-    reference = np.load(str(base / "ref_purple.npy"))
-    engine, _ = _get_engine()
-    scheduler = CameraScheduler(predictions, recording_index=index,
-                                params={"segment_seconds": 6.0, "max_decoded_frames": 100000},
-                                mode="segmented")
-    steps = []
     started = time.time()
-    for _ in range(80):
-        action = scheduler.next_action()
-        if action is None:
-            break
-        camera = action["action"]["camera"]
-        name = labels[camera]
-        start, end = action["window"]
-        span = span_for_window(maps[name], start, end)
-        window = analyze_window(str(base / name), start_index=span["start_index"],
-                                end_index=span["end_index"], fps=maps[name]["fps"],
-                                osd_anchor_seconds=maps[name]["anchor_seconds"],
-                                camera=camera, window_id="%s@%.1f" % (name, start))
-        gated = candidates_from_scores(_score(window, str(base / name), reference, engine))
-        window["target_candidates"] = gated["target_candidates"]
-        state = scheduler.submit(window, appearance_score=(gated["target_candidates"][0]
-                                                           ["retrieval_score"]
-                                                           if gated["target_candidates"] else None))
-        steps.append({"camera": name, "scheduled_window": [round(start, 1), round(end, 1)],
-                      "actual_frame_span": [span["start_index"], span["end_index"]],
-                      "actual_seconds": [span["start_seconds"], span["end_seconds"]],
-                      "tracks": len(window.get("tracks") or []),
-                      "candidates": gated["target_candidates"], "state": state,
-                      "frames_decoded": window["cost"]["frames_decoded"]})
-        if state == "needs_review":
-            break
+    package = json.loads(Path(args.truth_package).read_text(encoding="utf-8"))
+    anchor = starting_observation(package, args.target)
+    label = anchor["camera_label"]
+    if not label:
+        raise SystemExit("anchor_camera_label_missing")
+    maps = _load_maps(args.time_maps)
+    snapshot = json.loads(Path(args.map).read_text(encoding="utf-8"))
+    bindings = load_bindings(args.bindings)
+    specs = [camera_spec(c, snapshot["spatial_revision"]) for c in snapshot["cameras"]]
+    labels = {}
+    for channel, binding in bindings["channels"].items():
+        labels[binding["camera_uuid"]] = channel
+    camera_ids = {c["map_camera_id"]: labels.get(c["camera_uuid"], c.get("label", ""))
+                  for c in specs}
+    anchor["camera_ids"] = camera_ids
+    anchor["camera_label"] = label
 
-    hop = None
-    review = None
-    profile = new_profile("purple-rider", "2-2", "111", 54006.2, 54008.6)
-    registry = {"case_id": "purple-rider", "observations": []}
-    if steps and steps[-1]["state"] == "needs_review":
-        step = steps[-1]
-        candidate = step["candidates"][0]
-        name = step["camera"]
-        time_map = maps[name]
-        track = next(t for t in window["tracks"] if t["track_id"] == candidate["track_id"])
-        frames = [o["frame_id"] for o in track["observations"]]
-        hop = {"camera": name, "map_camera_id": CANON[name], "track_id": candidate["track_id"],
-               "retrieval_score": candidate["retrieval_score"],
-               "margin_top1_top2": candidate.get("margin_top1_top2"),
-               "first_frame": min(frames), "last_frame": max(frames),
-               "observed_start": time_at(time_map, min(frames)),
-               "observed_end": time_at(time_map, max(frames)),
-               "clock_quality": time_map["clock_quality"],
-               "evidence_refs": ["frame:%s/%04d.jpg" % (name, int(min(frames)) + 1),
-                                 "frame:%s/%04d.jpg" % (name, int(max(frames)) + 1)]}
-        snapshot = json.loads(Path(args.map).read_text(encoding="utf-8"))
-        bindings = load_bindings(args.bindings)
-        specs = [camera_spec(c, snapshot["spatial_revision"]) for c in snapshot["cameras"]]
-        specs_by_id = {c["map_camera_id"]: c for c in specs}
-        spec = specs_by_id[hop["map_camera_id"]]
-        record = observation("purple-rider", "purple-rider", spec["camera_uuid"],
-                             hop["map_camera_id"], candidate["track_id"],
-                             hop["observed_start"], hop["track_id"],
-                             osd_uncertainty_seconds=0.2, evidence=hop["evidence_refs"],
-                             note="模型候选，等待人工审核")
-        try:
-            add_observation(registry, record)
-            event = review_event("confirm", "purple-rider", "purple-rider",
-                                 record["observation_id"], "simulation-operator",
-                                 "2026-11-03T00:00:00Z", evidence=hop["evidence_refs"],
-                                 reason="offline_replay_simulation", source="simulated")
-            results = apply_events(registry, [event])
-            review = {"event_id": event["event_id"], "source": "simulated",
-                      "status": results[0]["status"],
-                      "note": "模拟审核只写模拟结果，正式 V2 仍需真实审核事件"}
-        except Exception as exc:
-            review = {"status": "error", "code": str(exc)}
-        profile = attach_candidate(profile, hop["camera"], hop["track_id"],
-                                   hop["observed_start"], hop["observed_end"], [])
+    engine, model_id = _get_engine()
+    tracks = _unwrap_tracks(json.loads(Path(args.anchor_tracks).read_text(encoding="utf-8")))
+    source_track = next((t for t in tracks if str(t["track_id"]) == str(anchor["tracklet_id"])),
+                        None)
+    if source_track is None:
+        raise SystemExit("anchor_tracklet_not_found")
 
-    next_round = None
-    if hop:
-        snapshot = json.loads(Path(args.map).read_text(encoding="utf-8"))
-        bindings = load_bindings(args.bindings)
-        specs = [camera_spec(c, snapshot["spatial_revision"]) for c in snapshot["cameras"]]
-        source = bind_channel(snapshot, bindings, hop["camera"])["camera"]
-        state = target_spatial_state(source, hop["observed_end"], "electric_bicycle",
-                                     track_id=hop["track_id"])
-        observed = [CANON[hop["camera"]], CANON["2-2"]]
+    def read_image(frame_id):
+        return cv2.imread("%s/%s/%04d.jpg" % (args.frames, label, int(frame_id) + 1))
+
+    reference = extract_reference(
+        read_image,
+        lambda image, bbox: engine.extract_embeddings(image, [[int(v) for v in bbox]])[1][0],
+        source_track["observations"], model_id=Path(str(model_id)).name)
+
+    def plan_from(camera_label, seconds, exclude_labels):
+        bound = bind_channel(snapshot, bindings, camera_label)
+        if bound["camera"] is None:
+            raise SystemExit("camera_binding_unresolved:%s" % camera_label)
+        state = target_spatial_state(bound["camera"], seconds, "electric_bicycle")
+        observed = [cid for cid, name in camera_ids.items() if name in exclude_labels]
         candidates = plan_spatial_candidates(state, specs, observed_cameras=observed)
         plans = windows_for_candidates(state, candidates)
-        next_round = {"from_camera": hop["camera"], "level": state["level"],
-                      "source_time": hop["observed_end"],
-                      "top5": [{"camera": c["candidate_camera"], "relation": c["spatial_relation"],
-                                "installation_distance_m": c["installation_distance_m"],
-                                "fov_gap_m": c["fov_gap_m"],
-                                "window": next(p["window"] for p in plans
-                                               if p["camera"] == c["candidate_camera"])}
-                               for c in candidates[:5]]}
+        return state, candidates, plans
 
-    payload = {"schema": "m6-one-hop-chain/2", "exploratory": True,
-               "binding_status": "pending_human_review",
-               "clock_quality": "uncalibrated", "steps": steps, "hop": hop,
-               "review": review, "profile": {"version": profile["version"],
-                                             "candidates": profile["candidates"]},
-               "next_round": next_round, "ledger": scheduler.ledger,
+    stage = {}
+
+    def spatial(observed_end, camera_label, map_camera_id):
+        _, candidates, plans = plan_from(camera_label, observed_end, [camera_label, label])
+        stage["candidates"] = candidates
+        return {"source_time": observed_end, "from_camera": camera_label,
+                "top5": [{"camera": c["candidate_camera"], "relation": c["spatial_relation"],
+                          "installation_distance_m": c["installation_distance_m"],
+                          "fov_gap_m": c["fov_gap_m"],
+                          "window": next(p["window"] for p in plans
+                                         if p["camera"] == c["candidate_camera"])}
+                         for c in candidates[:5]]}
+
+
+    _, _, initial_plans = plan_from(label, anchor["observed_end"], [label])
+    predictions = [{"camera": p["camera"], "priority": p["priority"],
+                    "estimated_window": p["estimated_window"], "search_window": p["window"],
+                    "exploratory": True, "uncertainties": p["uncertainties"]}
+                   for p in initial_plans[:6] if p["camera"] in camera_ids]
+
+    def analyze(name, span, window_id):
+        time_map = maps[name]
+        return analyze_window("%s/%s" % (args.frames, name), start_index=span["start_index"],
+                              end_index=span["end_index"], fps=time_map["fps"],
+                              osd_anchor_seconds=time_map["anchor_seconds"],
+                              camera=name, window_id=window_id)
+
+    def score(name, window):
+        scored = []
+        for track in (window.get("tracks") or [])[:25]:
+            best = None
+            for obs in track["observations"][:2]:
+                image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, int(obs["frame_id"]) + 1))
+                if image is None:
+                    continue
+                try:
+                    vector = engine.extract_embeddings(image, [[int(v) for v in obs["bbox"]]])[1][0]
+                except Exception:
+                    continue
+                vector = vector / np.linalg.norm(vector)
+                value = float(np.dot(reference["vector"], vector))
+                best = value if best is None else max(best, value)
+            scored.append({"track_id": track["track_id"],
+                           "retrieval_score": None if best is None else round(best, 3)})
+        return scored
+
+    review_events = []
+    if args.review_events:
+        review_events = json.loads(Path(args.review_events).read_text(encoding="utf-8"))
+
+    result = run_one_hop(anchor=anchor, time_maps=maps, predictions=predictions,
+                         analyze=analyze, score=score, spatial=spatial,
+                         review_events=review_events, max_actions=80,
+                         segment_seconds=args.segment_seconds)
+    payload = {"schema": "m6-one-hop-chain/3", "exploratory": True,
+               "binding_status": anchor["binding_status"],
+               "clock_quality": "uncalibrated",
+               "reference": {"model_id": reference["model_id"],
+                             "sources": reference["sources"],
+                             "failures": reference["failures"]},
+               "candidates_plan": [{"camera": c["candidate_camera"],
+                                    "priority": c["priority"], "reasons": c["reasons"]}
+                                   for c in stage.get("candidates", [])],
+               "anchor": anchor, "steps": result["steps"], "hop": result["hop"],
+               "review": result["review"], "profile": result["profile"],
+               "next_round": result["next_round"], "ledger": result["ledger"],
                "elapsed_seconds": round(time.time() - started, 1)}
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps({k: payload[k] for k in ("hop", "review", "next_round", "ledger",
-                                              "elapsed_seconds")}, ensure_ascii=False, indent=1))
+    print(json.dumps({k: payload[k] for k in ("anchor", "reference", "hop", "review",
+                                              "profile", "next_round", "ledger",
+                                              "elapsed_seconds")},
+                     ensure_ascii=False, indent=1, default=str))
 
 
 if __name__ == "__main__":
