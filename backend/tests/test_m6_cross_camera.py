@@ -1,7 +1,7 @@
 """M6-S6-2 跨摄像头：三态时间关系、同步配对与状态裁决。"""
-from app.m6_cross_camera import (clock_record, cross_status, pair_by_time,
-                                 summarise_pairs, temporal_relation,
-                                 time_sufficiency, to_wall)
+from app.m6_cross_camera import (alignment_offset, clock_record, cross_status,
+                                 osd_clock, pair_by_time, summarise_pairs,
+                                 temporal_relation, time_sufficiency, to_wall)
 
 
 def test_overlap_reports_real_duration_not_negative_gap():
@@ -81,6 +81,25 @@ def test_clock_record_keeps_unknown_uncertainty_null():
     assert clock["offset_uncertainty_seconds"] is None
     assert clock["calibration_status"] == "provisional"
     assert to_wall(clock, 78.8) == 54074.8
+
+
+def test_alignment_offset_uses_each_camera_own_file_start():
+    # 回归：曾把 2-2 的推算时间按 1-1 的基准算成 15:02:29.8，得 -3.8 秒的错误结论
+    file_wall_2_2 = 53997 + 149.8          # 文件名 14:59:57 起，t=149.8
+    assert alignment_offset(54146.0, file_wall_2_2) == -0.8
+    file_wall_1_1 = 54001 + 149.8          # 文件名 15:00:01 起
+    assert alignment_offset(54147.0, file_wall_1_1) == -3.8
+    assert round(file_wall_1_1 - file_wall_2_2, 3) == 4.0
+
+
+def test_osd_clock_separates_file_offset_from_camera_clock():
+    clock = osd_clock("T口2-2", 53997.0, 53997.0, 1.0)
+    assert clock["file_osd_alignment_offset_seconds"] == 0.0
+    assert clock["intercamera_clock_offset_seconds"] is None      # 未由共同事件确定
+    assert clock["calibration_status"] == "osd_boundary"
+    assert to_wall(clock, 78.8) == 54075.8
+    other = osd_clock("T口1-1", 53997.0, 54001.0, 1.0)
+    assert other["file_osd_alignment_offset_seconds"] == -4.0
 
 
 def test_summarise_pairs_reports_distribution():

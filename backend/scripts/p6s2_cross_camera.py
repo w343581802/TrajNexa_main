@@ -23,7 +23,7 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import onnxruntime as ort  # noqa: E402
 
-from app.m6_cross_camera import (clock_record, cross_status, pair_by_time,  # noqa: E402
+from app.m6_cross_camera import (cross_status, osd_clock, pair_by_time,  # noqa: E402
                                  summarise_pairs, temporal_relation,
                                  time_sufficiency, to_wall)
 from app.m6_reid_link import _to_blob, crop_for_embedding  # noqa: E402
@@ -107,16 +107,16 @@ def main():
     cameras = {}
     for spec in args.camera:
         parts = spec.split(":")
-        name, frames, tracks_path, start_wall, offset, uncertainty = parts[:6]
-        status = parts[6] if len(parts) > 6 else "provisional"
+        name, frames, tracks_path, osd_anchor, file_ref, uncertainty = parts[:6]
+        status = parts[6] if len(parts) > 6 else "osd_boundary"
         data = json.loads(Path(tracks_path).read_text(encoding="utf-8"))
         cameras[name] = {
             "name": name, "frames": frames,
             "tracks": [t for t in data["results"]["bytetrack"]["tracks"]
                        if len(t["observations"]) >= args.min_observations],
-            "clock": clock_record(name, float(start_wall), float(offset),
-                                  float(uncertainty) if uncertainty not in ("", "null") else None,
-                                  calibration_status=status),
+            "clock": osd_clock(name, float(osd_anchor), float(file_ref),
+                               float(uncertainty) if uncertainty not in ("", "null") else None,
+                               calibration_status=status),
             "loader": frame_reader(frames)}
 
     spatial = {}

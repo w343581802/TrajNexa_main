@@ -31,6 +31,34 @@ def clock_record(camera_id, file_start, offset_seconds, offset_uncertainty_secon
             "calibration_status": calibration_status}
 
 
+def alignment_offset(osd_wall_seconds, file_reference_seconds):
+    """文件参考时间 → OSD 观测时间的校正量（正数表示 OSD 比文件名晚）。
+
+    只回答"文件名与画面 OSD 差多少"，**不是**摄像头之间的时钟差。
+    """
+    return round(osd_wall_seconds - file_reference_seconds, 3)
+
+
+def osd_clock(camera_id, osd_anchor_seconds, file_reference_seconds, uncertainty_seconds,
+              calibration_status="osd_boundary", clock_source="osd_anchor",
+              intercamera_clock_offset_seconds=None):
+    """以 OSD 时间锚点为基准的观测时钟：observed_at = osd_anchor + 帧内秒数。
+
+    摄像头之间的时钟差（intercamera_clock_offset_seconds）只有共同物理事件才能确定，
+    没有证据时保持 None，不得用文件偏差推算。
+    """
+    return {"camera_id": camera_id,
+            "file_reference_seconds": file_reference_seconds,
+            "file_osd_alignment_offset_seconds": alignment_offset(osd_anchor_seconds,
+                                                                 file_reference_seconds),
+            "intercamera_clock_offset_seconds": intercamera_clock_offset_seconds,
+            "file_start_seconds": osd_anchor_seconds,
+            "offset_seconds": 0.0,
+            "clock_source": clock_source,
+            "offset_uncertainty_seconds": uncertainty_seconds,
+            "calibration_status": calibration_status}
+
+
 def to_wall(clock, seconds_in_track):
     return clock["file_start_seconds"] + clock["offset_seconds"] + seconds_in_track
 
