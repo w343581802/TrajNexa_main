@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .m6_review_events import ReviewEventError, validate_event
+
 DEFAULT_PARAMS = {"enabled": True,
                   "mode": "prioritize",          # off / observe_only / prioritize / verify_all
                   "min_target_height_px": 48.0,
@@ -120,12 +122,42 @@ def candidate_quality(samples, candidate_id, params=None):
     return result
 
 
-def confirmed_target_quality(samples, observation_id, evidence_refs, params=None):
-    """只有带人工审核证据的观测，才允许标成已确认目标的清晰证据。"""
+def review_status(observation_id, events):
+    """返回该观测最近一次有效人工审核结果：confirmed / rejected / revoked / none。"""
+    latest = None
+    for event in events or []:
+        if event.get("candidate_id") != observation_id:
+            continue
+        try:
+            validate_event(event, require_human=True)
+        except ReviewEventError:
+            continue
+        key = (event.get("reviewed_at") or "", event.get("event_id") or "")
+        if latest is None or key >= latest[0]:
+            latest = (key, event)
+    if latest is None:
+        return "none"
+    kind = latest[1].get("event_type")
+    return {"confirm": "confirmed", "reject": "rejected",
+            "revoke": "revoked"}.get(kind, "none")
+
+
+def confirmed_target_quality(samples, observation_id, evidence_refs=(),
+                             review_events=None, params=None):
+    """只有能关联到有效 human_confirmed 审核记录的观测，才算目标清晰证据。"""
     if not evidence_refs:
         return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
                 "refused": True, "reason": "missing_human_review_evidence",
-                "observation_id": observation_id}
+                "observation_id": observation_id, "review_status": "unknown"}
+    status = review_status(observation_id, review_events)
+    if status != "confirmed":
+        reason = {"none": "confirmation_unverifiable",
+                  "revoked": "confirmation_revoked",
+                  "rejected": "observation_rejected"}.get(status, "confirmation_unverifiable")
+        return {"attribution": "confirmed_target", "usable_as_target_evidence": False,
+                "refused": True, "reason": reason,
+                "observation_id": observation_id,
+                "review_status": status}
     result = evaluate_target(samples, params)
     result["attribution"] = "confirmed_target"
     result["observation_id"] = observation_id

@@ -126,12 +126,39 @@ def test_wrong_target_high_quality_cannot_become_confirmed_evidence():
     assert refused["reason"] == "missing_human_review_evidence"
 
 
-def test_confirmed_target_quality_requires_and_records_evidence():
+def _event(kind="confirm", source="human_review", cid="B1", at="2026-11-03T12:00:00Z"):
+    return {"event_type": kind, "case_id": "purple", "target_id": "purple",
+            "candidate_id": cid, "reviewer": "case-owner" if source == "human_review" else None,
+            "reviewed_at": at, "source": source, "evidence": ["frame:2-1/0013.jpg"],
+            "event_id": "evt-%s-%s" % (kind, at)}
+
+
+def test_confirmed_target_quality_requires_a_real_review_record():
+    only_refs = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                         ["review-event:evt-1"])
+    assert only_refs["refused"] is True
+    assert only_refs["reason"] == "confirmation_unverifiable"
+    verified = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                        ["frame:2-1/0013.jpg"],
+                                        review_events=[_event()])
+    assert verified["usable_as_target_evidence"] is True
+    assert verified["attribution"] == "confirmed_target"
+
+
+def test_revoked_confirmation_cannot_back_target_quality():
+    events = [_event(), _event("revoke", at="2026-11-03T13:00:00Z")]
     result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
-                                      ["review-event:evt-1"])
-    assert result["attribution"] == "confirmed_target"
-    assert result["usable_as_target_evidence"] is True
-    assert result["evidence_refs"] == ["review-event:evt-1"]
+                                      ["frame:2-1/0013.jpg"], review_events=events)
+    assert result["refused"] is True
+    assert result["reason"] == "confirmation_revoked"
+
+
+def test_simulated_confirmation_is_not_a_human_confirm():
+    events = [_event(source="simulated")]
+    result = confirmed_target_quality(_samples(_sharp_image(), 90), "B1",
+                                      ["frame:2-1/0013.jpg"], review_events=events)
+    assert result["refused"] is True
+    assert result["reason"] == "confirmation_unverifiable"
 
 
 def test_tiny_but_sharp_target_is_low_not_medium():

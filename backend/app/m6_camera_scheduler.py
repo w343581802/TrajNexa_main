@@ -357,8 +357,11 @@ class CameraScheduler:
         session = cls(predictions, recording_index=recording_index, params=params,
                       mode=snapshot.get("mode", "segmented"))
         session.actions = [dict(action) for action in snapshot["actions"]]
-        session.cursor = snapshot["cursor"]
-        session.stopped = snapshot.get("stopped")
+        for action in session.actions:
+            if action["state"] == "budget_exhausted":
+                action["state"] = "planned"
+        session.cursor = 0
+        session.stopped = None
         session.ledger = dict(snapshot["ledger"])
         session.current = None
         return session

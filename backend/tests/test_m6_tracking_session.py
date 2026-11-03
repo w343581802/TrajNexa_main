@@ -111,3 +111,36 @@ def test_revoke_cancels_derived_scheduler_actions_only():
     states = {a["action_id"]: a["state"] for a in s.derived_actions}
     assert states["58#1"] == "cancelled_derived"
     assert states["39#1"] == "scheduled"        # 其它分支不被误删
+
+
+def test_settle_reports_awaiting_review_then_unresolved():
+    s = _session()
+    s.observe([_cand("B1", 0.72)], from_anchor_id="A")
+    assert s.settle([(54010.0, 54016.0)])["status"] == "awaiting_review"
+    empty = _session()
+    assert empty.settle([])["status"] == "unresolved"
+    assert "without_confirmation" in empty.plan["reason"]
+
+
+def test_settle_reports_budget_exhausted_with_remaining_actions():
+    s = _session()
+    s.budget_exhausted()
+    result = s.settle([(54010.0, 54016.0)], remaining_actions=3)
+    assert result["status"] == "budget_exhausted"
+    assert s.plan["remaining_actions"] == 3
+
+
+def test_confirmed_candidate_leaves_awaiting_review():
+    s = _session()
+    s.observe([_cand("B1", 0.72)], from_anchor_id="A")
+    s.confirm("B1", _event("confirm"))
+    assert s.settle([])["status"] == "unresolved"
+    assert [n["observation_id"] for n in s.main_chain] == ["A", "B1"]
+
+
+def test_budget_state_wins_over_pending_review():
+    s = _session()
+    s.observe([_cand("C1", 0.61)], from_anchor_id="A")
+    result = s.settle([(54020.0, 54026.0)], remaining_actions=2)
+    assert result["status"] == "budget_exhausted"
+    assert result["reason"] == "analysis_budget_exhausted_with_pending_review"

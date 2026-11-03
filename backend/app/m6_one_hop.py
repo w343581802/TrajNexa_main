@@ -130,9 +130,11 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                       "tracks": len(result.get("tracks") or []),
                       "candidates": result["target_candidates"], "state": state})
 
+    analyzed = [step["scheduled_window"] for step in steps]
+    remaining = sum(1 for a in scheduler.actions
+                    if a["state"] in ("planned", "running", "budget_exhausted"))
+    session.settle(analyzed, remaining)
     ranked = _ranked(pool)
-    if not ranked:
-        session.status = "unresolved"
     lookups = {c["candidate_id"]: c for c in ranked}
     profile = new_profile(anchor["target_id"], anchor["camera_label"],
                           anchor["tracklet_id"], anchor["observed_start"],

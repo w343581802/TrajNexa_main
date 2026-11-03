@@ -21,6 +21,7 @@ class TrackingSession:
         self.candidates = []
         self.derived_actions = []
         self.status = "running"
+        self.budget_hit = False
         self.history = [{"event": "session_started", "anchor": anchor.get("observation_id")}]
         self.plan = None
 
@@ -147,11 +148,33 @@ class TrackingSession:
                              "reason": reason})
         return {"observations": sorted(revoked), "actions": cancelled}
 
+    def settle(self, analyzed_windows=(), remaining_actions=None):
+        """收敛本轮状态：有候选待审、预算不足、还是搜完未确认。"""
+        if self.budget_hit or (remaining_actions or 0) > 0:
+            self.status = "budget_exhausted"
+            reason = "analysis_budget_exhausted_with_pending_review" if self.pending() \
+                else "analysis_budget_exhausted"
+        elif self.pending():
+            self.status = "awaiting_review"
+            reason = "candidates_waiting_for_human_review"
+        else:
+            self.status = "unresolved"
+            reason = "all_available_windows_analyzed_without_confirmation"
+        self.plan = {"analyzed_windows": [list(w) for w in analyzed_windows],
+                     "remaining_actions": remaining_actions or 0,
+                     "reason": reason}
+        self.history.append({"event": "settled", "status": self.status, "reason": reason})
+        return {"status": self.status, "reason": reason}
+
     def summary(self):
         return {"case_id": self.case_id, "target_id": self.target_id,
                 "status": self.status,
-                "main_chain": [e["observation_id"] for e in self.main_chain],
+                "reason": (self.plan or {}).get("reason"),
+                "main_chain": [n["observation_id"] for n in self.main_chain],
+                "analyzed_windows": (self.plan or {}).get("analyzed_windows") or [],
+                "remaining_actions": (self.plan or {}).get("remaining_actions", 0),
                 "candidates": [{"id": c["candidate_id"], "state": c["state"],
                                 "score": c["score"], "depends_on": c["depends_on"]}
                                for c in self.candidates],
-                "history": self.history}
+                "derived_actions": [dict(a) for a in self.derived_actions],
+                "history": self.history[-20:]}

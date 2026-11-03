@@ -65,25 +65,47 @@ def main():
     parser.add_argument("--truth-package", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--frames", required=True)
-    parser.add_argument("--anchor-tracks", required=True, help="A 录像的跟踪输出，用于参考特征")
+    parser.add_argument("--anchor-tracks", default=None,
+                        help="A 录像的跟踪输出；用 --anchor-id 时自动推导")
     parser.add_argument("--time-maps", required=True)
     parser.add_argument("--map", default="/work/mk/s6b/map_spatial.json")
     parser.add_argument("--bindings", default="/srv/app/config/m6_camera_bindings.json")
     parser.add_argument("--review-events", default=None)
+    parser.add_argument("--anchor-id", default=None,
+                        help="从真值包中指定 human_confirmed 观测作为起点")
     parser.add_argument("--segment-seconds", type=float, default=6.0)
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--batch-mode", action="store_true")
     parser.add_argument("--quality-mode", default="off",
                         choices=["off", "observe_only", "prioritize", "verify_all"])
+    parser.add_argument("--max-frames", type=int, default=10 ** 6)
+    parser.add_argument("--snapshot-in", default=None)
+    parser.add_argument("--snapshot-out", default=None)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
     started = time.time()
     package = json.loads(Path(args.truth_package).read_text(encoding="utf-8"))
-    anchor = starting_observation(package, args.target)
-    label = anchor["camera_label"]
-    if not label:
-        raise SystemExit("anchor_camera_label_missing")
+    tracks_path = args.anchor_tracks
+    if not tracks_path and not args.anchor_id:
+        raise SystemExit("anchor_tracks_required_without_anchor_id")
+    if args.anchor_id:
+        obs = next((o for o in package["observations"]
+                    if o["observation_id"] == args.anchor_id), None)
+        if obs is None:
+            raise SystemExit("anchor_observation_not_found")
+        if obs.get("status") != "human_confirmed":
+            raise SystemExit("anchor_not_human_confirmed")
+        anchor = {"case_id": package["case_id"], "target_id": obs["target_id"],
+                  "camera_uuid": obs["camera_uuid"], "map_camera_id": obs["map_camera_id"],
+                  "camera_label": None, "tracklet_id": obs["tracklet_id"],
+                  "observed_start": obs.get("osd_anchor_seconds", obs.get("observed_start")),
+                  "observed_end": obs.get("osd_end_seconds", obs.get("observed_end")),
+                  "binding_status": obs.get("binding_status", "pending_human_review"),
+                  "evidence": obs.get("evidence", [])}
+    else:
+        anchor = starting_observation(package, args.target)
+    label = anchor.get("camera_label")
     maps = _load_maps(args.time_maps)
     snapshot = json.loads(Path(args.map).read_text(encoding="utf-8"))
     bindings = load_bindings(args.bindings)
@@ -93,12 +115,20 @@ def main():
         labels[binding["camera_uuid"]] = channel
     camera_ids = {c["map_camera_id"]: labels.get(c["camera_uuid"], c.get("label", ""))
                   for c in specs}
+    if not label:
+        label = camera_ids.get(anchor.get("map_camera_id"))
+    if not label:
+        label = labels.get(anchor["camera_uuid"])
+    if not label:
+        raise SystemExit("anchor_camera_label_missing")
+    if args.anchor_id:
+        tracks_path = "%s/tracks_%s.json" % (args.frames, label)
     anchor["camera_ids"] = camera_ids
     anchor["camera_uuids"] = {name: uuid for uuid, name in labels.items()}
     anchor["camera_label"] = label
 
     engine, model_id = _get_engine()
-    tracks = _unwrap_tracks(json.loads(Path(args.anchor_tracks).read_text(encoding="utf-8")))
+    tracks = _unwrap_tracks(json.loads(Path(tracks_path).read_text(encoding="utf-8")))
     source_track = next((t for t in tracks if str(t["track_id"]) == str(anchor["tracklet_id"])),
                         None)
     if source_track is None:
@@ -223,6 +253,9 @@ def main():
                          analyze=analyze, score=score, spatial=spatial,
                          review_events=review_events, max_actions=80,
                          segment_seconds=args.segment_seconds, on_window=observe_quality,
+                         max_decoded_frames=args.max_frames,
+                         snapshot=(json.loads(Path(args.snapshot_in).read_text(encoding="utf-8"))
+                                   if args.snapshot_in else None),
                          batch_size=args.batch_size if args.batch_mode else 1)
     payload = {"schema": "m6-one-hop-chain/3", "exploratory": True,
                "binding_status": anchor["binding_status"],
@@ -243,8 +276,12 @@ def main():
                            "cost_ms": round(quality_state["ms"], 1)},
                "batches": {"count": len(batches), "items": batches,
                            "cross_camera_identity_merged": False},
+               "scheduler_state": result["scheduler_state"],
                "elapsed_seconds": round(time.time() - started, 1)}
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    if args.snapshot_out:
+        Path(args.snapshot_out).write_text(json.dumps(payload["scheduler_state"]),
+                                           encoding="utf-8")
     print(json.dumps({k: payload[k] for k in ("anchor", "reference", "hop", "review",
                                               "profile", "next_round", "ledger",
                                               "elapsed_seconds")},
