@@ -1,7 +1,8 @@
 """M6-S6-2 跨摄像头：三态时间关系、同步配对与状态裁决。"""
 from app.m6_cross_camera import (alignment_offset, clock_record, cross_status,
-                                 osd_clock, pair_by_time, summarise_pairs,
-                                 temporal_relation, time_sufficiency, to_wall)
+                                 observed_at, osd_clock, pair_by_time,
+                                 summarise_pairs, temporal_relation,
+                                 time_sufficiency, to_wall)
 
 
 def test_overlap_reports_real_duration_not_negative_gap():
@@ -90,6 +91,14 @@ def test_alignment_offset_uses_each_camera_own_file_start():
     file_wall_1_1 = 54001 + 149.8          # 文件名 15:00:01 起
     assert alignment_offset(54147.0, file_wall_1_1) == -3.8
     assert round(file_wall_1_1 - file_wall_2_2, 3) == 4.0
+
+
+def test_observed_at_uses_first_frame_osd_not_requested_window_start():
+    # 回归：三路都请求 15:02:00 抽帧，1-1 实得首帧 OSD 15:01:56（=54116）
+    assert observed_at(54116, 0, 5) == 54116.0
+    assert observed_at(54116, 1029, 5) == 54321.8
+    # 若误用请求起点 54120，就会凭空多出 4 s
+    assert observed_at(54120, 0, 5) - observed_at(54116, 0, 5) == 4.0
 
 
 def test_osd_clock_separates_file_offset_from_camera_clock():

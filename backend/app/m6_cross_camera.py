@@ -39,6 +39,15 @@ def alignment_offset(osd_wall_seconds, file_reference_seconds):
     return round(osd_wall_seconds - file_reference_seconds, 3)
 
 
+def observed_at(osd_first_frame_seconds, frame_index, fps):
+    """帧 → 观测时间：必须以**该序列首帧的 OSD 读数**为锚点，不能用请求的窗口起点。
+
+    实测：三路都请求 15:02:00 起抽帧，1-1 实际落在 15:01:56（HEVC 预滚偏差），
+    若用请求起点当锚点，跨镜头就会出现 4 s 的假偏移。
+    """
+    return round(osd_first_frame_seconds + frame_index / float(fps), 3)
+
+
 def osd_clock(camera_id, osd_anchor_seconds, file_reference_seconds, uncertainty_seconds,
               calibration_status="osd_boundary", clock_source="osd_anchor",
               intercamera_clock_offset_seconds=None):
