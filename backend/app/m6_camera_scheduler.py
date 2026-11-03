@@ -26,7 +26,7 @@ STATES = ("planned", "running", "candidate_found", "needs_review",
           "budget_exhausted", "deferred", "hop_confirmed")
 
 SKIPPABLE = ("no_valid_observation", "detection_missed", "recording_unavailable",
-             "recording_unknown")
+             "recording_unknown", "cancelled_derived")
 
 
 def _frames(seconds, fps):
@@ -258,6 +258,19 @@ class CameraScheduler:
         self.stopped = None
         self.cursor = self.actions.index(target) + 1
         return target
+
+    def cancel_actions(self, action_ids, reason="derived_from_revoked"):
+        """撤销上游后，把它派生的调度动作一起作废；不影响其它动作。"""
+        cancelled = []
+        ids = set(action_ids)
+        for action in self.actions:
+            if action["action_id"] in ids and action["state"] not in ("hop_confirmed",):
+                action["state"] = "cancelled_derived"
+                action["reason"] = reason
+                cancelled.append(action["action_id"])
+        if self.current and self.current["action"]["action_id"] in ids:
+            self.current = None
+        return cancelled
 
     def snapshot(self):
         """可持久化的任务进度：镜头游标、预算、已处理窗口与审核态。"""

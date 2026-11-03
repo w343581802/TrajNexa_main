@@ -74,7 +74,7 @@ def test_revoke_b_invalidates_everything_downstream():
     s.observe([_cand("C1", 0.70, camera="1-1")], from_anchor_id="B1")
     s.confirm("C1", _event("confirm"))
     s.observe([_cand("D1", 0.69, camera="1-2")], from_anchor_id="C1")
-    cascade = s.revoke("B1", reason="wrong_person")
+    cascade = s.revoke("B1", reason="wrong_person")["observations"]
     assert "C1" in cascade and "D1" in cascade
     assert s.summary()["main_chain"] == ["A"]
     states = {c["id"]: c["state"] for c in s.summary()["candidates"]}
@@ -98,3 +98,16 @@ def test_budget_exhaustion_is_not_absence():
     assert s.status == "paused"
     s.resume()
     assert s.status == "running"
+
+
+def test_revoke_cancels_derived_scheduler_actions_only():
+    s = _session()
+    s.observe([_cand("B1", 0.72), _cand("B9", 0.60)], from_anchor_id="A")
+    s.confirm("B1", _event("confirm"))
+    s.register_actions("B1", ["58#1", "37#2"])
+    s.register_actions("A", ["39#1"])          # 独立于 B 的分支
+    result = s.revoke("B1", reason="wrong_person")
+    assert set(result["actions"]) == {"58#1", "37#2"}
+    states = {a["action_id"]: a["state"] for a in s.derived_actions}
+    assert states["58#1"] == "cancelled_derived"
+    assert states["39#1"] == "scheduled"        # 其它分支不被误删

@@ -237,3 +237,11 @@ def test_partial_recording_only_analyses_available_range():
     sched = CameraScheduler(_preds(), recording_index=partial, params={"segment_seconds": 10.0})
     action = sched.next_action()
     assert action["window"] == (54008.0, 54012.0)
+
+
+def test_cancel_derived_actions_skips_them_without_touching_others():
+    sched = CameraScheduler(_preds(), recording_index=_available)
+    cancelled = sched.cancel_actions(["1-1#1"])
+    assert cancelled == ["1-1#1"]
+    first = sched.next_action()
+    assert first["action"]["camera"] == "2-1"

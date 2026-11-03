@@ -19,6 +19,7 @@ class TrackingSession:
         self.target_id = target_id
         self.main_chain = [dict(anchor, role="A")]
         self.candidates = []
+        self.derived_actions = []
         self.status = "running"
         self.history = [{"event": "session_started", "anchor": anchor.get("observation_id")}]
         self.plan = None
@@ -43,6 +44,15 @@ class TrackingSession:
         self.history.append({"event": "candidates_observed", "count": len(added),
                              "from": from_anchor_id})
         return added
+
+    def register_actions(self, anchor_id, action_ids):
+        """登记由某个已确认（或假设）锚点派生的调度动作，撤销时一起失效。"""
+        for action_id in action_ids:
+            self.derived_actions.append({"action_id": action_id, "depends_on": anchor_id,
+                                         "state": "scheduled"})
+        self.history.append({"event": "actions_registered", "from": anchor_id,
+                             "count": len(action_ids)})
+        return action_ids
 
     def pending(self):
         return [c for c in self.candidates if c["state"] in ACTIVE]
@@ -126,10 +136,16 @@ class TrackingSession:
                     changed = True
         self.main_chain = [entry for entry in self.main_chain
                            if entry["observation_id"] not in revoked]
+        cancelled = []
+        for action in self.derived_actions:
+            if action["depends_on"] in revoked and action["state"] == "scheduled":
+                action["state"] = "cancelled_derived"
+                cancelled.append(action["action_id"])
         self.status = "running" if self.pending() else "unresolved"
         self.history.append({"event": "revoked", "observation": observation_id,
-                             "cascade": sorted(revoked), "reason": reason})
-        return sorted(revoked)
+                             "cascade": sorted(revoked), "actions": cancelled,
+                             "reason": reason})
+        return {"observations": sorted(revoked), "actions": cancelled}
 
     def summary(self):
         return {"case_id": self.case_id, "target_id": self.target_id,
