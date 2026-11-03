@@ -134,6 +134,37 @@ def candidates_in_window(tracks, window):
     return picked
 
 
+def mark_missing(profile, camera_id, window, reason=""):
+    """记录"这台摄像头没拿到有效观测"，而不是当作目标没经过。
+
+    缺失观测进入档案后，规划仍继续——不允许因某一路漏检就中断整条链路。
+    """
+    updated = {"observations": list(profile["observations"]),
+               "features": list(profile["features"]),
+               "missing": list(profile.get("missing", []))}
+    updated["missing"].append({"camera": camera_id,
+                               "window": (_require_absolute(window[0], "window_start"),
+                                          _require_absolute(window[1], "window_end")),
+                               "reason": reason})
+    return updated
+
+
+def advance(profile, camera_tracks, links, params=None):
+    """推进一轮：对每个计划窗口取候选；无候选时记录观测缺失，链路继续。
+
+    返回 {"plans": [...], "candidates": {...}, "missing": [...]}。
+    """
+    plans = plan_windows(profile, links, params)
+    candidates, missing = {}, []
+    for plan in plans:
+        picked = candidates_in_window(camera_tracks.get(plan["camera"], []), plan["window"])
+        candidates[plan["camera"]] = picked
+        if not picked:
+            missing.append({"camera": plan["camera"], "window": plan["window"],
+                            "mode": plan["mode"]})
+    return {"plans": plans, "candidates": candidates, "missing": missing}
+
+
 def update_profile(profile, camera_id, track_id, start, end, status="candidate",
                    features=None, exit_side=None):
     """把新观测并入档案；status=candidate 的观测可参与下一步规划，但不被当作已确认身份。"""

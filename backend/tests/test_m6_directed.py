@@ -1,7 +1,7 @@
 import pytest
 
-from app.m6_directed import (absolute_track, camera_link, candidates_in_window,
-                             plan_windows, target_profile, update_profile)
+from app.m6_directed import (absolute_track, advance, camera_link, candidates_in_window,
+                             mark_missing, plan_windows, target_profile, update_profile)
 
 
 def _links(direction="forward"):
@@ -58,6 +58,23 @@ def test_backward_camera_is_not_reported_as_next_hop():
     assert "1-1" not in forward                       # 该通道要求从左侧离开
     both = plan_windows(profile, _links("both"))
     assert {p["mode"] for p in both} == {"forward", "backward"}
+
+
+def test_missing_detection_is_recorded_not_treated_as_absence():
+    profile = _profile()
+    window = (54008.6, 54020.6)
+    tracks = {"2-1": [absolute_track({"track_id": 900, "observations": [
+        {"timestamp_seconds": 40.0, "bbox": [0, 0, 1, 1]},
+        {"timestamp_seconds": 41.0, "bbox": [0, 0, 1, 1]}]}, 53998)]}
+    links = [camera_link("L22-21", "2-2", "2-1", (2.0, 10.0))]
+    result = advance(profile, tracks, links)
+    assert result["candidates"]["2-1"] == []
+    assert result["missing"][0]["camera"] == "2-1"           # 记为缺失，不是"没经过"
+    marked = mark_missing(profile, "2-1", window, "目标可见但检测无框")
+    assert marked["missing"][0]["reason"] == "目标可见但检测无框"
+    # 缺失后仍能继续规划下一跳
+    assert plan_windows({**marked, "observations": marked["observations"]}, _links())
+    assert marked["version" if "version" in marked else "observations"]
 
 
 def test_update_profile_keeps_unverified_candidate_out_of_confirmed_observations():
