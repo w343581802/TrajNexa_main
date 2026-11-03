@@ -1,19 +1,15 @@
-"""M6-S5：指定目标离线研判流程（把已完成的实验模块串成一条链）。
+"""M6-S5：指定目标离线研判流程（集成收口）。
 
-流程（与设计文档一致）：
+流程：参考档案 → 归组 → 外观比对 → 目标候选 → 重复候选复核 → 参考轨迹覆盖检查
+      → 关联证据 → 关键画面 → 报告（含可复现清单）
 
-    参考图 → 参考档案 → 检测+跟踪 → 重复轨迹归组 → 中近距离外观比对
-           → 目标候选 → 轨迹回溯（延伸/空档） → 关联证据检查 → 关键画面 → 证据报告
+三条硬约束（来自阶段验收要求）：
 
-本模块只做**编排与证据汇总**，不训练、不改库、不画 UI：
-
-- 检测+跟踪结果以 `tracks` 形式传入（离线复用已验证的 ByteTrack 输出）；
-- 外观向量以 `frame_vectors` 传入，避免把 ONNX 推理耦合进流程；
-- 关键画面分数由调用方传入（来自 S4-4A 的 `score_frames`）。
-
-输出同时回答两个**独立**的问题：
-1. 这段画面是否有足够证据属于指定目标（association_status）；
-2. 这些画面是否具有人工核验价值（quality_status / key frames）。
+1. **结果必须可复现**：采样策略、采样帧数、尺寸/置信度门槛、模型版本、录像标识、
+   代码版本全部写进 `manifest`，同输入同配置两次运行结果必须一致；
+2. **参考组只做锚点**：不参与候选排名与 margin 计算，也不能用"参考组自己存在"当作身份关联成功；
+3. **重复候选显式复核**：不靠放宽自动并轨阈值，而是把"疑似参考目标的重复轨迹"单列，
+   每条都带可核查依据（余弦、支撑帧、时间重叠、冲突证据）；证据不足仍留在独立候选里。
 """
 from __future__ import annotations
 
@@ -25,112 +21,175 @@ DEFAULT_PIPELINE_PARAMS = {
     "top_k_candidates": 5,
     "keyframe_count": 6,
     "match_mode": "per_frame",
+    # 重复候选复核门槛：只看"像"，不自动并档
+    "duplicate_cosine": 0.85,
+    "duplicate_min_support": 3,
+    "margin": 0.03,
+    "weak_cosine": 0.60,
 }
 
 
-def _pairs(track_ids, frame_vectors):
-    """把若干轨道的逐帧向量拼成 compare() 需要的 [(obs, view, vec)] 形式。"""
+def build_manifest(*, sampling_strategy, max_samples, min_bbox_height, quality_gate,
+                   model_version, source_video, pipeline_version):
+    """把影响结果的每个因素写进清单，便于复现与审计。"""
+    return {
+        "sampling_strategy": sampling_strategy,
+        "max_samples": max_samples,
+        "min_bbox_height": min_bbox_height,
+        "quality_gate": quality_gate,
+        "model_version": model_version,
+        "source_video": source_video,
+        "pipeline_version": pipeline_version,
+        "note": "固定采样只保证可复现，不证明归组结果正确；采样密度敏感性是已知限制",
+    }
+
+
+def _observations(tracks):
+    return {tr["track_id"]: {str(o["frame_id"]): o for o in tr["observations"]} for tr in tracks}
+
+
+def _pairs(track_ids, tracks_by_id, frame_vectors):
+    """拼 [(obs, view, vec)]，**直接用源观测的时间戳**，不按帧号反推。"""
     pairs = []
-    for tid, vectors in frame_vectors.items():
-        for frame_id, vector in vectors.items():
-            pairs.append(({"frame_id": frame_id, "track_id": tid,
-                           "timestamp_seconds": float(frame_id) / 5.0}, "unknown", vector))
+    for tid in track_ids:
+        obs_by_frame = {str(o["frame_id"]): o for o in tracks_by_id[tid]["observations"]}
+        for frame_id, vector in frame_vectors.get(tid, {}).items():
+            obs = obs_by_frame.get(str(frame_id))
+            if obs is None:
+                continue
+            pairs.append((obs, "unknown", vector))
     return pairs
+
+
+def _evidence_index(pair_evidence):
+    index = {}
+    for item in pair_evidence:
+        index[tuple(sorted((item["track_a"], item["track_b"])))] = item
+    return index
+
+
+def _conflict_between(group_a, group_b, evidence_index):
+    """两组轨迹之间是否存在"同帧冲突"证据（存在即说明不是同一个人）。"""
+    hits = []
+    for a in group_a:
+        for b in group_b:
+            item = evidence_index.get(tuple(sorted((a, b))))
+            if item and item["verdict"] == "conflict_coexist":
+                hits.append({"track_a": a, "track_b": b,
+                             "conflict_frames": item["conflict_frames"],
+                             "mean_iou": item["mean_iou"]})
+    return hits
 
 
 def run_pipeline(*, tracks, frame_vectors, reference_track, params=None):
     params = dict(DEFAULT_PIPELINE_PARAMS, **(params or {}))
+    tracks_by_id = {tr["track_id"]: tr for tr in tracks}
     stages = []
 
-    # 1) 参考档案：记录参考轨迹与可用帧
-    reference_frames = sorted(frame_vectors.get(reference_track, {}))
-    if not reference_frames:
+    anchor_frames = sorted(frame_vectors.get(reference_track, {}))
+    if not anchor_frames:
         return {"ok": False, "reason": "reference_has_no_frames",
                 "reference_track": reference_track, "stages": stages}
-    archive = {"target_track": reference_track, "reference_frames": reference_frames,
-               "frame_count": len(reference_frames)}
-    stages.append({"stage": "reference_archive", "status": "ok",
-                   "detail": {"frames": len(reference_frames)}})
 
-    # 2) 归组
     groups, pair_evidence = group_tracks(tracks, frame_vectors)
+    evidence_index = _evidence_index(pair_evidence)
     multi = [g for g in groups if len(g["track_ids"]) > 1]
+    anchor_group = next((g for g in groups if reference_track in g["track_ids"]), None)
+    if anchor_group is None:
+        return {"ok": False, "reason": "reference_not_grouped", "stages": stages}
+
+    anchor_pairs = _pairs(anchor_group["track_ids"], tracks_by_id, frame_vectors)
+    stages.append({"stage": "anchor_archive", "status": "ok",
+                   "detail": {"frames": len(anchor_pairs),
+                              "tracks": len(anchor_group["track_ids"])}})
     stages.append({"stage": "grouping", "status": "ok",
                    "detail": {"objects": len(groups), "multi_track_groups": len(multi),
                               "merged_relations": sum(len(g["evidence"]) for g in multi),
                               "group_conflicts": sum(1 for g in groups if g["group_conflict"])}})
 
-    # 3) 参考轨迹所在候选对象
-    owner = next((g for g in groups if reference_track in g["track_ids"]), None)
-    if owner is None:
-        return {"ok": False, "reason": "reference_not_grouped", "stages": stages}
-    anchor = _pairs(owner["track_ids"], {t: frame_vectors.get(t, {})
-                                         for t in owner["track_ids"]})
-
-    # 4) 逐候选对象比对（同一身份的其他轨迹不参与负样本）
-    ranked = []
+    # —— 逐个候选对象比对；参考组只做锚点，不参与排名 ——
+    compared = []
     for group in groups:
-        if group is owner:
-            # 参考对象自己和自己比没有意义（时间间隔过滤会把所有配对去掉）
-            ranked.append({"candidate": "-".join(str(t) for t in group["track_ids"]),
-                           "is_reference": True, "score": 1.0,
-                           "supporting_pairs": len(anchor),
-                           "supporting_anchor_frames": len(anchor),
-                           "supporting_candidate_frames": len(anchor),
-                           "views_used": 0, "pairs": 0, "evidence_kind": "reference",
-                           "anchor_frames_used": len(anchor),
-                           "candidate_frames_used": len(anchor)})
+        if group is anchor_group:
             continue
-        pairs = _pairs(group["track_ids"], {t: frame_vectors.get(t, {})
-                                            for t in group["track_ids"]})
+        pairs = _pairs(group["track_ids"], tracks_by_id, frame_vectors)
         if not pairs:
             continue
-        stats = compare(anchor, pairs, params["match_mode"])
-        ranked.append({"candidate": "-".join(str(t) for t in group["track_ids"]),
-                       "is_reference": group is owner, **stats})
-    ranked.sort(key=lambda item: -item["score"])
-    for index, item in enumerate(ranked):
+        stats = compare(anchor_pairs, pairs, params["match_mode"])
+        compared.append({"candidate": "-".join(str(t) for t in group["track_ids"]),
+                         "track_ids": list(group["track_ids"]),
+                         "score": stats["score"],
+                         "supporting_pairs": stats["supporting_pairs"],
+                         "supporting_anchor_frames": stats["supporting_anchor_frames"],
+                         "supporting_candidate_frames": stats["supporting_candidate_frames"],
+                         "pairs": stats["pairs"],
+                         "conflicts": _conflict_between(group["track_ids"],
+                                                        anchor_group["track_ids"], evidence_index)})
+
+    # —— 重复候选复核：像但没冲突 → 疑似同一个人；不删除、不并档 ——
+    duplicates, independents = [], []
+    for item in compared:
+        looks_same = (item["score"] >= params["duplicate_cosine"]
+                      and item["supporting_candidate_frames"] >= params["duplicate_min_support"])
+        if looks_same and not item["conflicts"]:
+            item["review"] = "suspected_duplicate_of_reference"
+            item["review_reason"] = ("余弦 %.3f ≥ %.2f、支撑帧 %d ≥ %d，且与参考组无同帧冲突证据"
+                                     % (item["score"], params["duplicate_cosine"],
+                                        item["supporting_candidate_frames"],
+                                        params["duplicate_min_support"]))
+            duplicates.append(item)
+        else:
+            item["review"] = ("independent_conflict_evidence" if item["conflicts"]
+                              else "independent_insufficient_duplicate_evidence")
+            independents.append(item)
+
+    independents.sort(key=lambda item: -item["score"])
+    for index, item in enumerate(independents):
         item["rank"] = index + 1
-        nxt = ranked[index + 1] if index + 1 < len(ranked) else None
+        nxt = independents[index + 1] if index + 1 < len(independents) else None
         item["margin_to_next"] = round(item["score"] - nxt["score"], 4) if nxt else None
-        if item["is_reference"]:
-            item["status"] = "reference"
-        elif item["supporting_candidate_frames"] < 2:
+        if item["supporting_candidate_frames"] < 2 or item["score"] < params["weak_cosine"]:
             item["status"] = "insufficient_evidence"
-        elif item["margin_to_next"] is not None and item["margin_to_next"] < 0.03:
+        elif item["margin_to_next"] is not None and item["margin_to_next"] < params["margin"]:
             item["status"] = "ambiguous"
         else:
             item["status"] = "candidate"
+    duplicates.sort(key=lambda item: -item["score"])
     stages.append({"stage": "reid_match", "status": "ok",
-                   "detail": {"mode": params["match_mode"], "candidates": len(ranked)}})
+                   "detail": {"mode": params["match_mode"],
+                              "independent": len(independents),
+                              "suspected_duplicates": len(duplicates)}})
+    stages.append({"stage": "candidate_duplicate_review", "status": "ok",
+                   "detail": {"duplicates": len(duplicates),
+                              "independent": len(independents),
+                              "policy": "不自动并档；疑似重复单独列出供人工复核"}})
 
-    # 5) 轨迹回溯：目标候选的覆盖与空档
-    owner_tracks = [tr for tr in tracks if tr["track_id"] in set(owner["track_ids"])]
-    gaps_result = coverage_gaps(owner_tracks)
-    spans = gaps_result if isinstance(gaps_result, dict) else {"max_gap_seconds": None}
-    stages.append({"stage": "trackback", "status": "ok",
-                   "detail": {"tracks": len(owner["track_ids"]),
-                              "max_gap_seconds": spans["max_gap_seconds"]}})
+    # —— 参考轨迹覆盖检查（注意：这不是"沿独立候选向前回溯"的完整回溯）——
+    owner_tracks = [tr for tr in tracks if tr["track_id"] in set(anchor_group["track_ids"])]
+    gaps = coverage_gaps(owner_tracks)
+    coverage = gaps if isinstance(gaps, dict) else {"max_gap_seconds": None}
+    stages.append({"stage": "reference_track_coverage_check", "status": "ok",
+                   "detail": {"tracks": len(anchor_group["track_ids"]),
+                              "max_gap_seconds": coverage.get("max_gap_seconds")}})
 
-    # 6) 关联证据：只表达"关联是否成立"，不替用户下结论
-    best = next((item for item in ranked if item["is_reference"]), None)
-    association = "candidate" if best and best["supporting_candidate_frames"] >= 2 else "ambiguous"
-
-    report = {
+    supported = any(item["status"] == "candidate" for item in independents)
+    return {
         "ok": True,
-        "archive": archive,
+        "anchor": {"track": reference_track,
+                   "group": list(anchor_group["track_ids"]),
+                   "frames": len(anchor_pairs)},
         "stages": stages,
-        "candidates": ranked[: params["top_k_candidates"]],
-        "association_status": association,
         "grouping": {"objects": len(groups), "multi_track_groups": len(multi)},
-        "trackback": spans,
+        "suspected_duplicates_of_reference": duplicates,
+        "independent_candidates": independents[: params["top_k_candidates"]],
+        "association_status": "supported_by_independent_candidates" if supported else "unconfirmed",
+        "reference_track_coverage": coverage,
         "evidence_pairs": len(pair_evidence),
     }
-    return report
 
 
-def attach_quality(report, keyframes, quality_status="usable"):
-    """把关键画面质量接进报告，给出"关联 × 画质"的联合结论。"""
+def attach_quality(report, keyframes, quality_status="unverified"):
+    """关键帧存在 ≠ 画面可用：默认 unverified，只有人工判读之后才能标 usable。"""
     report["keyframes"] = keyframes
     report["quality_status"] = quality_status if keyframes else "unusable"
     report["evidence"] = evidence_value(report["association_status"], report["quality_status"])

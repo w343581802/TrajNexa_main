@@ -114,7 +114,8 @@ def evidence_value(association_status, quality_status):
     只有走过人工/规则核实（`confirmed`）的才能标成"已核实的高价值证据"。
     """
     confirmed = association_status == "confirmed"
-    association_ok = association_status in ("candidate", "confirmed")
+    association_ok = association_status in ("candidate", "confirmed",
+                                            "supported_by_independent_candidates")
     quality_ok = quality_status in ("usable", "yes")
     if confirmed and quality_ok:
         verdict = "high_value_evidence_verified"
