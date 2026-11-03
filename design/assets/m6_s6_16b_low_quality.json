@@ -1,0 +1,126 @@
+{
+ "schema": "m6-low-quality-samples/1",
+ "samples": [
+  {
+   "camera": "2-2",
+   "tracklet": "403",
+   "frames": 20,
+   "median_height_px": 17.3,
+   "start_frame": "287",
+   "end_frame": "318"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "179",
+   "frames": 16,
+   "median_height_px": 18.1,
+   "start_frame": "104",
+   "end_frame": "129"
+  },
+  {
+   "camera": "1-1",
+   "tracklet": "210",
+   "frames": 10,
+   "median_height_px": 19.8,
+   "start_frame": "318",
+   "end_frame": "330"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "196",
+   "frames": 20,
+   "median_height_px": 21.9,
+   "start_frame": "136",
+   "end_frame": "164"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "17",
+   "frames": 134,
+   "median_height_px": 22.0,
+   "start_frame": "1",
+   "end_frame": "147"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "46",
+   "frames": 333,
+   "median_height_px": 22.2,
+   "start_frame": "16",
+   "end_frame": "369"
+  },
+  {
+   "camera": "2-1",
+   "tracklet": "137",
+   "frames": 11,
+   "median_height_px": 22.7,
+   "start_frame": "210",
+   "end_frame": "220"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "247",
+   "frames": 16,
+   "median_height_px": 22.7,
+   "start_frame": "188",
+   "end_frame": "210"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "21",
+   "frames": 12,
+   "median_height_px": 22.8,
+   "start_frame": "1",
+   "end_frame": "14"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "124",
+   "frames": 81,
+   "median_height_px": 22.8,
+   "start_frame": "61",
+   "end_frame": "154"
+  },
+  {
+   "camera": "1-1",
+   "tracklet": "194",
+   "frames": 10,
+   "median_height_px": 22.9,
+   "start_frame": "286",
+   "end_frame": "302"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "104",
+   "frames": 33,
+   "median_height_px": 23.0,
+   "start_frame": "41",
+   "end_frame": "76"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "351",
+   "frames": 104,
+   "median_height_px": 23.0,
+   "start_frame": "249",
+   "end_frame": "368"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "13",
+   "frames": 360,
+   "median_height_px": 23.3,
+   "start_frame": "1",
+   "end_frame": "369"
+  },
+  {
+   "camera": "2-2",
+   "tracklet": "280",
+   "frames": 49,
+   "median_height_px": 23.3,
+   "start_frame": "209",
+   "end_frame": "262"
+  }
+ ],
+ "total": 42
+}

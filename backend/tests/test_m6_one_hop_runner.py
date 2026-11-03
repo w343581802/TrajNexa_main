@@ -211,3 +211,30 @@ def test_resume_from_snapshot_skips_completed_windows():
     done = [step["scheduled_window"] for step in first["steps"]]
     again = [step["scheduled_window"] for step in second["steps"]]
     assert not (set(map(tuple, again)) & set(map(tuple, done))) or again == []
+
+
+def test_batch_mode_analyses_multiple_cameras_in_one_batch():
+    windows = {}
+
+    def analyze(name, span, window_id):
+        windows.setdefault(name, []).append((span["start_seconds"], span["end_seconds"]))
+        return {"status": "ok", "tracks": [{"track_id": "t1", "observations": [{"frame_id": 10,
+                                                               "bbox": [1, 1, 20, 40]}]}],
+                "target_candidates": [], "cost": {"frames_decoded": 4,
+                                                 "detector_frames": 4},
+                "time_status": "absolute"}
+
+    predictions = [{"camera": "58", "priority": "high",
+                    "estimated_window": [54010.0, 54020.0],
+                    "search_window": [54010.0, 54026.0]},
+                   {"camera": "37", "priority": "high",
+                    "estimated_window": [54011.0, 54020.0],
+                    "search_window": [54011.0, 54026.0]}]
+    result = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=predictions, analyze=analyze, score=_score,
+                         spatial=_spatial, batch_size=2)
+    cameras = {step["camera"] for step in result["steps"]}
+    assert len(cameras) >= 2
+    assert len({step["batch_id"] for step in result["steps"]}) >= 1
+    for name, spans in windows.items():
+        assert len(spans) == len(set(spans))          # 同一窗口不重复分析

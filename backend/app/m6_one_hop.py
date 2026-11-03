@@ -41,7 +41,7 @@ def _ranked(pool):
 def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                 review_events=(), evidence_root=None, max_actions=80,
                 segment_seconds=6.0, snapshot=None, max_decoded_frames=10 ** 6,
-                on_window=None):
+                on_window=None, batch_size=1):
     """anchor 只给 A；B 的镜头、时间与轨迹全部由运行中的真实分析产生。"""
     labels = dict(anchor["camera_ids"])
     uuids = dict(anchor.get("camera_uuids") or {})
@@ -69,6 +69,40 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
     anchor_id = session.main_chain[-1]["observation_id"]
     steps, pool = [], []
     for _ in range(max_actions):
+        if batch_size > 1:
+            def _batched(name, span_window, batch_id):
+                label = labels.get(name, name) or ""
+                if not label:
+                    return {"status": "no_frames", "tracks": [],
+                            "target_candidates": [], "cost": {},
+                            "reason": "camera_label_missing"}
+                span = span_for_window(time_maps[label], span_window["start_seconds"],
+                                       span_window["end_seconds"])
+                result = analyze(label, span, "%s@%.1f" % (label,
+                                                           span_window["start_seconds"]))
+                result["target_candidates"] = candidates_from_scores(
+                    score(label, result))["target_candidates"]
+                return result
+            batch = scheduler.run_batch(_batched, size=batch_size)
+            if not batch["routes"]:
+                break
+            for route in batch["routes"]:
+                camera_id = route["camera"]
+                name, result, window = labels.get(camera_id, camera_id), route["result"], route["window"]
+                tracks = {t["track_id"]: t for t in result.get("tracks") or []}
+                window_entries = [_entry(c, name, camera_id,
+                                         "%s@%.1f" % (name, window[0]), window,
+                                         tracks[c["track_id"]], time_maps[name])
+                                  for c in result["target_candidates"]]
+                pool.extend(window_entries)
+                session.observe(window_entries, from_anchor_id=anchor_id)
+                if on_window:
+                    on_window(scheduler, name, result, window)
+                steps.append({"camera": name, "scheduled_window": list(window),
+                              "batch_id": batch["batch_id"], "state": route["state"],
+                              "tracks": len(result.get("tracks") or []),
+                              "candidates": result["target_candidates"]})
+            continue
         current = scheduler.next_action()
         if current is None:
             break

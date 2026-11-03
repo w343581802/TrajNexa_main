@@ -1,0 +1,45 @@
+{
+ "schema": "m6-binding-checklist/1",
+ "generated_from": "config/m6_camera_bindings.json",
+ "channels": [
+  {
+   "channel": "1-1",
+   "camera_uuid": "f9cc5b92-e85f-4c3d-bdf8-5694290825d2",
+   "map_camera_id": "9000000000000037",
+   "status": "pending_human_review",
+   "verified": false,
+   "evidence": "Map 名称 'YD-桂康路中仁路T口1-1' 与测试点位同名，但未现场核对安装角度",
+   "still_missing": [
+    "现场核对安装角度与朝向",
+    "实测画面与 Map FOV 一致性",
+    "与同名候选点位的区分记录"
+   ]
+  },
+  {
+   "channel": "2-1",
+   "camera_uuid": "4b2d2ec2-a5ce-4546-977f-53d95fd6de81",
+   "map_camera_id": "9000000000000058",
+   "status": "pending_human_review",
+   "verified": false,
+   "evidence": "Map 名称 'YD-桂康路中仁路T口2-1'；注意另有 'YD-金水路中仁路口2-1'，名称相似不可作为依据",
+   "still_missing": [
+    "现场核对安装角度与朝向",
+    "实测画面与 Map FOV 一致性",
+    "与同名候选点位的区分记录"
+   ]
+  },
+  {
+   "channel": "2-2",
+   "camera_uuid": "802e415e-3a22-4c94-abb0-e29970c6bb98",
+   "map_camera_id": "9000000000000057",
+   "status": "pending_human_review",
+   "verified": false,
+   "evidence": "Map 名称 'YD-桂康路中仁路T口2-2'；另有 'YD-金水路中仁路口2-2' 同名风险",
+   "still_missing": [
+    "现场核对安装角度与朝向",
+    "实测画面与 Map FOV 一致性",
+    "与同名候选点位的区分记录"
+   ]
+  }
+ ]
+}

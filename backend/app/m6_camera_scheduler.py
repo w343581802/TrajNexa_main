@@ -87,7 +87,7 @@ class CameraScheduler:
         self.cursor = 0
         self.current = None
         self.stopped = None
-        self.ledger = {"planned_frames": sum(a["estimated_frames"] for a in self.actions),
+        self.ledger = {"batches": 0, "planned_frames": sum(a["estimated_frames"] for a in self.actions),
                        "estimated_frames_run": 0,
                        "measured_frames": 0,
                        "detector_frames": 0,
@@ -154,6 +154,57 @@ class CameraScheduler:
             action["state"] = "running"
             self.current = {"action": action, "window": (start, end)}
             return self.current
+
+    def select_batch(self, size=2):
+        """挑出一批时间窗互相重叠的动作，作为同一调度批次；不执行。"""
+        chosen, base = [], None
+        for action in self.actions[self.cursor:]:
+            if action["state"] != "planned":
+                continue
+            start = action.get("cursor") or action["estimated_window"][0]
+            end = min(start + self.params["segment_seconds"],
+                      action["estimated_window"][1])
+            if base is not None and not (start <= base[1] and end >= base[0]):
+                continue
+            base = base or (start, end)
+            action["batch_window"] = (start, end)
+            chosen.append(action)
+            if len(chosen) >= size:
+                break
+        return chosen
+
+    def run_batch(self, analyze, size=2):
+        """按批次执行多路录像：每路独立窗口、独立成本；预算不足则保留剩余动作。"""
+        chosen = self.select_batch(size)
+        routes, batch_id = [], "-".join(a["camera"] for a in chosen)
+        for action in chosen:
+            start, end = action["batch_window"]
+            estimate = _frames(end - start, self.params["fps"])
+            if self.ledger["estimated_frames_run"] + estimate > self.params["max_decoded_frames"]:
+                action["state"] = "budget_exhausted"
+                action.pop("batch_window", None)
+                self.stopped = "budget_exhausted"
+                self.ledger["batches"] += 1
+                return {"batch_id": batch_id, "routes": routes,
+                        "status": "budget_exhausted",
+                        "remaining": [a["action_id"] for a in chosen
+                                      if a["state"] == "budget_exhausted"]}
+            self.ledger["cameras_visited"] += 1
+            self.current = {"action": action, "window": (start, end)}
+            result = analyze(action["camera"],
+                             {"start_seconds": start, "end_seconds": end}, batch_id)
+            self.submit(result)
+            routes.append({"camera": action["camera"], "window": (start, end),
+                           "state": action["state"],
+                           "tracks": [t.get("track_id") for t in result.get("tracks") or []],
+                           "candidates": result.get("target_candidates") or [],
+                           "frames": int((result.get("cost") or {}).get("frames_decoded") or 0),
+                           "result": result})
+            if self.stopped:
+                break
+        self.ledger["batches"] += 1
+        return {"batch_id": batch_id, "routes": routes,
+                "status": self.stopped or "ok", "remaining": []}
 
     def submit(self, result, appearance_score=None):
         """登记一次窗口分析结果。只有 target_candidates 才进入复核。"""

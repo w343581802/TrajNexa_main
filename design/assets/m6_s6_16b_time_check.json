@@ -1,0 +1,35 @@
+{
+ "schema": "m6-time-check/1",
+ "records": [
+  {
+   "recording_id": "rec-1-1",
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "anchor_seconds": 53997,
+   "fps": 5,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0
+  },
+  {
+   "recording_id": "rec-2-1",
+   "camera_uuid": "802e415e-uuid-2-1",
+   "anchor_seconds": 53998,
+   "fps": 5,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0
+  },
+  {
+   "recording_id": "rec-2-2",
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "anchor_seconds": 53997,
+   "fps": 5,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0
+  }
+ ],
+ "cross_camera_offset_seconds": null,
+ "comparable_across_cameras": false,
+ "note": "OSD 锚点取自配置；跨机钟差没有实测，不能做秒级比较"
+}

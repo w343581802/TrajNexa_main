@@ -72,6 +72,7 @@ def main():
     parser.add_argument("--review-events", default=None)
     parser.add_argument("--segment-seconds", type=float, default=6.0)
     parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--batch-mode", action="store_true")
     parser.add_argument("--quality-mode", default="off",
                         choices=["off", "observe_only", "prioritize", "verify_all"])
     parser.add_argument("--out", required=True)
@@ -143,7 +144,7 @@ def main():
     predictions = [{"camera": p["camera"], "priority": p["priority"],
                     "estimated_window": p["estimated_window"], "search_window": p["window"],
                     "exploratory": True, "uncertainties": p["uncertainties"]}
-                   for p in initial_plans[:6] if p["camera"] in camera_ids]
+                   for p in initial_plans[:6] if camera_ids.get(p["camera"])]
 
     def analyze(name, span, window_id):
         time_map = maps[name]
@@ -220,7 +221,8 @@ def main():
     result = run_one_hop(anchor=anchor, time_maps=maps, predictions=predictions,
                          analyze=analyze, score=score, spatial=spatial,
                          review_events=review_events, max_actions=80,
-                         segment_seconds=args.segment_seconds, on_window=observe_quality)
+                         segment_seconds=args.segment_seconds, on_window=observe_quality,
+                         batch_size=args.batch_size if args.batch_mode else 1)
     payload = {"schema": "m6-one-hop-chain/3", "exploratory": True,
                "binding_status": anchor["binding_status"],
                "clock_quality": "uncalibrated",

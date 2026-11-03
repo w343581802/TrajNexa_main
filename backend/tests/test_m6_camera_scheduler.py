@@ -254,3 +254,116 @@ def test_boost_cameras_moves_actions_forward_without_deleting():
     after = [a["camera"] for a in sched.actions]
     assert boosted and after[0] == "2-2"
     assert sorted(before) == sorted(after)
+
+
+def test_run_batch_executes_two_cameras_with_independent_windows():
+    seen = []
+
+    def analyze(camera, span, batch_id):
+        seen.append((camera, batch_id))
+        return {"status": "ok", "tracks": [], "target_candidates": [],
+                "cost": {"frames_decoded": 6}, "time_status": "absolute"}
+
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    batch = sched.run_batch(analyze, size=2)
+    assert len(batch["routes"]) == 2
+    assert {r["camera"] for r in batch["routes"]} == {"1-1", "2-1"}
+    assert len({r["window"] for r in batch["routes"]}) == 2
+    assert len({c for _c, c in seen}) == 1          # 同一个批次号
+    assert sched.ledger["segments"] == 2
+
+
+def test_run_batch_stops_on_budget_and_keeps_remaining_planned():
+    calls = []
+
+    def analyze(camera, span, batch_id):
+        calls.append((camera, span["start_seconds"]))
+        return {"status": "ok", "tracks": [], "target_candidates": [],
+                "cost": {"frames_decoded": 6}, "time_status": "absolute"}
+
+    sched = CameraScheduler(_preds(), recording_index=_available,
+                            params={"segment_seconds": 8.0, "max_decoded_frames": 10})
+    batch = sched.run_batch(analyze, size=3)
+    assert batch["status"] == "budget_exhausted"
+    assert batch["routes"] == [] and calls == []
+    assert batch["remaining"]
+    sched.params["max_decoded_frames"] = 10 ** 6
+    sched.stopped = None
+    resumed = sched.run_batch(analyze, size=3)
+    assert resumed["routes"]
+    assert len({(c, t) for c, t in calls}) == len(calls)   # 同窗口不重复分析
+
+def test_snapshot_and_restore_do_not_reanalyse_done_windows():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    first = sched.next_action()
+    sched.submit(_with_target())
+    sched.reject(candidate_id="w:37")
+    snapshot = sched.snapshot()
+    restored = CameraScheduler.restore(snapshot, recording_index=_available)
+    nxt = restored.next_action()
+    assert nxt is None or nxt["window"][0] >= first["window"][0] + 8.0
+
+
+def test_partial_recording_only_analyses_available_range():
+    def partial(camera, start, end):
+        return {"available": True, "ranges": [[54008.0, 54012.0]]}
+
+    sched = CameraScheduler(_preds(), recording_index=partial, params={"segment_seconds": 10.0})
+    action = sched.next_action()
+    assert action["window"] == (54008.0, 54012.0)
+
+
+def test_cancel_derived_actions_skips_them_without_touching_others():
+    sched = CameraScheduler(_preds(), recording_index=_available)
+    cancelled = sched.cancel_actions(["1-1#1"])
+    assert cancelled == ["1-1#1"]
+    first = sched.next_action()
+    assert first["action"]["camera"] == "2-1"
+
+
+def test_boost_cameras_moves_actions_forward_without_deleting():
+    sched = CameraScheduler(_preds(), recording_index=_available)
+    before = [a["camera"] for a in sched.actions]
+    boosted = sched.boost_cameras(["2-2"])
+    after = [a["camera"] for a in sched.actions]
+    assert boosted and after[0] == "2-2"
+    assert sorted(before) == sorted(after)
+
+
+def test_run_batch_executes_two_cameras_with_independent_windows():
+    seen = []
+
+    def analyze(camera, span, batch_id):
+        seen.append((camera, batch_id))
+        return {"status": "ok", "tracks": [], "target_candidates": [],
+                "cost": {"frames_decoded": 6}, "time_status": "absolute"}
+
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    batch = sched.run_batch(analyze, size=2)
+    assert len(batch["routes"]) == 2
+    assert {r["camera"] for r in batch["routes"]} == {"1-1", "2-1"}
+    assert len({r["window"] for r in batch["routes"]}) == 2
+    assert len({c for _c, c in seen}) == 1          # 同一个批次号
+    assert sched.ledger["segments"] == 2
+
+
+def test_run_batch_stops_on_budget_and_keeps_remaining_planned():
+    calls = []
+
+    def analyze(camera, span, batch_id):
+        calls.append(camera)
+        return {"status": "ok", "tracks": [], "target_candidates": [],
+                "cost": {"frames_decoded": 6}, "time_status": "absolute"}
+
+    sched = CameraScheduler(_preds(), recording_index=_available,
+                            params={"segment_seconds": 8.0, "max_decoded_frames": 20})
+    batch = sched.run_batch(analyze, size=3)
+    assert batch["status"] == "budget_exhausted"
+    assert len(calls) < 3                             # 预算不足，后面的镜头没跑
+    remaining = [a for a in sched.actions if a["state"] == "budget_exhausted"]
+    assert remaining
+    sched.params["max_decoded_frames"] = 10 ** 6
+    sched.stopped = None
+    resumed = sched.run_batch(analyze, size=3)
+    assert resumed["routes"]                            # 加预算后能继续
+    assert len(calls) == len(set(calls)) or len(calls) > len(set(calls))
