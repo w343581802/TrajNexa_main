@@ -1,0 +1,4061 @@
+{
+  "anchor": {
+    "camera": "1-1",
+    "track": 225,
+    "group": [
+      225
+    ],
+    "span": [
+      54066.4,
+      54069.2
+    ]
+  },
+  "clocks": {
+    "1-1": {
+      "camera_id": "1-1",
+      "file_reference_seconds": 54001.0,
+      "file_osd_alignment_offset_seconds": -4.0,
+      "intercamera_clock_offset_seconds": null,
+      "file_start_seconds": 53997.0,
+      "offset_seconds": 0.0,
+      "clock_source": "osd_anchor",
+      "offset_uncertainty_seconds": 1.0,
+      "calibration_status": "osd_boundary"
+    },
+    "2-1": {
+      "camera_id": "2-1",
+      "file_reference_seconds": 53999.0,
+      "file_osd_alignment_offset_seconds": -1.0,
+      "intercamera_clock_offset_seconds": null,
+      "file_start_seconds": 53998.0,
+      "offset_seconds": 0.0,
+      "clock_source": "osd_anchor",
+      "offset_uncertainty_seconds": 1.0,
+      "calibration_status": "osd_boundary"
+    },
+    "2-2": {
+      "camera_id": "2-2",
+      "file_reference_seconds": 53997.0,
+      "file_osd_alignment_offset_seconds": 0.0,
+      "intercamera_clock_offset_seconds": null,
+      "file_start_seconds": 53997.0,
+      "offset_seconds": 0.0,
+      "clock_source": "osd_anchor",
+      "offset_uncertainty_seconds": 1.0,
+      "calibration_status": "osd_boundary"
+    }
+  },
+  "spatial_prior": {},
+  "mode": "b",
+  "candidates": [
+    {
+      "camera": "2-2",
+      "track": "434",
+      "track_ids": [
+        434
+      ],
+      "span": [
+        54061.2,
+        54063.4
+      ],
+      "retrieval_score": 0.7136,
+      "supporting_frames": 12,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 3.0,
+      "status": "transition_candidate",
+      "rank": 1
+    },
+    {
+      "camera": "2-2",
+      "track": "448",
+      "track_ids": [
+        448
+      ],
+      "span": [
+        54063.4,
+        54065.4
+      ],
+      "retrieval_score": 0.7015,
+      "supporting_frames": 11,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 1.0,
+      "status": "pending_transition_check",
+      "rank": 2
+    },
+    {
+      "camera": "2-2",
+      "track": "462",
+      "track_ids": [
+        462
+      ],
+      "span": [
+        54068.6,
+        54070.8
+      ],
+      "retrieval_score": 0.6823,
+      "supporting_frames": 9,
+      "relation": "overlapping",
+      "overlap_seconds": 0.6,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 3
+    },
+    {
+      "camera": "2-1",
+      "track": "202-221",
+      "track_ids": [
+        202,
+        221
+      ],
+      "span": [
+        54051.6,
+        54057.6
+      ],
+      "retrieval_score": 0.6538,
+      "supporting_frames": 15,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 8.8,
+      "status": "transition_candidate",
+      "rank": 4
+    },
+    {
+      "camera": "2-2",
+      "track": "32",
+      "track_ids": [
+        32
+      ],
+      "span": [
+        53999.0,
+        54003.6
+      ],
+      "retrieval_score": 0.6521,
+      "supporting_frames": 11,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 62.8,
+      "status": "transition_candidate",
+      "rank": 5
+    },
+    {
+      "camera": "2-2",
+      "track": "300-312",
+      "track_ids": [
+        300,
+        312
+      ],
+      "span": [
+        54040.4,
+        54044.4
+      ],
+      "retrieval_score": 0.6301,
+      "supporting_frames": 16,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 22.0,
+      "status": "transition_candidate",
+      "rank": 6
+    },
+    {
+      "camera": "2-1",
+      "track": "199",
+      "track_ids": [
+        199
+      ],
+      "span": [
+        54051.6,
+        54054.2
+      ],
+      "retrieval_score": 0.6182,
+      "supporting_frames": 9,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 12.2,
+      "status": "transition_candidate",
+      "rank": 7
+    },
+    {
+      "camera": "2-2",
+      "track": "354-355-393",
+      "track_ids": [
+        354,
+        355,
+        393
+      ],
+      "span": [
+        54047.2,
+        54056.4
+      ],
+      "retrieval_score": 0.6084,
+      "supporting_frames": 17,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 10.0,
+      "status": "transition_candidate",
+      "rank": 8
+    },
+    {
+      "camera": "2-2",
+      "track": "140-150",
+      "track_ids": [
+        140,
+        150
+      ],
+      "span": [
+        54012.8,
+        54016.2
+      ],
+      "retrieval_score": 0.6008,
+      "supporting_frames": 11,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 50.2,
+      "status": "transition_candidate",
+      "rank": 9
+    },
+    {
+      "camera": "2-2",
+      "track": "237",
+      "track_ids": [
+        237
+      ],
+      "span": [
+        54033.0,
+        54037.6
+      ],
+      "retrieval_score": 0.6007,
+      "supporting_frames": 6,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.8,
+      "status": "transition_candidate",
+      "rank": 10
+    },
+    {
+      "camera": "2-2",
+      "track": "51",
+      "track_ids": [
+        51
+      ],
+      "span": [
+        54000.8,
+        54005.6
+      ],
+      "retrieval_score": 0.5954,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.8,
+      "status": "weak_appearance",
+      "rank": 11
+    },
+    {
+      "camera": "2-2",
+      "track": "3",
+      "track_ids": [
+        3
+      ],
+      "span": [
+        53997.2,
+        54004.4
+      ],
+      "retrieval_score": 0.5921,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 62.0,
+      "status": "weak_appearance",
+      "rank": 12
+    },
+    {
+      "camera": "2-2",
+      "track": "278",
+      "track_ids": [
+        278
+      ],
+      "span": [
+        54038.8,
+        54044.4
+      ],
+      "retrieval_score": 0.59,
+      "supporting_frames": 3,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 22.0,
+      "status": "weak_appearance",
+      "rank": 13
+    },
+    {
+      "camera": "2-2",
+      "track": "112",
+      "track_ids": [
+        112
+      ],
+      "span": [
+        54006.2,
+        54013.2
+      ],
+      "retrieval_score": 0.5843,
+      "supporting_frames": 4,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 53.2,
+      "status": "weak_appearance",
+      "rank": 14
+    },
+    {
+      "camera": "2-2",
+      "track": "141",
+      "track_ids": [
+        141
+      ],
+      "span": [
+        54012.8,
+        54017.2
+      ],
+      "retrieval_score": 0.5837,
+      "supporting_frames": 3,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 49.2,
+      "status": "weak_appearance",
+      "rank": 15
+    },
+    {
+      "camera": "2-1",
+      "track": "139",
+      "track_ids": [
+        139
+      ],
+      "span": [
+        54040.2,
+        54042.8
+      ],
+      "retrieval_score": 0.5824,
+      "supporting_frames": 4,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 23.6,
+      "status": "weak_appearance",
+      "rank": 16
+    },
+    {
+      "camera": "2-2",
+      "track": "7-14",
+      "track_ids": [
+        7,
+        14
+      ],
+      "span": [
+        53997.2,
+        54006.6
+      ],
+      "retrieval_score": 0.5817,
+      "supporting_frames": 4,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 59.8,
+      "status": "weak_appearance",
+      "rank": 17
+    },
+    {
+      "camera": "2-2",
+      "track": "217",
+      "track_ids": [
+        217
+      ],
+      "span": [
+        54029.2,
+        54031.4
+      ],
+      "retrieval_score": 0.5803,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 35.0,
+      "status": "weak_appearance",
+      "rank": 18
+    },
+    {
+      "camera": "2-2",
+      "track": "188",
+      "track_ids": [
+        188
+      ],
+      "span": [
+        54020.6,
+        54024.8
+      ],
+      "retrieval_score": 0.5795,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 41.6,
+      "status": "weak_appearance",
+      "rank": 19
+    },
+    {
+      "camera": "2-2",
+      "track": "18",
+      "track_ids": [
+        18
+      ],
+      "span": [
+        53997.2,
+        53998.8
+      ],
+      "retrieval_score": 0.5787,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 67.6,
+      "status": "weak_appearance",
+      "rank": 20
+    },
+    {
+      "camera": "2-1",
+      "track": "218",
+      "track_ids": [
+        218
+      ],
+      "span": [
+        54053.6,
+        54065.4
+      ],
+      "retrieval_score": 0.5764,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 1.0,
+      "status": "pending_transition_check",
+      "rank": 21
+    },
+    {
+      "camera": "2-2",
+      "track": "48",
+      "track_ids": [
+        48
+      ],
+      "span": [
+        54000.2,
+        54041.6
+      ],
+      "retrieval_score": 0.5741,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 24.8,
+      "status": "weak_appearance",
+      "rank": 22
+    },
+    {
+      "camera": "2-2",
+      "track": "149-175-200-243",
+      "track_ids": [
+        149,
+        175,
+        200,
+        243
+      ],
+      "span": [
+        54013.6,
+        54038.4
+      ],
+      "retrieval_score": 0.5727,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.0,
+      "status": "weak_appearance",
+      "rank": 23
+    },
+    {
+      "camera": "2-1",
+      "track": "282",
+      "track_ids": [
+        282
+      ],
+      "span": [
+        54066.2,
+        54070.6
+      ],
+      "retrieval_score": 0.5709,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 24
+    },
+    {
+      "camera": "2-2",
+      "track": "266",
+      "track_ids": [
+        266
+      ],
+      "span": [
+        54036.6,
+        54040.2
+      ],
+      "retrieval_score": 0.569,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 26.2,
+      "status": "weak_appearance",
+      "rank": 25
+    },
+    {
+      "camera": "2-1",
+      "track": "4-121",
+      "track_ids": [
+        4,
+        121
+      ],
+      "span": [
+        53998.2,
+        54042.8
+      ],
+      "retrieval_score": 0.5682,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 23.6,
+      "status": "weak_appearance",
+      "rank": 26
+    },
+    {
+      "camera": "2-2",
+      "track": "111",
+      "track_ids": [
+        111
+      ],
+      "span": [
+        54006.2,
+        54008.6
+      ],
+      "retrieval_score": 0.567,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 57.8,
+      "status": "weak_appearance",
+      "rank": 27
+    },
+    {
+      "camera": "2-1",
+      "track": "146",
+      "track_ids": [
+        146
+      ],
+      "span": [
+        54042.0,
+        54050.6
+      ],
+      "retrieval_score": 0.5669,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 15.8,
+      "status": "weak_appearance",
+      "rank": 28
+    },
+    {
+      "camera": "2-2",
+      "track": "249",
+      "track_ids": [
+        249
+      ],
+      "span": [
+        54034.6,
+        54040.8
+      ],
+      "retrieval_score": 0.5661,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 25.6,
+      "status": "weak_appearance",
+      "rank": 29
+    },
+    {
+      "camera": "2-1",
+      "track": "67",
+      "track_ids": [
+        67
+      ],
+      "span": [
+        54023.4,
+        54028.0
+      ],
+      "retrieval_score": 0.566,
+      "supporting_frames": 3,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.4,
+      "status": "weak_appearance",
+      "rank": 30
+    },
+    {
+      "camera": "2-2",
+      "track": "12",
+      "track_ids": [
+        12
+      ],
+      "span": [
+        53997.2,
+        54000.8
+      ],
+      "retrieval_score": 0.5655,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 65.6,
+      "status": "weak_appearance",
+      "rank": 31
+    },
+    {
+      "camera": "2-2",
+      "track": "345",
+      "track_ids": [
+        345
+      ],
+      "span": [
+        54046.0,
+        54047.4
+      ],
+      "retrieval_score": 0.5641,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 19.0,
+      "status": "weak_appearance",
+      "rank": 32
+    },
+    {
+      "camera": "2-1",
+      "track": "191",
+      "track_ids": [
+        191
+      ],
+      "span": [
+        54051.0,
+        54053.0
+      ],
+      "retrieval_score": 0.5625,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 13.4,
+      "status": "weak_appearance",
+      "rank": 33
+    },
+    {
+      "camera": "2-2",
+      "track": "311-329",
+      "track_ids": [
+        311,
+        329
+      ],
+      "span": [
+        54041.8,
+        54047.2
+      ],
+      "retrieval_score": 0.5608,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 19.2,
+      "status": "weak_appearance",
+      "rank": 34
+    },
+    {
+      "camera": "2-1",
+      "track": "193-238",
+      "track_ids": [
+        193,
+        238
+      ],
+      "span": [
+        54051.4,
+        54071.8
+      ],
+      "retrieval_score": 0.5582,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 35
+    },
+    {
+      "camera": "2-2",
+      "track": "121",
+      "track_ids": [
+        121
+      ],
+      "span": [
+        54008.8,
+        54035.8
+      ],
+      "retrieval_score": 0.5582,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 30.6,
+      "status": "weak_appearance",
+      "rank": 36
+    },
+    {
+      "camera": "2-2",
+      "track": "145",
+      "track_ids": [
+        145
+      ],
+      "span": [
+        54013.4,
+        54017.2
+      ],
+      "retrieval_score": 0.5569,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 49.2,
+      "status": "weak_appearance",
+      "rank": 37
+    },
+    {
+      "camera": "2-2",
+      "track": "10",
+      "track_ids": [
+        10
+      ],
+      "span": [
+        53997.2,
+        54003.8
+      ],
+      "retrieval_score": 0.5563,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 62.6,
+      "status": "weak_appearance",
+      "rank": 38
+    },
+    {
+      "camera": "2-2",
+      "track": "255",
+      "track_ids": [
+        255
+      ],
+      "span": [
+        54035.0,
+        54037.2
+      ],
+      "retrieval_score": 0.5562,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 29.2,
+      "status": "weak_appearance",
+      "rank": 39
+    },
+    {
+      "camera": "2-2",
+      "track": "376-431",
+      "track_ids": [
+        376,
+        431
+      ],
+      "span": [
+        54049.0,
+        54070.8
+      ],
+      "retrieval_score": 0.5547,
+      "supporting_frames": 2,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 40
+    },
+    {
+      "camera": "2-2",
+      "track": "113",
+      "track_ids": [
+        113
+      ],
+      "span": [
+        54006.2,
+        54013.8
+      ],
+      "retrieval_score": 0.5537,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 52.6,
+      "status": "weak_appearance",
+      "rank": 41
+    },
+    {
+      "camera": "2-2",
+      "track": "6",
+      "track_ids": [
+        6
+      ],
+      "span": [
+        53997.2,
+        54012.0
+      ],
+      "retrieval_score": 0.5528,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 54.4,
+      "status": "weak_appearance",
+      "rank": 42
+    },
+    {
+      "camera": "2-1",
+      "track": "77",
+      "track_ids": [
+        77
+      ],
+      "span": [
+        54024.4,
+        54028.2
+      ],
+      "retrieval_score": 0.5525,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.2,
+      "status": "weak_appearance",
+      "rank": 43
+    },
+    {
+      "camera": "2-2",
+      "track": "435",
+      "track_ids": [
+        435
+      ],
+      "span": [
+        54061.2,
+        54062.8
+      ],
+      "retrieval_score": 0.5525,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 3.6,
+      "status": "weak_appearance",
+      "rank": 44
+    },
+    {
+      "camera": "2-2",
+      "track": "55",
+      "track_ids": [
+        55
+      ],
+      "span": [
+        54001.4,
+        54005.8
+      ],
+      "retrieval_score": 0.5524,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.6,
+      "status": "weak_appearance",
+      "rank": 45
+    },
+    {
+      "camera": "2-2",
+      "track": "265",
+      "track_ids": [
+        265
+      ],
+      "span": [
+        54036.2,
+        54039.0
+      ],
+      "retrieval_score": 0.552,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 27.4,
+      "status": "weak_appearance",
+      "rank": 46
+    },
+    {
+      "camera": "2-2",
+      "track": "272-276",
+      "track_ids": [
+        272,
+        276
+      ],
+      "span": [
+        54038.2,
+        54041.6
+      ],
+      "retrieval_score": 0.5488,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 24.8,
+      "status": "weak_appearance",
+      "rank": 47
+    },
+    {
+      "camera": "2-2",
+      "track": "263-288",
+      "track_ids": [
+        263,
+        288
+      ],
+      "span": [
+        54036.0,
+        54064.0
+      ],
+      "retrieval_score": 0.5487,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 2.4,
+      "status": "weak_appearance",
+      "rank": 48
+    },
+    {
+      "camera": "2-2",
+      "track": "398",
+      "track_ids": [
+        398
+      ],
+      "span": [
+        54053.4,
+        54070.8
+      ],
+      "retrieval_score": 0.5474,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 49
+    },
+    {
+      "camera": "2-2",
+      "track": "4",
+      "track_ids": [
+        4
+      ],
+      "span": [
+        53997.2,
+        54000.8
+      ],
+      "retrieval_score": 0.5472,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 65.6,
+      "status": "weak_appearance",
+      "rank": 50
+    },
+    {
+      "camera": "2-1",
+      "track": "299",
+      "track_ids": [
+        299
+      ],
+      "span": [
+        54069.2,
+        54071.8
+      ],
+      "retrieval_score": 0.5451,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 0.0,
+      "status": "pending_transition_check",
+      "rank": 51
+    },
+    {
+      "camera": "2-1",
+      "track": "177-178-194",
+      "track_ids": [
+        177,
+        178,
+        194
+      ],
+      "span": [
+        54049.4,
+        54054.0
+      ],
+      "retrieval_score": 0.5446,
+      "supporting_frames": 3,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 12.4,
+      "status": "weak_appearance",
+      "rank": 52
+    },
+    {
+      "camera": "2-2",
+      "track": "34",
+      "track_ids": [
+        34
+      ],
+      "span": [
+        53999.2,
+        54003.4
+      ],
+      "retrieval_score": 0.5437,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 63.0,
+      "status": "weak_appearance",
+      "rank": 53
+    },
+    {
+      "camera": "2-2",
+      "track": "264",
+      "track_ids": [
+        264
+      ],
+      "span": [
+        54036.0,
+        54037.6
+      ],
+      "retrieval_score": 0.5414,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.8,
+      "status": "weak_appearance",
+      "rank": 54
+    },
+    {
+      "camera": "2-2",
+      "track": "110",
+      "track_ids": [
+        110
+      ],
+      "span": [
+        54005.8,
+        54036.6
+      ],
+      "retrieval_score": 0.5393,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 29.8,
+      "status": "weak_appearance",
+      "rank": 55
+    },
+    {
+      "camera": "2-2",
+      "track": "160",
+      "track_ids": [
+        160
+      ],
+      "span": [
+        54015.6,
+        54017.8
+      ],
+      "retrieval_score": 0.5392,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 48.6,
+      "status": "weak_appearance",
+      "rank": 56
+    },
+    {
+      "camera": "2-2",
+      "track": "195-232-279-362-395-436-458",
+      "track_ids": [
+        195,
+        232,
+        279,
+        362,
+        395,
+        436,
+        458
+      ],
+      "span": [
+        54024.2,
+        54070.8
+      ],
+      "retrieval_score": 0.5378,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 57
+    },
+    {
+      "camera": "2-2",
+      "track": "186",
+      "track_ids": [
+        186
+      ],
+      "span": [
+        54020.2,
+        54025.0
+      ],
+      "retrieval_score": 0.5363,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 41.4,
+      "status": "weak_appearance",
+      "rank": 58
+    },
+    {
+      "camera": "2-2",
+      "track": "257",
+      "track_ids": [
+        257
+      ],
+      "span": [
+        54035.4,
+        54041.0
+      ],
+      "retrieval_score": 0.5356,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 25.4,
+      "status": "weak_appearance",
+      "rank": 59
+    },
+    {
+      "camera": "2-1",
+      "track": "74",
+      "track_ids": [
+        74
+      ],
+      "span": [
+        54024.2,
+        54035.2
+      ],
+      "retrieval_score": 0.5351,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 31.2,
+      "status": "weak_appearance",
+      "rank": 60
+    },
+    {
+      "camera": "2-1",
+      "track": "123",
+      "track_ids": [
+        123
+      ],
+      "span": [
+        54037.8,
+        54042.6
+      ],
+      "retrieval_score": 0.5344,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 23.8,
+      "status": "weak_appearance",
+      "rank": 61
+    },
+    {
+      "camera": "2-2",
+      "track": "371-377",
+      "track_ids": [
+        371,
+        377
+      ],
+      "span": [
+        54048.6,
+        54053.2
+      ],
+      "retrieval_score": 0.5344,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 13.2,
+      "status": "weak_appearance",
+      "rank": 62
+    },
+    {
+      "camera": "2-2",
+      "track": "184-189",
+      "track_ids": [
+        184,
+        189
+      ],
+      "span": [
+        54019.2,
+        54037.6
+      ],
+      "retrieval_score": 0.5333,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.8,
+      "status": "weak_appearance",
+      "rank": 63
+    },
+    {
+      "camera": "2-2",
+      "track": "410",
+      "track_ids": [
+        410
+      ],
+      "span": [
+        54055.6,
+        54060.4
+      ],
+      "retrieval_score": 0.5333,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 6.0,
+      "status": "weak_appearance",
+      "rank": 64
+    },
+    {
+      "camera": "2-2",
+      "track": "240",
+      "track_ids": [
+        240
+      ],
+      "span": [
+        54033.4,
+        54035.6
+      ],
+      "retrieval_score": 0.5327,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 30.8,
+      "status": "weak_appearance",
+      "rank": 65
+    },
+    {
+      "camera": "2-2",
+      "track": "84-123-176-190",
+      "track_ids": [
+        84,
+        123,
+        176,
+        190
+      ],
+      "span": [
+        54003.0,
+        54030.2
+      ],
+      "retrieval_score": 0.5322,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 36.2,
+      "status": "weak_appearance",
+      "rank": 66
+    },
+    {
+      "camera": "2-2",
+      "track": "396-422-425",
+      "track_ids": [
+        396,
+        422,
+        425
+      ],
+      "span": [
+        54053.2,
+        54070.8
+      ],
+      "retrieval_score": 0.5315,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 67
+    },
+    {
+      "camera": "2-2",
+      "track": "459",
+      "track_ids": [
+        459
+      ],
+      "span": [
+        54067.6,
+        54070.8
+      ],
+      "retrieval_score": 0.5313,
+      "supporting_frames": 2,
+      "relation": "overlapping",
+      "overlap_seconds": 1.6,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 68
+    },
+    {
+      "camera": "2-2",
+      "track": "252",
+      "track_ids": [
+        252
+      ],
+      "span": [
+        54034.8,
+        54037.6
+      ],
+      "retrieval_score": 0.5301,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.8,
+      "status": "weak_appearance",
+      "rank": 69
+    },
+    {
+      "camera": "2-1",
+      "track": "117-119",
+      "track_ids": [
+        117,
+        119
+      ],
+      "span": [
+        54037.4,
+        54042.6
+      ],
+      "retrieval_score": 0.5292,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 23.8,
+      "status": "weak_appearance",
+      "rank": 70
+    },
+    {
+      "camera": "2-2",
+      "track": "228",
+      "track_ids": [
+        228
+      ],
+      "span": [
+        54032.6,
+        54040.6
+      ],
+      "retrieval_score": 0.5273,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 25.8,
+      "status": "weak_appearance",
+      "rank": 71
+    },
+    {
+      "camera": "2-2",
+      "track": "30-105-107-129-130-182-191",
+      "track_ids": [
+        30,
+        105,
+        107,
+        129,
+        130,
+        182,
+        191
+      ],
+      "span": [
+        53998.2,
+        54031.4
+      ],
+      "retrieval_score": 0.5253,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 35.0,
+      "status": "weak_appearance",
+      "rank": 72
+    },
+    {
+      "camera": "2-1",
+      "track": "195",
+      "track_ids": [
+        195
+      ],
+      "span": [
+        54051.4,
+        54066.0
+      ],
+      "retrieval_score": 0.5248,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 0.4,
+      "status": "pending_transition_check",
+      "rank": 73
+    },
+    {
+      "camera": "2-2",
+      "track": "270-346",
+      "track_ids": [
+        270,
+        346
+      ],
+      "span": [
+        54037.6,
+        54056.2
+      ],
+      "retrieval_score": 0.5248,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 10.2,
+      "status": "weak_appearance",
+      "rank": 74
+    },
+    {
+      "camera": "2-1",
+      "track": "91",
+      "track_ids": [
+        91
+      ],
+      "span": [
+        54027.4,
+        54032.0
+      ],
+      "retrieval_score": 0.5232,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 34.4,
+      "status": "weak_appearance",
+      "rank": 75
+    },
+    {
+      "camera": "2-2",
+      "track": "331",
+      "track_ids": [
+        331
+      ],
+      "span": [
+        54044.2,
+        54048.0
+      ],
+      "retrieval_score": 0.5228,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 18.4,
+      "status": "weak_appearance",
+      "rank": 76
+    },
+    {
+      "camera": "2-1",
+      "track": "3",
+      "track_ids": [
+        3
+      ],
+      "span": [
+        53998.2,
+        54052.6
+      ],
+      "retrieval_score": 0.5214,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 13.8,
+      "status": "weak_appearance",
+      "rank": 77
+    },
+    {
+      "camera": "2-1",
+      "track": "80",
+      "track_ids": [
+        80
+      ],
+      "span": [
+        54024.6,
+        54031.2
+      ],
+      "retrieval_score": 0.521,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 35.2,
+      "status": "weak_appearance",
+      "rank": 78
+    },
+    {
+      "camera": "2-1",
+      "track": "203",
+      "track_ids": [
+        203
+      ],
+      "span": [
+        54051.6,
+        54071.6
+      ],
+      "retrieval_score": 0.5198,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 79
+    },
+    {
+      "camera": "2-1",
+      "track": "216-233",
+      "track_ids": [
+        216,
+        233
+      ],
+      "span": [
+        54053.4,
+        54071.8
+      ],
+      "retrieval_score": 0.5189,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 80
+    },
+    {
+      "camera": "2-2",
+      "track": "210",
+      "track_ids": [
+        210
+      ],
+      "span": [
+        54028.6,
+        54042.4
+      ],
+      "retrieval_score": 0.5185,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 24.0,
+      "status": "weak_appearance",
+      "rank": 81
+    },
+    {
+      "camera": "2-1",
+      "track": "124",
+      "track_ids": [
+        124
+      ],
+      "span": [
+        54038.2,
+        54040.6
+      ],
+      "retrieval_score": 0.5173,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 25.8,
+      "status": "weak_appearance",
+      "rank": 82
+    },
+    {
+      "camera": "2-2",
+      "track": "199",
+      "track_ids": [
+        199
+      ],
+      "span": [
+        54027.0,
+        54029.8
+      ],
+      "retrieval_score": 0.5171,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 36.6,
+      "status": "weak_appearance",
+      "rank": 83
+    },
+    {
+      "camera": "2-1",
+      "track": "250",
+      "track_ids": [
+        250
+      ],
+      "span": [
+        54058.6,
+        54066.6
+      ],
+      "retrieval_score": 0.517,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 0.2,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 84
+    },
+    {
+      "camera": "2-2",
+      "track": "15",
+      "track_ids": [
+        15
+      ],
+      "span": [
+        53997.2,
+        53999.6
+      ],
+      "retrieval_score": 0.5169,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.8,
+      "status": "weak_appearance",
+      "rank": 85
+    },
+    {
+      "camera": "2-1",
+      "track": "58",
+      "track_ids": [
+        58
+      ],
+      "span": [
+        54018.2,
+        54019.6
+      ],
+      "retrieval_score": 0.516,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 46.8,
+      "status": "weak_appearance",
+      "rank": 86
+    },
+    {
+      "camera": "2-1",
+      "track": "261",
+      "track_ids": [
+        261
+      ],
+      "span": [
+        54060.4,
+        54063.6
+      ],
+      "retrieval_score": 0.5153,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 2.8,
+      "status": "weak_appearance",
+      "rank": 87
+    },
+    {
+      "camera": "2-1",
+      "track": "66",
+      "track_ids": [
+        66
+      ],
+      "span": [
+        54023.0,
+        54028.4
+      ],
+      "retrieval_score": 0.5148,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.0,
+      "status": "weak_appearance",
+      "rank": 88
+    },
+    {
+      "camera": "2-1",
+      "track": "93",
+      "track_ids": [
+        93
+      ],
+      "span": [
+        54027.4,
+        54029.2
+      ],
+      "retrieval_score": 0.5142,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 37.2,
+      "status": "weak_appearance",
+      "rank": 89
+    },
+    {
+      "camera": "2-2",
+      "track": "455-463",
+      "track_ids": [
+        455,
+        463
+      ],
+      "span": [
+        54065.2,
+        54070.6
+      ],
+      "retrieval_score": 0.514,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 90
+    },
+    {
+      "camera": "2-1",
+      "track": "12",
+      "track_ids": [
+        12
+      ],
+      "span": [
+        53998.4,
+        54000.0
+      ],
+      "retrieval_score": 0.5131,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.4,
+      "status": "weak_appearance",
+      "rank": 91
+    },
+    {
+      "camera": "2-2",
+      "track": "49-115-117",
+      "track_ids": [
+        49,
+        115,
+        117
+      ],
+      "span": [
+        54000.6,
+        54009.4
+      ],
+      "retrieval_score": 0.5124,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 57.0,
+      "status": "weak_appearance",
+      "rank": 92
+    },
+    {
+      "camera": "2-1",
+      "track": "235",
+      "track_ids": [
+        235
+      ],
+      "span": [
+        54055.6,
+        54069.6
+      ],
+      "retrieval_score": 0.5118,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 93
+    },
+    {
+      "camera": "2-1",
+      "track": "157",
+      "track_ids": [
+        157
+      ],
+      "span": [
+        54044.8,
+        54047.6
+      ],
+      "retrieval_score": 0.5113,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 18.8,
+      "status": "weak_appearance",
+      "rank": 94
+    },
+    {
+      "camera": "2-2",
+      "track": "226",
+      "track_ids": [
+        226
+      ],
+      "span": [
+        54031.4,
+        54032.8
+      ],
+      "retrieval_score": 0.5085,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 33.6,
+      "status": "weak_appearance",
+      "rank": 95
+    },
+    {
+      "camera": "2-2",
+      "track": "390",
+      "track_ids": [
+        390
+      ],
+      "span": [
+        54051.4,
+        54062.8
+      ],
+      "retrieval_score": 0.5078,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 3.6,
+      "status": "weak_appearance",
+      "rank": 96
+    },
+    {
+      "camera": "2-1",
+      "track": "37",
+      "track_ids": [
+        37
+      ],
+      "span": [
+        54012.6,
+        54015.6
+      ],
+      "retrieval_score": 0.5063,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 50.8,
+      "status": "weak_appearance",
+      "rank": 97
+    },
+    {
+      "camera": "2-2",
+      "track": "183-187",
+      "track_ids": [
+        183,
+        187
+      ],
+      "span": [
+        54019.2,
+        54028.6
+      ],
+      "retrieval_score": 0.5061,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 37.8,
+      "status": "weak_appearance",
+      "rank": 98
+    },
+    {
+      "camera": "2-1",
+      "track": "81",
+      "track_ids": [
+        81
+      ],
+      "span": [
+        54024.6,
+        54026.6
+      ],
+      "retrieval_score": 0.5053,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 39.8,
+      "status": "weak_appearance",
+      "rank": 99
+    },
+    {
+      "camera": "2-1",
+      "track": "142",
+      "track_ids": [
+        142
+      ],
+      "span": [
+        54041.4,
+        54054.0
+      ],
+      "retrieval_score": 0.5047,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 12.4,
+      "status": "weak_appearance",
+      "rank": 100
+    },
+    {
+      "camera": "2-1",
+      "track": "149",
+      "track_ids": [
+        149
+      ],
+      "span": [
+        54042.2,
+        54049.8
+      ],
+      "retrieval_score": 0.5047,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 16.6,
+      "status": "weak_appearance",
+      "rank": 101
+    },
+    {
+      "camera": "2-1",
+      "track": "263",
+      "track_ids": [
+        263
+      ],
+      "span": [
+        54060.6,
+        54063.4
+      ],
+      "retrieval_score": 0.503,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 3.0,
+      "status": "weak_appearance",
+      "rank": 102
+    },
+    {
+      "camera": "2-1",
+      "track": "14-101",
+      "track_ids": [
+        14,
+        101
+      ],
+      "span": [
+        53998.8,
+        54068.6
+      ],
+      "retrieval_score": 0.4999,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.2,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 103
+    },
+    {
+      "camera": "2-1",
+      "track": "205",
+      "track_ids": [
+        205
+      ],
+      "span": [
+        54052.0,
+        54055.4
+      ],
+      "retrieval_score": 0.4999,
+      "supporting_frames": 2,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 11.0,
+      "status": "weak_appearance",
+      "rank": 104
+    },
+    {
+      "camera": "2-1",
+      "track": "260-264",
+      "track_ids": [
+        260,
+        264
+      ],
+      "span": [
+        54060.2,
+        54067.4
+      ],
+      "retrieval_score": 0.4978,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.0,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 105
+    },
+    {
+      "camera": "2-1",
+      "track": "44-109",
+      "track_ids": [
+        44,
+        109
+      ],
+      "span": [
+        54013.6,
+        54050.8
+      ],
+      "retrieval_score": 0.4965,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 15.6,
+      "status": "weak_appearance",
+      "rank": 106
+    },
+    {
+      "camera": "2-1",
+      "track": "47",
+      "track_ids": [
+        47
+      ],
+      "span": [
+        54015.2,
+        54019.2
+      ],
+      "retrieval_score": 0.4962,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 47.2,
+      "status": "weak_appearance",
+      "rank": 107
+    },
+    {
+      "camera": "2-1",
+      "track": "284",
+      "track_ids": [
+        284
+      ],
+      "span": [
+        54067.2,
+        54070.0
+      ],
+      "retrieval_score": 0.4961,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.0,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 108
+    },
+    {
+      "camera": "2-2",
+      "track": "35",
+      "track_ids": [
+        35
+      ],
+      "span": [
+        53999.2,
+        54002.0
+      ],
+      "retrieval_score": 0.4943,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 64.4,
+      "status": "weak_appearance",
+      "rank": 109
+    },
+    {
+      "camera": "2-1",
+      "track": "33-43-97-148-271",
+      "track_ids": [
+        33,
+        43,
+        97,
+        148,
+        271
+      ],
+      "span": [
+        54012.0,
+        54071.8
+      ],
+      "retrieval_score": 0.4936,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 110
+    },
+    {
+      "camera": "2-1",
+      "track": "220",
+      "track_ids": [
+        220
+      ],
+      "span": [
+        54053.8,
+        54063.6
+      ],
+      "retrieval_score": 0.4926,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 2.8,
+      "status": "weak_appearance",
+      "rank": 111
+    },
+    {
+      "camera": "2-1",
+      "track": "5-27",
+      "track_ids": [
+        5,
+        27
+      ],
+      "span": [
+        53998.2,
+        54016.2
+      ],
+      "retrieval_score": 0.4914,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 50.2,
+      "status": "weak_appearance",
+      "rank": 112
+    },
+    {
+      "camera": "2-1",
+      "track": "151-161-172-185",
+      "track_ids": [
+        151,
+        161,
+        172,
+        185
+      ],
+      "span": [
+        54042.8,
+        54071.8
+      ],
+      "retrieval_score": 0.4893,
+      "supporting_frames": 2,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 113
+    },
+    {
+      "camera": "2-1",
+      "track": "190",
+      "track_ids": [
+        190
+      ],
+      "span": [
+        54051.0,
+        54054.2
+      ],
+      "retrieval_score": 0.4888,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 12.2,
+      "status": "weak_appearance",
+      "rank": 114
+    },
+    {
+      "camera": "2-1",
+      "track": "71",
+      "track_ids": [
+        71
+      ],
+      "span": [
+        54024.0,
+        54026.2
+      ],
+      "retrieval_score": 0.4883,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 40.2,
+      "status": "weak_appearance",
+      "rank": 115
+    },
+    {
+      "camera": "2-1",
+      "track": "1-7-11-17",
+      "track_ids": [
+        1,
+        7,
+        11,
+        17
+      ],
+      "span": [
+        53998.2,
+        54071.8
+      ],
+      "retrieval_score": 0.4854,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 116
+    },
+    {
+      "camera": "2-1",
+      "track": "59",
+      "track_ids": [
+        59
+      ],
+      "span": [
+        54019.4,
+        54021.4
+      ],
+      "retrieval_score": 0.4852,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 45.0,
+      "status": "weak_appearance",
+      "rank": 117
+    },
+    {
+      "camera": "2-1",
+      "track": "225",
+      "track_ids": [
+        225
+      ],
+      "span": [
+        54054.0,
+        54057.6
+      ],
+      "retrieval_score": 0.4849,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 8.8,
+      "status": "weak_appearance",
+      "rank": 118
+    },
+    {
+      "camera": "2-1",
+      "track": "245",
+      "track_ids": [
+        245
+      ],
+      "span": [
+        54057.6,
+        54071.8
+      ],
+      "retrieval_score": 0.4815,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 119
+    },
+    {
+      "camera": "2-1",
+      "track": "31",
+      "track_ids": [
+        31
+      ],
+      "span": [
+        54010.2,
+        54013.0
+      ],
+      "retrieval_score": 0.4799,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 53.4,
+      "status": "weak_appearance",
+      "rank": 120
+    },
+    {
+      "camera": "2-2",
+      "track": "69",
+      "track_ids": [
+        69
+      ],
+      "span": [
+        54002.0,
+        54005.2
+      ],
+      "retrieval_score": 0.4792,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 61.2,
+      "status": "weak_appearance",
+      "rank": 121
+    },
+    {
+      "camera": "2-1",
+      "track": "8-62-73-138",
+      "track_ids": [
+        8,
+        62,
+        73,
+        138
+      ],
+      "span": [
+        53998.2,
+        54044.0
+      ],
+      "retrieval_score": 0.479,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 22.4,
+      "status": "weak_appearance",
+      "rank": 122
+    },
+    {
+      "camera": "2-1",
+      "track": "35",
+      "track_ids": [
+        35
+      ],
+      "span": [
+        54012.2,
+        54017.8
+      ],
+      "retrieval_score": 0.4789,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 48.6,
+      "status": "weak_appearance",
+      "rank": 123
+    },
+    {
+      "camera": "2-1",
+      "track": "103",
+      "track_ids": [
+        103
+      ],
+      "span": [
+        54030.8,
+        54033.8
+      ],
+      "retrieval_score": 0.4764,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 32.6,
+      "status": "weak_appearance",
+      "rank": 124
+    },
+    {
+      "camera": "2-1",
+      "track": "114",
+      "track_ids": [
+        114
+      ],
+      "span": [
+        54036.2,
+        54038.4
+      ],
+      "retrieval_score": 0.4748,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 28.0,
+      "status": "weak_appearance",
+      "rank": 125
+    },
+    {
+      "camera": "2-1",
+      "track": "286",
+      "track_ids": [
+        286
+      ],
+      "span": [
+        54067.4,
+        54070.6
+      ],
+      "retrieval_score": 0.4746,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 126
+    },
+    {
+      "camera": "2-2",
+      "track": "341",
+      "track_ids": [
+        341
+      ],
+      "span": [
+        54045.4,
+        54049.2
+      ],
+      "retrieval_score": 0.4742,
+      "supporting_frames": 1,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 17.2,
+      "status": "weak_appearance",
+      "rank": 127
+    },
+    {
+      "camera": "2-1",
+      "track": "134",
+      "track_ids": [
+        134
+      ],
+      "span": [
+        54039.4,
+        54042.2
+      ],
+      "retrieval_score": 0.4705,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 24.2,
+      "status": "weak_appearance",
+      "rank": 128
+    },
+    {
+      "camera": "2-1",
+      "track": "293",
+      "track_ids": [
+        293
+      ],
+      "span": [
+        54068.0,
+        54071.8
+      ],
+      "retrieval_score": 0.4665,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.2,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 129
+    },
+    {
+      "camera": "2-1",
+      "track": "16",
+      "track_ids": [
+        16
+      ],
+      "span": [
+        54000.0,
+        54006.8
+      ],
+      "retrieval_score": 0.4661,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 59.6,
+      "status": "weak_appearance",
+      "rank": 130
+    },
+    {
+      "camera": "2-1",
+      "track": "25",
+      "track_ids": [
+        25
+      ],
+      "span": [
+        54006.8,
+        54012.8
+      ],
+      "retrieval_score": 0.4646,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 53.6,
+      "status": "weak_appearance",
+      "rank": 131
+    },
+    {
+      "camera": "2-1",
+      "track": "51",
+      "track_ids": [
+        51
+      ],
+      "span": [
+        54016.2,
+        54020.4
+      ],
+      "retrieval_score": 0.4619,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 46.0,
+      "status": "weak_appearance",
+      "rank": 132
+    },
+    {
+      "camera": "2-1",
+      "track": "2",
+      "track_ids": [
+        2
+      ],
+      "span": [
+        53998.2,
+        54008.6
+      ],
+      "retrieval_score": 0.4592,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 57.8,
+      "status": "weak_appearance",
+      "rank": 133
+    },
+    {
+      "camera": "2-1",
+      "track": "60",
+      "track_ids": [
+        60
+      ],
+      "span": [
+        54019.6,
+        54023.8
+      ],
+      "retrieval_score": 0.4527,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 42.6,
+      "status": "weak_appearance",
+      "rank": 134
+    },
+    {
+      "camera": "2-1",
+      "track": "184",
+      "track_ids": [
+        184
+      ],
+      "span": [
+        54050.8,
+        54052.8
+      ],
+      "retrieval_score": 0.4489,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 13.6,
+      "status": "weak_appearance",
+      "rank": 135
+    },
+    {
+      "camera": "2-2",
+      "track": "20-23-86-103",
+      "track_ids": [
+        20,
+        23,
+        86,
+        103
+      ],
+      "span": [
+        53997.2,
+        54020.8
+      ],
+      "retrieval_score": 0.4346,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 45.6,
+      "status": "weak_appearance",
+      "rank": 136
+    },
+    {
+      "camera": "2-2",
+      "track": "433",
+      "track_ids": [
+        433
+      ],
+      "span": [
+        54060.8,
+        54063.8
+      ],
+      "retrieval_score": 0.4302,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 2.6,
+      "status": "weak_appearance",
+      "rank": 137
+    },
+    {
+      "camera": "2-2",
+      "track": "337-338-339",
+      "track_ids": [
+        337,
+        338,
+        339
+      ],
+      "span": [
+        54045.0,
+        54048.6
+      ],
+      "retrieval_score": 0.4299,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 17.8,
+      "status": "weak_appearance",
+      "rank": 138
+    },
+    {
+      "camera": "2-2",
+      "track": "174-193-246",
+      "track_ids": [
+        174,
+        193,
+        246
+      ],
+      "span": [
+        54017.2,
+        54039.4
+      ],
+      "retrieval_score": 0.4101,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 27.0,
+      "status": "weak_appearance",
+      "rank": 139
+    },
+    {
+      "camera": "2-1",
+      "track": "6",
+      "track_ids": [
+        6
+      ],
+      "span": [
+        53998.2,
+        54000.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.4,
+      "status": "weak_appearance",
+      "rank": 140
+    },
+    {
+      "camera": "2-1",
+      "track": "9",
+      "track_ids": [
+        9
+      ],
+      "span": [
+        53998.2,
+        54004.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 62.4,
+      "status": "weak_appearance",
+      "rank": 141
+    },
+    {
+      "camera": "2-1",
+      "track": "18",
+      "track_ids": [
+        18
+      ],
+      "span": [
+        54002.2,
+        54006.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.0,
+      "status": "weak_appearance",
+      "rank": 142
+    },
+    {
+      "camera": "2-1",
+      "track": "19",
+      "track_ids": [
+        19
+      ],
+      "span": [
+        54002.2,
+        54006.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.2,
+      "status": "weak_appearance",
+      "rank": 143
+    },
+    {
+      "camera": "2-1",
+      "track": "20",
+      "track_ids": [
+        20
+      ],
+      "span": [
+        54002.2,
+        54004.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 62.4,
+      "status": "weak_appearance",
+      "rank": 144
+    },
+    {
+      "camera": "2-1",
+      "track": "23",
+      "track_ids": [
+        23
+      ],
+      "span": [
+        54006.2,
+        54071.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 145
+    },
+    {
+      "camera": "2-1",
+      "track": "24",
+      "track_ids": [
+        24
+      ],
+      "span": [
+        54006.6,
+        54010.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 56.2,
+      "status": "weak_appearance",
+      "rank": 146
+    },
+    {
+      "camera": "2-1",
+      "track": "34",
+      "track_ids": [
+        34
+      ],
+      "span": [
+        54012.2,
+        54016.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 50.2,
+      "status": "weak_appearance",
+      "rank": 147
+    },
+    {
+      "camera": "2-1",
+      "track": "36",
+      "track_ids": [
+        36
+      ],
+      "span": [
+        54012.2,
+        54013.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 52.6,
+      "status": "weak_appearance",
+      "rank": 148
+    },
+    {
+      "camera": "2-1",
+      "track": "40",
+      "track_ids": [
+        40
+      ],
+      "span": [
+        54012.8,
+        54015.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 51.2,
+      "status": "weak_appearance",
+      "rank": 149
+    },
+    {
+      "camera": "2-1",
+      "track": "57",
+      "track_ids": [
+        57
+      ],
+      "span": [
+        54018.2,
+        54020.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 45.8,
+      "status": "weak_appearance",
+      "rank": 150
+    },
+    {
+      "camera": "2-1",
+      "track": "63",
+      "track_ids": [
+        63
+      ],
+      "span": [
+        54022.2,
+        54028.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.4,
+      "status": "weak_appearance",
+      "rank": 151
+    },
+    {
+      "camera": "2-1",
+      "track": "64",
+      "track_ids": [
+        64
+      ],
+      "span": [
+        54022.6,
+        54026.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 40.2,
+      "status": "weak_appearance",
+      "rank": 152
+    },
+    {
+      "camera": "2-1",
+      "track": "75",
+      "track_ids": [
+        75
+      ],
+      "span": [
+        54024.2,
+        54035.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 30.6,
+      "status": "weak_appearance",
+      "rank": 153
+    },
+    {
+      "camera": "2-1",
+      "track": "84",
+      "track_ids": [
+        84
+      ],
+      "span": [
+        54024.8,
+        54028.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.4,
+      "status": "weak_appearance",
+      "rank": 154
+    },
+    {
+      "camera": "2-1",
+      "track": "87",
+      "track_ids": [
+        87
+      ],
+      "span": [
+        54025.0,
+        54026.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 40.0,
+      "status": "weak_appearance",
+      "rank": 155
+    },
+    {
+      "camera": "2-1",
+      "track": "92",
+      "track_ids": [
+        92
+      ],
+      "span": [
+        54027.4,
+        54029.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 36.6,
+      "status": "weak_appearance",
+      "rank": 156
+    },
+    {
+      "camera": "2-1",
+      "track": "107",
+      "track_ids": [
+        107
+      ],
+      "span": [
+        54032.2,
+        54033.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 32.6,
+      "status": "weak_appearance",
+      "rank": 157
+    },
+    {
+      "camera": "2-1",
+      "track": "111",
+      "track_ids": [
+        111
+      ],
+      "span": [
+        54035.0,
+        54037.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 29.2,
+      "status": "weak_appearance",
+      "rank": 158
+    },
+    {
+      "camera": "2-1",
+      "track": "132",
+      "track_ids": [
+        132
+      ],
+      "span": [
+        54038.8,
+        54047.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 19.0,
+      "status": "weak_appearance",
+      "rank": 159
+    },
+    {
+      "camera": "2-1",
+      "track": "137",
+      "track_ids": [
+        137
+      ],
+      "span": [
+        54040.0,
+        54042.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 24.4,
+      "status": "weak_appearance",
+      "rank": 160
+    },
+    {
+      "camera": "2-1",
+      "track": "154",
+      "track_ids": [
+        154
+      ],
+      "span": [
+        54044.2,
+        54048.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 18.4,
+      "status": "weak_appearance",
+      "rank": 161
+    },
+    {
+      "camera": "2-1",
+      "track": "155",
+      "track_ids": [
+        155
+      ],
+      "span": [
+        54044.8,
+        54049.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 17.2,
+      "status": "weak_appearance",
+      "rank": 162
+    },
+    {
+      "camera": "2-1",
+      "track": "159",
+      "track_ids": [
+        159
+      ],
+      "span": [
+        54045.0,
+        54049.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 17.0,
+      "status": "weak_appearance",
+      "rank": 163
+    },
+    {
+      "camera": "2-1",
+      "track": "171",
+      "track_ids": [
+        171
+      ],
+      "span": [
+        54048.2,
+        54050.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 15.8,
+      "status": "weak_appearance",
+      "rank": 164
+    },
+    {
+      "camera": "2-1",
+      "track": "198",
+      "track_ids": [
+        198
+      ],
+      "span": [
+        54051.4,
+        54053.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 13.0,
+      "status": "weak_appearance",
+      "rank": 165
+    },
+    {
+      "camera": "2-1",
+      "track": "212",
+      "track_ids": [
+        212
+      ],
+      "span": [
+        54052.8,
+        54055.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 10.6,
+      "status": "weak_appearance",
+      "rank": 166
+    },
+    {
+      "camera": "2-1",
+      "track": "240",
+      "track_ids": [
+        240
+      ],
+      "span": [
+        54056.2,
+        54060.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 6.2,
+      "status": "weak_appearance",
+      "rank": 167
+    },
+    {
+      "camera": "2-1",
+      "track": "243",
+      "track_ids": [
+        243
+      ],
+      "span": [
+        54057.6,
+        54060.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 5.6,
+      "status": "weak_appearance",
+      "rank": 168
+    },
+    {
+      "camera": "2-1",
+      "track": "244",
+      "track_ids": [
+        244
+      ],
+      "span": [
+        54057.6,
+        54062.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 4.4,
+      "status": "weak_appearance",
+      "rank": 169
+    },
+    {
+      "camera": "2-1",
+      "track": "247",
+      "track_ids": [
+        247
+      ],
+      "span": [
+        54058.4,
+        54061.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 5.2,
+      "status": "weak_appearance",
+      "rank": 170
+    },
+    {
+      "camera": "2-1",
+      "track": "248",
+      "track_ids": [
+        248
+      ],
+      "span": [
+        54058.4,
+        54060.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 5.8,
+      "status": "weak_appearance",
+      "rank": 171
+    },
+    {
+      "camera": "2-1",
+      "track": "252",
+      "track_ids": [
+        252
+      ],
+      "span": [
+        54059.2,
+        54062.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 4.4,
+      "status": "weak_appearance",
+      "rank": 172
+    },
+    {
+      "camera": "2-1",
+      "track": "253",
+      "track_ids": [
+        253
+      ],
+      "span": [
+        54059.2,
+        54061.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 4.6,
+      "status": "weak_appearance",
+      "rank": 173
+    },
+    {
+      "camera": "2-1",
+      "track": "254",
+      "track_ids": [
+        254
+      ],
+      "span": [
+        54059.2,
+        54065.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 1.0,
+      "status": "pending_transition_check",
+      "rank": 174
+    },
+    {
+      "camera": "2-1",
+      "track": "266",
+      "track_ids": [
+        266
+      ],
+      "span": [
+        54062.0,
+        54070.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 175
+    },
+    {
+      "camera": "2-1",
+      "track": "269",
+      "track_ids": [
+        269
+      ],
+      "span": [
+        54063.8,
+        54071.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 176
+    },
+    {
+      "camera": "2-1",
+      "track": "272",
+      "track_ids": [
+        272
+      ],
+      "span": [
+        54064.2,
+        54065.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 0.6,
+      "status": "pending_transition_check",
+      "rank": 177
+    },
+    {
+      "camera": "2-1",
+      "track": "283",
+      "track_ids": [
+        283
+      ],
+      "span": [
+        54066.6,
+        54070.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.6,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 178
+    },
+    {
+      "camera": "2-1",
+      "track": "287",
+      "track_ids": [
+        287
+      ],
+      "span": [
+        54067.4,
+        54069.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 179
+    },
+    {
+      "camera": "2-1",
+      "track": "288",
+      "track_ids": [
+        288
+      ],
+      "span": [
+        54067.6,
+        54071.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.6,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 180
+    },
+    {
+      "camera": "2-1",
+      "track": "290",
+      "track_ids": [
+        290
+      ],
+      "span": [
+        54067.6,
+        54071.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 1.6,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 181
+    },
+    {
+      "camera": "2-2",
+      "track": "5",
+      "track_ids": [
+        5
+      ],
+      "span": [
+        53997.2,
+        54070.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 182
+    },
+    {
+      "camera": "2-2",
+      "track": "9",
+      "track_ids": [
+        9
+      ],
+      "span": [
+        53997.2,
+        53999.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.6,
+      "status": "weak_appearance",
+      "rank": 183
+    },
+    {
+      "camera": "2-2",
+      "track": "13",
+      "track_ids": [
+        13
+      ],
+      "span": [
+        53997.2,
+        54070.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 184
+    },
+    {
+      "camera": "2-2",
+      "track": "16",
+      "track_ids": [
+        16
+      ],
+      "span": [
+        53997.2,
+        54002.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 64.0,
+      "status": "weak_appearance",
+      "rank": 185
+    },
+    {
+      "camera": "2-2",
+      "track": "17",
+      "track_ids": [
+        17
+      ],
+      "span": [
+        53997.2,
+        54026.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 40.0,
+      "status": "weak_appearance",
+      "rank": 186
+    },
+    {
+      "camera": "2-2",
+      "track": "21",
+      "track_ids": [
+        21
+      ],
+      "span": [
+        53997.2,
+        53999.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.6,
+      "status": "weak_appearance",
+      "rank": 187
+    },
+    {
+      "camera": "2-2",
+      "track": "22",
+      "track_ids": [
+        22
+      ],
+      "span": [
+        53997.2,
+        54008.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 58.0,
+      "status": "weak_appearance",
+      "rank": 188
+    },
+    {
+      "camera": "2-2",
+      "track": "26",
+      "track_ids": [
+        26
+      ],
+      "span": [
+        53997.4,
+        54000.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 66.2,
+      "status": "weak_appearance",
+      "rank": 189
+    },
+    {
+      "camera": "2-2",
+      "track": "46",
+      "track_ids": [
+        46
+      ],
+      "span": [
+        54000.2,
+        54070.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 190
+    },
+    {
+      "camera": "2-2",
+      "track": "100",
+      "track_ids": [
+        100
+      ],
+      "span": [
+        54004.4,
+        54006.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.2,
+      "status": "weak_appearance",
+      "rank": 191
+    },
+    {
+      "camera": "2-2",
+      "track": "101",
+      "track_ids": [
+        101
+      ],
+      "span": [
+        54004.4,
+        54029.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 37.2,
+      "status": "weak_appearance",
+      "rank": 192
+    },
+    {
+      "camera": "2-2",
+      "track": "102",
+      "track_ids": [
+        102
+      ],
+      "span": [
+        54004.6,
+        54006.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 60.4,
+      "status": "weak_appearance",
+      "rank": 193
+    },
+    {
+      "camera": "2-2",
+      "track": "104",
+      "track_ids": [
+        104
+      ],
+      "span": [
+        54005.2,
+        54012.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 54.2,
+      "status": "weak_appearance",
+      "rank": 194
+    },
+    {
+      "camera": "2-2",
+      "track": "106",
+      "track_ids": [
+        106
+      ],
+      "span": [
+        54005.2,
+        54029.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 37.4,
+      "status": "weak_appearance",
+      "rank": 195
+    },
+    {
+      "camera": "2-2",
+      "track": "122",
+      "track_ids": [
+        122
+      ],
+      "span": [
+        54009.0,
+        54012.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 54.0,
+      "status": "weak_appearance",
+      "rank": 196
+    },
+    {
+      "camera": "2-2",
+      "track": "124",
+      "track_ids": [
+        124
+      ],
+      "span": [
+        54009.2,
+        54027.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 38.6,
+      "status": "weak_appearance",
+      "rank": 197
+    },
+    {
+      "camera": "2-2",
+      "track": "143",
+      "track_ids": [
+        143
+      ],
+      "span": [
+        54013.2,
+        54018.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 48.4,
+      "status": "weak_appearance",
+      "rank": 198
+    },
+    {
+      "camera": "2-2",
+      "track": "154",
+      "track_ids": [
+        154
+      ],
+      "span": [
+        54014.6,
+        54017.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 48.8,
+      "status": "weak_appearance",
+      "rank": 199
+    },
+    {
+      "camera": "2-2",
+      "track": "178",
+      "track_ids": [
+        178
+      ],
+      "span": [
+        54017.8,
+        54023.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 42.6,
+      "status": "weak_appearance",
+      "rank": 200
+    },
+    {
+      "camera": "2-2",
+      "track": "179",
+      "track_ids": [
+        179
+      ],
+      "span": [
+        54017.8,
+        54022.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 43.6,
+      "status": "weak_appearance",
+      "rank": 201
+    },
+    {
+      "camera": "2-2",
+      "track": "185",
+      "track_ids": [
+        185
+      ],
+      "span": [
+        54019.4,
+        54021.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 45.2,
+      "status": "weak_appearance",
+      "rank": 202
+    },
+    {
+      "camera": "2-2",
+      "track": "196",
+      "track_ids": [
+        196
+      ],
+      "span": [
+        54024.2,
+        54029.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 36.6,
+      "status": "weak_appearance",
+      "rank": 203
+    },
+    {
+      "camera": "2-2",
+      "track": "209",
+      "track_ids": [
+        209
+      ],
+      "span": [
+        54028.4,
+        54033.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 33.2,
+      "status": "weak_appearance",
+      "rank": 204
+    },
+    {
+      "camera": "2-2",
+      "track": "214",
+      "track_ids": [
+        214
+      ],
+      "span": [
+        54028.8,
+        54070.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 205
+    },
+    {
+      "camera": "2-2",
+      "track": "229",
+      "track_ids": [
+        229
+      ],
+      "span": [
+        54032.6,
+        54039.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 27.4,
+      "status": "weak_appearance",
+      "rank": 206
+    },
+    {
+      "camera": "2-2",
+      "track": "233",
+      "track_ids": [
+        233
+      ],
+      "span": [
+        54032.8,
+        54045.2
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 21.2,
+      "status": "weak_appearance",
+      "rank": 207
+    },
+    {
+      "camera": "2-2",
+      "track": "244",
+      "track_ids": [
+        244
+      ],
+      "span": [
+        54034.0,
+        54051.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 15.0,
+      "status": "weak_appearance",
+      "rank": 208
+    },
+    {
+      "camera": "2-2",
+      "track": "247",
+      "track_ids": [
+        247
+      ],
+      "span": [
+        54034.6,
+        54039.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 27.4,
+      "status": "weak_appearance",
+      "rank": 209
+    },
+    {
+      "camera": "2-2",
+      "track": "275",
+      "track_ids": [
+        275
+      ],
+      "span": [
+        54038.2,
+        54041.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 25.0,
+      "status": "weak_appearance",
+      "rank": 210
+    },
+    {
+      "camera": "2-2",
+      "track": "280",
+      "track_ids": [
+        280
+      ],
+      "span": [
+        54038.8,
+        54049.4
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 17.0,
+      "status": "weak_appearance",
+      "rank": 211
+    },
+    {
+      "camera": "2-2",
+      "track": "322",
+      "track_ids": [
+        322
+      ],
+      "span": [
+        54043.0,
+        54047.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 19.4,
+      "status": "weak_appearance",
+      "rank": 212
+    },
+    {
+      "camera": "2-2",
+      "track": "340",
+      "track_ids": [
+        340
+      ],
+      "span": [
+        54045.4,
+        54047.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 18.6,
+      "status": "weak_appearance",
+      "rank": 213
+    },
+    {
+      "camera": "2-2",
+      "track": "351",
+      "track_ids": [
+        351
+      ],
+      "span": [
+        54046.8,
+        54070.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 214
+    },
+    {
+      "camera": "2-2",
+      "track": "368",
+      "track_ids": [
+        368
+      ],
+      "span": [
+        54048.2,
+        54050.0
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 16.4,
+      "status": "weak_appearance",
+      "rank": 215
+    },
+    {
+      "camera": "2-2",
+      "track": "378",
+      "track_ids": [
+        378
+      ],
+      "span": [
+        54049.2,
+        54058.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 7.6,
+      "status": "weak_appearance",
+      "rank": 216
+    },
+    {
+      "camera": "2-2",
+      "track": "388",
+      "track_ids": [
+        388
+      ],
+      "span": [
+        54051.2,
+        54053.8
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 12.6,
+      "status": "weak_appearance",
+      "rank": 217
+    },
+    {
+      "camera": "2-2",
+      "track": "403",
+      "track_ids": [
+        403
+      ],
+      "span": [
+        54054.4,
+        54060.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "sequential",
+      "overlap_seconds": 0.0,
+      "transition_gap_seconds": 5.8,
+      "status": "weak_appearance",
+      "rank": 218
+    },
+    {
+      "camera": "2-2",
+      "track": "426",
+      "track_ids": [
+        426
+      ],
+      "span": [
+        54059.4,
+        54070.6
+      ],
+      "retrieval_score": 0.0,
+      "supporting_frames": 0,
+      "relation": "overlapping",
+      "overlap_seconds": 2.8,
+      "transition_gap_seconds": null,
+      "status": "pending_time_calibration",
+      "rank": 219
+    }
+  ]
+}
