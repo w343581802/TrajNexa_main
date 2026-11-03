@@ -26,11 +26,26 @@ def _local(point, origin):
 
 
 def _rings(geometry):
+    """返回所有环（外环 + 内环）。孔洞用奇偶规则自然生效。"""
     if not geometry:
         return []
     polygons = ([geometry["coordinates"]] if geometry["type"] == "Polygon"
                 else geometry["coordinates"])
-    return [polygon[0] for polygon in polygons if polygon]
+    rings = []
+    for polygon in polygons:
+        if not polygon:
+            continue
+        rings.extend(ring for ring in polygon if ring)
+    return rings
+
+
+def _point_in_rings(pt, rings):
+    """奇偶规则：落在外环内、内环（孔洞）外才算内部。"""
+    inside = False
+    for ring in rings:
+        if _point_in_ring(pt, ring):
+            inside = not inside
+    return inside
 
 
 def _point_in_ring(pt, ring):
@@ -55,6 +70,14 @@ def _segment_distance(p, a, b):
     return math.hypot(p[0] - (ax + t * dx), p[1] - (ay + t * dy))
 
 
+def _on_boundary(pt, rings, eps=1e-9):
+    for ring in rings:
+        for i in range(len(ring) - 1):
+            if _segment_distance(pt, ring[i], ring[i + 1]) <= eps:
+                return True
+    return False
+
+
 def _segments_cross(a, b, c, d):
     def orient(p, q, r):
         return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
@@ -71,16 +94,21 @@ def fov_relation(geometry_a, geometry_b, origin=None):
     origin = origin or {"lon": rings_a[0][0][0], "lat": rings_a[0][0][1]}
     ra = [[_local({"lon": p[0], "lat": p[1]}, origin) for p in ring] for ring in rings_a]
     rb = [[_local({"lon": p[0], "lat": p[1]}, origin) for p in ring] for ring in rings_b]
+    touching = False
     for ring_a in ra:
         for ring_b in rb:
-            if any(_point_in_ring(pt, ring_b) for pt in ring_a):
+            if any(_point_in_rings(pt, rb) and not _on_boundary(pt, rb) for pt in ring_a):
                 return {"relation": "overlap", "distance_m": 0.0}
-            if any(_point_in_ring(pt, ring_a) for pt in ring_b):
+            if any(_point_in_rings(pt, ra) and not _on_boundary(pt, ra) for pt in ring_b):
                 return {"relation": "overlap", "distance_m": 0.0}
             for i in range(len(ring_a) - 1):
                 for j in range(len(ring_b) - 1):
                     if _segments_cross(ring_a[i], ring_a[i + 1], ring_b[j], ring_b[j + 1]):
                         return {"relation": "overlap", "distance_m": 0.0}
+                    if ring_a[i] == ring_b[j]:
+                        touching = True
+    if touching:
+        return {"relation": "touching", "distance_m": 0.0}
     best = float("inf")
     for ring_a in ra:
         for ring_b in rb:
@@ -93,24 +121,35 @@ def fov_relation(geometry_a, geometry_b, origin=None):
     return {"relation": "disjoint", "distance_m": round(best, 2)}
 
 
-def transit_window(distance_m, movement_mode, same_site=False, overlap=False):
-    """到达时间区间。距离取"区域到区域"，不是安装点间距。"""
+def transit_window(gap_m, movement_mode, same_site=False, overlap=False, max_seconds=90.0):
+    """到达时间：estimated 是优先搜索区间，search_max 是防漏检的搜索上界。
+
+    注意 estimated_max 只是"按最低速度估算"的软上界，
+    **不能**当作硬性截止：目标可能绕行、减速或停留。
+    """
     speed_min, speed_max = SPEED_RANGES.get(movement_mode, SPEED_RANGES["unknown"])
     if overlap:
         # 视域重叠只说明"可能同处一片区域"，不说明时刻；窗口必须放宽，
         # 否则会把真实观测裁掉（1-1 与 2-2 的 FOV 就重叠）。
-        return {"transit_min": 0.0, "transit_max": 20.0,
+        return {"estimated_min": 0.0, "estimated_max": 20.0, "search_max": 20.0,
                 "basis": "fov_overlap_window", "uncertainty": "overlap_duration_unverified"}
     if same_site:
-        return {"transit_min": SAME_SITE_TRANSFER_SECONDS[0],
-                "transit_max": SAME_SITE_TRANSFER_SECONDS[1],
+        return {"estimated_min": SAME_SITE_TRANSFER_SECONDS[0],
+                "estimated_max": SAME_SITE_TRANSFER_SECONDS[1],
+                "search_max": SAME_SITE_TRANSFER_SECONDS[1],
                 "basis": "same_site_pair", "uncertainty": "same_site_transfer_unverified"}
-    if distance_m is None:
-        return {"transit_min": 0.0, "transit_max": 90.0,
+    if gap_m is None:
+        return {"estimated_min": 0.0, "estimated_max": max_seconds,
+                "search_max": max_seconds,
                 "basis": "unknown_geometry", "uncertainty": "distance_unknown"}
-    return {"transit_min": round(distance_m / speed_max, 2),
-            "transit_max": round(distance_m / speed_min, 2),
-            "basis": "region_to_region_distance", "uncertainty": "speed_range_only"}
+    estimated_min = round(gap_m / speed_max, 2)
+    estimated_max = round(gap_m / speed_min, 2)
+    # 搜索上界不取 estimated_max：那会假设目标沿最短路线匀速直达
+    search_max = min(max(estimated_max * 2.0, 30.0), max_seconds)
+    return {"estimated_min": estimated_min, "estimated_max": estimated_max,
+            "search_max": round(search_max, 2),
+            "basis": "region_gap_plus_search_budget",
+            "uncertainty": "detour_and_dwell_not_modelled"}
 
 
 def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
@@ -123,30 +162,31 @@ def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
         if camera["map_camera_id"] == source_id:
             continue
         reason, uncertainty = [], []
-        relation = "unknown"
-        distance = None
+        relation, fov_gap = "unknown", None
         if state.get("possible_region") and (camera.get("fov") or {}).get("observation"):
             rel = fov_relation(state["possible_region"], camera["fov"]["observation"])
-            relation, distance = rel["relation"], rel["distance_m"]
-        elif source_point and camera.get("location"):
-            distance = round(haversine_m(source_point["location"], camera["location"]), 2)
-            relation = "camera_point_distance"
+            relation, fov_gap = rel["relation"], rel["distance_m"]
         if relation == "overlap":
             reason.append("fov_overlap")
             uncertainty.append("clock_offset_unknown_for_overlap")
-        elif relation == "disjoint":
+        elif relation in ("disjoint", "touching"):
             reason.append("reachable_non_overlap")
         else:
             reason.append("spatial_relation_unknown")
             uncertainty.append("insufficient_geometry")
-        # 同点位判定只看安装点间距；FOV 已重叠时不套用同杆转移时间
-        same_site = (distance is not None and distance <= fixed["same_site_max_m"]
+        # 同点位判断只用**安装点**距离；FOV 间隔只描述视域几何
+        installation = None
+        if source_point and source_point.get("location") and camera.get("location"):
+            installation = round(haversine_m(source_point["location"], camera["location"]), 2)
+        same_site = (installation is not None
+                     and installation <= fixed["same_site_max_m"]
                      and relation != "overlap")
-        window = transit_window(distance, state.get("movement_mode", "unknown"),
-                                same_site, overlap=(relation == "overlap"))
+        window = transit_window(fov_gap, state.get("movement_mode", "unknown"),
+                                same_site, overlap=(relation == "overlap"),
+                                max_seconds=fixed["max_seconds"])
         if same_site:
             reason.append("same_site_opposite_camera")
-        if distance is not None and distance > fixed["max_range_m"]:
+        if installation is not None and installation > fixed["max_range_m"]:
             uncertainty.append("beyond_configured_range")
         if (camera.get("fov") or {}).get("quality") != "calibrated":
             uncertainty.append("fov_not_field_verified")
@@ -154,11 +194,10 @@ def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
             uncertainty.append("spatial_revision_mismatch")
         if camera["map_camera_id"] in manual_links:
             reason.append("manual_link_confirmed")
-        travel_max = window["transit_max"]
-        if relation == "overlap" or (distance is not None and distance <= 60
-                                     and travel_max <= 20):
+        if relation == "overlap" or same_site or (
+                fov_gap is not None and fov_gap <= 60 and window["estimated_min"] <= 10):
             priority = "high"
-        elif distance is not None and distance <= 200:
+        elif fov_gap is not None and fov_gap <= 200:
             priority = "medium"
         else:
             priority = "low"
@@ -169,10 +208,13 @@ def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
             "display_name": camera.get("display_name"),
             "priority": priority,
             "spatial_relation": relation,
-            "distance_m": distance,
-            "same_site": same_site,
-            "transit_min": window["transit_min"],
-            "transit_max": window["transit_max"],
+            "installation_distance_m": installation,
+            "fov_gap_m": fov_gap,
+            "same_site_suspected": same_site,
+            "site_relation": "co_located_suspected" if same_site else "unknown",
+            "transit_min": window["estimated_min"],
+            "transit_max": window["estimated_max"],
+            "search_max": window["search_max"],
             "transit_basis": window["basis"],
             "reasons": reason,
             "uncertainties": uncertainty,
@@ -181,7 +223,7 @@ def plan_spatial_candidates(state, cameras, params=None, manual_links=()):
         })
     order = {"high": 0, "medium": 1, "low": 2}
     candidates.sort(key=lambda c: (order[c["priority"]],
-                                   c["distance_m"] if c["distance_m"] is not None else 1e9))
+                                   c["fov_gap_m"] if c["fov_gap_m"] is not None else 1e9))
     return candidates
 
 
@@ -219,12 +261,16 @@ def windows_for_candidates(state, candidates, params=None, direction="forward"):
     sign = 1 if direction == "forward" else -1
     plans = []
     for cand in candidates:
+        estimate = (t0 + cand["transit_min"] - u, t0 + cand["transit_max"] + u)
+        search = (t0 + cand["transit_min"] - u, t0 + cand["search_max"] + u)
+        if direction == "backward":
+            estimate = (t0 - cand["transit_max"] - u, t0 - cand["transit_min"] + u)
+            search = (t0 - cand["search_max"] - u, t0 - cand["transit_min"] + u)
         plans.append({
             "camera": cand["candidate_camera"],
             "mode": direction,
-            "window": (t0 + sign * cand["transit_min"] - u,
-                       t0 + sign * cand["transit_max"] + u) if sign > 0 else
-                      (t0 - cand["transit_max"] - u, t0 - cand["transit_min"] + u),
+            "window": search,
+            "estimated_window": estimate,
             "priority": cand["priority"],
             "reason": ",".join(cand["reasons"]),
             "uncertainties": cand["uncertainties"],

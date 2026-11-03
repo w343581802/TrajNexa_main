@@ -39,7 +39,8 @@ def test_same_site_opposite_cameras_never_get_zero_transit():
     b["fov"]["observation"] = _facing_b(110.210883, 25.257293)
     state = target_spatial_state(a, 54008.6, "electric_bicycle")
     cand = [c for c in plan_spatial_candidates(state, [a, b]) if c["candidate_camera"] == "2-1"][0]
-    assert cand["same_site"] is True
+    assert cand["same_site_suspected"] is True
+    assert cand["installation_distance_m"] < 5.0
     assert cand["transit_min"] > 0
     assert "same_site_opposite_camera" in cand["reasons"]
     assert cand["transit_basis"] == "same_site_pair"
@@ -65,10 +66,30 @@ def test_far_cameras_do_not_imply_speed_from_install_points():
 
 
 def test_transit_uses_region_distance_not_install_points():
-    assert transit_window(37.0, "electric_bicycle")["transit_min"] > 0
+    assert transit_window(37.0, "electric_bicycle")["estimated_min"] > 0
     far = transit_window(37.0, "electric_bicycle")
     near = transit_window(3.0, "electric_bicycle")
-    assert far["transit_max"] > near["transit_max"]
+    assert far["estimated_max"] > near["estimated_max"]
+
+
+def test_search_window_is_not_a_hard_cutoff_from_fov_gap():
+    window = transit_window(8.24, "electric_bicycle")
+    assert window["estimated_max"] == pytest.approx(8.24 / 3.5, abs=0.05)
+    assert window["search_max"] >= 30.0          # 不把最短路线估算当截止
+    assert window["search_max"] > window["estimated_max"]
+    assert window["uncertainty"] == "detour_and_dwell_not_modelled"
+
+
+def test_same_site_uses_installation_distance_not_fov_gap():
+    src = _cam("2-2", 110.210883, 25.257293, 331.0)
+    far_but_close_fov = _cam("71", 110.211600, 25.257900, 45.0)
+    src["fov"]["observation"] = _square(110.21090, 25.25733, 0.00020)
+    far_but_close_fov["fov"]["observation"] = _square(110.21095, 25.25738, 0.00020)
+    state = target_spatial_state(src, 54008.6)
+    cand = plan_spatial_candidates(state, [src, far_but_close_fov])[0]
+    assert cand["fov_gap_m"] < 5.0                  # 视域很近
+    assert cand["installation_distance_m"] > 50     # 安装点很远
+    assert cand["same_site_suspected"] is False     # 不能判为同点位
 
 
 # 场景 C：FOV 未经验证，不能静默排除
@@ -110,12 +131,52 @@ def test_per_camera_windows_differ_by_transit_time():
     near["fov"]["observation"] = _facing_b(110.210883, 25.257293)
     far["fov"]["observation"] = _square(110.21055, 25.25742, 0.0003)
     state = target_spatial_state(src, 54008.6)
-    plans = {p["camera"]: p["window"] for p in
+    plans = {p["camera"]: p for p in
              windows_for_candidates(state, plan_spatial_candidates(state, [src, near, far]))}
-    assert plans["2-1"][0] >= 54008.6        # 同杆转移 1 s 减去 1 s 裕量
-    assert plans["2-1"][1] > 54008.6 + 20    # 但不压缩成 0~1 s
-    assert plans["1-1"] != plans["2-1"]        # 不再统一窗口
-    assert plans["2-1"][1] - plans["2-1"][0] > plans["1-1"][1] - plans["1-1"][0]
+    assert plans["2-1"]["window"][0] >= 54008.6        # 同杆转移 1 s 减去 1 s 裕量
+    assert plans["2-1"]["window"][1] > 54008.6 + 20    # 但不压缩成 0~1 s
+    assert plans["1-1"]["window"] != plans["2-1"]["window"]
+    # 估算窗口与搜索窗口分开：搜索上界不被最短路线估算卡死
+    est = plans["2-1"]["estimated_window"]
+    assert plans["2-1"]["window"][1] >= est[1]
+    assert plans["1-1"]["window"][1] >= plans["1-1"]["estimated_window"][1]
+
+
+def test_camera_without_fov_downgrades_to_L0():
+    cam = _cam("8-8", 110.2100, 25.2570, 90.0, fov=False)
+    state = target_spatial_state(cam, 54000.0)
+    assert state["level"] == "L0"
+    assert state["possible_region"] is None
+    assert "fov_missing_region_unknown" in state["uncertainties"]
+
+
+def test_geometry_handles_holes_and_touching():
+    outer = [[110.0, 25.0], [110.002, 25.0], [110.002, 25.002], [110.0, 25.002], [110.0, 25.0]]
+    hole = [[110.0008, 25.0008], [110.0012, 25.0008], [110.0012, 25.0012], [110.0008, 25.0012],
+            [110.0008, 25.0008]]
+    donut = {"type": "Polygon", "coordinates": [outer, hole]}
+    center = {"type": "Polygon", "coordinates": [[[110.00085, 25.00085], [110.00115, 25.00085],
+                                                  [110.00115, 25.00115], [110.00085, 25.00115],
+                                                  [110.00085, 25.00085]]]}
+    # 中心小多边形落在孔洞里：不应判定为 overlap
+    assert fov_relation(donut, center)["relation"] == "disjoint"
+    # 贴边接触：distance 为 0，关系不得是 overlap
+    touch = {"type": "Polygon", "coordinates": [[[110.002, 25.0], [110.003, 25.0],
+                                                 [110.003, 25.001], [110.002, 25.001],
+                                                 [110.002, 25.0]]]}
+    rel = fov_relation(donut, touch)
+    assert rel["relation"] in ("touching", "disjoint")
+    assert rel["distance_m"] == 0.0
+
+
+def test_multipolygon_is_supported():
+    multi = {"type": "MultiPolygon", "coordinates": [
+        [[[110.0, 25.0], [110.001, 25.0], [110.001, 25.001], [110.0, 25.001], [110.0, 25.0]]],
+        [[[110.01, 25.01], [110.011, 25.01], [110.011, 25.011], [110.01, 25.011], [110.01, 25.01]]]]}
+    near = {"type": "Polygon", "coordinates": [[[110.0105, 25.0105], [110.0108, 25.0105],
+                                                [110.0108, 25.0108], [110.0105, 25.0108],
+                                                [110.0105, 25.0105]]]}
+    assert fov_relation(multi, near)["relation"] == "overlap"
 
 
 def test_overlap_detection_and_distance():

@@ -36,11 +36,13 @@ def target_spatial_state(camera, observed_at, movement_mode="electric_bicycle",
         raise ValueError("invalid_movement_mode")
     if not camera:
         raise ValueError("camera_required")
+    region = (camera.get("fov") or {}).get("observation")
     if camera.get("location") is None:
-        level, region = "L0", None
+        level = "L0"                      # 连安装点都没有
+    elif region is None:
+        level = "L0"                      # 有坐标但无可用 FOV，不得谎称 L1
     else:
         level = "L1"
-        region = (camera.get("fov") or {}).get("observation")
     uncertainties = ["intercamera_clock_offset_unknown"]
     if region is None:
         uncertainties.append("fov_missing_region_unknown")

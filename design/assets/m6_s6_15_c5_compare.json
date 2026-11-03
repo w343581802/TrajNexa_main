@@ -1,0 +1,55 @@
+[
+ {
+  "case": "A_manual_only",
+  "candidates": 1,
+  "rank_2_1": 1,
+  "top1_hit": true,
+  "top3_hit": true,
+  "top5_hit": true,
+  "batch_high": 1,
+  "batch_window_seconds": 8.0,
+  "batch_frames_5fps": 40,
+  "top5": [
+   "9000000000000058"
+  ],
+  "first_is_overlap": false
+ },
+ {
+  "case": "B_map_only",
+  "candidates": 30,
+  "rank_2_1": 2,
+  "top1_hit": false,
+  "top3_hit": true,
+  "top5_hit": true,
+  "batch_high": 4,
+  "batch_window_seconds": 105.1,
+  "batch_frames_5fps": 525,
+  "top5": [
+   "9000000000000037",
+   "9000000000000058",
+   "9000000000000039",
+   "9000000000000038",
+   "9000000000000031"
+  ],
+  "first_is_overlap": true
+ },
+ {
+  "case": "C_hybrid",
+  "candidates": 30,
+  "rank_2_1": 1,
+  "top1_hit": true,
+  "top3_hit": true,
+  "top5_hit": true,
+  "batch_high": 4,
+  "batch_window_seconds": 105.1,
+  "batch_frames_5fps": 525,
+  "top5": [
+   "9000000000000058",
+   "9000000000000037",
+   "9000000000000039",
+   "9000000000000038",
+   "9000000000000031"
+  ],
+  "first_is_overlap": false
+ }
+]
