@@ -1,0 +1,44 @@
+{
+ "schema": "m6-transition-graph/1",
+ "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+ "transitions": [
+  {
+   "transition_id": "a1b2c3d4e5f6",
+   "source_camera": "9000000000000057",
+   "target_camera": "9000000000000058",
+   "source_track": "111",
+   "target_track": "37",
+   "observed_gap_seconds": 4,
+   "clock_quality": "uncalibrated",
+   "movement_mode": "electric_bicycle",
+   "exit_side": "toward_top_left",
+   "review_state": "human_confirmed",
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "evidence": [
+    "tracks:2-2#111",
+    "tracks:2-1#37"
+   ],
+   "revoked_reason": null,
+   "depends_on": null
+  },
+  {
+   "transition_id": "0f9e8d7c6b5a",
+   "source_camera": "9000000000000058",
+   "target_camera": "9000000000000037",
+   "source_track": "37",
+   "target_track": "225",
+   "observed_gap_seconds": 3,
+   "clock_quality": "uncalibrated",
+   "movement_mode": "electric_bicycle",
+   "exit_side": null,
+   "review_state": "pending_review",
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "evidence": [
+    "tracks:2-1#37",
+    "tracks:1-1#225"
+   ],
+   "revoked_reason": null,
+   "depends_on": "a1b2c3d4e5f6"
+  }
+ ]
+}
