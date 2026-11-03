@@ -259,6 +259,22 @@ class CameraScheduler:
         self.cursor = self.actions.index(target) + 1
         return target
 
+    def boost_cameras(self, cameras, reason="quality_feedback_complementary_view"):
+        """把指定镜头的待查动作前移；不删除任何动作，也不改窗口。"""
+        cameras = set(cameras)
+        if not cameras:
+            return []
+        head, tail = [], []
+        for action in self.actions:
+            if action["camera"] in cameras and action["state"] in ("planned", "segmented"):
+                action["boosted"] = True
+                action["boost_reason"] = reason
+                head.append(action)
+            else:
+                tail.append(action)
+        self.actions = head + tail
+        return [a["action_id"] for a in head]
+
     def cancel_actions(self, action_ids, reason="derived_from_revoked"):
         """撤销上游后，把它派生的调度动作一起作废；不影响其它动作。"""
         cancelled = []

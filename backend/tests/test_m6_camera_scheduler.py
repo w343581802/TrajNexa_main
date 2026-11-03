@@ -245,3 +245,12 @@ def test_cancel_derived_actions_skips_them_without_touching_others():
     assert cancelled == ["1-1#1"]
     first = sched.next_action()
     assert first["action"]["camera"] == "2-1"
+
+
+def test_boost_cameras_moves_actions_forward_without_deleting():
+    sched = CameraScheduler(_preds(), recording_index=_available)
+    before = [a["camera"] for a in sched.actions]
+    boosted = sched.boost_cameras(["2-2"])
+    after = [a["camera"] for a in sched.actions]
+    assert boosted and after[0] == "2-2"
+    assert sorted(before) == sorted(after)

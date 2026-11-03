@@ -40,7 +40,8 @@ def _ranked(pool):
 
 def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                 review_events=(), evidence_root=None, max_actions=80,
-                segment_seconds=6.0, snapshot=None, max_decoded_frames=10 ** 6):
+                segment_seconds=6.0, snapshot=None, max_decoded_frames=10 ** 6,
+                on_window=None):
     """anchor 只给 A；B 的镜头、时间与轨迹全部由运行中的真实分析产生。"""
     labels = dict(anchor["camera_ids"])
     uuids = dict(anchor.get("camera_uuids") or {})
@@ -85,6 +86,8 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                           for candidate in result["target_candidates"]]
         pool.extend(window_entries)
         session.observe(window_entries, from_anchor_id=anchor_id)
+        if on_window:
+            on_window(scheduler, name, result, window)
         if state == "budget_exhausted":
             session.budget_exhausted()
         steps.append({"camera": name, "scheduled_window": list(window),

@@ -23,7 +23,10 @@ from app.m6_target_reference import extract_reference  # noqa: E402
 from app.m6_target_spatial import target_spatial_state  # noqa: E402
 from app.m6_time_map import frame_time_map, time_at  # noqa: E402
 from app.m6_truth_registry import starting_observation  # noqa: E402
+from app.m6_observer_batch import select_batch  # noqa: E402
 from app.m6_window_analysis import analyze_window  # noqa: E402
+from app.m6_view_quality import DEFAULT_PARAMS as QUALITY_DEFAULTS  # noqa: E402
+from app.m6_view_quality import evaluate_target  # noqa: E402
 
 
 def _load_maps(path):
@@ -68,6 +71,9 @@ def main():
     parser.add_argument("--bindings", default="/srv/app/config/m6_camera_bindings.json")
     parser.add_argument("--review-events", default=None)
     parser.add_argument("--segment-seconds", type=float, default=6.0)
+    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--quality-mode", default="off",
+                        choices=["off", "observe_only", "prioritize", "verify_all"])
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
@@ -146,6 +152,48 @@ def main():
                               osd_anchor_seconds=time_map["anchor_seconds"],
                               camera=name, window_id=window_id)
 
+    quality_by_camera = {}
+    batches = []
+    quality_state = {"ms": 0.0, "mode": args.quality_mode}
+
+    def observe_quality(sched, name, result, window):
+        candidates = result.get("target_candidates") or []
+        if not candidates or args.quality_mode == "off":
+            return
+        track = next((t for t in (result.get("tracks") or [])
+                      if t["track_id"] == candidates[0]["track_id"]), None)
+        if track is None:
+            return
+        started_q = time.time()
+        samples = []
+        for obs in track["observations"][:5]:
+            image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, int(obs["frame_id"]) + 1))
+            if image is not None:
+                samples.append({"image": image, "bbox": obs["bbox"]})
+        quality = evaluate_target(samples, {"mode": args.quality_mode,
+                                            "enabled": args.quality_mode != "off"})
+        quality["cost_ms"] = round((time.time() - started_q) * 1000.0, 1)
+        quality_state["ms"] += quality["cost_ms"]
+        quality_by_camera[name] = quality
+        def _win(action):
+            return action.get("estimated_window") or action.get("search_window") or (0, 0)
+        peers = [{"camera": camera_ids.get(a["camera"], a["camera"]), "window": _win(a),
+                  "selected": True}
+                 for a in sched.actions
+                 if a["camera"] != name and a["state"] in ("planned", "segmented")
+                 and camera_ids.get(a["camera"], a["camera"])
+                 and _win(a)[0] <= window[1] and _win(a)[1] >= window[0]]
+        batch = select_batch([{"camera": name, "window": window, "selected": True}] + peers,
+                             batch_size=args.batch_size)
+        batches.append({"batch_id": batch["batch_id"], "lead": name,
+                        "members": [m["camera"] for m in batch["members"]],
+                        "windows": [m["window"] for m in batch["members"]]})
+        if args.quality_mode in ("prioritize", "verify_all") and quality["band"] == "low":
+            others = [a["camera"] for a in sched.actions
+                      if a["camera"] != name and a["state"] in ("planned", "segmented")]
+            sched.boost_cameras(others)
+            quality["boosted"] = others
+
     def score(name, window):
         scored = []
         for track in (window.get("tracks") or [])[:25]:
@@ -172,7 +220,7 @@ def main():
     result = run_one_hop(anchor=anchor, time_maps=maps, predictions=predictions,
                          analyze=analyze, score=score, spatial=spatial,
                          review_events=review_events, max_actions=80,
-                         segment_seconds=args.segment_seconds)
+                         segment_seconds=args.segment_seconds, on_window=observe_quality)
     payload = {"schema": "m6-one-hop-chain/3", "exploratory": True,
                "binding_status": anchor["binding_status"],
                "clock_quality": "uncalibrated",
@@ -187,6 +235,11 @@ def main():
                "session": result["session"],
                "review": result["review"], "profile": result["profile"],
                "next_round": result["next_round"], "ledger": result["ledger"],
+               "quality": {"mode": args.quality_mode,
+                           "cameras": quality_by_camera,
+                           "cost_ms": round(quality_state["ms"], 1)},
+               "batches": {"count": len(batches), "items": batches,
+                           "cross_camera_identity_merged": False},
                "elapsed_seconds": round(time.time() - started, 1)}
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: payload[k] for k in ("anchor", "reference", "hop", "review",
