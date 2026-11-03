@@ -1,83 +1,121 @@
-"""M6-S6：跨摄像头候选比对（不新增模型）。
+"""M6-S6-2：跨摄像头时空判定（三态时间模型 + 同步帧配对）。
 
-职责边界：
+与 S6 首轮的差别：
 
-- 只拿已抽好的帧与已生成的单摄像头轨迹做比对，不训练、不改库；
-- 跨镜头结论必须同时满足**外观证据**与**时空证据**，两者缺一只能给候选；
-- 时间对齐用每台摄像头标定的 OSD 偏移，不能用"文件名起始 + 帧号"直接当墙钟。
+1. **时间关系显式化**：分别给出 `overlap_seconds`（实际重叠时长）与
+   `transition_gap_seconds`（先后出现的时间间隔），不再用"负 gap"当重叠秒数；
+2. **未知不等于错误**：视野重叠未确认、时钟未校准，输出 pending 状态而不是排除；
+3. **只有明确矛盾才排除**：确认两路视野不可能同时看到同一目标时才 excluded；
+4. **同步帧一对一配对**：同一帧不能重复参与多对，避免虚增支撑证据。
 
-时空规则基于一个常识：同一个人在 T 秒内不可能同时出现在相距 50 m 的两个镜头里，
-但也也不会瞬间移动——因此候选时间差必须落在 [min_travel, max_travel] 区间内。
+身份结论只到候选级（`overlap_match_candidate` / `transition_candidate`），
+不输出"同一人已确认"。
 """
 from __future__ import annotations
 
 DEFAULT_CROSS_PARAMS = {
-    "min_travel_seconds": 2.0,
-    "max_travel_seconds": 180.0,
     "min_supporting_frames": 2,
     "weak_cosine": 0.60,
+    "min_travel_seconds": 2.0,
+    "max_travel_seconds": 180.0,
+    "sync_tolerance_seconds": 1.0,
 }
 
 
-def wall_clock(track_start, offset_seconds, at_seconds):
-    """轨迹内时刻 → 墙钟秒（相对当天 0 点），offset 为 OSD 与文件起始时间的标定差。"""
-    return track_start + offset_seconds + at_seconds
+def clock_record(camera_id, file_start, offset_seconds, offset_uncertainty_seconds,
+                 clock_source="osd_manual", calibration_status="provisional"):
+    """每路摄像头的校时记录：不填不确定度就明确写 null。"""
+    return {"camera_id": camera_id, "file_start_seconds": file_start,
+            "clock_source": clock_source, "offset_seconds": offset_seconds,
+            "offset_uncertainty_seconds": offset_uncertainty_seconds,
+            "calibration_status": calibration_status}
 
 
-def temporal_gate(anchor_span, candidate_span, params=None):
-    """两个轨迹的时间区间是否与"同一人移动过去"相容。
+def to_wall(clock, seconds_in_track):
+    return clock["file_start_seconds"] + clock["offset_seconds"] + seconds_in_track
 
-    anchor_span / candidate_span: (start, end) 墙钟秒。
-    返回 {compatible, gap_seconds, reason}：gap 为两区间最近边界之差（可正可负）。
-    """
-    params = dict(DEFAULT_CROSS_PARAMS, **(params or {}))
+
+def temporal_relation(anchor_span, candidate_span):
+    """返回时间关系的显式分解，不用负号混淆"重叠"与"间隔"。"""
     a_start, a_end = anchor_span
     c_start, c_end = candidate_span
+    overlap = min(a_end, c_end) - max(a_start, c_start)
+    if overlap > 0:
+        return {"relation": "overlapping",
+                "overlap_seconds": round(overlap, 2),
+                "transition_gap_seconds": None}
     gap = max(c_start - a_end, a_start - c_end)
-    if gap < 0:
-        # 时间重叠：可能同框也可能"同时在两个镜头"，需要更细的校验，先标需求解
-        return {"compatible": False, "gap_seconds": round(gap, 2),
-                "reason": "time_overlap_needs_frame_level_check"}
-    if gap < params["min_travel_seconds"]:
-        return {"compatible": False, "gap_seconds": round(gap, 2),
-                "reason": "too_close_to_be_another_camera"}
-    if gap > params["max_travel_seconds"]:
-        return {"compatible": False, "gap_seconds": round(gap, 2),
-                "reason": "too_far_to_be_same_person"}
-    return {"compatible": True, "gap_seconds": round(gap, 2), "reason": "ok"}
+    direction = "anchor_first" if c_start >= a_end else "candidate_first"
+    return {"relation": "sequential",
+            "overlap_seconds": 0.0,
+            "transition_gap_seconds": round(gap, 2),
+            "direction": direction}
 
 
-def cross_camera_verdict(appearance, temporal, params=None):
-    """把外观与时空证据合成一个明确状态，不替人下身份结论。"""
+def cross_status(relation, appearance, spatial=None, params=None):
+    """把时间关系、外观证据、空间先验合成状态；未知一律 pending，不排除。"""
     params = dict(DEFAULT_CROSS_PARAMS, **(params or {}))
+    spatial = spatial or {}
     appearance_ok = (appearance.get("score", 0.0) >= params["weak_cosine"]
                      and appearance.get("supporting_candidate_frames", 0)
                      >= params["min_supporting_frames"])
-    if not temporal.get("compatible"):
-        status = "rejected_by_time"
-    elif not appearance_ok:
-        status = "weak_appearance"
-    elif appearance.get("conflict"):
-        status = "excluded_by_evidence"
+
+    if appearance.get("calibration_status") == "uncalibrated":
+        status = "pending_time_calibration"
+    elif relation["relation"] == "overlapping":
+        if spatial.get("overlap_confirmed") is False:
+            status = "excluded_by_spatiotemporal_evidence"
+        elif spatial.get("overlap_confirmed") is None:
+            status = "pending_spatial_verification"
+        elif not appearance_ok:
+            status = "weak_appearance"
+        else:
+            status = "overlap_match_candidate"
     else:
-        status = "cross_camera_candidate"
-    return {"status": status, "appearance_ok": appearance_ok,
-            "temporal_ok": bool(temporal.get("compatible")),
-            "gap_seconds": temporal.get("gap_seconds")}
+        gap = relation["transition_gap_seconds"]
+        if gap is None or gap < params["min_travel_seconds"]:
+            status = "pending_transition_check"
+        elif gap > params["max_travel_seconds"]:
+            status = "rejected_by_travel_time"
+        elif not appearance_ok:
+            status = "weak_appearance"
+        else:
+            status = "transition_candidate"
+    return {"status": status, "appearance_ok": appearance_ok}
 
 
-def rank_cross_candidates(anchor_span, candidates, params=None):
-    """候选按外观分排序，同时标注时空判定结果；不删除被时间否决的候选。"""
-    params = dict(DEFAULT_CROSS_PARAMS, **(params or {}))
-    ranked = []
-    for item in candidates:
-        gate = temporal_gate(anchor_span, item["span"], params)
-        verdict = cross_camera_verdict(item["appearance"], gate, params)
-        ranked.append({"camera": item["camera"], "track": item["track"],
-                       "score": round(float(item["appearance"].get("score", 0.0)), 4),
-                       "supporting_frames": item["appearance"].get("supporting_candidate_frames", 0),
-                       "span": item["span"], **gate, **verdict})
-    ranked.sort(key=lambda r: -r["score"])
-    for index, item in enumerate(ranked):
-        item["rank"] = index + 1
-    return ranked
+def pair_by_time(anchor_items, candidate_items, tolerance_seconds=1.0):
+    """按墙钟时间做一对一配对：每帧最多用一次，避免重复计入证据。
+
+    items: [(wall_seconds, payload)]
+    """
+    used = set()
+    pairs = []
+    for a_time, a_payload in sorted(anchor_items):
+        best = None
+        for index, (c_time, c_payload) in enumerate(candidate_items):
+            if index in used:
+                continue
+            delta = abs(a_time - c_time)
+            if delta > tolerance_seconds:
+                continue
+            if best is None or delta < best[0]:
+                best = (delta, index, c_time, c_payload)
+        if best is not None:
+            used.add(best[1])
+            pairs.append({"anchor_time": a_time, "candidate_time": best[2],
+                          "delta_seconds": round(best[0], 3),
+                          "anchor": a_payload, "candidate": best[3]})
+    return pairs
+
+
+def summarise_pairs(pairs, cosines):
+    """同步帧相似度分布，保留原始帧证据。"""
+    if not cosines:
+        return {"paired_frames": len(pairs), "median_cosine": None,
+                "min_cosine": None, "max_cosine": None}
+    ordered = sorted(cosines)
+    return {"paired_frames": len(pairs),
+            "median_cosine": round(ordered[len(ordered) // 2], 3),
+            "min_cosine": round(ordered[0], 3),
+            "max_cosine": round(ordered[-1], 3)}
