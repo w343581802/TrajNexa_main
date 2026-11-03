@@ -1,0 +1,80 @@
+[
+ {
+  "mode": "batch",
+  "found": "9000000000000058",
+  "decoded": 215,
+  "segments": 2,
+  "visited": 2,
+  "planned_all": 244,
+  "states": [
+   [
+    "0037",
+    "detection_missed"
+   ],
+   [
+    "0058",
+    "needs_review"
+   ],
+   [
+    "0039",
+    "recording_unavailable"
+   ],
+   [
+    "0038",
+    "recording_unavailable"
+   ]
+  ]
+ },
+ {
+  "mode": "serial",
+  "found": "9000000000000058",
+  "decoded": 215,
+  "segments": 2,
+  "visited": 2,
+  "planned_all": 244,
+  "states": [
+   [
+    "0037",
+    "detection_missed"
+   ],
+   [
+    "0058",
+    "needs_review"
+   ],
+   [
+    "0039",
+    "planned"
+   ],
+   [
+    "0038",
+    "planned"
+   ]
+  ]
+ },
+ {
+  "mode": "segmented",
+  "found": "9000000000000058",
+  "decoded": 140,
+  "segments": 5,
+  "visited": 2,
+  "planned_all": 244,
+  "states": [
+   [
+    "0037",
+    "detection_missed"
+   ],
+   [
+    "0058",
+    "needs_review"
+   ],
+   [
+    "0039",
+    "planned"
+   ],
+   [
+    "0038",
+    "planned"
+   ]
+  ]
+ }
+]
