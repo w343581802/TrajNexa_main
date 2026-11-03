@@ -12,6 +12,7 @@ import hashlib
 import math
 
 from .m6_spatial_planner import _local, _point_in_rings, _rings, fov_relation
+from .m6_view_quality import DEFAULT_PARAMS as QUALITY_DEFAULTS, rank_cameras
 
 RELATION_RANK = {"contains_region": 4, "partial_overlap": 3, "inside_region": 2,
                  "disjoint": 1, "unknown": 0}
@@ -85,7 +86,8 @@ def coverage(camera, region_geometry):
             "region_in_fov": region_in_fov, "fov_in_region": fov_in_region,
             "reason": None}
 
-def group_observers(region, cameras, windows=None, max_observers=3, quality_prior=None):
+def group_observers(region, cameras, windows=None, max_observers=3, quality_prior=None,
+                    quality_by_camera=None, quality_params=None):
     """把候选镜头分成"能看同一区域"的组；同组内按覆盖程度排序取前 N。"""
     windows = windows or {}
     quality_prior = quality_prior or {}
@@ -107,6 +109,15 @@ def group_observers(region, cameras, windows=None, max_observers=3, quality_prio
     members.sort(key=lambda m: (m["coverage"]["region_in_fov"] or 0,
                                 RELATION_RANK.get(m["coverage"]["relation"], 0),
                                 (m["static_prior"] or 0)), reverse=True)
+    quality_params = {**QUALITY_DEFAULTS, **(quality_params or {})}
+    if quality_by_camera is not None:
+        rank_cameras(members, quality_by_camera, quality_params)
+        if quality_params["mode"] == "verify_all":
+            max_observers = len(members)
+        elif quality_params["mode"] == "prioritize":
+            quality_order = {"high": 3, "medium": 2, "unknown": 1, "low": 0}
+            members.sort(key=lambda m: (quality_order.get(m["quality"]["band"], 1),
+                                        m["coverage"]["region_in_fov"] or 0), reverse=True)
     for index, member in enumerate(members):
         member["rank"] = index + 1
         member["selected"] = index < max_observers
