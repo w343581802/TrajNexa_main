@@ -1,0 +1,19 @@
+{
+  "target_type": "人",
+  "transport_mode": "电动车",
+  "attributes": [
+    {
+      "name": "upper_clothing_color|upper_clothing_type|lower_clothing|vehicle_color|vehicle_type|helmet|carried_items",
+      "value": "紫色上衣，黑色电动车，无头盔，无携带物品",
+      "visibility": "clear",
+      "region": [
+        0.48,
+        0.18,
+        0.98,
+        0.85
+      ]
+    }
+  ],
+  "unknown_features": [],
+  "evidence_notes": "图像为路口监控裁剪图，从背面/侧后方视角拍摄。人骑着电动车，穿着紫色上衣，电动车为黑色。背景中可见其他车辆和自行车，但模糊不清。"
+}
