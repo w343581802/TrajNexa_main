@@ -177,3 +177,63 @@ def test_defer_and_resume_keep_state():
     assert sched.next_action() is None
     sched.resume()
     assert sched.actions[0]["state"] == "deferred"
+
+
+def _two_candidates():
+    return {"status": "ok", "tracks": [], "cost": {"frames_decoded": 4},
+            "target_candidates": [{"track_id": "t1", "retrieval_score": 0.72,
+                                   "margin_top1_top2": 0.2, "state": "candidate"},
+                                  {"track_id": "t2", "retrieval_score": 0.66,
+                                   "margin_top1_top2": 0.12, "state": "candidate"}]}
+
+
+def test_reject_one_candidate_keeps_the_other_pending():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    sched.next_action()
+    sched.submit(_two_candidates())
+    sched.reject(candidate_id="t1", reason="wrong_person")
+    target = sched._find(None)
+    assert target["review_state"] == "pending"
+    assert target["candidates"] == ["t2"]
+    assert target["state"] == "needs_review"
+
+
+def test_reject_last_candidate_resumes_window():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    sched.next_action()
+    sched.submit(_two_candidates())
+    sched.reject(candidate_id="t1")
+    sched.reject(candidate_id="t2")
+    target = sched._find(None)
+    assert target is None
+    follow = sched.next_action()
+    assert follow is not None
+
+
+def test_confirm_only_the_named_candidate():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    sched.next_action()
+    sched.submit(_two_candidates())
+    target = sched.confirm_candidate("t2", evidence=["frame:x.jpg"])
+    assert target["confirmed_track"] == "t2"
+    assert target["state"] == "hop_confirmed"
+
+
+def test_snapshot_and_restore_do_not_reanalyse_done_windows():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    first = sched.next_action()
+    sched.submit(_with_target())
+    sched.reject(candidate_id="w:37")
+    snapshot = sched.snapshot()
+    restored = CameraScheduler.restore(snapshot, recording_index=_available)
+    nxt = restored.next_action()
+    assert nxt is None or nxt["window"][0] >= first["window"][0] + 8.0
+
+
+def test_partial_recording_only_analyses_available_range():
+    def partial(camera, start, end):
+        return {"available": True, "ranges": [[54008.0, 54012.0]]}
+
+    sched = CameraScheduler(_preds(), recording_index=partial, params={"segment_seconds": 10.0})
+    action = sched.next_action()
+    assert action["window"] == (54008.0, 54012.0)

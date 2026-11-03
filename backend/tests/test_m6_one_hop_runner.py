@@ -56,7 +56,7 @@ def test_hop_time_comes_from_detected_frames_not_constants():
     # 2-1 锚点 53998：窗口 54010 起第 3 帧 = 63 帧 → 54010.6，73 帧 → 54012.6
     assert hop["observed_start"] == pytest.approx(54010.6, abs=0.01)
     assert hop["observed_end"] == pytest.approx(54012.6, abs=0.01)
-    assert result["next_round"]["source_time"] == hop["observed_end"]
+    assert result["next_round"]["result"]["source_time"] == hop["observed_end"]
 
 
 def test_anchor_window_drives_search_without_b_constants():
@@ -67,7 +67,8 @@ def test_anchor_window_drives_search_without_b_constants():
                        predictions=_predictions(54024.0), analyze=_analyze, score=_score,
                        spatial=_spatial)
     assert late["hop"]["observed_start"] - early["hop"]["observed_start"] == pytest.approx(14.0)
-    assert late["next_round"]["source_time"] != early["next_round"]["source_time"]
+    assert (late["next_round"]["result"]["source_time"]
+            != early["next_round"]["result"]["source_time"])
 
 
 def test_no_review_keeps_profile_at_v1():
@@ -86,6 +87,7 @@ def test_simulated_confirmation_never_advances_to_v2():
                                          "reviewer": "sim-op", "reviewed_at": "t",
                                          "evidence": []}])
     assert result["review"]["decisions"][0]["status"] == "simulated_only"
+    assert result["next_round"]["kind"] == "hypothesis_next_round"
     assert result["profile"]["version"] == "V1"
     assert result["review"]["profile_advanced"] is False
 
@@ -104,6 +106,7 @@ def test_human_confirmation_with_evidence_advances_to_v2(tmp_path):
     assert result["review"]["decisions"][0]["status"] == "confirmed"
     assert result["profile"]["version"] == "V2"
     assert result["review"]["profile_advanced"] is True
+    assert result["next_round"]["kind"] == "confirmed_next_round"
 
 
 def test_starting_observation_requires_confirmed_anchor():
@@ -166,3 +169,45 @@ def test_weak_candidate_is_kept_and_outranks_later_strong_candidate():
     assert pool[0]["track_id"].startswith("weak")      # 高分弱候选不会被后来的强候选顶掉
     assert pool[0]["state"] == "weak_candidate"
     assert result["hop"]["track_id"].startswith("weak")
+
+
+def test_review_of_other_candidate_does_not_confirm_hop():
+    def score(label, window):
+        return [{"track_id": "t1", "retrieval_score": 0.72},
+                {"track_id": "t2", "retrieval_score": 0.66},
+                {"track_id": "t3", "retrieval_score": 0.51}]
+
+    result = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=_predictions(), analyze=_analyze, score=score,
+                         spatial=_spatial,
+                         review_events=[{"event_type": "confirm", "source": "human_review",
+                                         "candidate_id": "2-1/not-a-pool-candidate",
+                                         "reviewer": "case-owner",
+                                         "reviewed_at": "2026-11-03T12:00:00Z",
+                                         "evidence": ["frame:2-1/0047.jpg"]}])
+    assert result["profile"]["version"] == "V1"
+    assert result["review"]["decisions"][0]["status"] == "rejected"
+
+
+def test_no_usable_candidate_ends_unresolved():
+    def empty_score(label, window):
+        return [{"track_id": "t1", "retrieval_score": None}]
+
+    result = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=_predictions(), analyze=_analyze, score=empty_score,
+                         spatial=_spatial)
+    assert result["hop"] is None
+    assert result["session"]["status"] == "unresolved"
+    assert result["profile"]["version"] == "V1"
+
+
+def test_resume_from_snapshot_skips_completed_windows():
+    first = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                        predictions=_predictions(), analyze=_analyze, score=_score,
+                        spatial=_spatial)
+    state = first["scheduler_state"]
+    second = run_one_hop(anchor=_anchor(), time_maps=_time_maps(), predictions=_predictions(),
+                         analyze=_analyze, score=_score, spatial=_spatial, snapshot=state)
+    done = [step["scheduled_window"] for step in first["steps"]]
+    again = [step["scheduled_window"] for step in second["steps"]]
+    assert not (set(map(tuple, again)) & set(map(tuple, done))) or again == []

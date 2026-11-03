@@ -33,6 +33,18 @@ def _frames(seconds, fps):
     return max(1, int(round(seconds * fps)))
 
 
+def _clip_to_ranges(start, end, ranges):
+    """只分析确实有录像的区间；返回 None 表示这段完全没有可用录像。"""
+    best = None
+    for r_start, r_end in ranges:
+        lo, hi = max(start, r_start), min(end, r_end)
+        if hi - lo <= 0:
+            continue
+        if best is None or hi - lo > best[1] - best[0]:
+            best = (lo, hi)
+    return best
+
+
 def build_actions(predictions, params=None):
     """把预测候选变成可调度的镜头动作，保留排名与两个时间窗。"""
     fixed = {**DEFAULT_SCHEDULER_PARAMS, **(params or {})}
@@ -114,6 +126,7 @@ class CameraScheduler:
                     action["reason"] = info.get("reason", "recording_unknown")
                     self.cursor += 1
                     continue
+                action["available_ranges"] = info.get("ranges")
                 self.ledger["cameras_visited"] += 1
             step = (action["estimated_window"][1] - action["estimated_window"][0]
                     if self.mode == "serial" else self.params["segment_seconds"])
@@ -121,6 +134,14 @@ class CameraScheduler:
             end = min(action["cursor"] + step, action["estimated_window"][1])
             if self.mode == "batch":
                 end = action["search_window"][1]
+            ranges = action.get("available_ranges")
+            if ranges:
+                clipped = _clip_to_ranges(start, end, ranges)
+                if clipped is None:
+                    action["cursor"] = end
+                    action["partial_recording"] = True
+                    continue
+                start, end = clipped
             if start >= end:
                 action["state"] = "no_valid_observation"
                 self.cursor += 1
@@ -197,18 +218,70 @@ class CameraScheduler:
             return True
         return False
 
-    def reject(self, action_id=None, reason="human_rejected"):
-        """人工否决候选：恢复该镜头未处理区间，继续其他镜头。"""
+    def reject(self, action_id=None, candidate_id=None, reason="human_rejected"):
+        """否决审核：给了 candidate_id 就只否这一条，同窗口其他候选继续待审。"""
         target = self._find(action_id)
         if target is None or target["state"] != "needs_review":
             raise ValueError("no_candidate_to_reject")
-        target["rejected_tracks"].extend(target.get("candidates") or [])
+        remaining = list(target.get("candidates") or [])
+        if candidate_id is not None:
+            if candidate_id not in remaining:
+                raise ValueError("candidate_not_pending_review")
+            target["rejected_tracks"].append(candidate_id)
+            target["candidates"] = [c for c in remaining if c != candidate_id]
+            target["reason"] = reason
+            if target["candidates"]:
+                target["review_state"] = "pending"
+                self.stopped = None
+                return target
+        else:
+            target["rejected_tracks"].extend(remaining)
+            target["candidates"] = []
         target["review_state"] = "rejected"
         target["reason"] = reason
         target["state"] = "running" if self._can_advance(target) else "no_valid_observation"
         self.stopped = None
         self.cursor = self.actions.index(target)
         return target
+
+    def confirm_candidate(self, candidate_id, action_id=None, evidence=None):
+        """只确认指定候选；同窗口其他候选保持候选态，不被顺带确认。"""
+        target = self._find(action_id)
+        if target is None or target["state"] != "needs_review":
+            raise ValueError("no_candidate_to_confirm")
+        if candidate_id not in (target.get("candidates") or []):
+            raise ValueError("candidate_not_pending_review")
+        target["confirmed_track"] = candidate_id
+        target["review_state"] = "confirmed"
+        target["state"] = "hop_confirmed"
+        target["evidence_refs"] = list(evidence or [])
+        self.stopped = None
+        self.cursor = self.actions.index(target) + 1
+        return target
+
+    def snapshot(self):
+        """可持久化的任务进度：镜头游标、预算、已处理窗口与审核态。"""
+        return {"mode": self.mode, "cursor": self.cursor, "stopped": self.stopped,
+                "ledger": dict(self.ledger),
+                "actions": [dict(action) for action in self.actions]}
+
+    @classmethod
+    def restore(cls, snapshot, recording_index=None, predictions=None, params=None):
+        if predictions is None:
+            predictions = [{"camera": action["camera"], "priority": action["priority"],
+                            "estimated_window": action["estimated_window"],
+                            "search_window": action["search_window"],
+                            "uncertainties": action.get("uncertainties", []),
+                            "exploratory": action.get("exploratory", True)}
+                           for action in snapshot["actions"]]
+        session = cls(predictions, recording_index=recording_index, params=params,
+                      mode=snapshot.get("mode", "segmented"))
+        session.actions = [dict(action) for action in snapshot["actions"]]
+        session.cursor = snapshot["cursor"]
+        session.stopped = snapshot.get("stopped")
+        session.ledger = dict(snapshot["ledger"])
+        session.current = None
+        return session
 
     def _find(self, action_id):
         for action in self.actions:

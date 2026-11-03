@@ -184,6 +184,7 @@ def main():
                                    for c in stage.get("candidates", [])],
                "anchor": anchor, "steps": result["steps"], "hop": result["hop"],
                "candidate_pool": result["candidate_pool"],
+               "session": result["session"],
                "review": result["review"], "profile": result["profile"],
                "next_round": result["next_round"], "ledger": result["ledger"],
                "elapsed_seconds": round(time.time() - started, 1)}
