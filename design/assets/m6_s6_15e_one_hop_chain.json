@@ -1,12 +1,20 @@
 {
- "schema": "m6-one-hop-chain/1",
+ "schema": "m6-one-hop-chain/2",
  "exploratory": true,
  "binding_status": "pending_human_review",
  "clock_quality": "uncalibrated",
  "steps": [
   {
    "camera": "1-1",
-   "window": [
+   "scheduled_window": [
+    54007.6,
+    54013.6
+   ],
+   "actual_frame_span": [
+    53,
+    83
+   ],
+   "actual_seconds": [
     54007.6,
     54013.6
    ],
@@ -31,7 +39,15 @@
   },
   {
    "camera": "1-1",
-   "window": [
+   "scheduled_window": [
+    54013.6,
+    54019.6
+   ],
+   "actual_frame_span": [
+    83,
+    113
+   ],
+   "actual_seconds": [
     54013.6,
     54019.6
    ],
@@ -56,7 +72,15 @@
   },
   {
    "camera": "1-1",
-   "window": [
+   "scheduled_window": [
+    54019.6,
+    54025.6
+   ],
+   "actual_frame_span": [
+    113,
+    143
+   ],
+   "actual_seconds": [
     54019.6,
     54025.6
    ],
@@ -81,7 +105,15 @@
   },
   {
    "camera": "1-1",
-   "window": [
+   "scheduled_window": [
+    54025.6,
+    54029.6
+   ],
+   "actual_frame_span": [
+    143,
+    163
+   ],
+   "actual_seconds": [
     54025.6,
     54029.6
    ],
@@ -106,16 +138,24 @@
   },
   {
    "camera": "2-1",
-   "window": [
+   "scheduled_window": [
     54008.6,
     54014.6
    ],
-   "tracks": 33,
+   "actual_frame_span": [
+    53,
+    83
+   ],
+   "actual_seconds": [
+    54008.6,
+    54014.6
+   ],
+   "tracks": 30,
    "candidates": [
     {
-     "track_id": "2-1@54008.6:20",
+     "track_id": "2-1@54008.6:21",
      "retrieval_score": 0.705,
-     "margin_top1_top2": 0.154,
+     "margin_top1_top2": 0.161,
      "state": "candidate",
      "supports": [
       "appearance_similarity"
@@ -132,18 +172,45 @@
  ],
  "hop": {
   "camera": "2-1",
-  "track": "2-1@54008.6:20",
+  "map_camera_id": "9000000000000058",
+  "track_id": "2-1@54008.6:21",
   "retrieval_score": 0.705,
-  "margin": 0.154,
-  "evidence": [
-   "tracks:2-1#2-1@54008.6:20",
-   "window:[54008.6, 54014.6]"
-  ],
-  "simulated_review": true
+  "margin_top1_top2": 0.161,
+  "first_frame": 73,
+  "last_frame": 83,
+  "observed_start": 54012.6,
+  "observed_end": 54014.6,
+  "clock_quality": "uncalibrated",
+  "evidence_refs": [
+   "frame:2-1/0074.jpg",
+   "frame:2-1/0084.jpg"
+  ]
+ },
+ "review": {
+  "event_id": "51ed7ae15086",
+  "source": "simulated",
+  "status": "simulated_only",
+  "note": "模拟审核只写模拟结果，正式 V2 仍需真实审核事件"
+ },
+ "profile": {
+  "version": "V1",
+  "candidates": [
+   {
+    "candidate_id": "2-1#2-1@54008.6:21",
+    "camera": "2-1",
+    "track_id": "2-1@54008.6:21",
+    "start": 54012.6,
+    "end": 54014.6,
+    "state": "candidate",
+    "attributes": [],
+    "findings": []
+   }
+  ]
  },
  "next_round": {
   "from_camera": "2-1",
   "level": "L1",
+  "source_time": 54014.6,
   "top5": [
    {
     "camera": "9000000000000037",
@@ -151,8 +218,8 @@
     "installation_distance_m": 36.74,
     "fov_gap_m": 5.19,
     "window": [
-     54015.34,
-     54046.6
+     54014.34,
+     54045.6
     ]
    },
    {
@@ -161,8 +228,8 @@
     "installation_distance_m": 49.65,
     "fov_gap_m": 49.52,
     "window": [
-     54021.67,
-     54046.6
+     54020.67,
+     54045.6
     ]
    },
    {
@@ -171,8 +238,8 @@
     "installation_distance_m": 72.07,
     "fov_gap_m": 49.72,
     "window": [
-     54021.7,
-     54046.6
+     54020.7,
+     54045.6
     ]
    },
    {
@@ -181,8 +248,8 @@
     "installation_distance_m": 50.99,
     "fov_gap_m": 50.3,
     "window": [
-     54021.79,
-     54046.6
+     54020.79,
+     54045.6
     ]
    },
    {
@@ -191,13 +258,12 @@
     "installation_distance_m": 133.83,
     "fov_gap_m": 82.61,
     "window": [
-     54026.4,
-     54063.799999999996
+     54025.4,
+     54062.799999999996
     ]
    }
   ]
  },
- "profile_version": "V2",
  "ledger": {
   "planned_frames": 244,
   "estimated_frames_run": 140,
@@ -208,7 +274,7 @@
   "reid_calls": 0,
   "vlm_calls": 0,
   "review_count": 1,
-  "simulated_reviews": 1
+  "simulated_reviews": 0
  },
  "elapsed_seconds": 25.4
 }

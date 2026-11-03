@@ -92,17 +92,31 @@ def _find(registry, observation_id):
     raise TruthPackageError("observation_not_found")
 
 
-def confirmed_chain(registry):
+def confirmed_chain(registry, target_id=None):
+    """按 case+target 分链；跨目标不得混成一条链。"""
     chain = [r for r in registry["observations"]
-             if r["status"] == "human_confirmed" and not r.get("synthetic")]
+             if r["status"] == "human_confirmed" and not r.get("synthetic")
+             and (target_id is None or r.get("target_id") == target_id)]
     return sorted(chain, key=lambda r: r["osd_anchor_seconds"])
+
+
+def chains_by_target(registry):
+    chains = {}
+    for record in registry["observations"]:
+        if record["status"] != "human_confirmed" or record.get("synthetic"):
+            continue
+        key = (record.get("case_id"), record.get("target_id"))
+        chains.setdefault(key, []).append(record)
+    for key in chains:
+        chains[key].sort(key=lambda r: r["osd_anchor_seconds"])
+    return chains
 
 
 def is_exploratory(registry):
     return any(r["binding_status"] != "human_confirmed" for r in registry["observations"])
 
 
-def validate_package(registry):
+def validate_package(registry, evidence_root=None):
     """返回问题列表；空列表才表示这份真值包可以用于宣称结论。"""
     problems = []
     for record in registry["observations"]:
@@ -116,10 +130,27 @@ def validate_package(registry):
             if record.get("synthetic"):
                 problems.append({"code": "synthetic_confirmed",
                                  "observation_id": record["observation_id"]})
+    for record in registry["observations"]:
+        if record["status"] == "human_confirmed" and evidence_root:
+            from pathlib import Path
+            for ref in record["evidence"]:
+                kind, _, rel = ref.partition(":")
+                if kind in ("file", "frame") and not (Path(evidence_root) / rel).is_file():
+                    problems.append({"code": "evidence_unresolvable",
+                                     "observation_id": record["observation_id"],
+                                     "reference": ref})
+    for key, chain in chains_by_target(registry).items():
+        anchors = [r["osd_anchor_seconds"] for r in chain]
+        if anchors != sorted(anchors):
+            problems.append({"code": "chain_time_order_invalid", "target_id": key[1]})
+    # 跨目标依赖：一条确认记录的 depends_on 指向别的 target
+    by_id = {r["observation_id"]: r for r in registry["observations"]}
+    for record in registry["observations"]:
+        parent = by_id.get(record.get("depends_on"))
+        if parent and parent.get("target_id") != record.get("target_id"):
+            problems.append({"code": "cross_target_dependency",
+                             "observation_id": record["observation_id"]})
     chain = confirmed_chain(registry)
-    anchors = [r["osd_anchor_seconds"] for r in chain]
-    if anchors != sorted(anchors):
-        problems.append({"code": "chain_time_order_invalid"})
     cameras = {r["camera_uuid"] for r in chain}
     if len(cameras) >= 3:
         # 三镜头必须各自独立核实；任何一条缺证据都视为"合成结论"

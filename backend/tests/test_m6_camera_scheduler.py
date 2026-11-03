@@ -90,14 +90,25 @@ def test_confirmation_needs_evidence_or_explicit_simulation():
     assert sched.stopped == "hop_confirmed"
 
 
-def test_reject_resumes_search_and_keeps_other_cameras():
+def test_reject_continues_same_camera_remaining_window():
     sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
     sched.next_action()
     sched.submit(_with_target())
     rejected = sched.reject(reason="wrong_person")
-    assert rejected["state"] == "candidate_rejected"
+    assert rejected["review_state"] == "rejected"
+    assert rejected["state"] == "running"
     follow = sched.next_action()
-    assert follow is not None and follow["action"]["camera"] == "2-1"
+    assert follow is not None and follow["action"]["camera"] == "1-1"
+    assert follow["window"][0] > 54007.6
+
+
+def test_rejected_candidate_is_not_sent_to_review_again():
+    sched = CameraScheduler(_preds(), recording_index=_available, params={"segment_seconds": 8.0})
+    sched.next_action()
+    sched.submit(_with_target())
+    sched.reject(reason="wrong_person")
+    sched.next_action()
+    assert sched.submit(_with_target()) != "needs_review"
 
 
 def test_measured_frames_track_real_cost_not_estimate():

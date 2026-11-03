@@ -1,0 +1,42 @@
+{
+ "schema": "m6-frame-time-maps/1",
+ "note": "每路独立锚点；clock_quality 未校准表示只能比较名义 OSD 时间。",
+ "maps": [
+  {
+   "recording_id": "rec-1-1",
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "label": "1-1",
+   "anchor_seconds": 53997,
+   "fps": 5,
+   "start_index": 0,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0,
+   "revision": 1
+  },
+  {
+   "recording_id": "rec-2-1",
+   "camera_uuid": "802e415e-uuid-2-1",
+   "label": "2-1",
+   "anchor_seconds": 53998,
+   "fps": 5,
+   "start_index": 0,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0,
+   "revision": 1
+  },
+  {
+   "recording_id": "rec-2-2",
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "label": "2-2",
+   "anchor_seconds": 53997,
+   "fps": 5,
+   "start_index": 0,
+   "frame_count": 370,
+   "clock_quality": "uncalibrated",
+   "offset_seconds": 0,
+   "revision": 1
+  }
+ ]
+}

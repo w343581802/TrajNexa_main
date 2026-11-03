@@ -1,0 +1,37 @@
+{
+ "schema": "m6-review-bundle/1",
+ "case_id": "purple-rider",
+ "target_id": "purple-rider",
+ "candidate_id": "2-1/2-1@54008.6:21",
+ "camera_label": "2-1",
+ "map_camera_id": "9000000000000058",
+ "track_id": "2-1@54008.6:21",
+ "observed_start": 54012.6,
+ "observed_end": 54014.6,
+ "frame_span": [
+  73,
+  83
+ ],
+ "clock_quality": "uncalibrated",
+ "binding_status": "pending_human_review",
+ "exploratory": true,
+ "appearance": {
+  "retrieval_score": 0.705,
+  "margin_top1_top2": 0.161,
+  "note": "仅排序依据，不是身份概率"
+ },
+ "evidence": [
+  {
+   "reference": "frame:2-1/0074.jpg",
+   "resolves": true
+  },
+  {
+   "reference": "frame:2-1/0084.jpg",
+   "resolves": true
+  }
+ ],
+ "decision": "",
+ "reason": "",
+ "reviewer": "",
+ "reviewed_at": ""
+}

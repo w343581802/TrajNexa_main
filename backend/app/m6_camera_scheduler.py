@@ -26,7 +26,7 @@ STATES = ("planned", "running", "candidate_found", "needs_review",
           "budget_exhausted", "deferred", "hop_confirmed")
 
 SKIPPABLE = ("no_valid_observation", "detection_missed", "recording_unavailable",
-             "recording_unknown", "candidate_rejected")
+             "recording_unknown")
 
 
 def _frames(seconds, fps):
@@ -49,6 +49,8 @@ def build_actions(predictions, params=None):
             "search_window": (search_start, search_end),
             "cursor": start,
             "state": "planned",
+            "review_state": "none",
+            "rejected_tracks": [],
             "segments": 0,
             "estimated_frames": _frames(end - start, fixed["fps"]),
             "measured_frames": 0,
@@ -151,7 +153,8 @@ class CameraScheduler:
         action["cursor"] = end
 
         status = result.get("status")
-        candidates = result.get("target_candidates") or []
+        candidates = [c for c in (result.get("target_candidates") or [])
+                      if c.get("track_id") not in action["rejected_tracks"]]
         strong = [c for c in candidates if c.get("state") != "weak_candidate"]
         weak = [c for c in candidates if c.get("state") == "weak_candidate"]
         if status == "ok" and not strong and weak:
@@ -199,9 +202,11 @@ class CameraScheduler:
         target = self._find(action_id)
         if target is None or target["state"] != "needs_review":
             raise ValueError("no_candidate_to_reject")
-        target["state"] = "candidate_rejected"
+        target["rejected_tracks"].extend(target.get("candidates") or [])
+        target["review_state"] = "rejected"
         target["reason"] = reason
-        self.stopped = None if self.stopped == "needs_review" else self.stopped
+        target["state"] = "running" if self._can_advance(target) else "no_valid_observation"
+        self.stopped = None
         self.cursor = self.actions.index(target)
         return target
 
@@ -231,6 +236,7 @@ class CameraScheduler:
         if target is None or target["state"] != "needs_review":
             raise ValueError("no_candidate_to_confirm")
         target["state"] = "hop_confirmed"
+        target["review_state"] = "confirmed"
         target["simulated_review"] = bool(simulated)
         target["evidence_refs"] = list(evidence or [])
         if simulated:
