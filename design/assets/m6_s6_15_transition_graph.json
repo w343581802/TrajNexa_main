@@ -1,42 +1,50 @@
 {
  "schema": "m6-transition-graph/1",
  "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+ "note": "只保留经人工核实的一条；派生样例移入 synthetic_fixture，永不进统计。",
  "transitions": [
   {
    "transition_id": "a1b2c3d4e5f6",
+   "target_id": "purple-rider-2-2-111",
    "source_camera": "9000000000000057",
    "target_camera": "9000000000000058",
    "source_track": "111",
    "target_track": "37",
+   "association_event_id": "evt-2-2-111-to-2-1-37",
    "observed_gap_seconds": 4,
    "clock_quality": "uncalibrated",
    "movement_mode": "electric_bicycle",
    "exit_side": "toward_top_left",
    "review_state": "human_confirmed",
+   "reviewer": "case-owner",
    "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
    "evidence": [
     "tracks:2-2#111",
     "tracks:2-1#37"
    ],
+   "synthetic": false,
    "revoked_reason": null,
    "depends_on": null
-  },
+  }
+ ],
+ "synthetic_fixture": [
   {
-   "transition_id": "0f9e8d7c6b5a",
+   "transition_id": "fixture-derived-1",
+   "target_id": "purple-rider-2-2-111",
    "source_camera": "9000000000000058",
    "target_camera": "9000000000000037",
    "source_track": "37",
    "target_track": "225",
+   "association_event_id": "fixture-evt",
    "observed_gap_seconds": 3,
    "clock_quality": "uncalibrated",
    "movement_mode": "electric_bicycle",
    "exit_side": null,
    "review_state": "pending_review",
+   "reviewer": null,
    "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
-   "evidence": [
-    "tracks:2-1#37",
-    "tracks:1-1#225"
-   ],
+   "evidence": [],
+   "synthetic": true,
    "revoked_reason": null,
    "depends_on": "a1b2c3d4e5f6"
   }

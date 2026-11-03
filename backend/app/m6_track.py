@@ -193,6 +193,15 @@ class ByteTrackAdapter:
         tracked = tracker.update(detections)
         return self._absorb(tracked, observations)
 
+    def advance(self, timestamp_seconds: float) -> None:
+        """只推进时间轴（本帧无检测）。用于"空帧也要推进跟踪器"的调度场景。
+
+        不做 _handle_stream_gap：空帧造成的时间差不是断档，超限由 _age 判定。
+        """
+        self._last_frame_seconds = float(timestamp_seconds)
+        self._age(set())
+        return None
+
     def _handle_stream_gap(self, now: float):
         """输入时间轴出现断档时，结束全部在跟踪的轨迹并重建跟踪器。
 

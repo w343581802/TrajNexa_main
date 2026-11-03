@@ -1,0 +1,95 @@
+{
+ "steps": [
+  {
+   "camera": "1-1",
+   "window": [
+    54007.6,
+    54013.6
+   ],
+   "status": "ok",
+   "tracks": 26,
+   "scored": 25,
+   "top_score": 0.628,
+   "candidate_state": "weak_candidate",
+   "margin": 0.025,
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54013.6,
+    54019.6
+   ],
+   "status": "ok",
+   "tracks": 36,
+   "scored": 25,
+   "top_score": 0.584,
+   "candidate_state": "weak_candidate",
+   "margin": 0.022,
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54019.6,
+    54025.6
+   ],
+   "status": "ok",
+   "tracks": 26,
+   "scored": 25,
+   "top_score": 0.661,
+   "candidate_state": "weak_candidate",
+   "margin": 0.032,
+   "state": "running",
+   "frames_decoded": 31
+  },
+  {
+   "camera": "1-1",
+   "window": [
+    54025.6,
+    54029.6
+   ],
+   "status": "ok",
+   "tracks": 17,
+   "scored": 17,
+   "top_score": 0.631,
+   "candidate_state": "weak_candidate",
+   "margin": 0.055,
+   "state": "no_target_candidate",
+   "frames_decoded": 21
+  },
+  {
+   "camera": "2-1",
+   "window": [
+    54008.6,
+    54014.6
+   ],
+   "status": "ok",
+   "tracks": 33,
+   "scored": 25,
+   "top_score": 0.705,
+   "candidate_state": "candidate",
+   "margin": 0.154,
+   "state": "needs_review",
+   "frames_decoded": 31,
+   "margin_top1_top2": 0.154,
+   "top_track": "2-1@54008.6:20"
+  }
+ ],
+ "ledger": {
+  "planned_frames": 244,
+  "estimated_frames_run": 140,
+  "measured_frames": 145,
+  "detector_frames": 145,
+  "segments": 5,
+  "cameras_visited": 2,
+  "reid_calls": 0,
+  "vlm_calls": 0,
+  "review_count": 1,
+  "simulated_reviews": 1
+ },
+ "elapsed_s": 23.3,
+ "threshold": 0.55
+}
