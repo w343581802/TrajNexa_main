@@ -2,7 +2,7 @@
 from app.m6_cross_camera import (alignment_offset, clock_record, cross_status,
                                  observed_at, osd_clock, pair_by_time,
                                  summarise_pairs, temporal_relation,
-                                 time_sufficiency, to_wall)
+                                 time_sufficiency, to_wall, transit_priority)
 
 
 def test_overlap_reports_real_duration_not_negative_gap():
@@ -91,6 +91,17 @@ def test_alignment_offset_uses_each_camera_own_file_start():
     file_wall_1_1 = 54001 + 149.8          # 文件名 15:00:01 起
     assert alignment_offset(54147.0, file_wall_1_1) == -3.8
     assert round(file_wall_1_1 - file_wall_2_2, 3) == 4.0
+
+
+def test_transit_priority_marks_fast_passes_high_but_never_excludes():
+    fast = temporal_relation((100.0, 120.0), (125.0, 135.0))
+    slow = temporal_relation((100.0, 120.0), (160.0, 175.0))
+    assert transit_priority(fast) == "high"
+    assert transit_priority(slow) == "normal"
+    # 优先级不影响裁决：同样是 transition_candidate
+    appearance = {"score": 0.8, "supporting_candidate_frames": 4}
+    assert cross_status(fast, appearance)["status"] == "transition_candidate"
+    assert cross_status(slow, appearance)["status"] == "transition_candidate"
 
 
 def test_observed_at_uses_first_frame_osd_not_requested_window_start():

@@ -19,7 +19,24 @@ DEFAULT_CROSS_PARAMS = {
     "min_travel_seconds": 2.0,
     "max_travel_seconds": 180.0,
     "sync_tolerance_seconds": 1.0,
+    # 现场经验：骑车人经过相邻摄像头的通行时间常在 10 s 以内。
+    # 只用于"优先核查"，不是身份排除阈值，也不适用于步行目标。
+    "priority_transit_seconds": 10.0,
 }
+
+
+def transit_priority(relation, params=None):
+    """给候选打优先级：通行时间符合现场规律的优先人工核查。
+
+    注意：这是排序提示，不是通过/排除条件。步行目标不适用。
+    """
+    params = dict(DEFAULT_CROSS_PARAMS, **(params or {}))
+    if relation["relation"] == "overlapping":
+        return "high"                       # 重叠视野，直接核对同刻
+    gap = relation.get("transition_gap_seconds")
+    if gap is not None and gap <= params["priority_transit_seconds"]:
+        return "high"
+    return "normal"
 
 
 def clock_record(camera_id, file_start, offset_seconds, offset_uncertainty_seconds,
