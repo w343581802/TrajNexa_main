@@ -1,0 +1,131 @@
+{
+ "target_a": "2-2 #111",
+ "target_b": "2-1 #37",
+ "model": "qwen3-vl:8b-instruct",
+ "a": {
+  "target_type": "person_with_vehicle",
+  "transport_mode": "electric_bicycle",
+  "attributes": [
+   {
+    "name": "upper_clothing_color",
+    "value": "紫色",
+    "visibility": "clear"
+   },
+   {
+    "name": "vehicle_color",
+    "value": "黑色",
+    "visibility": "clear"
+   },
+   {
+    "name": "vehicle_type",
+    "value": "电动自行车",
+    "visibility": "clear"
+   }
+  ],
+  "unknown_features": [
+   "面部特征",
+   "下装颜色",
+   "车辆具体型号"
+  ],
+  "evidence_notes": "三张图均显示一名穿紫色上衣的人骑着黑色电动自行车，由远及近，车辆前部有黄色装饰。"
+ },
+ "b": {
+  "target_type": "person_with_vehicle",
+  "transport_mode": "electric_bicycle",
+  "attributes": [
+   {
+    "name": "upper_clothing_color",
+    "value": "紫色",
+    "visibility": "clear"
+   },
+   {
+    "name": "lower_clothing",
+    "value": "深色裤子",
+    "visibility": "partial"
+   },
+   {
+    "name": "vehicle_color",
+    "value": "红色",
+    "visibility": "partial"
+   },
+   {
+    "name": "vehicle_type",
+    "value": "电动自行车",
+    "visibility": "partial"
+   },
+   {
+    "name": "helmet",
+    "value": "unknown",
+    "visibility": "unknown"
+   },
+   {
+    "name": "carried_items",
+    "value": "unknown",
+    "visibility": "unknown"
+   }
+  ],
+  "unknown_features": [
+   "骑车人的面部特征",
+   "车辆的完整细节",
+   "车辆的牌照",
+   "车辆的前部细节"
+  ],
+  "evidence_notes": "三张图均显示一名穿紫色上衣的人骑着一辆红色电动自行车，从后方视角拍摄，车辆部分被遮挡，看不清头盔和携带物品。"
+ },
+ "comparison": [
+  {
+   "name": "upper_clothing_color",
+   "a": "紫色",
+   "a_visibility": "clear",
+   "b": "紫色",
+   "b_visibility": "clear",
+   "verdict": "support"
+  },
+  {
+   "name": "vehicle_color",
+   "a": "黑色",
+   "a_visibility": "clear",
+   "b": "红色",
+   "b_visibility": "partial",
+   "verdict": "conflict"
+  },
+  {
+   "name": "vehicle_type",
+   "a": "电动自行车",
+   "a_visibility": "clear",
+   "b": "电动自行车",
+   "b_visibility": "partial",
+   "verdict": "support"
+  },
+  {
+   "name": "lower_clothing",
+   "a": "not_reported",
+   "a_visibility": "not_reported",
+   "b": "深色裤子",
+   "b_visibility": "partial",
+   "verdict": "new_in_b"
+  },
+  {
+   "name": "helmet",
+   "a": "not_reported",
+   "a_visibility": "not_reported",
+   "b": "unknown",
+   "b_visibility": "unknown",
+   "verdict": "new_in_b"
+  },
+  {
+   "name": "carried_items",
+   "a": "not_reported",
+   "a_visibility": "not_reported",
+   "b": "unknown",
+   "b_visibility": "unknown",
+   "verdict": "new_in_b"
+  }
+ ],
+ "summary": {
+  "support": 2,
+  "conflict": 1,
+  "unknown_in_b": 0,
+  "new_in_b": 3
+ }
+}
