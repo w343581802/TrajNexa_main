@@ -69,11 +69,31 @@ class TrackingSession:
                 return item
         raise KeyError(candidate_id)
 
+    def _check_review_event(self, event, candidate_id):
+        """审核事件必须与当前会话、目标、候选严格一致，防止跨目标误确认。"""
+        if event.get("case_id") != self.case_id:
+            raise ReviewEventError("cross_case_review")
+        if event.get("target_id") != self.target_id:
+            raise ReviewEventError("cross_target_review")
+        if event.get("candidate_id") != candidate_id:
+            raise ReviewEventError("candidate_id_mismatch")
+
+    def _pending_candidate(self, candidate_id):
+        item = self._candidate(candidate_id)
+        if item["state"] == "revoked":
+            raise ReviewEventError("candidate_revoked")
+        if item["state"] == "human_confirmed":
+            raise ReviewEventError("candidate_already_confirmed")
+        if item["state"] not in ACTIVE:
+            raise ReviewEventError("candidate_not_pending_review")
+        return item
+
     def confirm(self, candidate_id, event):
         validate_event(event, require_human=True)
         if event.get("event_type") != "confirm":
             raise ReviewEventError("not_a_confirm_event")
-        item = self._candidate(candidate_id)
+        self._check_review_event(event, candidate_id)
+        item = self._pending_candidate(candidate_id)
         item["state"] = "human_confirmed"
         self.main_chain.append({"observation_id": item["candidate_id"], "role": "B",
                                 "camera": item["camera"], "observed_start": item["observed_start"],
@@ -88,7 +108,8 @@ class TrackingSession:
         validate_event(event, require_human=True)
         if event.get("event_type") != "reject":
             raise ReviewEventError("not_a_reject_event")
-        item = self._candidate(candidate_id)
+        self._check_review_event(event, candidate_id)
+        item = self._pending_candidate(candidate_id)
         item["state"] = "human_rejected"
         item["reject_reason"] = event.get("reason")
         self.status = "running" if self.pending() else "unresolved"
@@ -96,7 +117,8 @@ class TrackingSession:
         return item
 
     def undecided(self, candidate_id, event):
-        item = self._candidate(candidate_id)
+        self._check_review_event(event, candidate_id)
+        item = self._pending_candidate(candidate_id)
         item["state"] = "candidate"
         item["review_note"] = event.get("reason")
         self.history.append({"event": "undecided", "candidate": candidate_id})
@@ -113,6 +135,7 @@ class TrackingSession:
         return result
 
     def budget_exhausted(self):
+        self.budget_hit = True
         self.status = "budget_exhausted"
         self.history.append({"event": "budget_exhausted"})
 
@@ -148,12 +171,40 @@ class TrackingSession:
                              "reason": reason})
         return {"observations": sorted(revoked), "actions": cancelled}
 
-    def settle(self, analyzed_windows=(), remaining_actions=None):
-        """收敛本轮状态：有候选待审、预算不足、还是搜完未确认。"""
-        if self.budget_hit or (remaining_actions or 0) > 0:
+    def snapshot(self):
+        """完整会话快照：主链、候选、依赖关系、审核状态与已分析范围。"""
+        return {"case_id": self.case_id, "target_id": self.target_id,
+                "main_chain": [dict(n) for n in self.main_chain],
+                "candidates": [dict(c) for c in self.candidates],
+                "derived_actions": [dict(a) for a in self.derived_actions],
+                "status": self.status, "budget_hit": self.budget_hit,
+                "plan": self.plan, "history": list(self.history)}
+
+    @classmethod
+    def restore(cls, snapshot):
+        session = cls.__new__(cls)
+        session.case_id = snapshot["case_id"]
+        session.target_id = snapshot["target_id"]
+        session.main_chain = [dict(n) for n in snapshot["main_chain"]]
+        session.candidates = [dict(c) for c in snapshot.get("candidates") or []]
+        session.derived_actions = [dict(a) for a in snapshot.get("derived_actions") or []]
+        session.status = snapshot.get("status", "running")
+        session.budget_hit = bool(snapshot.get("budget_hit"))
+        session.plan = snapshot.get("plan")
+        session.history = list(snapshot.get("history") or [])
+        return session
+
+    def settle(self, analyzed_windows=(), remaining_actions=None, stop_reason=None):
+        """收敛本轮状态：待审 / 预算不足 / 其它原因未完成 / 搜完未确认。"""
+        incomplete = (remaining_actions or 0) > 0
+        budget = self.budget_hit or stop_reason == "budget_exhausted"
+        if budget:
             self.status = "budget_exhausted"
             reason = "analysis_budget_exhausted_with_pending_review" if self.pending() \
                 else "analysis_budget_exhausted"
+        elif incomplete:
+            self.status = "paused"
+            reason = "search_incomplete:%s" % (stop_reason or "no_budget_claim")
         elif self.pending():
             self.status = "awaiting_review"
             reason = "candidates_waiting_for_human_review"

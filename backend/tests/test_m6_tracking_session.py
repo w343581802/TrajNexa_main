@@ -15,6 +15,11 @@ def _cand(cid, score, state="candidate", camera="2-1"):
             "observed_end": 54015.6, "evidence_refs": ["frame:2-1/0074.jpg"]}
 
 
+def _event_for(kind, cid, case="case", target="purple"):
+    return review_event(kind, case, target, cid, "case-owner", "2026-11-03T12:00:00Z",
+                        evidence=["frame:2-1/0074.jpg"], source="human_review",
+                        reason="manual")
+
 def _event(kind, reviewer="case-owner", source="human_review", evidence=None):
     return review_event(kind, "case", "purple", "B1", reviewer, "2026-11-03T12:00:00Z",
                         evidence=evidence if evidence is not None else ["frame:2-1/0074.jpg"],
@@ -72,7 +77,7 @@ def test_revoke_b_invalidates_everything_downstream():
     s.observe([_cand("B1", 0.72)], from_anchor_id="A")
     s.confirm("B1", _event("confirm"))
     s.observe([_cand("C1", 0.70, camera="1-1")], from_anchor_id="B1")
-    s.confirm("C1", _event("confirm"))
+    s.confirm("C1", _event_for("confirm", "C1"))
     s.observe([_cand("D1", 0.69, camera="1-2")], from_anchor_id="C1")
     cascade = s.revoke("B1", reason="wrong_person")["observations"]
     assert "C1" in cascade and "D1" in cascade
@@ -141,6 +146,74 @@ def test_confirmed_candidate_leaves_awaiting_review():
 def test_budget_state_wins_over_pending_review():
     s = _session()
     s.observe([_cand("C1", 0.61)], from_anchor_id="A")
+    s.budget_exhausted()
     result = s.settle([(54020.0, 54026.0)], remaining_actions=2)
     assert result["status"] == "budget_exhausted"
     assert result["reason"] == "analysis_budget_exhausted_with_pending_review"
+
+
+def test_unfinished_without_budget_is_paused_not_budget_exhausted():
+    s = _session()
+    result = s.settle([(54020.0, 54026.0)], remaining_actions=4, stop_reason=None)
+    assert result["status"] == "paused"
+    assert result["reason"] == "search_incomplete:no_budget_claim"
+
+
+def test_paused_reason_keeps_scheduler_cause():
+    s = _session()
+    result = s.settle([], remaining_actions=1, stop_reason="max_actions_reached")
+    assert result["status"] == "paused"
+    assert result["reason"] == "search_incomplete:max_actions_reached"
+
+
+
+def test_snapshot_restore_keeps_candidates_and_review_state():
+    s = _session()
+    s.observe([_cand("B1", 0.72), _cand("B2", 0.66)], from_anchor_id="A")
+    s.confirm("B1", _event_for("confirm", "B1"))
+    s.reject("B2", _event_for("reject", "B2"))
+    s.register_actions("B1", ["58#1"])
+    s.budget_exhausted()
+    snap = s.snapshot()
+    restored = TrackingSession.restore(snap)
+    assert restored.case_id == s.case_id and restored.target_id == s.target_id
+    states = {c["candidate_id"]: c["state"] for c in restored.candidates}
+    assert states == {"B1": "human_confirmed", "B2": "human_rejected"}
+    assert [n["observation_id"] for n in restored.main_chain] == ["A", "B1"]
+    assert restored.derived_actions[0]["action_id"] == "58#1"
+    assert restored.budget_hit is True
+    again = TrackingSession.restore(restored.snapshot())
+    assert [c["state"] for c in again.candidates] == [c["state"] for c in restored.candidates]
+
+
+def test_review_of_other_case_or_target_is_rejected():
+    s = _session()
+    s.observe([_cand("B1", 0.72)], from_anchor_id="A")
+    with pytest.raises(ReviewEventError):
+        s.confirm("B1", _event_for("confirm", "B1", case="another-case"))
+    with pytest.raises(ReviewEventError):
+        s.confirm("B1", _event_for("confirm", "B1", target="cyan"))
+    with pytest.raises(ReviewEventError):
+        s.confirm("B1", _event_for("confirm", "B9"))
+    assert [n["observation_id"] for n in s.main_chain] == ["A"]
+    assert s.candidates[0]["state"] == "candidate"
+
+
+def test_revoked_candidate_cannot_be_confirmed_again():
+    s = _session()
+    s.observe([_cand("B1", 0.72)], from_anchor_id="A")
+    s.confirm("B1", _event_for("confirm", "B1"))
+    s.observe([_cand("C1", 0.7)], from_anchor_id="B1")
+    s.revoke("B1")
+    with pytest.raises(ReviewEventError):
+        s.confirm("B1", _event_for("confirm", "B1"))
+    with pytest.raises(ReviewEventError):
+        s.confirm("C1", _event_for("confirm", "C1"))
+
+
+def test_double_confirm_is_rejected():
+    s = _session()
+    s.observe([_cand("B1", 0.72)], from_anchor_id="A")
+    s.confirm("B1", _event_for("confirm", "B1"))
+    with pytest.raises(ReviewEventError):
+        s.confirm("B1", _event_for("confirm", "B1"))

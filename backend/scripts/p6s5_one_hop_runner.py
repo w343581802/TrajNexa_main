@@ -267,6 +267,7 @@ def main():
                                     "priority": c["priority"], "reasons": c["reasons"]}
                                    for c in stage.get("candidates", [])],
                "anchor": anchor, "steps": result["steps"], "hop": result["hop"],
+               "resumed_steps": result["resumed_steps"],
                "candidate_pool": result["candidate_pool"],
                "session": result["session"],
                "review": result["review"], "profile": result["profile"],
@@ -280,7 +281,7 @@ def main():
                "elapsed_seconds": round(time.time() - started, 1)}
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     if args.snapshot_out:
-        Path(args.snapshot_out).write_text(json.dumps(payload["scheduler_state"]),
+        Path(args.snapshot_out).write_text(json.dumps(result["session_state"]),
                                            encoding="utf-8")
     print(json.dumps({k: payload[k] for k in ("anchor", "reference", "hop", "review",
                                               "profile", "next_round", "ledger",

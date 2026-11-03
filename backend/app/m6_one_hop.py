@@ -58,16 +58,23 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
         return {"available": True}
 
     params = {"segment_seconds": segment_seconds, "max_decoded_frames": max_decoded_frames}
-    scheduler = (CameraScheduler.restore(snapshot, recording_index=recording_index,
-                                         params=params) if snapshot else
+    state = snapshot or {}
+    sched_state = state.get("scheduler") if "scheduler" in state else state
+    scheduler = (CameraScheduler.restore(sched_state, recording_index=recording_index,
+                                         params=params) if sched_state else
                  CameraScheduler(predictions, recording_index=recording_index,
                                  params=params, mode="segmented"))
-    session = TrackingSession(anchor["case_id"], anchor["target_id"],
-                              {"observation_id": "A", "camera": anchor["camera_label"],
-                               "observed_start": anchor["observed_start"],
-                               "observed_end": anchor["observed_end"]})
+    if state.get("session"):
+        session = TrackingSession.restore(state["session"])
+    else:
+        session = TrackingSession(anchor["case_id"], anchor["target_id"],
+                                  {"observation_id": "A", "camera": anchor["camera_label"],
+                                   "observed_start": anchor["observed_start"],
+                                   "observed_end": anchor["observed_end"]})
     anchor_id = session.main_chain[-1]["observation_id"]
-    steps, pool = [], []
+    steps = list(state.get("steps") or [])
+    prior_steps = len(steps)
+    pool = list(state.get("pool") or [])
     for _ in range(max_actions):
         if batch_size > 1:
             def _batched(name, span_window, batch_id):
@@ -133,7 +140,7 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
     analyzed = [step["scheduled_window"] for step in steps]
     remaining = sum(1 for a in scheduler.actions
                     if a["state"] in ("planned", "running", "budget_exhausted"))
-    session.settle(analyzed, remaining)
+    session.settle(analyzed, remaining, stop_reason=scheduler.stopped)
     ranked = _ranked(pool)
     lookups = {c["candidate_id"]: c for c in ranked}
     profile = new_profile(anchor["target_id"], anchor["camera_label"],
@@ -143,7 +150,7 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
     review = {"decisions": [], "reviews": [], "profile_advanced": False}
     best = session.best()
     hop = (lookups.get(best["candidate_id"]) if best else (ranked[0] if ranked else None))
-    if hop:
+    if hop and not profile["candidates"]:
         profile = attach_candidate(profile, hop["camera_label"], hop["track_id"],
                                    hop["observed_start"], hop["observed_end"], [])
         add_observation(registry, observation(
@@ -192,8 +199,9 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
         confirmed = any(r["status"] == "confirmed" for r in review["decisions"])
         rejected = any(r["status"] == "rejected" for r in review["decisions"])
         decision = "confirmed" if confirmed else ("rejected" if rejected else "candidate")
-        profile = advance_from_review(profile, profile["candidates"][0]["candidate_id"],
-                                      decision)
+        if profile["candidates"]:
+            profile = advance_from_review(profile, profile["candidates"][0]["candidate_id"],
+                                          decision)
         review["profile_advanced"] = profile["version"] == "V2"
 
     next_round = None
@@ -208,4 +216,9 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                         "observations": profile["observations"],
                         "candidates": profile["candidates"]},
             "next_round": next_round, "session": session.summary(),
-            "scheduler_state": scheduler.snapshot(), "ledger": scheduler.ledger}
+            "scheduler_state": scheduler.snapshot(), "ledger": scheduler.ledger,
+            "resumed_steps": prior_steps,
+            "session_state": {"scheduler": scheduler.snapshot(),
+                              "session": session.snapshot(),
+                              "pool": ranked, "steps": steps,
+                              "profile": profile, "review": review}}

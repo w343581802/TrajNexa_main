@@ -262,3 +262,27 @@ def test_low_quality_candidate_boosts_complementary_camera_without_dropping_it()
     assert "2-1" in cameras                       # 原镜头仍在，没有被删
     assert len({(step["camera"], tuple(step["scheduled_window"]))
                 for step in result["steps"]}) == len(result["steps"])
+
+
+def test_full_session_snapshot_resumes_without_losing_candidates():
+    first = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                        predictions=[{"camera": "58", "priority": "high",
+                                      "estimated_window": [54010.0, 54022.0],
+                                      "search_window": [54010.0, 54028.0]}],
+                        analyze=_analyze, score=_score, spatial=_spatial,
+                        max_decoded_frames=8)
+    state = first["session_state"]
+    assert first["session"]["status"] in ("budget_exhausted", "awaiting_review")
+    second = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=[{"camera": "58", "priority": "high",
+                                       "estimated_window": [54010.0, 54022.0],
+                                       "search_window": [54010.0, 54028.0]}],
+                         analyze=_analyze, score=_score, spatial=_spatial,
+                         snapshot=state)
+    done = {(s["camera"], tuple(s["scheduled_window"])) for s in first["steps"]}
+    fresh = second["steps"][second["resumed_steps"]:]
+    again = {(s["camera"], tuple(s["scheduled_window"])) for s in fresh}
+    assert not (done & again)
+    pool_ids = {c["candidate_id"] for c in second["candidate_pool"]}
+    assert {c["candidate_id"] for c in first["candidate_pool"]} <= pool_ids
+    assert second["session"]["main_chain"] == ["A"]
