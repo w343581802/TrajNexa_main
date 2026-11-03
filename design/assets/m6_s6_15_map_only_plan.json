@@ -1,0 +1,1694 @@
+{
+ "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+ "state": {
+  "camera_uuid": "802e415e-3a22-4c94-abb0-e29970c6bb98",
+  "map_camera_id": "9000000000000057",
+  "display_name": "YD-桂康路中仁路T口2-2",
+  "observed_at": 54008.6,
+  "track_id": 111,
+  "level": "L1",
+  "possible_region": {
+   "type": "MultiPolygon",
+   "coordinates": [
+    [
+     [
+      [
+       110.210883,
+       25.257293
+      ],
+      [
+       110.210973,
+       25.257706
+      ],
+      [
+       110.210926,
+       25.257703
+      ],
+      [
+       110.21088,
+       25.2577
+      ],
+      [
+       110.210835,
+       25.257697
+      ],
+      [
+       110.21079,
+       25.257694
+      ],
+      [
+       110.210744,
+       25.257692
+      ],
+      [
+       110.210676,
+       25.257728
+      ],
+      [
+       110.210629,
+       25.257707
+      ],
+      [
+       110.210585,
+       25.257682
+      ],
+      [
+       110.210543,
+       25.257654
+      ],
+      [
+       110.210505,
+       25.257621
+      ],
+      [
+       110.210471,
+       25.257585
+      ],
+      [
+       110.21044,
+       25.257547
+      ],
+      [
+       110.210415,
+       25.257505
+      ],
+      [
+       110.210555,
+       25.257406
+      ],
+      [
+       110.210883,
+       25.257293
+      ]
+     ]
+    ]
+   ]
+  },
+  "location_quality": "region_only_unverified",
+  "movement_mode": "electric_bicycle",
+  "image_motion": "toward_top_left",
+  "world_motion": null,
+  "direction_quality": "unknown",
+  "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+  "uncertainties": [
+   "intercamera_clock_offset_unknown",
+   "fov_modelled_unverified"
+  ]
+ },
+ "site_groups": [
+  {
+   "site_key": "site:9000000000000038,9000000000000039",
+   "map_camera_ids": [
+    "9000000000000038",
+    "9000000000000039"
+   ],
+   "max_pair_distance_m": 4.77,
+   "bearing_delta_deg": 52.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000040,9000000000000041",
+   "map_camera_ids": [
+    "9000000000000040",
+    "9000000000000041"
+   ],
+   "max_pair_distance_m": 1.67,
+   "bearing_delta_deg": 173.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000043,9000000000000044",
+   "map_camera_ids": [
+    "9000000000000043",
+    "9000000000000044"
+   ],
+   "max_pair_distance_m": 1.23,
+   "bearing_delta_deg": 172.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000045,9000000000000056",
+   "map_camera_ids": [
+    "9000000000000045",
+    "9000000000000056"
+   ],
+   "max_pair_distance_m": 1.9,
+   "bearing_delta_deg": 147.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000048,9000000000000052",
+   "map_camera_ids": [
+    "9000000000000048",
+    "9000000000000052"
+   ],
+   "max_pair_distance_m": 0.0,
+   "bearing_delta_deg": 27.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000049,9000000000000050",
+   "map_camera_ids": [
+    "9000000000000049",
+    "9000000000000050"
+   ],
+   "max_pair_distance_m": 1.8,
+   "bearing_delta_deg": 59.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000051,9000000000000054",
+   "map_camera_ids": [
+    "9000000000000051",
+    "9000000000000054"
+   ],
+   "max_pair_distance_m": 0.0,
+   "bearing_delta_deg": 104.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  },
+  {
+   "site_key": "site:9000000000000057,9000000000000058",
+   "map_camera_ids": [
+    "9000000000000057",
+    "9000000000000058"
+   ],
+   "max_pair_distance_m": 0.6,
+   "bearing_delta_deg": 170.0,
+   "site_relation": "co_located_suspected",
+   "site_relation_verified": false,
+   "transfer_seconds_hint": [
+    1.0,
+    20.0
+   ],
+   "note": "安装点相近不代表同杆或同一观测点；转移时间不得按距离推算为 0"
+  }
+ ],
+ "candidates": [
+  {
+   "candidate_camera": "9000000000000037",
+   "display_name": "YD-桂康路中仁路T口1-1",
+   "priority": "high",
+   "spatial_relation": "overlap",
+   "distance_m": 0.0,
+   "same_site": false,
+   "transit_min": 0.0,
+   "transit_max": 20.0,
+   "transit_basis": "fov_overlap_window",
+   "reasons": [
+    "fov_overlap"
+   ],
+   "uncertainties": [
+    "clock_offset_unknown_for_overlap",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000058",
+   "display_name": "YD-桂康路中仁路T口2-1",
+   "priority": "high",
+   "spatial_relation": "disjoint",
+   "distance_m": 0.56,
+   "same_site": true,
+   "transit_min": 1.0,
+   "transit_max": 20.0,
+   "transit_basis": "same_site_pair",
+   "reasons": [
+    "reachable_non_overlap",
+    "same_site_opposite_camera"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000039",
+   "display_name": "中仁居民区中仁路71号南",
+   "priority": "high",
+   "spatial_relation": "disjoint",
+   "distance_m": 4.75,
+   "same_site": true,
+   "transit_min": 1.0,
+   "transit_max": 20.0,
+   "transit_basis": "same_site_pair",
+   "reasons": [
+    "reachable_non_overlap",
+    "same_site_opposite_camera"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000038",
+   "display_name": "YD-桂康路中仁路T口1-2",
+   "priority": "high",
+   "spatial_relation": "disjoint",
+   "distance_m": 8.24,
+   "same_site": false,
+   "transit_min": 1.18,
+   "transit_max": 2.35,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000031",
+   "display_name": "中仁居民区中仁路59号南",
+   "priority": "medium",
+   "spatial_relation": "disjoint",
+   "distance_m": 69.24,
+   "same_site": false,
+   "transit_min": 9.89,
+   "transit_max": 19.78,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000030",
+   "display_name": "3-DX-中仁路98号-球",
+   "priority": "medium",
+   "spatial_relation": "disjoint",
+   "distance_m": 102.22,
+   "same_site": false,
+   "transit_min": 14.6,
+   "transit_max": 29.21,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000041",
+   "display_name": "3-DX-桂康路鸿湖园C3栋-球",
+   "priority": "medium",
+   "spatial_relation": "disjoint",
+   "distance_m": 142.56,
+   "same_site": false,
+   "transit_min": 20.37,
+   "transit_max": 40.73,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000040",
+   "display_name": "3-DX-桂康路鸿湖园C3栋-向东",
+   "priority": "medium",
+   "spatial_relation": "disjoint",
+   "distance_m": 173.99,
+   "same_site": false,
+   "transit_min": 24.86,
+   "transit_max": 49.71,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000042",
+   "display_name": "1-LT-桂康路正通路口-向西",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 246.29,
+   "same_site": false,
+   "transit_min": 35.18,
+   "transit_max": 70.37,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000033",
+   "display_name": "3-DX-中仁路都市丽景小区-向南",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 279.89,
+   "same_site": false,
+   "transit_min": 39.98,
+   "transit_max": 79.97,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000048",
+   "display_name": "YD-中仁路都市丽景正门2",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 286.03,
+   "same_site": false,
+   "transit_min": 40.86,
+   "transit_max": 81.72,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000052",
+   "display_name": "YD-中仁路都市丽景正门1",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 288.93,
+   "same_site": false,
+   "transit_min": 41.28,
+   "transit_max": 82.55,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000032",
+   "display_name": "3-DX-中仁路都市丽景小区-向北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 293.85,
+   "same_site": false,
+   "transit_min": 41.98,
+   "transit_max": 83.96,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000053",
+   "display_name": "桂康路翠园雅筑后门口",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 297.72,
+   "same_site": false,
+   "transit_min": 42.53,
+   "transit_max": 85.06,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000055",
+   "display_name": "1-LT-桂康路正通路口-向北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 321.69,
+   "same_site": false,
+   "transit_min": 45.96,
+   "transit_max": 91.91,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000060",
+   "display_name": "YD-桂康路正通路十口1-1",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 323.18,
+   "same_site": false,
+   "transit_min": 46.17,
+   "transit_max": 92.34,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000047",
+   "display_name": "3-DX-桂康路翠园雅筑西门-向东",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 350.92,
+   "same_site": false,
+   "transit_min": 50.13,
+   "transit_max": 100.26,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000036",
+   "display_name": "3-DX-中仁路孔明园E40栋-向西",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 364.49,
+   "same_site": false,
+   "transit_min": 52.07,
+   "transit_max": 104.14,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000044",
+   "display_name": "3-DX-桂康菜市入口万顺堂药-球",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 381.97,
+   "same_site": false,
+   "transit_min": 54.57,
+   "transit_max": 109.13,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000043",
+   "display_name": "3-DX-桂康菜市入口万顺堂药-向北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 396.14,
+   "same_site": false,
+   "transit_min": 56.59,
+   "transit_max": 113.18,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000034",
+   "display_name": "YD-金水路中仁路口2-2",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 423.95,
+   "same_site": false,
+   "transit_min": 60.56,
+   "transit_max": 121.13,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000045",
+   "display_name": "3-DX-桂康菜市入口-向北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 446.11,
+   "same_site": false,
+   "transit_min": 63.73,
+   "transit_max": 127.46,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000056",
+   "display_name": "3-DX-桂康菜市入口-球",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 458.43,
+   "same_site": false,
+   "transit_min": 65.49,
+   "transit_max": 130.98,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000046",
+   "display_name": "YD-桂康幼儿园-北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 460.88,
+   "same_site": false,
+   "transit_min": 65.84,
+   "transit_max": 131.68,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000035",
+   "display_name": "YD-金水路中仁路口2-1",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 496.92,
+   "same_site": false,
+   "transit_min": 70.99,
+   "transit_max": 141.98,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000059",
+   "display_name": "YD-金水路中仁路口1",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 521.3,
+   "same_site": false,
+   "transit_min": 74.47,
+   "transit_max": 148.94,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000051",
+   "display_name": "1-LT-桂康路松山巷",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 567.04,
+   "same_site": false,
+   "transit_min": 81.01,
+   "transit_max": 162.01,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000054",
+   "display_name": "1-LT-桂康路松山巷-向北",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 567.49,
+   "same_site": false,
+   "transit_min": 81.07,
+   "transit_max": 162.14,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000050",
+   "display_name": "1-LT-步行街桂康路-向东",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 776.72,
+   "same_site": false,
+   "transit_min": 110.96,
+   "transit_max": 221.92,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  },
+  {
+   "candidate_camera": "9000000000000049",
+   "display_name": "1-LT-步行街桂康路-向西",
+   "priority": "low",
+   "spatial_relation": "disjoint",
+   "distance_m": 817.23,
+   "same_site": false,
+   "transit_min": 116.75,
+   "transit_max": 233.49,
+   "transit_basis": "region_to_region_distance",
+   "reasons": [
+    "reachable_non_overlap"
+   ],
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ],
+   "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+   "status": "candidate_camera",
+   "exploratory": true,
+   "binding_status": "pending_human_review",
+   "note": "camera_binding_pending_human_review"
+  }
+ ],
+ "windows_forward": [
+  {
+   "camera": "9000000000000037",
+   "mode": "forward",
+   "window": [
+    54007.6,
+    54029.6
+   ],
+   "priority": "high",
+   "reason": "fov_overlap",
+   "uncertainties": [
+    "clock_offset_unknown_for_overlap",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000058",
+   "mode": "forward",
+   "window": [
+    54008.6,
+    54029.6
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap,same_site_opposite_camera",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000039",
+   "mode": "forward",
+   "window": [
+    54008.6,
+    54029.6
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap,same_site_opposite_camera",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000038",
+   "mode": "forward",
+   "window": [
+    54008.78,
+    54011.95
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000031",
+   "mode": "forward",
+   "window": [
+    54017.49,
+    54029.38
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000030",
+   "mode": "forward",
+   "window": [
+    54022.2,
+    54038.81
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000041",
+   "mode": "forward",
+   "window": [
+    54027.97,
+    54050.33
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000040",
+   "mode": "forward",
+   "window": [
+    54032.46,
+    54059.31
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000042",
+   "mode": "forward",
+   "window": [
+    54042.78,
+    54079.97
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000033",
+   "mode": "forward",
+   "window": [
+    54047.58,
+    54089.57
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000048",
+   "mode": "forward",
+   "window": [
+    54048.46,
+    54091.32
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000052",
+   "mode": "forward",
+   "window": [
+    54048.88,
+    54092.15
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000032",
+   "mode": "forward",
+   "window": [
+    54049.58,
+    54093.56
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000053",
+   "mode": "forward",
+   "window": [
+    54050.13,
+    54094.659999999996
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000055",
+   "mode": "forward",
+   "window": [
+    54053.56,
+    54101.51
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000060",
+   "mode": "forward",
+   "window": [
+    54053.77,
+    54101.939999999995
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000047",
+   "mode": "forward",
+   "window": [
+    54057.729999999996,
+    54109.86
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000036",
+   "mode": "forward",
+   "window": [
+    54059.67,
+    54113.74
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000044",
+   "mode": "forward",
+   "window": [
+    54062.17,
+    54118.729999999996
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000043",
+   "mode": "forward",
+   "window": [
+    54064.189999999995,
+    54122.78
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000034",
+   "mode": "forward",
+   "window": [
+    54068.159999999996,
+    54130.729999999996
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000045",
+   "mode": "forward",
+   "window": [
+    54071.33,
+    54137.06
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000056",
+   "mode": "forward",
+   "window": [
+    54073.09,
+    54140.58
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000046",
+   "mode": "forward",
+   "window": [
+    54073.439999999995,
+    54141.28
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000035",
+   "mode": "forward",
+   "window": [
+    54078.59,
+    54151.58
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000059",
+   "mode": "forward",
+   "window": [
+    54082.07,
+    54158.54
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000051",
+   "mode": "forward",
+   "window": [
+    54088.61,
+    54171.61
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000054",
+   "mode": "forward",
+   "window": [
+    54088.67,
+    54171.74
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000050",
+   "mode": "forward",
+   "window": [
+    54118.56,
+    54231.52
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000049",
+   "mode": "forward",
+   "window": [
+    54124.35,
+    54243.09
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  }
+ ],
+ "windows_backward": [
+  {
+   "camera": "9000000000000037",
+   "mode": "backward",
+   "window": [
+    53987.6,
+    54009.6
+   ],
+   "priority": "high",
+   "reason": "fov_overlap",
+   "uncertainties": [
+    "clock_offset_unknown_for_overlap",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000058",
+   "mode": "backward",
+   "window": [
+    53987.6,
+    54008.6
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap,same_site_opposite_camera",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000039",
+   "mode": "backward",
+   "window": [
+    53987.6,
+    54008.6
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap,same_site_opposite_camera",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000038",
+   "mode": "backward",
+   "window": [
+    54005.25,
+    54008.42
+   ],
+   "priority": "high",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000031",
+   "mode": "backward",
+   "window": [
+    53987.82,
+    53999.71
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000030",
+   "mode": "backward",
+   "window": [
+    53978.39,
+    53995.0
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000041",
+   "mode": "backward",
+   "window": [
+    53966.869999999995,
+    53989.229999999996
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000040",
+   "mode": "backward",
+   "window": [
+    53957.89,
+    53984.74
+   ],
+   "priority": "medium",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000042",
+   "mode": "backward",
+   "window": [
+    53937.229999999996,
+    53974.42
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000033",
+   "mode": "backward",
+   "window": [
+    53927.63,
+    53969.619999999995
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000048",
+   "mode": "backward",
+   "window": [
+    53925.88,
+    53968.74
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000052",
+   "mode": "backward",
+   "window": [
+    53925.049999999996,
+    53968.32
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000032",
+   "mode": "backward",
+   "window": [
+    53923.64,
+    53967.619999999995
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000053",
+   "mode": "backward",
+   "window": [
+    53922.54,
+    53967.07
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000055",
+   "mode": "backward",
+   "window": [
+    53915.689999999995,
+    53963.64
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000060",
+   "mode": "backward",
+   "window": [
+    53915.26,
+    53963.43
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000047",
+   "mode": "backward",
+   "window": [
+    53907.34,
+    53959.47
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000036",
+   "mode": "backward",
+   "window": [
+    53903.46,
+    53957.53
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000044",
+   "mode": "backward",
+   "window": [
+    53898.47,
+    53955.03
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000043",
+   "mode": "backward",
+   "window": [
+    53894.42,
+    53953.01
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000034",
+   "mode": "backward",
+   "window": [
+    53886.47,
+    53949.04
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000045",
+   "mode": "backward",
+   "window": [
+    53880.14,
+    53945.869999999995
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000056",
+   "mode": "backward",
+   "window": [
+    53876.619999999995,
+    53944.11
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000046",
+   "mode": "backward",
+   "window": [
+    53875.92,
+    53943.76
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000035",
+   "mode": "backward",
+   "window": [
+    53865.619999999995,
+    53938.61
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000059",
+   "mode": "backward",
+   "window": [
+    53858.659999999996,
+    53935.13
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000051",
+   "mode": "backward",
+   "window": [
+    53845.59,
+    53928.59
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000054",
+   "mode": "backward",
+   "window": [
+    53845.46,
+    53928.53
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000050",
+   "mode": "backward",
+   "window": [
+    53785.68,
+    53898.64
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  },
+  {
+   "camera": "9000000000000049",
+   "mode": "backward",
+   "window": [
+    53774.11,
+    53892.85
+   ],
+   "priority": "low",
+   "reason": "reachable_non_overlap",
+   "uncertainties": [
+    "beyond_configured_range",
+    "fov_not_field_verified"
+   ]
+  }
+ ]
+}
