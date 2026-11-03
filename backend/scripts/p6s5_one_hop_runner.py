@@ -87,6 +87,7 @@ def main():
     camera_ids = {c["map_camera_id"]: labels.get(c["camera_uuid"], c.get("label", ""))
                   for c in specs}
     anchor["camera_ids"] = camera_ids
+    anchor["camera_uuids"] = {name: uuid for uuid, name in labels.items()}
     anchor["camera_label"] = label
 
     engine, model_id = _get_engine()
@@ -95,6 +96,10 @@ def main():
                         None)
     if source_track is None:
         raise SystemExit("anchor_tracklet_not_found")
+    if anchor.get("observed_end") is None:
+        frames = [int(o["frame_id"]) for o in source_track["observations"]]
+        anchor["observed_end"] = time_at(maps[label], max(frames))
+        anchor["observed_end_source"] = "tracklet_last_frame"
 
     def read_image(frame_id):
         return cv2.imread("%s/%s/%04d.jpg" % (args.frames, label, int(frame_id) + 1))
@@ -178,6 +183,7 @@ def main():
                                     "priority": c["priority"], "reasons": c["reasons"]}
                                    for c in stage.get("candidates", [])],
                "anchor": anchor, "steps": result["steps"], "hop": result["hop"],
+               "candidate_pool": result["candidate_pool"],
                "review": result["review"], "profile": result["profile"],
                "next_round": result["next_round"], "ledger": result["ledger"],
                "elapsed_seconds": round(time.time() - started, 1)}

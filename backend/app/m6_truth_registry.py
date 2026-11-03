@@ -20,6 +20,7 @@ class TruthPackageError(ValueError):
 
 def observation(case_id, target_id, camera_uuid, map_camera_id, tracklet_id,
                 osd_anchor_seconds, recording_id, osd_uncertainty_seconds=None,
+                osd_end_seconds=None,
                 reviewer=None, evidence=None, status="candidate",
                 binding_status="pending_human_review", clock_quality="uncalibrated",
                 source="human_review", synthetic=False, note=None):
@@ -29,6 +30,7 @@ def observation(case_id, target_id, camera_uuid, map_camera_id, tracklet_id,
             "tracklet_id": str(tracklet_id),
             "recording_id": recording_id,
             "osd_anchor_seconds": osd_anchor_seconds,
+            "osd_end_seconds": osd_end_seconds,
             "osd_uncertainty_seconds": osd_uncertainty_seconds,
             "clock_quality": clock_quality,
             "binding_status": binding_status,
@@ -205,13 +207,18 @@ def starting_observation(package, target_id):
     anchor = anchors[0]
     if not anchor.get("evidence"):
         raise StartingAnchorError("anchor_without_evidence")
+    if anchor.get("osd_end_seconds") is None:
+        # 首次观测时间不能当离开时间：那会把搜索窗口整体提前
+        raise StartingAnchorError("anchor_end_time_unknown")
     binding = next((b for b in package.get("bindings", [])
                     if b.get("camera_uuid") == anchor.get("camera_uuid")), None)
     return {"case_id": package["case_id"], "target_id": target_id,
             "camera_uuid": anchor["camera_uuid"], "map_camera_id": anchor["map_camera_id"],
             "tracklet_id": anchor["tracklet_id"],
             "observed_start": anchor["osd_anchor_seconds"],
-            "observed_end": anchor.get("osd_end_seconds", anchor["osd_anchor_seconds"]),
+            "observed_end": anchor.get("osd_end_seconds"),
+            "observed_end_source": ("package_osd_end" if anchor.get("osd_end_seconds") is not None
+                                    else None),
             "recording_id": anchor["recording_id"], "evidence": anchor["evidence"],
             "camera_label": (binding or {}).get("label"),
             "binding_status": (binding or {}).get("binding_status", "pending_human_review")}

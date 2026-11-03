@@ -17,6 +17,7 @@ def _anchor(label="1-1", start=54006.2):
     return {"case_id": "purple", "target_id": "purple", "camera_uuid": "u11",
             "map_camera_id": "37", "camera_label": label, "tracklet_id": "111",
             "observed_start": start, "observed_end": start + 2.4,
+            "camera_uuids": {"1-1": "u11", "2-1": "u21"},
             "recording_id": "rec-1-1", "evidence": ["frame:1-1/0047.jpg"],
             "camera_ids": {"37": "1-1", "58": "2-1"},
             "binding_status": "pending_human_review"}
@@ -116,11 +117,52 @@ def test_starting_observation_returns_earliest_confirmed_anchor():
                "bindings": [{"camera_uuid": "u11", "label": "1-1",
                              "binding_status": "pending_human_review"}]}
     first = observation("purple", "purple", "u11", "37", "111", 54006.2, "rec-1-1",
-                        evidence=["frame:1-1/0047.jpg"])
+                        osd_end_seconds=54008.6, evidence=["frame:1-1/0047.jpg"])
     second = observation("purple", "purple", "u21", "58", "37", 54012.6, "rec-2-1",
-                         evidence=["frame:2-1/0074.jpg"])
+                         osd_end_seconds=54015.6, evidence=["frame:2-1/0074.jpg"])
     for record in (second, first):
         package["observations"].append({**record, "status": "human_confirmed"})
     anchor = starting_observation(package, "purple")
     assert anchor["tracklet_id"] == "111"
     assert anchor["camera_label"] == "1-1"
+
+
+def test_starting_observation_refuses_to_invent_end_time():
+    package = {"case_id": "purple", "bindings": [],
+               "observations": [observation("purple", "purple", "u11", "37", "111", 54006.2,
+                                            "rec-1-1", evidence=["frame:1-1/0047.jpg"])]}
+    package["observations"][0]["status"] = "human_confirmed"
+    with pytest.raises(StartingAnchorError) as exc:
+        starting_observation(package, "purple")
+    assert str(exc.value) == "anchor_end_time_unknown"
+
+
+def test_weak_candidate_is_kept_and_outranks_later_strong_candidate():
+    state = {"call": 0}
+
+    def analyze(label, span, window_id):
+        state["call"] += 1
+        track = "weak@%d" % state["call"] if state["call"] == 1 else "strong@%d" % state["call"]
+        return {"status": "ok",
+                "tracks": [{"track_id": track, "observations": [
+                    {"frame_id": span["start_index"] + 2, "bbox": [0, 0, 9, 9]},
+                    {"frame_id": span["start_index"] + 5, "bbox": [0, 0, 9, 9]}]}],
+                "cost": {"frames_decoded": 4}}
+
+    def score(label, window):
+        track = list(window["tracks"])[0]["track_id"]
+        if track.startswith("weak"):
+            return [{"track_id": track, "retrieval_score": 0.733},
+                    {"track_id": "other", "retrieval_score": 0.658}]
+        return [{"track_id": track, "retrieval_score": 0.661},
+                {"track_id": "other2", "retrieval_score": 0.549}]
+
+    result = run_one_hop(anchor=_anchor(), time_maps=_time_maps(),
+                         predictions=_predictions(54010.0) + _predictions(54020.0),
+                         analyze=analyze, score=score, spatial=_spatial)
+    pool = result["candidate_pool"]
+    assert len(pool) >= 2
+    assert any(c["state"] == "candidate" for c in pool)
+    assert pool[0]["track_id"].startswith("weak")      # 高分弱候选不会被后来的强候选顶掉
+    assert pool[0]["state"] == "weak_candidate"
+    assert result["hop"]["track_id"].startswith("weak")

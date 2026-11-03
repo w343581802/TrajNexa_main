@@ -1,7 +1,10 @@
-"""B4.2：从真值包里的已确认起点驱动单跳检索。
+"""B4.2 / B5-A：单跳执行（候选池版）。
 
-编排层只依赖注入的 analyze/score/spatial 三个回调，
-因此可以在没有 GPU、没有模型的单元测试里验证"不注入 B 答案也能走到候选"。
+原则：证据不足的候选不丢弃。
+  - strong candidate 进入优先审核队列；
+  - weak candidate 保留在候选池，可被重新排序或人工复核；
+  - 后续窗口出现更高分候选时，不会删除先前候选；
+  - 只有人工审核事件能推进主链。
 """
 from __future__ import annotations
 
@@ -13,12 +16,33 @@ from .m6_time_map import span_for_window, time_at
 from .m6_truth_registry import add_observation, observation
 
 
+def _entry(candidate, name, camera_id, action_id, window, track, time_map):
+    frames = [int(o["frame_id"]) for o in track["observations"]]
+    return {"candidate_id": "%s/%s" % (name, candidate["track_id"]),
+            "camera_label": name, "map_camera_id": camera_id,
+            "action_id": action_id, "window": list(window),
+            "track_id": candidate["track_id"],
+            "retrieval_score": candidate["retrieval_score"],
+            "margin_top1_top2": candidate.get("margin_top1_top2"),
+            "state": candidate["state"],
+            "first_frame": min(frames), "last_frame": max(frames),
+            "observed_start": time_at(time_map, min(frames)),
+            "observed_end": time_at(time_map, max(frames)),
+            "evidence_refs": ["frame:%s/%04d.jpg" % (name, min(frames) + 1),
+                              "frame:%s/%04d.jpg" % (name, max(frames) + 1)]}
+
+
+def _ranked(pool):
+    return sorted(pool, key=lambda c: ((c["retrieval_score"] or 0),
+                                       (c["margin_top1_top2"] or 0)), reverse=True)
+
+
 def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                 review_events=(), evidence_root=None, max_actions=80,
                 segment_seconds=6.0):
-    """anchor 只描述 A（起点）；B 的时间/轨迹在运行中由真实检测得出。"""
-    label = anchor["camera_label"]
+    """anchor 只给 A；B 的镜头、时间与轨迹全部由运行中的真实分析产生。"""
     labels = dict(anchor["camera_ids"])
+    uuids = dict(anchor.get("camera_uuids") or {})
 
     def recording_index(camera, start, end):
         name = labels.get(camera)
@@ -35,49 +59,44 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                                 params={"segment_seconds": segment_seconds,
                                         "max_decoded_frames": 10 ** 6},
                                 mode="segmented")
-    steps = []
-    hop = None
+    steps, pool = [], []
     for _ in range(max_actions):
-        action = scheduler.next_action()
-        if action is None:
+        current = scheduler.next_action()
+        if current is None:
             break
-        camera = action["action"]["camera"]
+        act = current["action"]
+        camera = act["camera"]
         name = labels[camera]
-        span = span_for_window(time_maps[name], *action["window"])
-        window = analyze(name, span, "%s@%.1f" % (name, action["window"][0]))
-        window["target_candidates"] = candidates_from_scores(score(name, window))["target_candidates"]
-        state = scheduler.submit(window)
-        steps.append({"camera": name, "scheduled_window": list(action["window"]),
+        window = current["window"]
+        span = span_for_window(time_maps[name], *window)
+        result = analyze(name, span, "%s@%.1f" % (name, window[0]))
+        result["target_candidates"] = candidates_from_scores(score(name, result))["target_candidates"]
+        state = scheduler.submit(result)
+        tracks = {t["track_id"]: t for t in result.get("tracks") or []}
+        for candidate in result["target_candidates"]:
+            pool.append(_entry(candidate, name, camera, act["action_id"], window,
+                               tracks[candidate["track_id"]], time_maps[name]))
+        steps.append({"camera": name, "scheduled_window": list(window),
                       "actual_seconds": [span["start_seconds"], span["end_seconds"]],
                       "actual_frames": [span["start_index"], span["end_index"]],
-                      "tracks": len(window.get("tracks") or []),
-                      "candidates": window["target_candidates"], "state": state})
-        if state == "needs_review":
-            candidate = window["target_candidates"][0]
-            track = next(t for t in window["tracks"] if t["track_id"] == candidate["track_id"])
-            frames = [o["frame_id"] for o in track["observations"]]
-            hop = {"camera": name, "map_camera_id": camera,
-                   "track_id": candidate["track_id"],
-                   "retrieval_score": candidate["retrieval_score"],
-                   "margin_top1_top2": candidate.get("margin_top1_top2"),
-                   "first_frame": min(frames), "last_frame": max(frames),
-                   "observed_start": time_at(time_maps[name], min(frames)),
-                   "observed_end": time_at(time_maps[name], max(frames)),
-                   "clock_quality": time_maps[name]["clock_quality"],
-                   "evidence_refs": ["frame:%s/%04d.jpg" % (name, int(min(frames)) + 1),
-                                     "frame:%s/%04d.jpg" % (name, int(max(frames)) + 1)]}
-            break
+                      "tracks": len(result.get("tracks") or []),
+                      "candidates": result["target_candidates"], "state": state})
 
-    profile = new_profile(anchor["target_id"], label, anchor["tracklet_id"],
-                          anchor["observed_start"], anchor["observed_end"])
+    ranked = _ranked(pool)
+    hop = ranked[0] if ranked else None
+    profile = new_profile(anchor["target_id"], anchor["camera_label"],
+                          anchor["tracklet_id"], anchor["observed_start"],
+                          anchor["observed_end"])
     registry = {"case_id": anchor["case_id"], "observations": [], "applied_events": []}
     review = {"decisions": [], "profile_advanced": False}
     if hop:
         record = observation(anchor["case_id"], anchor["target_id"],
-                             anchor["camera_uuid"], hop["map_camera_id"], hop["track_id"],
-                             hop["observed_start"], hop["track_id"],
-                             osd_uncertainty_seconds=0.2, evidence=hop["evidence_refs"],
-                             note="模型候选，等待审核")
+                             uuids.get(hop["camera_label"]), hop["map_camera_id"],
+                             hop["track_id"], hop["observed_start"],
+                             time_maps[hop["camera_label"]]["recording_id"],
+                             osd_end_seconds=hop["observed_end"],
+                             osd_uncertainty_seconds=0.2,
+                             evidence=hop["evidence_refs"], note="模型候选，等待审核")
         add_observation(registry, record)
         events = [review_event(e["event_type"], anchor["case_id"], anchor["target_id"],
                                record["observation_id"], e.get("reviewer"),
@@ -86,18 +105,20 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
                                event_id=e.get("event_id")) for e in review_events]
         results = apply_events(registry, events, evidence_root=evidence_root) if events else []
         review["decisions"] = results
-        accepted = [r for r in results if r["status"] == "confirmed"]
-        profile = attach_candidate(profile, hop["camera"], hop["track_id"],
+        profile = attach_candidate(profile, hop["camera_label"], hop["track_id"],
                                    hop["observed_start"], hop["observed_end"], [])
         candidate_id = profile["candidates"][0]["candidate_id"]
-        profile = advance_from_review(profile, candidate_id,
-                                      "confirmed" if accepted else "candidate")
+        confirmed = any(r["status"] == "confirmed" for r in results)
+        rejected = any(r["status"] == "rejected" for r in results)
+        decision = "confirmed" if confirmed else ("rejected" if rejected else "candidate")
+        profile = advance_from_review(profile, candidate_id, decision)
         review["profile_advanced"] = profile["version"] == "V2"
 
     next_round = None
     if hop:
-        next_round = spatial(hop["observed_end"], hop["camera"], hop["map_camera_id"])
-    return {"anchor": anchor, "steps": steps, "hop": hop, "review": review,
+        next_round = spatial(hop["observed_end"], hop["camera_label"], hop["map_camera_id"])
+    return {"anchor": anchor, "steps": steps, "hop": hop,
+            "candidate_pool": ranked, "review": review,
             "profile": {"version": profile["version"],
                         "observations": profile["observations"],
                         "candidates": profile["candidates"]},
