@@ -60,7 +60,11 @@ def cross_status(relation, appearance, spatial=None, params=None):
                      and appearance.get("supporting_candidate_frames", 0)
                      >= params["min_supporting_frames"])
 
-    if appearance.get("calibration_status") == "uncalibrated":
+    sufficiency = appearance.get("time_sufficiency", "verified")
+    if sufficiency == "uncalibrated":
+        status = "pending_time_calibration"
+    elif relation["relation"] == "overlapping" and sufficiency != "verified":
+        # 重叠视野下要判断"同一时刻"，临时 OSD 校时不足以支撑严格同步结论
         status = "pending_time_calibration"
     elif relation["relation"] == "overlapping":
         if spatial.get("overlap_confirmed") is False:
@@ -82,6 +86,21 @@ def cross_status(relation, appearance, spatial=None, params=None):
         else:
             status = "transition_candidate"
     return {"status": status, "appearance_ok": appearance_ok}
+
+
+def time_sufficiency(*clocks):
+    """两台摄像头的校时是否足以支撑严格同步判断。
+
+    - verified：已完成满足当前任务精度的校时（含不确定度）
+    - provisional：临时 OSD 校时，只能做粗时间筛选
+    - uncalibrated：未校时
+    """
+    statuses = [c.get("calibration_status", "uncalibrated") for c in clocks]
+    if all(s == "verified_for_sync" for s in statuses):
+        return "verified"
+    if all(s == "uncalibrated" for s in statuses):
+        return "uncalibrated"
+    return "provisional"
 
 
 def pair_by_time(anchor_items, candidate_items, tolerance_seconds=1.0):

@@ -24,7 +24,8 @@ import numpy as np  # noqa: E402
 import onnxruntime as ort  # noqa: E402
 
 from app.m6_cross_camera import (clock_record, cross_status, pair_by_time,  # noqa: E402
-                                 summarise_pairs, temporal_relation, to_wall)
+                                 summarise_pairs, temporal_relation,
+                                 time_sufficiency, to_wall)
 from app.m6_reid_link import _to_blob, crop_for_embedding  # noqa: E402
 from app.m6_track_grouping import group_tracks  # noqa: E402
 
@@ -97,20 +98,25 @@ def main():
     parser.add_argument("--min-observations", type=int, default=8)
     parser.add_argument("--sync-tolerance", type=float, default=0.5)
     parser.add_argument("--dense-top", type=int, default=5)
+    parser.add_argument("--only-tracks", help="只评估这些候选轨迹 ID（逗号分隔），用于真值集")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
+    only = ({int(x) for x in args.only_tracks.split(",")} if args.only_tracks else None)
 
     session = ort.InferenceSession(MODEL, providers=["CPUExecutionProvider"])
     cameras = {}
     for spec in args.camera:
-        name, frames, tracks_path, start_wall, offset, uncertainty = spec.split(":")
+        parts = spec.split(":")
+        name, frames, tracks_path, start_wall, offset, uncertainty = parts[:6]
+        status = parts[6] if len(parts) > 6 else "provisional"
         data = json.loads(Path(tracks_path).read_text(encoding="utf-8"))
         cameras[name] = {
             "name": name, "frames": frames,
             "tracks": [t for t in data["results"]["bytetrack"]["tracks"]
                        if len(t["observations"]) >= args.min_observations],
             "clock": clock_record(name, float(start_wall), float(offset),
-                                  float(uncertainty) if uncertainty not in ("", "null") else None),
+                                  float(uncertainty) if uncertainty not in ("", "null") else None,
+                                  calibration_status=status),
             "loader": frame_reader(frames)}
 
     spatial = {}
@@ -171,26 +177,28 @@ def main():
             continue
         key = tuple(sorted((args.anchor_camera, name)))
         for group in groups_of(cam):
+            if only is not None and not set(group["track_ids"]) & only:
+                continue
             obs = observations_of(cam, group["track_ids"])
             if not obs:
                 continue
             times = [to_wall(cam["clock"], float(o["timestamp_seconds"])) for o in obs]
             stats = appearance_stats(anchor_vectors, vectors_of(cam, group["track_ids"]))
-            stats["calibration_status"] = cam["clock"]["calibration_status"]
+            stats["time_sufficiency"] = time_sufficiency(anchor_cam["clock"], cam["clock"])
             relation = temporal_relation(anchor_span, (min(times), max(times)))
             verdict = cross_status(relation, stats, {"overlap_confirmed": spatial.get(key)})
             candidates.append({"camera": name,
                                "track": "-".join(str(t) for t in group["track_ids"]),
                                "track_ids": list(group["track_ids"]),
                                "span": (round(min(times), 2), round(max(times), 2)),
-                               "score": round(stats["score"], 4),
+                               "retrieval_score": round(stats["score"], 4),
                                "supporting_frames": stats["supporting_candidate_frames"],
                                "relation": relation["relation"],
                                "overlap_seconds": relation["overlap_seconds"],
                                "transition_gap_seconds": relation.get("transition_gap_seconds"),
                                "status": verdict["status"]})
 
-    candidates.sort(key=lambda c: -c["score"])
+    candidates.sort(key=lambda c: -c["retrieval_score"])
     for index, item in enumerate(candidates):
         item["rank"] = index + 1
 
@@ -220,7 +228,7 @@ def main():
                                  args.sync_tolerance)
             cosines = [float(np.dot(a["anchor"][0], a["candidate"][0])) for a in pairs]
             summary = summarise_pairs(pairs, cosines)
-            item["dense"] = {"window": [round(start, 2), round(end, 2)],
+            item["synchronous_evidence"] = {"window": [round(start, 2), round(end, 2)],
                              "anchor_frames": len(anchor_vecs),
                              "candidate_frames": len(cand_vecs),
                              "paired_frames": summary["paired_frames"],
@@ -247,9 +255,9 @@ def main():
           % (args.anchor_camera, anchor_group["track_ids"], anchor_span[0], anchor_span[1],
              args.mode))
     for item in candidates[:8]:
-        dense = item.get("dense") or {}
-        print("  #%-2d %-4s %-12s 外观 %.3f（%d 帧）%s 重叠 %.1fs/间隔 %s → %s"
-              % (item["rank"], item["camera"], item["track"], item["score"],
+        dense = item.get("synchronous_evidence") or {}
+        print("  #%-2d %-4s %-12s 检索 %.3f（%d 帧）%s 重叠 %.1fs/间隔 %s → %s"
+              % (item["rank"], item["camera"], item["track"], item["retrieval_score"],
                  item["supporting_frames"], item["relation"], item["overlap_seconds"],
                  item["transition_gap_seconds"], item["status"]))
         if dense:

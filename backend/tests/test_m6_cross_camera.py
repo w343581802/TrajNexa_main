@@ -1,6 +1,7 @@
 """M6-S6-2 跨摄像头：三态时间关系、同步配对与状态裁决。"""
 from app.m6_cross_camera import (clock_record, cross_status, pair_by_time,
-                                 summarise_pairs, temporal_relation, to_wall)
+                                 summarise_pairs, temporal_relation,
+                                 time_sufficiency, to_wall)
 
 
 def test_overlap_reports_real_duration_not_negative_gap():
@@ -22,8 +23,23 @@ def test_overlap_without_confirmed_coverage_is_pending():
     appearance = {"score": 0.85, "supporting_candidate_frames": 8}
     assert cross_status(rel, appearance, {"overlap_confirmed": None})["status"] == \
         "pending_spatial_verification"
+    appearance["time_sufficiency"] = "verified"
     assert cross_status(rel, appearance, {"overlap_confirmed": True})["status"] == \
         "overlap_match_candidate"
+
+
+def test_provisional_clock_blocks_strict_sync_upgrade():
+    rel = temporal_relation((100.0, 120.0), (110.0, 130.0))
+    provisional = {"score": 0.85, "supporting_candidate_frames": 8,
+                   "time_sufficiency": "provisional"}
+    assert cross_status(rel, provisional, {"overlap_confirmed": True})["status"] == \
+        "pending_time_calibration"
+    assert time_sufficiency({"calibration_status": "osd_boundary"},
+                            {"calibration_status": "osd_boundary"}) == "provisional"
+    assert time_sufficiency({"calibration_status": "verified_for_sync"},
+                            {"calibration_status": "verified_for_sync"}) == "verified"
+    assert time_sufficiency({"calibration_status": "uncalibrated"},
+                            {"calibration_status": "uncalibrated"}) == "uncalibrated"
 
 
 def test_confirmed_non_overlapping_views_exclude():
@@ -36,7 +52,7 @@ def test_confirmed_non_overlapping_views_exclude():
 def test_uncalibrated_clock_never_excludes():
     rel = temporal_relation((100.0, 120.0), (110.0, 130.0))
     verdict = cross_status(rel, {"score": 0.9, "supporting_candidate_frames": 5,
-                                 "calibration_status": "uncalibrated"},
+                                 "time_sufficiency": "uncalibrated"},
                            {"overlap_confirmed": False})
     assert verdict["status"] == "pending_time_calibration"
 
