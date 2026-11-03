@@ -1,42 +1,28 @@
 {
   "ok": true,
-  "archive": {
-    "target_track": 41,
-    "reference_frames": [
-      "00159",
-      "00173",
-      "00175",
-      "00177",
-      "00181",
-      "00183",
-      "00185",
-      "00188",
-      "00190",
-      "00192",
-      "00195",
-      "00197",
-      "00199",
-      "00202",
-      "00204",
-      "00206"
+  "anchor": {
+    "track": 41,
+    "group": [
+      41
     ],
-    "frame_count": 16
+    "frames": 16
   },
   "stages": [
     {
-      "stage": "reference_archive",
+      "stage": "anchor_archive",
       "status": "ok",
       "detail": {
-        "frames": 16
+        "frames": 16,
+        "tracks": 1
       }
     },
     {
       "stage": "grouping",
       "status": "ok",
       "detail": {
-        "objects": 100,
+        "objects": 102,
         "multi_track_groups": 6,
-        "merged_relations": 10,
+        "merged_relations": 7,
         "group_conflicts": 0
       }
     },
@@ -45,108 +31,198 @@
       "status": "ok",
       "detail": {
         "mode": "per_frame",
-        "candidates": 53
+        "independent": 33,
+        "suspected_duplicates": 4
       }
     },
     {
-      "stage": "trackback",
+      "stage": "candidate_duplicate_review",
       "status": "ok",
       "detail": {
-        "tracks": 3,
+        "duplicates": 4,
+        "independent": 33,
+        "policy": "不自动并档；疑似重复单独列出供人工复核"
+      }
+    },
+    {
+      "stage": "reference_track_coverage_check",
+      "status": "ok",
+      "detail": {
+        "tracks": 1,
         "max_gap_seconds": 0.6
       }
     }
   ],
-  "candidates": [
-    {
-      "candidate": "41-46-47",
-      "is_reference": true,
-      "score": 1.0,
-      "supporting_pairs": 31,
-      "supporting_anchor_frames": 31,
-      "supporting_candidate_frames": 31,
-      "views_used": 0,
-      "pairs": 0,
-      "evidence_kind": "reference",
-      "anchor_frames_used": 31,
-      "candidate_frames_used": 31,
-      "rank": 1,
-      "margin_to_next": 0.0672,
-      "status": "reference"
-    },
+  "grouping": {
+    "objects": 102,
+    "multi_track_groups": 6
+  },
+  "suspected_duplicates_of_reference": [
     {
       "candidate": "64",
-      "is_reference": false,
-      "score": 0.9328420956929525,
-      "evidence_kind": "pairwise",
-      "supporting_pairs": 18,
-      "supporting_anchor_frames": 8,
-      "supporting_candidate_frames": 3,
-      "views_used": 1,
-      "pairs": 298,
-      "anchor_frames_used": 31,
-      "candidate_frames_used": 11,
-      "rank": 2,
-      "margin_to_next": 0.0052,
-      "status": "ambiguous"
+      "track_ids": [
+        64
+      ],
+      "score": 0.9285015265146891,
+      "supporting_pairs": 33,
+      "supporting_anchor_frames": 12,
+      "supporting_candidate_frames": 5,
+      "pairs": 117,
+      "conflicts": [],
+      "review": "suspected_duplicate_of_reference",
+      "review_reason": "余弦 0.929 ≥ 0.85、支撑帧 5 ≥ 3，且与参考组无同帧冲突证据"
     },
     {
       "candidate": "50-53",
-      "is_reference": false,
-      "score": 0.9276817440986633,
-      "evidence_kind": "pairwise",
-      "supporting_pairs": 112,
-      "supporting_anchor_frames": 24,
-      "supporting_candidate_frames": 14,
-      "views_used": 1,
-      "pairs": 751,
-      "anchor_frames_used": 31,
-      "candidate_frames_used": 27,
-      "rank": 3,
-      "margin_to_next": 0.0169,
-      "status": "ambiguous"
+      "track_ids": [
+        50,
+        53
+      ],
+      "score": 0.924126942952474,
+      "supporting_pairs": 35,
+      "supporting_anchor_frames": 11,
+      "supporting_candidate_frames": 9,
+      "pairs": 296,
+      "conflicts": [],
+      "review": "suspected_duplicate_of_reference",
+      "review_reason": "余弦 0.924 ≥ 0.85、支撑帧 9 ≥ 3，且与参考组无同帧冲突证据"
     },
     {
       "candidate": "67",
-      "is_reference": false,
-      "score": 0.910798708597819,
-      "evidence_kind": "pairwise",
-      "supporting_pairs": 33,
-      "supporting_anchor_frames": 11,
-      "supporting_candidate_frames": 5,
-      "views_used": 1,
-      "pairs": 189,
-      "anchor_frames_used": 31,
-      "candidate_frames_used": 7,
-      "rank": 4,
-      "margin_to_next": 0.0112,
+      "track_ids": [
+        67
+      ],
+      "score": 0.9238324165344238,
+      "supporting_pairs": 26,
+      "supporting_anchor_frames": 12,
+      "supporting_candidate_frames": 3,
+      "pairs": 48,
+      "conflicts": [],
+      "review": "suspected_duplicate_of_reference",
+      "review_reason": "余弦 0.924 ≥ 0.85、支撑帧 3 ≥ 3，且与参考组无同帧冲突证据"
+    },
+    {
+      "candidate": "46-47",
+      "track_ids": [
+        46,
+        47
+      ],
+      "score": 0.8948747316996256,
+      "supporting_pairs": 50,
+      "supporting_anchor_frames": 14,
+      "supporting_candidate_frames": 9,
+      "pairs": 176,
+      "conflicts": [],
+      "review": "suspected_duplicate_of_reference",
+      "review_reason": "余弦 0.895 ≥ 0.85、支撑帧 9 ≥ 3，且与参考组无同帧冲突证据"
+    }
+  ],
+  "independent_candidates": [
+    {
+      "candidate": "49-70",
+      "track_ids": [
+        49,
+        70
+      ],
+      "score": 0.7187284032503763,
+      "supporting_pairs": 22,
+      "supporting_anchor_frames": 13,
+      "supporting_candidate_frames": 3,
+      "pairs": 373,
+      "conflicts": [
+        {
+          "track_a": 49,
+          "track_b": 41,
+          "conflict_frames": 36,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "independent_conflict_evidence",
+      "rank": 1,
+      "margin_to_next": 0.0796,
+      "status": "candidate"
+    },
+    {
+      "candidate": "24",
+      "track_ids": [
+        24
+      ],
+      "score": 0.6391745607058207,
+      "supporting_pairs": 11,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 2,
+      "pairs": 48,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 2,
+      "margin_to_next": 0.0101,
       "status": "ambiguous"
     },
     {
-      "candidate": "69",
-      "is_reference": false,
-      "score": 0.8996302882830302,
-      "evidence_kind": "pairwise",
-      "supporting_pairs": 19,
-      "supporting_anchor_frames": 9,
-      "supporting_candidate_frames": 3,
-      "views_used": 1,
-      "pairs": 109,
-      "anchor_frames_used": 29,
-      "candidate_frames_used": 4,
+      "candidate": "12",
+      "track_ids": [
+        12
+      ],
+      "score": 0.6290624340375265,
+      "supporting_pairs": 83,
+      "supporting_anchor_frames": 12,
+      "supporting_candidate_frames": 15,
+      "pairs": 252,
+      "conflicts": [
+        {
+          "track_a": 12,
+          "track_b": 41,
+          "conflict_frames": 55,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "independent_conflict_evidence",
+      "rank": 3,
+      "margin_to_next": 0.0018,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "92",
+      "track_ids": [
+        92
+      ],
+      "score": 0.6273002823193868,
+      "supporting_pairs": 22,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 6,
+      "pairs": 96,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 4,
+      "margin_to_next": 0.008,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "15",
+      "track_ids": [
+        15
+      ],
+      "score": 0.6192848086357117,
+      "supporting_pairs": 23,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 6,
+      "pairs": 176,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
       "rank": 5,
-      "margin_to_next": 0.0181,
+      "margin_to_next": 0.0055,
       "status": "ambiguous"
     }
   ],
-  "association_status": "candidate",
-  "grouping": {
-    "objects": 100,
-    "multi_track_groups": 6
-  },
-  "trackback": {
-    "time_points": 57,
+  "association_status": "supported_by_independent_candidates",
+  "reference_track_coverage": {
+    "time_points": 55,
     "gaps": [
+      {
+        "from_seconds": 1391.2,
+        "to_seconds": 1391.8,
+        "gap_seconds": 0.6
+      },
       {
         "from_seconds": 1394.0,
         "to_seconds": 1394.6,
@@ -278,11 +354,37 @@
       "score": 0.6389
     }
   ],
-  "quality_status": "usable",
+  "quality_status": "unverified",
   "evidence": {
     "association_ok": true,
     "association_confirmed": false,
-    "quality_ok": true,
-    "verdict": "high_value_evidence_pending_review"
+    "quality_ok": false,
+    "verdict": "trace_ok_but_picture_unusable"
+  },
+  "manifest": {
+    "sampling_strategy": "time_stratified",
+    "max_samples": 16,
+    "min_bbox_height": 40.0,
+    "quality_gate": {
+      "confidence": 0.25,
+      "min_bbox_height_px": 40.0
+    },
+    "model_version": "sha256:f3352b03dc6a1888",
+    "source_video": "29_3DX_桂康菜市入口_1360-1440s",
+    "pipeline_version": "7e1f051",
+    "note": "固定采样只保证可复现，不证明归组结果正确；采样密度敏感性是已知限制"
+  },
+  "reproducibility": {
+    "identical": true,
+    "checked_fields": [
+      "anchor",
+      "association",
+      "coverage",
+      "duplicates",
+      "grouping",
+      "independent",
+      "stages"
+    ],
+    "runs": 2
   }
 }

@@ -1,0 +1,72 @@
+{
+  "stage": "M6-S5",
+  "manifest": {
+    "sampling_strategy": "time_stratified",
+    "max_samples": 16,
+    "min_bbox_height": 40.0,
+    "quality_gate": {
+      "confidence": 0.25,
+      "min_bbox_height_px": 40.0
+    },
+    "model_version": "sha256:f3352b03dc6a1888",
+    "source_video": "29_3DX_桂康菜市入口_1360-1440s",
+    "pipeline_version": "7e1f051",
+    "note": "固定采样只保证可复现，不证明归组结果正确；采样密度敏感性是已知限制"
+  },
+  "reproducibility": {
+    "identical": true,
+    "checked_fields": [
+      "anchor",
+      "association",
+      "coverage",
+      "duplicates",
+      "grouping",
+      "independent",
+      "stages"
+    ],
+    "runs": 2
+  },
+  "verified": {
+    "模块编排": [
+      "anchor_archive",
+      "grouping",
+      "reid_match",
+      "candidate_duplicate_review",
+      "reference_track_coverage_check"
+    ],
+    "结果复现": true,
+    "证据字段": {
+      "association_status": "supported_by_independent_candidates",
+      "quality_status": "unverified",
+      "evidence": {
+        "association_ok": true,
+        "association_confirmed": false,
+        "quality_ok": false,
+        "verdict": "trace_ok_but_picture_unusable"
+      }
+    },
+    "参考轨迹处理": {
+      "anchor_group": [
+        41
+      ],
+      "anchor_in_candidates": false
+    },
+    "重复候选复核": {
+      "suspected": 4,
+      "independent": 5
+    },
+    "原始 Track ID 保留": true
+  },
+  "not_verified": [
+    "用户真实参考照片的识别",
+    "相似衣着人员区分",
+    "正背面跨视角匹配",
+    "跨镜头关联",
+    "真实人脸/车牌可辨性",
+    "沿独立候选向前回溯的业务效果（当前只有 reference_track_coverage_check）"
+  ],
+  "known_limitations": [
+    "采样密度会影响归组结果（8 帧 vs 16 帧候选对象数不同）",
+    "重复候选只做显式提示，未自动合并"
+  ]
+}
