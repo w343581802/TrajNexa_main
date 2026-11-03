@@ -14,16 +14,49 @@ ATTRIBUTE_STATES = ("model_proposed", "human_verified", "human_rejected", "unkno
 ASSOCIATION_STATES = ("candidate", "human_confirmed", "rejected")
 
 
+OBSERVATION_STATUSES = ("observed", "not_observed", "unknown")
+
+
 def attribute(name, value, state="model_proposed", visibility="unknown",
               evidence_frame=None, evidence_region=None, model=None,
-              source_camera=None, source_track=None, note=""):
-    """一条视觉属性。evidence_region 记录属性取自画面哪个区域（避免把背景当车身）。"""
+              source_camera=None, source_track=None, note="",
+              subject_ref="target_person_01", observation_status="observed"):
+    """一条视觉属性。
+
+    subject_ref 说明该属性描述哪个对象（人员/车辆），避免把背景或相邻车辆算成目标车辆；
+    observation_status 区分"看到了/确认没有/看不清"，未看清不得写成 not_observed。
+    """
     if state not in ATTRIBUTE_STATES:
         raise ValueError("invalid_attribute_state")
+    if observation_status not in OBSERVATION_STATUSES:
+        raise ValueError("invalid_observation_status")
     return {"name": name, "value": value, "state": state, "visibility": visibility,
+            "subject_ref": subject_ref, "observation_status": observation_status,
             "evidence_frame": evidence_frame, "evidence_region": evidence_region,
             "model": model, "source_camera": source_camera,
             "source_track": source_track, "note": note}
+
+
+def validate_attributes(attrs):
+    """结构校验：拦属性合并、字段缺失、非法枚举。**不**证明属性归属正确。"""
+    required = ("name", "value", "state", "visibility", "subject_ref", "observation_status")
+    legal_names = {"upper_clothing_color", "upper_clothing_type", "lower_clothing",
+                   "vehicle_color", "vehicle_type", "helmet", "carried_items"}
+    for a in attrs:
+        missing = [k for k in required if k not in a]
+        if missing:
+            raise ValueError("missing_fields: %s" % ",".join(missing))
+        if "|" in str(a["name"]) or a["name"] not in legal_names:
+            raise ValueError("merged_or_illegal_name: %s" % a["name"])
+        if a["state"] not in ATTRIBUTE_STATES:
+            raise ValueError("invalid_attribute_state: %s" % a["state"])
+        if a["observation_status"] not in OBSERVATION_STATUSES:
+            raise ValueError("invalid_observation_status: %s" % a["observation_status"])
+        if a["observation_status"] == "not_observed" and a["visibility"] != "clear":
+            raise ValueError("not_observed_needs_clear_visibility")
+        if a["observation_status"] == "unknown" and str(a["value"]) not in ("unknown", "None", ""):
+            raise ValueError("unknown_must_not_carry_value")
+    return True
 
 
 def new_profile(target_id, camera, track_id, start, end, attributes=None):

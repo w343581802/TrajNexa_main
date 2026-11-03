@@ -2,7 +2,8 @@ import pytest
 
 from app.m6_target_profile import (attach_candidate, attribute, compare_attributes,
                                    confirm_association, confirmed_attributes,
-                                   judge_attribute, new_profile, revoke_association)
+                                   judge_attribute, new_profile, revoke_association,
+                                   validate_attributes)
 
 
 def _v1():
@@ -24,6 +25,43 @@ def _candidate_attrs():
         attribute("lower_clothing", "深色裤子", visibility="partial", evidence_frame=80),
         attribute("helmet", "unknown", visibility="unknown", evidence_frame=80),
     ]
+
+
+def test_schema_rejects_merged_attribute_names():
+    merged = attribute("vehicle_color|vehicle_type", "黑色电动车")
+    try:
+        validate_attributes([merged])
+    except ValueError as exc:
+        assert "merged_or_illegal_name" in str(exc)
+    else:
+        raise AssertionError("合并属性应被拒绝")
+
+
+def test_schema_rejects_absent_claim_without_clear_visibility():
+    hidden = attribute("helmet", "无头盔", observation_status="not_observed", visibility="partial")
+    try:
+        validate_attributes([hidden])
+    except ValueError as exc:
+        assert "not_observed_needs_clear_visibility" in str(exc)
+    else:
+        raise AssertionError("看不清却写没有，应被拒绝")
+
+
+def test_schema_requires_unknown_value_for_unknown_status():
+    item = attribute("carried_items", "雨伞", observation_status="unknown", visibility="unknown")
+    try:
+        validate_attributes([item])
+    except ValueError as exc:
+        assert "unknown_must_not_carry_value" in str(exc)
+    else:
+        raise AssertionError("unknown 不应携带具体值")
+
+
+def test_schema_accepts_well_formed_attributes():
+    ok = [attribute("vehicle_color", "黑色", state="human_verified", visibility="clear",
+                    subject_ref="target_vehicle_01", evidence_region=[0.3, 0.4, 0.7, 0.9]),
+          attribute("helmet", "unknown", visibility="unknown", observation_status="unknown")]
+    assert validate_attributes(ok) is True
 
 
 def test_v1_keeps_only_human_verified_attributes():
