@@ -1,0 +1,179 @@
+{
+ "schema": "m6-truth-package/1",
+ "case_id": "purple-rider-2-2-to-2-1",
+ "generated_from": "design/44 D.47 回放 + 人工核实记录",
+ "exploratory": true,
+ "observations": [
+  {
+   "observation_id": "purple-rider/f9cc5b92-uuid-2-2/111",
+   "case_id": "purple-rider",
+   "target_id": "purple",
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "map_camera_id": "9000000000000057",
+   "tracklet_id": "111",
+   "recording_id": "rec-2-2",
+   "osd_anchor_seconds": 54006.2,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "human_confirmed",
+   "reviewer": "case-owner",
+   "evidence": [
+    "frame:2-2/0046.jpg",
+    "tracks:2-2#111"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": null
+  },
+  {
+   "observation_id": "purple-rider/802e415e-uuid-2-1/37",
+   "case_id": "purple-rider",
+   "target_id": "purple",
+   "camera_uuid": "802e415e-uuid-2-1",
+   "map_camera_id": "9000000000000058",
+   "tracklet_id": "37",
+   "recording_id": "rec-2-1",
+   "osd_anchor_seconds": 54012.6,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "human_confirmed",
+   "reviewer": "case-owner",
+   "evidence": [
+    "frame:2-1/0079.jpg",
+    "tracks:2-1#37"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": null
+  },
+  {
+   "observation_id": "purple-rider/4b2d2ec2-uuid-1-1/osd-1500038",
+   "case_id": "purple-rider",
+   "target_id": "purple",
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "map_camera_id": "9000000000000037",
+   "tracklet_id": "osd-1500038",
+   "recording_id": "rec-1-1",
+   "osd_anchor_seconds": 54003.8,
+   "osd_uncertainty_seconds": null,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "candidate",
+   "reviewer": null,
+   "evidence": [
+    "osd:1-1/15:00:03.8"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": "无可靠 Tracklet，保持 candidate，不得作为第三镜头"
+  },
+  {
+   "observation_id": "cyan-child-rider/4b2d2ec2-uuid-1-1/225",
+   "case_id": "cyan-child-rider",
+   "target_id": "cyan",
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "map_camera_id": "9000000000000037",
+   "tracklet_id": "225",
+   "recording_id": "rec-1-1",
+   "osd_anchor_seconds": 54063.0,
+   "osd_uncertainty_seconds": 1.5,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "candidate",
+   "reviewer": null,
+   "evidence": [
+    "tracks:1-1#225"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": "另一个目标；不得自动关联到紫衣 2-1#37"
+  }
+ ],
+ "confirmed_chain": [
+  {
+   "observation_id": "purple-rider/f9cc5b92-uuid-2-2/111",
+   "case_id": "purple-rider",
+   "target_id": "purple",
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "map_camera_id": "9000000000000057",
+   "tracklet_id": "111",
+   "recording_id": "rec-2-2",
+   "osd_anchor_seconds": 54006.2,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "human_confirmed",
+   "reviewer": "case-owner",
+   "evidence": [
+    "frame:2-2/0046.jpg",
+    "tracks:2-2#111"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": null
+  },
+  {
+   "observation_id": "purple-rider/802e415e-uuid-2-1/37",
+   "case_id": "purple-rider",
+   "target_id": "purple",
+   "camera_uuid": "802e415e-uuid-2-1",
+   "map_camera_id": "9000000000000058",
+   "tracklet_id": "37",
+   "recording_id": "rec-2-1",
+   "osd_anchor_seconds": 54012.6,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "human_confirmed",
+   "reviewer": "case-owner",
+   "evidence": [
+    "frame:2-1/0079.jpg",
+    "tracks:2-1#37"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": null
+  }
+ ],
+ "transitions": [],
+ "bindings": [
+  {
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "map_camera_id": "9000000000000057",
+   "label": "2-2",
+   "binding_status": "pending_human_review",
+   "fov_quality": "modelled_unverified",
+   "has_reference_frame": true,
+   "recording_available": "verified_for_window"
+  },
+  {
+   "camera_uuid": "802e415e-uuid-2-1",
+   "map_camera_id": "9000000000000058",
+   "label": "2-1",
+   "binding_status": "pending_human_review",
+   "fov_quality": "modelled_unverified",
+   "has_reference_frame": true,
+   "recording_available": "verified_for_window"
+  },
+  {
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "map_camera_id": "9000000000000037",
+   "label": "1-1",
+   "binding_status": "pending_human_review",
+   "fov_quality": "modelled_unverified",
+   "has_reference_frame": true,
+   "recording_available": "verified_for_window"
+  }
+ ],
+ "problems": [],
+ "spatial_revision": "mapdb-spatial:36f1ba4280e6cef0",
+ "clock_note": "名义 OSD 间隔 4.0 s，跨机钟差未校准"
+}
