@@ -10,7 +10,7 @@
     },
     "model_version": "sha256:f3352b03dc6a1888",
     "source_video": "29_3DX_桂康菜市入口_1360-1440s",
-    "pipeline_version": "7e1f051",
+    "pipeline_version": "b79ced7",
     "note": "固定采样只保证可复现，不证明归组结果正确；采样密度敏感性是已知限制"
   },
   "reproducibility": {
@@ -34,15 +34,19 @@
       "candidate_duplicate_review",
       "reference_track_coverage_check"
     ],
-    "结果复现": true,
+    "编排级结果复现": {
+      "identical": true,
+      "scope": "固定输入向量与轨迹数据后编排结果可复现；未覆盖从原始录像解码、抽帧、推理到报告的端到端一致性"
+    },
     "证据字段": {
-      "association_status": "supported_by_independent_candidates",
+      "association_status": "unconfirmed",
       "quality_status": "unverified",
       "evidence": {
-        "association_ok": true,
+        "association_ok": false,
         "association_confirmed": false,
         "quality_ok": false,
-        "verdict": "trace_ok_but_picture_unusable"
+        "quality_pending": true,
+        "verdict": "identity_unconfirmed_quality_pending"
       }
     },
     "参考轨迹处理": {
@@ -53,7 +57,8 @@
     },
     "重复候选复核": {
       "suspected": 4,
-      "independent": 5
+      "independent": 5,
+      "excluded_by_evidence": 14
     },
     "原始 Track ID 保留": true
   },
@@ -63,7 +68,8 @@
     "正背面跨视角匹配",
     "跨镜头关联",
     "真实人脸/车牌可辨性",
-    "沿独立候选向前回溯的业务效果（当前只有 reference_track_coverage_check）"
+    "沿独立候选向前回溯的业务效果（当前只有 reference_track_coverage_check）",
+    "从原始录像解码、抽帧、推理到报告的全过程逐字段一致"
   ],
   "known_limitations": [
     "采样密度会影响归组结果（8 帧 vs 16 帧候选对象数不同）",

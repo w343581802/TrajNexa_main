@@ -31,8 +31,9 @@
       "status": "ok",
       "detail": {
         "mode": "per_frame",
-        "independent": 33,
-        "suspected_duplicates": 4
+        "independent": 19,
+        "suspected_duplicates": 4,
+        "excluded_by_evidence": 14
       }
     },
     {
@@ -40,8 +41,9 @@
       "status": "ok",
       "detail": {
         "duplicates": 4,
-        "independent": 33,
-        "policy": "不自动并档；疑似重复单独列出供人工复核"
+        "independent": 19,
+        "excluded_by_evidence": 14,
+        "policy": "不自动并档；疑似重复与证据排除分别列出供人工复核"
       }
     },
     {
@@ -119,6 +121,88 @@
   ],
   "independent_candidates": [
     {
+      "candidate": "24",
+      "track_ids": [
+        24
+      ],
+      "score": 0.6391745607058207,
+      "supporting_pairs": 11,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 2,
+      "pairs": 48,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 1,
+      "margin_to_next": 0.0119,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "92",
+      "track_ids": [
+        92
+      ],
+      "score": 0.6273002823193868,
+      "supporting_pairs": 22,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 6,
+      "pairs": 96,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 2,
+      "margin_to_next": 0.008,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "15",
+      "track_ids": [
+        15
+      ],
+      "score": 0.6192848086357117,
+      "supporting_pairs": 23,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 6,
+      "pairs": 176,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 3,
+      "margin_to_next": 0.0055,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "86",
+      "track_ids": [
+        86
+      ],
+      "score": 0.6138346989949545,
+      "supporting_pairs": 15,
+      "supporting_anchor_frames": 5,
+      "supporting_candidate_frames": 4,
+      "pairs": 80,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 4,
+      "margin_to_next": 0.0087,
+      "status": "ambiguous"
+    },
+    {
+      "candidate": "93",
+      "track_ids": [
+        93
+      ],
+      "score": 0.6051352222760519,
+      "supporting_pairs": 56,
+      "supporting_anchor_frames": 9,
+      "supporting_candidate_frames": 13,
+      "pairs": 256,
+      "conflicts": [],
+      "review": "independent_insufficient_duplicate_evidence",
+      "rank": 5,
+      "margin_to_next": 0.0233,
+      "status": "ambiguous"
+    }
+  ],
+  "excluded_by_evidence": [
+    {
       "candidate": "49-70",
       "track_ids": [
         49,
@@ -137,26 +221,11 @@
           "mean_iou": 0.0
         }
       ],
-      "review": "independent_conflict_evidence",
-      "rank": 1,
-      "margin_to_next": 0.0796,
-      "status": "candidate"
-    },
-    {
-      "candidate": "24",
-      "track_ids": [
-        24
-      ],
-      "score": 0.6391745607058207,
-      "supporting_pairs": 11,
-      "supporting_anchor_frames": 6,
-      "supporting_candidate_frames": 2,
-      "pairs": 48,
-      "conflicts": [],
-      "review": "independent_insufficient_duplicate_evidence",
-      "rank": 2,
-      "margin_to_next": 0.0101,
-      "status": "ambiguous"
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.719 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
     },
     {
       "candidate": "12",
@@ -176,45 +245,305 @@
           "mean_iou": 0.0
         }
       ],
-      "review": "independent_conflict_evidence",
-      "rank": 3,
-      "margin_to_next": 0.0018,
-      "status": "ambiguous"
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.629 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
     },
     {
-      "candidate": "92",
+      "candidate": "57",
       "track_ids": [
-        92
+        57
       ],
-      "score": 0.6273002823193868,
-      "supporting_pairs": 22,
-      "supporting_anchor_frames": 6,
+      "score": 0.5958985090255737,
+      "supporting_pairs": 28,
+      "supporting_anchor_frames": 14,
       "supporting_candidate_frames": 6,
-      "pairs": 96,
-      "conflicts": [],
-      "review": "independent_insufficient_duplicate_evidence",
-      "rank": 4,
-      "margin_to_next": 0.008,
-      "status": "ambiguous"
+      "pairs": 82,
+      "conflicts": [
+        {
+          "track_a": 57,
+          "track_b": 41,
+          "conflict_frames": 19,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.596 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
     },
     {
-      "candidate": "15",
+      "candidate": "5",
       "track_ids": [
-        15
+        5
       ],
-      "score": 0.6192848086357117,
-      "supporting_pairs": 23,
+      "score": 0.5893420577049255,
+      "supporting_pairs": 46,
+      "supporting_anchor_frames": 7,
+      "supporting_candidate_frames": 14,
+      "pairs": 252,
+      "conflicts": [
+        {
+          "track_a": 5,
+          "track_b": 41,
+          "conflict_frames": 55,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.589 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "2-14-71",
+      "track_ids": [
+        2,
+        14,
+        71
+      ],
+      "score": 0.5456917881965637,
+      "supporting_pairs": 25,
       "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 11,
+      "pairs": 630,
+      "conflicts": [
+        {
+          "track_a": 2,
+          "track_b": 41,
+          "conflict_frames": 55,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.546 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "23",
+      "track_ids": [
+        23
+      ],
+      "score": 0.5403625965118408,
+      "supporting_pairs": 13,
+      "supporting_anchor_frames": 5,
       "supporting_candidate_frames": 6,
-      "pairs": 176,
-      "conflicts": [],
-      "review": "independent_insufficient_duplicate_evidence",
-      "rank": 5,
-      "margin_to_next": 0.0055,
-      "status": "ambiguous"
+      "pairs": 245,
+      "conflicts": [
+        {
+          "track_a": 23,
+          "track_b": 41,
+          "conflict_frames": 54,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.540 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "55",
+      "track_ids": [
+        55
+      ],
+      "score": 0.5267937183380127,
+      "supporting_pairs": 4,
+      "supporting_anchor_frames": 1,
+      "supporting_candidate_frames": 4,
+      "pairs": 48,
+      "conflicts": [
+        {
+          "track_a": 55,
+          "track_b": 41,
+          "conflict_frames": 6,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.527 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "3",
+      "track_ids": [
+        3
+      ],
+      "score": 0.5182742675145467,
+      "supporting_pairs": 56,
+      "supporting_anchor_frames": 13,
+      "supporting_candidate_frames": 13,
+      "pairs": 252,
+      "conflicts": [
+        {
+          "track_a": 3,
+          "track_b": 41,
+          "conflict_frames": 55,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.518 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "54-74",
+      "track_ids": [
+        54,
+        74
+      ],
+      "score": 0.5171446998914083,
+      "supporting_pairs": 25,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 15,
+      "pairs": 420,
+      "conflicts": [
+        {
+          "track_a": 54,
+          "track_b": 41,
+          "conflict_frames": 31,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.517 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "56",
+      "track_ids": [
+        56
+      ],
+      "score": 0.48578692475954693,
+      "supporting_pairs": 54,
+      "supporting_anchor_frames": 11,
+      "supporting_candidate_frames": 12,
+      "pairs": 197,
+      "conflicts": [
+        {
+          "track_a": 56,
+          "track_b": 41,
+          "conflict_frames": 32,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.486 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "63",
+      "track_ids": [
+        63
+      ],
+      "score": 0.4804694652557373,
+      "supporting_pairs": 3,
+      "supporting_anchor_frames": 2,
+      "supporting_candidate_frames": 3,
+      "pairs": 46,
+      "conflicts": [
+        {
+          "track_a": 63,
+          "track_b": 41,
+          "conflict_frames": 6,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.480 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "45",
+      "track_ids": [
+        45
+      ],
+      "score": 0.47615469495455426,
+      "supporting_pairs": 60,
+      "supporting_anchor_frames": 9,
+      "supporting_candidate_frames": 15,
+      "pairs": 247,
+      "conflicts": [
+        {
+          "track_a": 45,
+          "track_b": 41,
+          "conflict_frames": 44,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.476 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "10",
+      "track_ids": [
+        10
+      ],
+      "score": 0.4721984664599101,
+      "supporting_pairs": 29,
+      "supporting_anchor_frames": 6,
+      "supporting_candidate_frames": 9,
+      "pairs": 152,
+      "conflicts": [
+        {
+          "track_a": 10,
+          "track_b": 41,
+          "conflict_frames": 55,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.472 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
+    },
+    {
+      "candidate": "48",
+      "track_ids": [
+        48
+      ],
+      "score": 0.45815979441006977,
+      "supporting_pairs": 6,
+      "supporting_anchor_frames": 4,
+      "supporting_candidate_frames": 5,
+      "pairs": 203,
+      "conflicts": [
+        {
+          "track_a": 48,
+          "track_b": 41,
+          "conflict_frames": 24,
+          "mean_iou": 0.0
+        }
+      ],
+      "review": "excluded_by_evidence",
+      "review_reason": "与参考组存在 1 个同帧冲突（不同位置同时出现），外观相似度 0.458 不足以推翻时空证据",
+      "rank": null,
+      "margin_to_next": null,
+      "status": "excluded_by_evidence"
     }
   ],
-  "association_status": "supported_by_independent_candidates",
+  "association_status": "unconfirmed",
   "reference_track_coverage": {
     "time_points": 55,
     "gaps": [
@@ -356,10 +685,11 @@
   ],
   "quality_status": "unverified",
   "evidence": {
-    "association_ok": true,
+    "association_ok": false,
     "association_confirmed": false,
     "quality_ok": false,
-    "verdict": "trace_ok_but_picture_unusable"
+    "quality_pending": true,
+    "verdict": "identity_unconfirmed_quality_pending"
   },
   "manifest": {
     "sampling_strategy": "time_stratified",
@@ -371,7 +701,7 @@
     },
     "model_version": "sha256:f3352b03dc6a1888",
     "source_video": "29_3DX_桂康菜市入口_1360-1440s",
-    "pipeline_version": "7e1f051",
+    "pipeline_version": "b79ced7",
     "note": "固定采样只保证可复现，不证明归组结果正确；采样密度敏感性是已知限制"
   },
   "reproducibility": {
