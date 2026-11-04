@@ -918,8 +918,18 @@ export function timeCandidates(result: InspectionResult): TimeCandidate[] {
 export function cameraNameCandidates(result: InspectionResult): { name: string; source: string }[] {
   const camera = result.camera;
   const out: { name: string; source: string }[] = [];
-  const push = (name: string | null | undefined, source: string) => {
-    const value = (name ?? "").trim();
+  const textOf = (value: unknown): string => {
+    if (typeof value === "string") return value.trim();
+    if (value && typeof value === "object") {
+      const row = value as { display_name?: unknown; name?: unknown; text?: unknown };
+      for (const candidate of [row.display_name, row.name, row.text]) {
+        if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+      }
+    }
+    return "";
+  };
+  const push = (name: unknown, source: string) => {
+    const value = textOf(name);
     if (!value || out.some((item) => item.name === value)) return;
     out.push({ name: value, source });
   };
@@ -928,11 +938,13 @@ export function cameraNameCandidates(result: InspectionResult): { name: string; 
   push(camera.filename_name_hint?.text, "文件名提示");
   for (const name of camera.directory_candidates ?? []) push(name, "目录候选");
 
-  // 后端结构化解析失败时，画面里仍可能印着名称：从 OCR 行里挑像名称的文本作为低信任候选
   for (const sample of result.time.overlay_time_samples ?? []) {
     for (const row of sample.ocr_rows ?? []) {
       if (looksLikeCameraName(row.text)) push(row.text, "OCR 文本候选");
     }
+  }
+  for (const row of result.time.ocr_time_diagnostics?.top_raw_texts ?? []) {
+    if (looksLikeCameraName(row.text)) push(row.text, "OCR 文本候选");
   }
   return out;
 }
