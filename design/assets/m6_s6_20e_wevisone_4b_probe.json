@@ -1,0 +1,125 @@
+{
+ "schema": "trajnexa-wevisone-grounding-result/1",
+ "model": "tencent/WeVisOne-VL-4B",
+ "weights": "G:\\tools\\wevisone-models\\4B (9.21 GB safetensors)",
+ "backend": "transformers",
+ "device": "cpu bf16 (torch 2.11.0+cpu; engine patched to keep bf16 on CPU to fit RAM)",
+ "frame_size": [
+  1280,
+  720
+ ],
+ "records": [
+  {
+   "name": "4b_0285_neutral",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\2-1\\\\0285.jpg",
+   "query": "person riding a two-wheeler",
+   "latency_s": 169.516,
+   "status": "candidates_unverified",
+   "boxes": [
+    [
+     768,
+     188,
+     841,
+     308
+    ]
+   ],
+   "raw_response": "<ref>person riding a two-wheeler</ref><box><600><261><657><428></box>",
+   "identity_established": false,
+   "iou_vs_reference": [
+    0.479
+   ]
+  },
+  {
+   "name": "4b_0334_absent",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\2-2\\\\0334.jpg",
+   "query": "person riding an elephant",
+   "latency_s": 167.439,
+   "status": "model_reported_absent",
+   "boxes": [],
+   "raw_response": "<ref>person riding an elephant</ref><box>none</box>",
+   "identity_established": false,
+   "iou_vs_reference": []
+  },
+  {
+   "name": "4b_0334_desc",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\2-2\\\\0334.jpg",
+   "query": "a person in a light blue top riding a white scooter with a child sitting in front of them",
+   "latency_s": 174.781,
+   "status": "candidates_unverified",
+   "boxes": [
+    [
+     463,
+     226,
+     540,
+     324
+    ]
+   ],
+   "raw_response": "<ref>a person in a light blue top riding a white scooter with a child sitting in front of them</ref><box><362><314><422><450></box>",
+   "identity_established": false,
+   "iou_vs_reference": []
+  },
+  {
+   "name": "4b_0334_neutral",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\2-2\\\\0334.jpg",
+   "query": "person riding a two-wheeler",
+   "latency_s": 193.104,
+   "status": "candidates_unverified",
+   "boxes": [
+    [
+     463,
+     225,
+     540,
+     324
+    ]
+   ],
+   "raw_response": "<ref>person riding a two-wheeler</ref><box><362><313><422><450></box>",
+   "identity_established": false,
+   "iou_vs_reference": [
+    0.524
+   ]
+  },
+  {
+   "name": "4b_0350_neutral",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\1-1\\\\0350.jpg",
+   "query": "person riding a two-wheeler",
+   "latency_s": 172.623,
+   "status": "candidates_unverified",
+   "boxes": [
+    [
+     200,
+     22,
+     238,
+     91
+    ],
+    [
+     1025,
+     107,
+     1103,
+     243
+    ]
+   ],
+   "raw_response": "<ref>person riding a two-wheeler</ref><box><156><31><186><127>,<801><148><862><338></box>",
+   "identity_established": false,
+   "iou_vs_reference": []
+  },
+  {
+   "name": "4b_0404_neutral",
+   "image": "C:\\\\Users\\\\windeclipse\\\\AppData\\\\Local\\\\Temp\\\\qwen-test\\\\mk\\\\s6b\\\\2-2\\\\0404.jpg",
+   "query": "person riding a two-wheeler",
+   "latency_s": 170.782,
+   "status": "candidates_unverified",
+   "boxes": [
+    [
+     1100,
+     178,
+     1123,
+     243
+    ]
+   ],
+   "raw_response": "<ref>person riding a two-wheeler</ref><box><859><247><877><338></box>",
+   "identity_established": false,
+   "iou_vs_reference": []
+  }
+ ],
+ "note": "Grounding only; boxes are model claims with no score and no identity."
+}
