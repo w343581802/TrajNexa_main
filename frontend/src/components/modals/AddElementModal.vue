@@ -352,16 +352,18 @@ function autoFillModelFeatures() {
     下装: /裤|裙/i,
     鞋: /鞋|靴/i,
     随身物: /包|帽|头盔|眼镜|手机|伞/i,
-    车辆类型: /摩托|电动|自行|三轮|轿车|卡车|客车|面包车/i,
-    车身颜色: /白|黑|红|蓝|灰|银|黄|绿|橙|紫/i,
-    车身标识或附属物: /尾箱|牌照|贴|标识|货架|后视镜/i,
+    车辆类型: /摩托|电动|自行|两轮|三轮|轿车|卡车|客车|面包车|单车/i,
+    车身颜色: /白|黑|红|蓝|灰|银|黄|绿|橙|紫|深色|浅色/i,
+    车身标识或附属物: /尾箱|货箱|箱|牌照|贴|标识|货架|后视镜/i,
   };
+  const used = new Set<string>();
   for (const row of activeAttrs.value) {
     if (row.unknown || row.value.trim()) continue;
     const rule = rules[row.key];
-    const hit = rule ? feats.find((f) => rule.test(f)) : undefined;
+    const hit = rule ? feats.find((f) => !used.has(f) && rule.test(f)) : undefined;
     if (!hit) continue;
     row.value = hit.slice(0, 60);
+    used.add(hit);
     row.auto = true;
   }
 }
@@ -683,8 +685,22 @@ const assocAttributes = reactive<AttrRow[]>([
   { key: "车身颜色", value: "", unknown: false, auto: false },
   { key: "车身标识或附属物", value: "", unknown: false, auto: false },
 ]);
+
+const vehicleAttributes = reactive<AttrRow[]>([
+  { key: "车辆类型", value: "", unknown: false, auto: false },
+  { key: "车身颜色", value: "", unknown: false, auto: false },
+  { key: "车身标识或附属物", value: "", unknown: false, auto: false },
+]);
+const assocPersonAttributes = reactive<AttrRow[]>([
+  { key: "上衣", value: "", unknown: false, auto: false },
+  { key: "下装", value: "", unknown: false, auto: false },
+  { key: "鞋", value: "", unknown: false, auto: false },
+  { key: "随身物", value: "", unknown: false, auto: false },
+]);
+const primaryAttrs = computed(() => (category.value === "vehicle" ? vehicleAttributes : attributes));
+const assocAttrs = computed(() => (assocCategory.value === "vehicle" ? assocAttributes : assocPersonAttributes));
 const attrTarget = ref<"primary" | "assoc">("primary");
-const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttributes : attributes));
+const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttrs.value : primaryAttrs.value));
 
 /** 只把“明确观察到的值”或“明确未知”送到后端；空字段不产生假属性。 */
 function attrRows(list: AttrRow[], subject: string) {
@@ -909,7 +925,7 @@ async function save(keepOpen: boolean) {
             bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId },
         ],
         relations: [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }],
-        attributes: [...attrRows(attributes, "P1"), ...attrRows(assocAttributes, "A1")],
+        attributes: [...attrRows(primaryAttrs.value, "P1"), ...attrRows(assocAttrs.value, "A1")],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
       });
     } catch (error) {
