@@ -41,12 +41,32 @@ const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
 /* B8-B0：同一帧的关联对象（如骑行者旁边的两轮车），独立 ROI，不合并主框 */
 const assocProposal = ref<M4DetectCandidate | null>(null);
+const assocBox = ref<[number, number, number, number] | null>(null);
+const assocObservation = ref<M4Observation | null>(null);
+const assocCategory = ref<"person" | "vehicle" | "other">("vehicle");
+const assocMode = ref(false);
 const assocRelation = ref("riding");
 const assocBoxStyle = computed(() => {
-  const b = assocProposal.value?.bbox_normalized;
+  const b = assocBox.value;
   return b ? m4CandidateStyle(b) : {};
 });
 const assocOptions = computed(() => m4Proposals.value.filter((p) => p.bbox_normalized));
+
+function pickAssocProposal(proposal: M4DetectCandidate | null) {
+  assocProposal.value = proposal;
+  assocBox.value = proposal ? [...proposal.bbox_normalized] : null;
+  assocObservation.value = null;
+  assocCategory.value = proposal && /车|vehicle|car|truck|bus|motor/i.test(proposal.detector_label)
+    ? "vehicle" : "person";
+}
+function swapPrimaryAndAssoc() {
+  if (!assocBox.value) return;
+  const box = m4Box.value, obs = m4Observation.value, cat = category.value;
+  m4Box.value = assocBox.value; m4Observation.value = assocObservation.value; category.value = assocCategory.value;
+  assocBox.value = box; assocObservation.value = obs; assocCategory.value = cat;
+  assocProposal.value = null;
+}
+function clearAssoc() { pickAssocProposal(null); assocMode.value = false; }
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
 /** Business mode always invokes the SERVER-side default, never lab choices. */
@@ -776,19 +796,27 @@ async function save(keepOpen: boolean) {
   };
 
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
-  if (!editingElement.value && assocProposal.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
-    const assoc = assocProposal.value;
-    const assocClass = /车|vehicle|car|truck|bus|motor/i.test(assoc.detector_label) ? "vehicle" : "person";
+  if (!editingElement.value && assocBox.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
     try {
+      let assocObsId = assocObservation.value?.id ?? null;
+      if (!assocObsId) {
+        const saved = await mainApi.addM4Observation(selectedMediaId.value, {
+          object_class: assocCategory.value === "other" ? "other" : assocCategory.value,
+          bbox_normalized: [...assocBox.value],
+          review_note: m4Note.value.trim(),
+        });
+        assocObservation.value = saved;
+        assocObsId = saved.id;
+      }
       await mainApi.createTargetGroup(currentCase.value.id, {
         media_id: selectedMediaId.value,
         primary_object_id: "P1",
         objects: [
-          { id: "P1", object_class: category.value === "vehicle" ? "vehicle" : "person",
+          { id: "P1", object_class: category.value === "other" ? "other" : category.value,
             role: "primary", bbox_norm_xyxy: [...m4Box.value],
             m4_observation_id: m4Observation.value.id },
-          { id: "A1", object_class: assocClass, role: "associated",
-            bbox_norm_xyxy: [...assoc.bbox_normalized] },
+          { id: "A1", object_class: assocCategory.value, role: "associated",
+            bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId },
         ],
         relations: [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
@@ -875,7 +903,7 @@ async function save(keepOpen: boolean) {
                 :title="(proposal.model_name ? proposal.model_name + ' · ' : '') + proposal.detector_label"
                 @pointerdown.stop.prevent="selectM4Proposal(proposal)" />
               <div v-if="m4Box" class="m4a-selected-box" :style="m4BoxStyle"></div>
-              <div v-if="assocProposal" class="m4a-assoc-box" :style="assocBoxStyle"
+              <div v-if="assocBox" class="m4a-assoc-box" :style="assocBoxStyle"
                 :title="'关联对象（不参与主目标身份）'"></div>
             </div>
             <span class="preview-tag">只读原始画面 · 选图后自动框出候选，点框或拖拽选中</span>
@@ -1136,6 +1164,38 @@ async function save(keepOpen: boolean) {
           <div class="source-actions">
             <span class="grow" />
             <span class="dim field-hint">名称匹配度 ≠ 同一目标的身份结论</span>
+          </div>
+        </div>
+
+        <div class="ae-section">
+          <div class="ae-field-head">
+            <span class="field-label">关联对象（选填）</span>
+            <span class="field-hint">独立 ROI · 仅作证据</span>
+          </div>
+          <select class="input" :value="assocProposal ? assocOptions.indexOf(assocProposal) : -1"
+            @change="pickAssocProposal(Number(($event.target as HTMLSelectElement).value) >= 0 ? assocOptions[Number(($event.target as HTMLSelectElement).value)] : null)">
+            <option :value="-1">无关联对象</option>
+            <option v-for="(proposal, index) in assocOptions" :key="'assoc-' + index" :value="index">
+              {{ proposal.detector_label }} · 候选 {{ index + 1 }}
+            </option>
+          </select>
+          <div class="assoc-actions">
+            <button type="button" class="btn btn--sm" :class="{ 'is-on': assocMode }"
+              @click="assocMode = !assocMode">{{ assocMode ? "在画面拖拽…" : "手画关联框" }}</button>
+            <button type="button" class="btn btn--sm" :disabled="!assocBox" @click="swapPrimaryAndAssoc">交换主次</button>
+            <button type="button" class="btn btn--sm btn--ghost" :disabled="!assocBox" @click="clearAssoc">清除</button>
+          </div>
+          <p v-if="assocBox" class="field-hint">{{ assocObservation ? "关联观测已保存" : "保存时自动写入关联观测" }}</p>
+          <div v-if="assocBox" class="assoc-row">
+            <select v-model="assocRelation" class="input">
+              <option value="riding">骑行</option>
+              <option value="passenger">乘坐</option>
+              <option value="pushing">推行</option>
+              <option value="nearby">相邻</option>
+              <option value="carrying">携带</option>
+              <option value="unknown">关系不明</option>
+            </select>
+            <span class="field-hint">单帧观察，未做多帧核验</span>
           </div>
         </div>
 
@@ -1745,4 +1805,5 @@ async function save(keepOpen: boolean) {
   pointer-events: none;
 }
 .assoc-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.assoc-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 </style>
