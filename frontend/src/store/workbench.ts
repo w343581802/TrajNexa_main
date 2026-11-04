@@ -887,8 +887,11 @@ export const actions = {
   openTracking() {
     ui.trackingOpen = true;
     void loadCaseObservations();
-    void loadTrackingRuns();
-    if (activeTrackingRun.value) void refreshTrackingRun(activeTrackingRun.value.id);
+    void (async () => {
+      await loadTrackingRuns();
+      const target = activeTrackingRun.value ?? trackingRuns.value[0];
+      if (target) await refreshTrackingRun(target.id);
+    })();
   },
   async openTrackingRefresh(runId?: string) {
     const target = runId ?? activeTrackingRun.value?.id;
