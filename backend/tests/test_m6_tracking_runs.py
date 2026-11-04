@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import (Case, MediaAsset, RecordingClip, RecordingSource,
-                        TargetObservation, TrackingCandidate, TrackingRun)
+from app.models import (AnalysisJob, Case, InspectionReport, MediaAsset, RecordingClip,
+                        RecordingSource, TargetObservation, TrackingCandidate, TrackingRun)
 from app import m6_run_worker
 from app.config import settings
 
@@ -258,3 +258,68 @@ def test_one_execution_advances_one_camera():
     assert len(plans) == 1 and plans[0]['camera_label'] == '2-1'
     next_plans = m6_run_worker.plan_windows(run, clips, {plans[0]['key']})
     assert len(next_plans) == 1 and next_plans[0]['camera_label'] == '2-2'
+
+
+def _seed_with_inspection(Session, tmp_path: Path, observed_local='2026-10-23T15:00:05'):
+    """目标照片带 M1c 预检：照片时间 + 摄像头名称，用于自动定位录像段。"""
+    seed = _seed(Session, tmp_path)
+    from uuid import uuid4 as _uuid4
+    job_id, report_id = str(_uuid4()), str(_uuid4())
+    with Session() as db:
+        db.add(AnalysisJob(id=job_id, media_id=seed['media_id'], module='m1c',
+                           status='succeeded'))
+        db.add(InspectionReport(
+            id=report_id, job_id=job_id, media_id=seed['media_id'],
+            schema_version='0.1.3', module_version='m1c',
+            result_json={
+                'time': {'overlay_time_samples': [{'local_time': observed_local}]},
+                'camera': {'camera_uuid': None, 'overlay_name_raw': '2-2'},
+                'identity': {'camera_name': '2-2'},
+            }))
+        obs = db.get(TargetObservation, seed['observation_id'])
+        obs.source_inspection_id = report_id
+        db.commit()
+    seed['observed_local'] = observed_local
+    return seed
+
+
+def test_start_from_target_photo_finds_recording_automatically(env):
+    """只给 observation_id：按照片时间和摄像头自动找到录像段并换算偏移。"""
+    client, Session, tmp = env
+    seed = _seed_with_inspection(Session, tmp)
+    resp = client.post('/api/v1/cases/%s/tracking-runs' % seed['case_id'],
+                       json={'observation_id': seed['observation_id']})
+    assert resp.status_code == 201, resp.text
+    run = resp.json()
+    assert run['anchor']['clip_id'] == seed['clip_id']
+    assert run['anchor']['offset_in_clip_seconds'] == 5.0
+    assert run['anchor']['camera_label'] == '2-2'
+
+
+def test_photo_without_recording_time_is_explicit(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)  # observation has no source inspection
+    resp = client.post('/api/v1/cases/%s/tracking-runs' % seed['case_id'],
+                       json={'observation_id': seed['observation_id']})
+    assert resp.status_code == 422
+    assert resp.json()['error']['code'] == 'observation_time_unresolved'
+
+
+def test_direction_and_research_window_can_be_extended(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    run = _create(client, seed, direction='backward', research_seconds=60).json()
+    assert run['direction'] == 'backward'
+    assert run['research_seconds'] == 60
+    extended = client.post('/api/v1/cases/%s/tracking-runs/%s/extend'
+                           % (seed['case_id'], run['id']), json={'seconds': 60})
+    assert extended.status_code == 200
+    assert extended.json()['research_seconds'] == 120
+
+
+def test_tracking_cameras_only_lists_verified_recordings(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    cameras = client.get('/api/v1/cases/%s/tracking-cameras' % seed['case_id']).json()
+    assert cameras and cameras[0]['camera_label'] == '2-2'
+    assert cameras[0]['clips'] == 1

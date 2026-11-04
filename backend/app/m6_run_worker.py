@@ -69,6 +69,7 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     seg = float(scope.get('segment_seconds') or 6.0)
     gap = float(scope.get('gap_seconds') or 2.0)
     budget = int(scope.get('max_windows') or 6)
+    direction = str(scope.get('direction') or 'forward')
     # 一次执行只推进一台镜头：确认/否决后由任务重新排队再走下一台，
     # 这样“连续追踪”是逐步推进的，不会一口气把预算全花掉。
     remaining = min(budget - len(done), 1)
@@ -77,6 +78,8 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     for clip in clips:
         by_camera.setdefault((clip.camera_name or '').strip(), []).append(clip)
     order = sorted(by_camera)
+    if direction == 'backward':
+        order = list(reversed(order))
     if anchor_label in order:
         order.remove(anchor_label)
         order.append(anchor_label)  # anchor camera continuation comes last
@@ -85,7 +88,10 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     for label in order:
         if len(plans) >= remaining:
             break
-        start = anchor_seconds + gap
+        if direction == 'backward':
+            start = anchor_seconds - gap - seg
+        else:
+            start = anchor_seconds + gap
         for clip in sorted(by_camera[label], key=lambda c: c.start_local or ''):
             clip_start = _clip_start(clip)
             if clip_start is None:
@@ -173,6 +179,14 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             out_dir = root / ('w_' + plan['key'].replace('@', '_').replace('.', 'p'))
             if out_dir.exists():
                 shutil.rmtree(out_dir)
+            # 先落“正在研判”状态，前端据此显示摄像头与计时；失败时也会被清掉
+            progress = {**progress, 'active': {
+                'camera_label': plan['camera_label'],
+                'window': [plan['start_seconds'], plan['end_seconds']],
+                'started_at': _utcnow().isoformat(),
+            }}
+            run.progress_json = progress
+            db.commit()
             result = analyzer.analyze(plan, out_dir)
             frames = int((result.get('cost') or {}).get('frames_saved') or 0)
             window = TrackingWindow(
@@ -194,6 +208,7 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             done.add(plan['key'])
             frames_used += frames
             progress = {'schema': 'b8-run-progress/1', 'analyzed_windows': sorted(done),
+                        'active': None,
                         'windows_done': len(done), 'frames_used': frames_used,
                         'last_camera': plan['camera_label'],
                         'last_window': [plan['start_seconds'], plan['end_seconds']]}

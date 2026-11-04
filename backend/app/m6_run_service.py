@@ -9,16 +9,17 @@ Rules:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import m6_recording_source
+from app import m6_obs_clip, m6_recording_source
 from app.m4_video import KeyframeError, checked_offset, resolve_case_clip
-from app.models import (Case, MediaAsset, TargetObservation, TrackingCandidate,
-                        TrackingReviewEvent, TrackingRun, TrackingWindow)
+from app.models import (Case, InspectionReport, MediaAsset, RecordingClip, RecordingSource,
+                        TargetObservation, TrackingCandidate, TrackingReviewEvent,
+                        TrackingRun, TrackingWindow)
 
 RUN_STATUSES = ('queued', 'running', 'awaiting_review', 'budget_exhausted',
                 'unresolved', 'completed', 'failed', 'cancelled')
@@ -67,14 +68,21 @@ def _number(value, *, default, low, high, code):
     return float(value)
 
 
+def _direction(payload: dict) -> str:
+    value = str(payload.get('direction') or 'forward').strip().lower()
+    if value not in ('forward', 'backward'):
+        raise TrackingRunError('invalid_direction')
+    return value
+
+
 def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
     if not isinstance(payload, dict):
         raise TrackingRunError('invalid_request')
     _get_case(db, case_id)
     observation_id = str(payload.get('observation_id') or '').strip()
     clip_id = str(payload.get('clip_id') or '').strip()
-    if not observation_id or not clip_id:
-        raise TrackingRunError('observation_and_clip_required')
+    if not observation_id:
+        raise TrackingRunError('observation_required')
 
     observation = db.get(TargetObservation, observation_id)
     if observation is None or observation.case_id != case_id:
@@ -87,20 +95,28 @@ def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
     if media is None or media.case_id != case_id:
         raise TrackingRunError('observation_media_not_found')
 
-    try:
-        clip, _path = resolve_case_clip(db, case_id=case_id, clip_id=clip_id)
-    except KeyframeError as exc:
-        raise TrackingRunError('clip_' + str(exc).removeprefix('m4c_').removeprefix('clip_')) from None
+    if clip_id:
+        try:
+            clip, _path = resolve_case_clip(db, case_id=case_id, clip_id=clip_id)
+        except KeyframeError as exc:
+            raise TrackingRunError('clip_' + str(exc).removeprefix('m4c_').removeprefix('clip_')) from None
+    else:
+        # 用户只导入目标照片：按截图角标识别的时间与摄像头，在案件录像里自动定位
+        try:
+            clip, offset = m6_obs_clip.resolve_observation_clip(db, case_id, observation)
+        except m6_obs_clip.ObservationClipError as exc:
+            raise TrackingRunError(exc.code, exc.message) from None
     camera_label = (clip.camera_name or '').strip()
     if not camera_label:
         raise TrackingRunError('clip_camera_missing')
     if not (clip.match_status or '').startswith(('matched', 'suggested')):
         raise TrackingRunError('clip_camera_unverified')
 
-    try:
-        offset = checked_offset(payload.get('offset_seconds', 0.0), clip)
-    except KeyframeError as exc:
-        raise TrackingRunError(str(exc).replace('m4c_', 'clip_')) from None
+    if clip_id:
+        try:
+            offset = checked_offset(payload.get('offset_seconds', 0.0), clip)
+        except KeyframeError as exc:
+            raise TrackingRunError(str(exc).replace('m4c_', 'clip_')) from None
     start_of_day = m6_recording_source.seconds_of_day(clip.start_local)
     if start_of_day is None:
         raise TrackingRunError('clip_time_missing')
@@ -118,6 +134,9 @@ def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
         'spatial_revision': None,
         'clock_quality': 'uncalibrated',
         'exploratory': True,
+        'direction': _direction(payload),
+        'research_seconds': int(_number(payload.get('research_seconds'), default=120.0,
+                                        low=15, high=3600, code='invalid_research_seconds')),
     }
     anchor = {
         'case_id': case_id,
@@ -146,6 +165,34 @@ def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
     db.commit()
     db.refresh(run)
     return run
+
+
+def list_tracking_cameras(db: Session, case_id: str) -> list[dict]:
+    """案件内已导入录像、且摄像头已核实的镜头清单（供地图/时间轴选起点）。"""
+    _get_case(db, case_id)
+    rows = db.execute(select(RecordingClip).join(
+        RecordingSource, RecordingClip.source_id == RecordingSource.id)
+        .where(RecordingSource.case_id == case_id,
+               RecordingClip.camera_name.is_not(None))).scalars().all()
+    grouped: dict[str, dict] = {}
+    for clip in rows:
+        if not (clip.match_status or '').startswith(('matched', 'suggested')):
+            continue
+        label = (clip.camera_name or '').strip()
+        if not label:
+            continue
+        key = clip.camera_uuid or label
+        item = grouped.setdefault(key, {'camera_uuid': clip.camera_uuid,
+                                        'camera_label': label, 'clips': 0,
+                                        'first_start': None, 'last_start': None,
+                                        'coverage_seconds': 0.0})
+        item['clips'] += 1
+        item['coverage_seconds'] = round(item['coverage_seconds'] + float(clip.duration_seconds or 0.0), 1)
+        if clip.start_local and (item['first_start'] is None or clip.start_local < item['first_start']):
+            item['first_start'] = clip.start_local
+        if clip.start_local and (item['last_start'] is None or clip.start_local > item['last_start']):
+            item['last_start'] = clip.start_local
+    return sorted(grouped.values(), key=lambda x: x['camera_label'])
 
 
 def list_runs(db: Session, case_id: str, limit: int = 50) -> list[TrackingRun]:
@@ -208,6 +255,21 @@ def add_review(db: Session, case_id: str, run_id: str, payload: dict) -> Trackin
     return event
 
 
+def extend_research(db: Session, case_id: str, run_id: str, payload: dict) -> TrackingRun:
+    """用户手动延长研判时间窗口；只加不减。"""
+    run = get_run(db, case_id, run_id)
+    if run.status not in ('queued', 'running'):
+        raise TrackingRunError('run_not_running')
+    extra = _number(payload.get('seconds'), default=60.0, low=15, high=1800,
+                    code='invalid_extend_seconds')
+    scope = dict(run.scope_json or {})
+    scope['research_seconds'] = min(3600, int(scope.get('research_seconds') or 120) + int(extra))
+    run.scope_json = scope
+    db.commit()
+    db.refresh(run)
+    return run
+
+
 def cancel_run(db: Session, case_id: str, run_id: str) -> TrackingRun:
     run = get_run(db, case_id, run_id)
     if run.status in ('queued', 'running'):
@@ -247,4 +309,12 @@ def run_detail(db: Session, run: TrackingRun) -> dict:
         'finished_at': run.finished_at,
         'identity_established': False,
         'note': '候选不等于确认；只有人工审核事件能改变 identity_status。',
+        'direction': (run.scope_json or {}).get('direction', 'forward'),
+        'research_seconds': (run.scope_json or {}).get('research_seconds'),
+        'research_started_at': run.started_at,
+        'research_deadline': ((run.started_at + timedelta(
+            seconds=int((run.scope_json or {}).get('research_seconds') or 120)))
+            if run.started_at else None),
+        'active': ((run.progress_json or {}).get('active')
+                   if run.status in ('queued', 'running') else None),
     }

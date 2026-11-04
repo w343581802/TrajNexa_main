@@ -61,6 +61,11 @@ def _review_out(row) -> dict:
     }
 
 
+@router.get('/cases/{case_id}/tracking-cameras')
+def list_tracking_cameras(case_id: str, db: Session = Depends(get_db)):
+    return _guard(service.list_tracking_cameras, db, case_id)
+
+
 @router.post('/cases/{case_id}/tracking-runs', status_code=201)
 def create_tracking_run(case_id: str, payload: dict, db: Session = Depends(get_db)):
     run = _guard(service.create_run, db, case_id, payload)
@@ -104,6 +109,13 @@ def add_tracking_review(case_id: str, run_id: str, payload: dict,
     row = _guard(service.add_review, db, case_id, run_id, payload)
     run = _guard(service.get_run, db, case_id, run_id)
     return {'review': _review_out(row), 'run': service.run_detail(db, run)}
+
+
+@router.post('/cases/{case_id}/tracking-runs/{run_id}/extend')
+def extend_tracking_run(case_id: str, run_id: str, payload: dict,
+                        db: Session = Depends(get_db)):
+    run = _guard(service.extend_research, db, case_id, run_id, payload)
+    return service.run_detail(db, run)
 
 
 @router.post('/cases/{case_id}/tracking-runs/{run_id}/cancel')

@@ -23,6 +23,9 @@ const observationId = ref("");
 const clipId = ref("");
 const offset = ref(0);
 const maxWindows = ref(2);
+const direction = ref<"forward" | "backward">("forward");
+const nowMs = ref(Date.now());
+let ticker: number | null = null;
 
 const matchedClips = computed(() =>
   recordingClips.value
@@ -51,10 +54,30 @@ const statusTone = computed(() => {
   return "ok";
 });
 
-const canStart = computed(() => Boolean(wb.caseId && observationId.value && clipId.value && !trackingLoading.value));
+const canStart = computed(() => Boolean(wb.caseId && observationId.value && !trackingLoading.value));
 const isBusy = computed(() => {
   const status = activeTrackingRun.value?.status;
   return status === "queued" || status === "running";
+});
+
+const activeWindow = computed(() => activeTrackingRun.value?.active ?? null);
+const elapsedSeconds = computed(() => {
+  const started = activeWindow.value?.started_at;
+  if (!started) return 0;
+  return Math.max(0, Math.floor((nowMs.value - new Date(started).getTime()) / 1000));
+});
+const researchLimit = computed(() => activeTrackingRun.value?.research_seconds ?? 120);
+const researchExceeded = computed(() => elapsedSeconds.value > researchLimit.value);
+
+/** 同一小区域（镜头名前缀）下的镜头作为树分组，便于管理正在研判的镜头 */
+const cameraArea = (label: string) => label.split("-").slice(0, 2).join("-") || "未分区";
+const windowTree = computed(() => {
+  const groups: Record<string, typeof trackingWindows.value> = {};
+  for (const win of trackingWindows.value) {
+    const key = cameraArea(win.camera_label);
+    (groups[key] ||= []).push(win);
+  }
+  return Object.entries(groups).map(([area, windows]) => ({ area, windows }));
 });
 
 const clock = (seconds: number | null | undefined) => {
@@ -73,9 +96,10 @@ const start = async () => {
   if (!canStart.value) return;
   const created = await actions.startTrackingRun({
     observation_id: observationId.value,
-    clip_id: clipId.value,
+    ...(clipId.value ? { clip_id: clipId.value } : {}),
     offset_seconds: Number(offset.value) || 0,
     max_windows: Number(maxWindows.value) || 2,
+    direction: direction.value,
   });
   if (created) poll();
 };
@@ -108,6 +132,8 @@ watch(
     } else {
       stopPolling();
     }
+    if (ticker !== null) window.clearInterval(ticker);
+    if (open) ticker = window.setInterval(() => { nowMs.value = Date.now(); }, 1000);
   },
 );
 
@@ -121,7 +147,10 @@ watch(
   () => poll(),
 );
 
-onBeforeUnmount(stopPolling);
+onBeforeUnmount(() => {
+  stopPolling();
+  if (ticker !== null) window.clearInterval(ticker);
+});
 </script>
 
 <template>
@@ -146,9 +175,9 @@ onBeforeUnmount(stopPolling);
           </select>
         </label>
         <label class="field">
-          <span class="field-label">起始录像段（已匹配摄像头）</span>
+          <span class="field-label">起始录像段（可选；留空则按照片角标时间自动找）</span>
           <select v-model="clipId" class="input">
-            <option value="">选择一段录像</option>
+            <option value="">自动从案件录像定位</option>
             <option v-for="clip in matchedClips" :key="clip.id" :value="clip.id">
               {{ clipLabel(clip) }}
             </option>
@@ -162,6 +191,15 @@ onBeforeUnmount(stopPolling);
           <span class="field-label">最多分析窗口</span>
           <input v-model.number="maxWindows" class="input num" type="number" min="1" max="40" step="1" />
         </label>
+        <div class="field field--narrow">
+          <span class="field-label">研判方向</span>
+          <div class="dir-toggle" role="group" aria-label="研判方向">
+            <button type="button" :class="{ 'is-on': direction === 'forward' }"
+              @click="direction = 'forward'">向前</button>
+            <button type="button" :class="{ 'is-on': direction === 'backward' }"
+              @click="direction = 'backward'">向后</button>
+          </div>
+        </div>
         <button class="btn btn--primary start-btn" :disabled="!canStart" @click="start">
           <AppIcon name="target" :size="14" />{{ trackingLoading ? "创建中…" : "开始追踪" }}
         </button>
@@ -186,6 +224,22 @@ onBeforeUnmount(stopPolling);
             <AppIcon name="stop" :size="12" />取消任务
           </button>
         </header>
+        <div v-if="activeWindow" class="live-card" :class="{ 'is-over': researchExceeded }">
+          <span class="live-dot" />
+          <div class="live-main">
+            <span class="live-label">正在研判：{{ activeWindow.camera_label }}</span>
+            <span class="live-sub num">
+              {{ clock(activeWindow.window[0]) }}–{{ clock(activeWindow.window[1]) }}
+              · 已研判 {{ elapsedSeconds }}s / 窗口 {{ researchLimit }}s
+            </span>
+          </div>
+          <button class="btn btn--sm btn--outline" @click="actions.extendTracking(60)">
+            +60s
+          </button>
+        </div>
+        <p v-if="researchExceeded" class="error">
+          已超过系统研判时间窗口；可以点 +60s 延长，或取消任务。不会无限计时。
+        </p>
         <p v-if="activeTrackingRun.error" class="error">
           {{ activeTrackingRun.error.code }}：{{ activeTrackingRun.error.message }}
         </p>
@@ -200,14 +254,17 @@ onBeforeUnmount(stopPolling);
         </div>
 
         <h3 class="sub-title">已分析窗口</h3>
-        <div v-if="trackingWindows.length" class="window-list">
-          <div v-for="win in trackingWindows" :key="win.id" class="window-row">
-            <span class="num">{{ win.camera_label }}</span>
-            <span class="num">{{ clock(win.window[0]) }}–{{ clock(win.window[1]) }}</span>
-            <span>{{ win.status }}</span>
-            <span class="num">轨迹 {{ win.tracks }}</span>
-            <span class="num muted">取帧 {{ win.cost.frames_saved ?? 0 }}</span>
-          </div>
+        <div v-if="trackingWindows.length" class="window-tree">
+          <details v-for="group in windowTree" :key="group.area" open>
+            <summary class="tree-area">{{ group.area }} · {{ group.windows.length }} 个镜头</summary>
+            <div v-for="win in group.windows" :key="win.id" class="window-row">
+              <span class="num">{{ win.camera_label }}</span>
+              <span class="num">{{ clock(win.window[0]) }}–{{ clock(win.window[1]) }}</span>
+              <span>{{ win.status }}</span>
+              <span class="num">轨迹 {{ win.tracks }}</span>
+              <span class="num muted">取帧 {{ win.cost.frames_saved ?? 0 }}</span>
+            </div>
+          </details>
         </div>
         <p v-else class="hint">还没有窗口结果；任务可能还在排队或没有覆盖该时段的录像。</p>
 
@@ -227,7 +284,7 @@ onBeforeUnmount(stopPolling);
               <template v-if="cand.details.unknown?.length"> · 未知：{{ cand.details.unknown.join("、") }}</template>
             </p>
             <div class="cand-actions">
-              <button class="btn btn--sm btn--primary" :disabled="cand.identity_status === 'human_confirmed'" @click="actions.reviewTracking(cand.id, 'approve')">
+              <button class="btn btn--sm btn--primary" :disabled="cand.identity_status === 'human_confirmed'" @click="actions.rememberCandidateObservation(cand); actions.reviewTracking(cand.id, 'approve')">
                 通过并继续搜索
               </button>
               <button class="btn btn--sm btn--outline" :disabled="cand.identity_status === 'human_rejected'" @click="actions.reviewTracking(cand.id, 'reject')">
@@ -278,7 +335,7 @@ onBeforeUnmount(stopPolling);
 .empty { padding: 28px; color: var(--text-2); }
 .start-box {
   display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) minmax(260px, 1.4fr) 120px 120px auto;
+  grid-template-columns: minmax(200px, 1.2fr) minmax(240px, 1.4fr) 110px 100px 120px auto;
   gap: 10px;
   align-items: end;
 }
@@ -295,6 +352,34 @@ onBeforeUnmount(stopPolling);
   min-width: 0;
 }
 .start-btn { height: 32px; white-space: nowrap; }
+.live-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+}
+.live-card.is-over { border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+  animation: live-pulse 1.2s ease-in-out infinite;
+}
+.live-card.is-over .live-dot { background: var(--danger); animation: none; }
+@keyframes live-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.live-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.live-label { font-size: 12px; color: var(--text-1); }
+.live-sub { font-size: 11px; color: var(--text-3); }
+.dir-toggle { display: flex; gap: 1px; overflow: hidden; border: 1px solid var(--line-2); border-radius: 6px; }
+.dir-toggle button {
+  flex: 1; height: 30px; border: 0; background: var(--bg-2); color: var(--text-3);
+  font-size: 12px; cursor: pointer;
+}
+.dir-toggle button.is-on { background: var(--accent, #2b6cb0); color: #fff; }
+.window-tree { display: flex; flex-direction: column; gap: 6px; }
+.tree-area { font-size: 12px; color: var(--text-2); cursor: pointer; padding: 2px 0; }
 .hint { margin: 10px 0 0; font-size: 12px; color: var(--text-3); line-height: 1.6; }
 .error { margin: 10px 0 0; font-size: 12px; color: var(--danger); }
 .run-box { margin-top: 14px; border-top: 1px solid var(--line-1); padding-top: 12px; }

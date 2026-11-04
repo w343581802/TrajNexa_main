@@ -479,6 +479,11 @@ export type TrackingRunDetail = {
   };
   candidates: number; windows: number; reviews: number;
   error: { code: string; message: string } | null;
+  direction: "forward" | "backward";
+  research_seconds: number | null;
+  research_started_at: string | null;
+  research_deadline: string | null;
+  active: { camera_label: string; window: [number, number]; started_at: string } | null;
   created_at: string; started_at: string | null; finished_at: string | null;
   identity_established: false; note: string;
 };
@@ -746,8 +751,16 @@ export const mainApi = {
 
   /* ---------------------------- 案件内追踪任务（B8） ---------------------------- */
 
+  listTrackingCameras: (caseId: string) =>
+    request<{ camera_uuid: string | null; camera_label: string; clips: number;
+      first_start: string | null; last_start: string | null;
+      coverage_seconds: number }[]>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-cameras`,
+    ),
+
   createTrackingRun: (caseId: string, body: {
-    observation_id: string; clip_id: string; offset_seconds?: number;
+    observation_id: string; clip_id?: string; offset_seconds?: number;
+    direction?: "forward" | "backward"; research_seconds?: number;
     segment_seconds?: number; gap_seconds?: number;
     max_windows?: number; budget_frames?: number;
   }) => request<TrackingRunDetail>(
@@ -785,6 +798,12 @@ export const mainApi = {
     `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/reviews`,
     jsonBody(body as Record<string, unknown>, "POST"),
   ),
+
+  extendTrackingRun: (caseId: string, runId: string, seconds: number) =>
+    request<TrackingRunDetail>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/extend`,
+      jsonBody({ seconds }, "POST"),
+    ),
 
   cancelTrackingRun: (caseId: string, runId: string) =>
     request<TrackingRunDetail>(

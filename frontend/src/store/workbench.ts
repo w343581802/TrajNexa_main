@@ -937,9 +937,10 @@ export const actions = {
     if (target) await refreshTrackingRun(target);
   },
   async startTrackingRun(payload: {
-    observation_id: string; clip_id: string; offset_seconds?: number;
+    observation_id: string; clip_id?: string; offset_seconds?: number;
     segment_seconds?: number; gap_seconds?: number;
     max_windows?: number; budget_frames?: number;
+    direction?: "forward" | "backward"; research_seconds?: number;
   }): Promise<boolean> {
     if (!wb.caseId) {
       toast("请先选择案件", "warn");
@@ -977,6 +978,30 @@ export const actions = {
       await refreshTrackingRun(run.id);
     } catch (error) {
       toast(trackingErrorMessage(error), "danger");
+    }
+  },
+  /** 人工确认候选后，把“最新观测”挂到要素栏（只是待核实观测，不是属性定论） */
+  rememberCandidateObservation(cand: TrackingCandidateRow): void {
+    if (featureList.value.some((f) => f.id === 'tf-' + cand.id)) return;
+    const window = cand.window?.[0] != null
+      ? String(Math.floor((cand.window[0] as number) / 3600)).padStart(2, '0') + ':' +
+        String(Math.floor(((cand.window[0] as number) % 3600) / 60)).padStart(2, '0')
+      : '时间未知';
+    featureList.value.unshift({
+      id: 'tf-' + cand.id, attr: '追踪观测', value: cand.camera_label + ' · ' + window,
+      status: 'proposed', statusLabel: '新观测（待核）',
+      meta: '来自追踪候选；相似度 ' + (cand.retrieval_score ?? '—') + '，不是属性结论',
+      sources: 1, window: window,
+    });
+  },
+  async extendTracking(seconds = 60) {
+    const run = activeTrackingRun.value;
+    if (!wb.caseId || !run) return;
+    try {
+      activeTrackingRun.value = await mainApi.extendTrackingRun(wb.caseId, run.id, seconds);
+      toast('已延长研判时间窗口 ' + seconds + ' 秒', 'ok');
+    } catch (error) {
+      toast(trackingErrorMessage(error), 'danger');
     }
   },
   async cancelTracking() {
