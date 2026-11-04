@@ -1189,12 +1189,12 @@ function ignoreAiFeature(feature: string) { ignoredAiFeatures.value.push(feature
             <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'primary' }" @click="focusTarget('primary')">
               <img v-if="m4Thumb" :src="m4Thumb" alt="主目标" />
               <span class="target-role">主目标要素</span>
-              <span class="field-hint"><select v-model="category" class="input" @click.stop @change="attrTarget = 'primary'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
+              <span class="field-hint"><select v-model="category" class="input" @click.stop="attrTarget = 'primary'" @change="attrTarget = 'primary'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
             </button>
             <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'assoc' }" @click="focusTarget('assoc')">
               <img v-if="assocThumb" :src="assocThumb" alt="关联对象" />
               <span class="target-role">关联要素</span>
-              <span class="field-hint"><select v-model="assocCategory" class="input" @click.stop @change="attrTarget = 'assoc'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
+              <span class="field-hint"><select v-model="assocCategory" class="input" @click.stop="attrTarget = 'assoc'" @change="attrTarget = 'assoc'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
             </button>
           </div>
         </div>
@@ -1213,10 +1213,6 @@ function ignoreAiFeature(feature: string) { ignoredAiFeatures.value.push(feature
           <div class="ae-field-head">
             <span class="field-label">可见特征（选填）</span>
             <span class="field-hint">按对象归属 · 未知≠不匹配</span>
-          </div>
-          <div class="seg">
-            <button :class="{ 'is-on': attrTarget === 'primary' }" @click="attrTarget = 'primary'">主目标</button>
-            <button :class="{ 'is-on': attrTarget === 'assoc' }" :disabled="!assocBox" @click="attrTarget = 'assoc'">关联对象</button>
           </div>
           <div v-for="(attr, index) in activeAttrs" :key="index" class="attr-row">
             <input v-if="attr.custom" v-model="attr.key" class="input attr-custom-key" placeholder="特征部位" />
