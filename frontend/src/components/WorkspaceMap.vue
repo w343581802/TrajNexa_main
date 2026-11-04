@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, layers, observationList, recordingCameraUuids, timeWindow, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 
@@ -41,6 +41,7 @@ let map: L.Map | null = null;
 const lReal = L.layerGroup();
 const lFocus = L.layerGroup();
 const lAnchors = L.layerGroup();
+const lTrack = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -107,7 +108,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -262,6 +263,36 @@ function pickAnchor(elementId: string) {
   const element = visibleElements.value.find((item) => item.id === elementId);
   cardLatLng.value = anchorLatLng(element);
   placeCard();
+
+  /* B8 追踪图层：已研判镜头连虚线，正在研判的镜头加脉冲 */
+  if (layers.anchors && trackingWindows.value.length) {
+    const ordered = [...trackingWindows.value].sort((a, b) => a.window[0] - b.window[0]);
+    const points: [number, number][] = [];
+    for (const win of ordered) {
+      const camera = snapshot.value?.cameras.find((item) =>
+        (win.camera_label && cameraLabel(item).includes(win.camera_label.split("-").slice(0, 3).join("-"))));
+      if (!camera) continue;
+      points.push([camera.lat, camera.lon]);
+      L.circleMarker([camera.lat, camera.lon], {
+        radius: 6, color: "#ffd166", weight: 2, fillColor: "#ffd166", fillOpacity: 0.35,
+      }).bindTooltip(win.camera_label + " · " + hhmm(win.window[0]) + "–" + hhmm(win.window[1]) + " · " + win.status,
+        { direction: "top", offset: [0, -6], className: "map-tip" }).addTo(lTrack);
+    }
+    if (points.length > 1) {
+      L.polyline(points, { color: "#ffd166", weight: 2, dashArray: "6 8", opacity: 0.9, interactive: false }).addTo(lTrack);
+    }
+    const active = activeTrackingRun.value?.active;
+    if (active) {
+      const camera = snapshot.value?.cameras.find((item) =>
+        cameraLabel(item).includes(active.camera_label.split("-").slice(0, 3).join("-")));
+      if (camera) {
+        L.circleMarker([camera.lat, camera.lon], {
+          radius: 10, color: "#7fe3a1", weight: 2, fillColor: "#7fe3a1", fillOpacity: 0.25, className: "tracking-live",
+        }).bindTooltip("正在研判：" + active.camera_label + " · 起 " + hhmm(active.window[0]),
+          { direction: "top", offset: [0, -8], className: "map-tip" }).addTo(lTrack);
+      }
+    }
+  }
 }
 
 watch(
@@ -309,6 +340,10 @@ function textIcon(text: string, className: string, offset: [number, number] = [0
 }
 
 /** 锚点标签用时间/摄像头名称，不再显示 E01 这类内部编号；拼进 innerHTML 前先转义。 */
+const hhmm = (seconds: number) =>
+  String(Math.floor(seconds / 3600) % 24).padStart(2, "0") + ":" +
+  String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+
 const escapeLabel = (value: string) =>
   value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
 
@@ -323,7 +358,7 @@ function anchorIcon(label: string, selected: boolean): L.DivIcon {
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -409,7 +444,8 @@ function render() {
 }
 
 watch(
-  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids],
+  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
+   trackingWindows, activeTrackingRun],
   () => render(),
   { deep: true },
 );

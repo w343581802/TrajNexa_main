@@ -40,6 +40,10 @@ def _candidate_out(row) -> dict:
         'margin_top1_top2': row.margin_top1_top2,
         'window': [row.window_start, row.window_end],
         'evidence_refs': row.evidence_refs or [],
+        # B8-D 预留：缩略图/证据预览地址由后端生成，前端不拼文件路径。
+        # 现在固定为 null，地图/时间轴先显示占位，接入图片服务后只改这里。
+        'thumbnail_url': None,
+        'evidence_preview': None,
         'details': row.details_json or {},
         'review_required': True, 'created_at': row.created_at,
     }
@@ -50,6 +54,7 @@ def _window_out(row) -> dict:
         'id': row.id, 'camera_label': row.camera_label, 'clip_id': row.clip_id,
         'window': [row.window_start, row.window_end], 'status': row.status,
         'tracks': row.tracks, 'cost': row.cost_json or {}, 'note': row.note,
+        'thumbnail_url': None, 'clip_preview': None,
         'created_at': row.created_at,
     }
 

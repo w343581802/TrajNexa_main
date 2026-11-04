@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { type Observation } from "../data/mock";
-import { actions, elementList, filteredObservations, timelineCounts, wb, type TimelineFilter } from "../store/workbench";
+import { actions, activeTrackingRun, elementList, filteredObservations, timelineCounts, trackingWindows, wb, type TimelineFilter } from "../store/workbench";
 
 const statusOptions: { id: TimelineFilter; label: string }[] = [
   { id: "all", label: "全部状态" },
@@ -64,6 +64,25 @@ function caption(obs: Observation) {
 }
 
 const dotTone = (obs: Observation) => statusOf(obs).tone;
+
+/* B8 追踪任务卡片：正在研判的镜头 + 已研判窗口（缩略图接口预留，先不伪造画面） */
+const nowMs = ref(Date.now());
+let ticker: number | null = null;
+onMounted(() => { ticker = window.setInterval(() => { nowMs.value = Date.now(); }, 1000); });
+onBeforeUnmount(() => { if (ticker !== null) window.clearInterval(ticker); });
+
+const active = computed(() => activeTrackingRun.value?.active ?? null);
+const activeElapsed = computed(() => {
+  const started = active.value?.started_at;
+  if (!started) return 0;
+  return Math.max(0, Math.floor((nowMs.value - new Date(started).getTime()) / 1000));
+});
+const researchLimit = computed(() => activeTrackingRun.value?.research_seconds ?? 120);
+const overLimit = computed(() => activeElapsed.value > researchLimit.value);
+const hhmm = (seconds: number) =>
+  String(Math.floor(seconds / 3600) % 24).padStart(2, "0") + ":" +
+  String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+const expandedId = ref<string | null>(null);
 </script>
 
 <template>
@@ -91,6 +110,35 @@ const dotTone = (obs: Observation) => statusOf(obs).tone;
         <option value="desc">时间倒序</option>
       </select>
     </div>
+
+
+      <section v-if="active || trackingWindows.length" class="track-block" aria-label="追踪研判">
+        <div v-if="active" class="track-live" :class="{ 'is-over': overLimit }">
+          <span class="track-live-dot" />
+          <div class="track-live-main">
+            <strong>正在研判 · {{ active.camera_label }}</strong>
+            <span class="num">
+              {{ hhmm(active.window[0]) }} 起 · 已研判 {{ activeElapsed }}s / {{ researchLimit }}s
+            </span>
+          </div>
+          <button class="btn btn--sm btn--outline" @click="actions.extendTracking(60)">+60s</button>
+        </div>
+        <p v-if="overLimit" class="track-over">超过系统研判窗口，可延长或取消，不会无限计时。</p>
+        <details v-for="win in trackingWindows" :key="win.id" class="track-card" open>
+          <summary>
+            <span class="track-thumb" aria-hidden="true">缩略图接口已预留</span>
+            <span class="track-info">
+              <strong>{{ win.camera_label }}</strong>
+              <span class="num">{{ hhmm(win.window[0]) }}–{{ hhmm(win.window[1]) }}</span>
+              <span class="muted">{{ win.status }} · 轨迹 {{ win.tracks }}</span>
+            </span>
+          </summary>
+          <div class="track-detail">
+            <div class="track-thumb track-thumb--lg" aria-hidden="true">截取录像 / 大图接口预留</div>
+            <span class="muted">片段与证据地址由后端返回后填入，不在浏览器里拼路径。</span>
+          </div>
+        </details>
+      </section>
 
     <div class="rail-list scroll-y">
       <div v-if="!list.length" class="rail-empty">
@@ -477,4 +525,21 @@ const dotTone = (obs: Observation) => statusOf(obs).tone;
   line-height: 1.55;
   color: var(--text-3);
 }
+
+/* B8 tracking cards */
+.track-block { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-2); }
+.track-live { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.track-live.is-over { border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.track-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: track-pulse 1.2s ease-in-out infinite; }
+.track-live.is-over .track-live-dot { background: var(--danger); animation: none; }
+@keyframes track-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.track-live-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; font-size: 12px; }
+.track-over { margin: 0; font-size: 11px; color: var(--danger); }
+.track-card { border: 1px solid var(--line-2); border-radius: 7px; padding: 6px; background: var(--bg-1); }
+.track-card summary { display: flex; gap: 8px; cursor: pointer; list-style: none; }
+.track-card summary::-webkit-details-marker { display: none; }
+.track-thumb { flex: 0 0 64px; height: 40px; border-radius: 4px; border: 1px dashed var(--line-3); background: var(--bg-2); color: var(--text-3); font-size: 9px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.3; }
+.track-thumb--lg { flex: none; width: 100%; height: 120px; margin: 8px 0 4px; }
+.track-info { display: flex; flex-direction: column; gap: 1px; font-size: 12px; min-width: 0; }
+.track-detail { font-size: 11px; }
 </style>
