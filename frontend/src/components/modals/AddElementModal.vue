@@ -891,6 +891,40 @@ async function save(keepOpen: boolean) {
   }
   ui.addElementOpen = false;
 }
+
+const m4Thumb = ref("");
+const assocThumb = ref("");
+
+/** 裁剪当前框，作为「当前选中目标」的小图；不重新识别、不请求后端。 */
+function cropThumb(box: [number, number, number, number] | null): string {
+  const img = m4Image.value;
+  if (!box || !img || !img.naturalWidth) return "";
+  const [x1, y1, x2, y2] = box;
+  const canvas = document.createElement("canvas");
+  canvas.width = 160; canvas.height = 120;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  context.drawImage(img,
+    x1 * img.naturalWidth, y1 * img.naturalHeight,
+    Math.max(1, (x2 - x1) * img.naturalWidth), Math.max(1, (y2 - y1) * img.naturalHeight),
+    0, 0, 160, 120);
+  return canvas.toDataURL("image/png");
+}
+
+watch([m4Box, assocBox], () => {
+  m4Thumb.value = cropThumb(m4Box.value);
+  assocThumb.value = cropThumb(assocBox.value);
+}, { deep: true });
+
+function pickProposalIndex(index: number) {
+  const proposal = m4Proposals.value[index];
+  if (proposal) void selectM4Proposal(proposal);
+}
+
+function bindCatalogCamera(cameraUuid: string) {
+  confirmedCamera.value = cameraUuid || null;
+}
+
 </script>
 
 <template>
@@ -966,64 +1000,30 @@ async function save(keepOpen: boolean) {
         </div>
 
         
-        <section v-if="selectedMedia" class="detect-panel">
-          <div class="m4a-panel-title">默认检测 · 目标候选（待核实）</div>
+        <section v-if="selectedMedia" class="detect-panel detect-panel--compact">
           <div class="m4-engine-row">
-            <span class="m4a-history-hint">自动使用已配置的业务检测模型；这里不进行多模型实验。</span>
+            <span class="field-hint">候选 {{ m4Proposals.length }} · 点框或拖拽框选</span>
+            <select class="input input--compact" :value="-1" @change="pickProposalIndex(Number(($event.target as HTMLSelectElement).value))">
+              <option value="-1">切换候选…</option>
+              <option v-for="(proposal, index) in m4Proposals" :key="'p-' + index" :value="index">
+                {{ index + 1 }}. {{ proposal.detector_label }}<template v-if="proposal.confidence != null"> {{ Math.round(proposal.confidence * 100) }}%</template>
+              </option>
+            </select>
             <span class="grow" />
-            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy"
-              @click="runDetection">{{ m4DetectBusy ? `识别中… ${m4DetectElapsedLive}s` : "重新检测" }}</button>
+            <span v-if="m4Observation" class="field-hint">已保存观测</span>
+            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy" @click="runDetection">{{ m4DetectBusy ? "识别中…" : "重新检测" }}</button>
+            <button type="button" class="btn btn--sm btn--primary" :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">{{ m4Busy ? "保存中…" : "保存区域观测" }}</button>
           </div>
-          <p class="m4a-history-hint" v-if="m4DetectBusy">正在分析原始截图…</p>
-          <p class="m4a-history-hint" v-else-if="m4DetectModel">
-            {{ m4DetectModel }} · {{ m4DetectElapsed }}s · 点击候选或手动框选
-          </p>
-          <p v-if="m4DetectError" class="ae-error">{{ m4DetectError }}</p>
-          <div class="detect-proposal-list">
-            <button v-for="proposal in m4Proposals"
-              :key="(proposal.model_id || m4Engine) + '-' + proposal.proposal_index" type="button"
-              class="chip-btn" @click="selectM4Proposal(proposal)">
-              <template v-if="proposal.model_name">{{ proposal.model_name }} · </template>
-              {{ proposal.detector_label }}
-              <template v-if="proposal.confidence != null"> · {{ Math.round(proposal.confidence * 100) }}%</template>
-            </button>
-          </div>
+          <input v-model="m4Note" class="input" placeholder="选取依据（可留空）" maxlength="500" />
+          <p v-if="m4DetectError" class="field-hint">{{ m4DetectError }}</p>
+          <details v-if="m4Features" class="ae-fold">
+            <summary>识别细节（画质 / 主色 / 外观线索）</summary>
+            <p class="field-hint">亮度 {{ m4Features.quality.median_luminance_0_255 }} · 清晰度 {{ m4Features.quality.laplacian_variance }} · 主色 {{ m4ToneText(m4Features.appearance.roi_tones_unverified) }}</p>
+            <p class="field-hint">外观线索：{{ m4Features.appearance.semantic_attributes?.features_unverified?.join("、") || "未提取" }}</p>
+          </details>
         </section>
-        <div v-if="selectedMedia" class="m4a-panel">
-          <div class="m4a-panel-title">关键特征（选中框后自动标出）</div>
-          <p v-if="m4FeaturesBusy" class="m4a-history-hint">正在提取区域特征…</p>
-          <p v-else-if="m4FeaturesError" class="ae-error">{{ m4FeaturesError }}</p>
-          <div v-else-if="m4Features" class="m4a-result">
-            <span>框选范围 {{ m4Features.bbox_pixels.join(", ") }} px（{{ m4Features.frame_size.join("×") }}）</span>
-            <span>亮度 {{ m4Features.quality.median_luminance_0_255 }} ·
-              清晰度 {{ m4Features.quality.laplacian_variance }} · 主色
-              {{ m4ToneText(m4Features.appearance.roi_tones_unverified) }}</span>
-            <span v-if="m4Features.appearance.semantic_attributes?.features_unverified?.length">
-              外观线索：<b>{{ m4Features.appearance.semantic_attributes.features_unverified.join("、") }}</b>
-              <em class="dim">（{{ m4Features.appearance.semantic_attributes.semantic_model
-                || "视觉模型" }} 建议，待人工核实）</em>
-            </span>
-            <span v-else class="dim">
-              外观线索：{{ m4Features.appearance.semantic_status === "unavailable"
-                ? "视觉模型未给出（不影响人工框选，可在模型测试页排查）" : "未提取" }}
-            </span>
-            <span>画质提示：{{ m4Features.quality.flags.join("、") || "未触发规则告警" }}</span>
-          </div>
-          <p v-else class="m4a-history-hint">在上方候选框里点一个，或直接在画面上拖拽框选。</p>
-          <div class="m4a-panel-form">
-            <input v-model="m4Note" class="input" placeholder="选取依据（可留空，自动生成）" maxlength="500" />
-            <button class="btn btn--sm btn--primary" type="button"
-              :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">
-              {{ m4Busy ? "保存中…" : "保存区域观测" }}
-            </button>
-          </div>
-          <p v-if="m4Error" class="ae-error">{{ m4Error }}</p>
-          <div v-if="m4Observation" class="m4a-result">
-            <span>已保存 · {{ m4Observation.review_state }} · 框选
-              {{ m4Observation.analysis_json.bbox_pixels.join(", ") }} px</span>
-            <span>摄像头、地理位置、身份关联：未建立（模型输出只是建议）。</span>
-          </div>
-        </div>
+        <details v-if="currentCase" class="ae-fold">
+          <summary>历史区域观测</summary>
         <section v-if="currentCase" class="m4a-history">
           <div class="m4a-history-head">
             <b>M4a · 本案件已保存的区域观测</b>
@@ -1046,6 +1046,7 @@ async function save(keepOpen: boolean) {
           <p v-else-if="m4HistoryBusy" class="m4a-history-hint">正在读取历史记录…</p>
           <p v-else-if="!m4History.length && !m4HistoryError" class="m4a-history-hint">本案件尚无持久化区域观测。</p>
         </section>
+        </details>
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
 
         <div class="ae-evidence" :class="{ 'is-open': evidenceOpen }">
@@ -1165,62 +1166,37 @@ async function save(keepOpen: boolean) {
             <span class="field-label">摄像头名称</span>
             <StatusChip :label="cameraStatus.label" :tone="cameraStatus.tone" />
           </div>
-
-          <div v-if="nameList.length" class="candidates">
-            <button
-              v-for="(item, index) in nameList"
-              :key="`n-${index}`"
-              class="candidate-opt"
-              :class="{ 'is-on': nameIndex === index }"
-              @click="pickName(index)"
-            >
-              <span class="truncate">{{ item.name }}</span>
-              <span class="dim">{{ item.source }}</span>
-            </button>
-          </div>
-          <p v-else-if="report" class="field-hint warn">
-            结构化解析没有得到名称，可在下方手动填写，或对照「识别依据」里的 OCR 行挑选。
-          </p>
-
-          <div class="name-input">
-            <input
-              v-model="cameraNameInput"
-              class="input"
-              type="text"
-              placeholder="角标名称（可手动填写或修改）"
-              aria-label="摄像头名称"
-            />
+          <div class="camera-line">
+            <input v-model="cameraNameInput" class="input" type="text" placeholder="OCR 识别名称，可直接修改" aria-label="摄像头名称" />
+            <button class="btn btn--sm" type="button" @click="syncCatalogMatch">重新匹配</button>
             <button class="chip-btn" :class="{ 'is-on': !cameraName }" @click="markUnlocated">仅确定区域</button>
           </div>
+          <label v-if="catalogMatches.length" class="field">
+            <span class="field-label">匹配到的镜头</span>
+            <select class="input" :value="confirmedCamera ?? ''" @change="bindCatalogCamera(($event.target as HTMLSelectElement).value)">
+              <option value="">不绑定目录</option>
+              <option v-for="camera in catalogMatches" :key="camera.camera_uuid" :value="camera.camera_uuid">{{ camera.display_name }}</option>
+            </select>
+          </label>
+          <p v-else class="field-hint">未匹配到镜头目录，仅保留名称；可到「录像资源」核对镜头。</p>
+        </div>
 
-          <div v-if="nameSuggestions.length" class="catalog-hits">
-            <span class="field-hint">相似建议：</span>
-            <button
-              v-for="item in nameSuggestions"
-              :key="item.camera_uuid"
-              class="tag suggest"
-              :title="`OCR：${item.ocr_text} · 相似度 ${Math.round(item.score * 100)}%${item.reviewed === false ? ' · Map 台账未审核（名称只是台账写法）' : ''}`"
-              @click="applySuggestion(item)"
-            >
-              {{ item.display_name }}<span class="dim"> {{ Math.round(item.score * 100) }}%</span>
-              <span v-if="item.reviewed === false" class="dim">·台账未审核</span>
-            </button>
+        <div class="ae-section">
+          <div class="ae-field-head">
+            <span class="field-label">当前选中目标</span>
+            <span class="field-hint">主目标 + 关联对象</span>
           </div>
-          <p v-if="nameSuggestions.length" class="field-hint">
-            相似建议只填名称、不建立绑定；确认真实镜头请人工核对后再绑定。
-          </p>
-
-          <div v-if="catalogMatches.length" class="catalog-hits">
-            <span class="field-hint">镜头目录匹配：</span>
-            <span v-for="camera in catalogMatches" :key="camera.camera_uuid" class="tag">
-              {{ camera.display_name }}
-            </span>
-          </div>
-          <p v-else-if="matchHint" class="field-hint">{{ matchHint }}</p>
-
-          <div class="source-actions">
-            <span class="grow" />
-            <span class="dim field-hint">名称匹配度 ≠ 同一目标的身份结论</span>
+          <div class="target-cards">
+            <div class="target-card" :class="{ 'is-on': Boolean(m4Box) }">
+              <img v-if="m4Thumb" :src="m4Thumb" alt="主目标" />
+              <span class="target-role">主目标要素</span>
+              <span class="field-hint">{{ m4Box ? category : "未选择" }}</span>
+            </div>
+            <div class="target-card" :class="{ 'is-on': Boolean(assocBox) }">
+              <img v-if="assocThumb" :src="assocThumb" alt="关联对象" />
+              <span class="target-role">关联要素</span>
+              <span class="field-hint">{{ assocBox ? assocCategory : "未选择" }}</span>
+            </div>
           </div>
         </div>
 
@@ -1867,4 +1843,17 @@ async function save(keepOpen: boolean) {
 }
 .assoc-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .assoc-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+.camera-line { display: flex; gap: 6px; align-items: center; }
+.camera-line .input { flex: 1 1 auto; min-width: 0; }
+.target-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.target-card { border: 1px dashed var(--line-2); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; min-height: 108px; }
+.target-card.is-on { border-color: var(--accent); }
+.target-card img { width: 100%; height: 72px; object-fit: cover; border-radius: 4px; }
+.target-role { font-size: 11px; color: var(--text-2); }
+.ae-fold { border-top: 1px dashed var(--line-2); padding-top: 6px; }
+.ae-fold > summary { cursor: pointer; font-size: 11px; color: var(--text-3); }
+.input--compact { height: 26px; max-width: 190px; }
+.detect-panel--compact { display: grid; gap: 6px; }
+
 </style>
