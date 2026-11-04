@@ -21,10 +21,12 @@ from app.m6_track import ByteTrackAdapter, observations_from_detections
 def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
                    osd_anchor_seconds=None, min_confidence=0.25,
                    max_gap_seconds=4.0, max_missing_frames=20, camera="unknown",
-                   window_id="w0", detector=None):
+                   window_id="w0", detector=None, task=None):
     """分析一段已抽取的帧窗口，返回 Tracklet、时间状态与实测成本。"""
     started = time.time()
-    detector_id = detector or model_capabilities.detector_id()
+    # 模型切换只在窗口边界生效：整窗固定一个检测器。
+    detector_id = detector or model_capabilities.detector_id(task)
+    detectors_used = set()
     cost = {"frames_requested": 0, "frames_read": 0, "frames_decoded": 0,
             "frames_with_person": 0, "frames_failed_decode": 0, "detector_frames": 0,
             "reid_calls": 0, "vlm_calls": 0, "wall_time_ms": 0}
@@ -55,7 +57,14 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
         cost["frames_read"] += 1
         cost["frames_decoded"] += 1
         timestamp = (start_index + offset) / fps
-        result = detectors.detect_flat(frame, [detector_id], min_confidence)
+        if detector:
+            result = {"candidates": detectors.detect_flat(frame, [detector], min_confidence)["candidates"]}
+        else:
+            # B7-B：走能力层，模型故障时按配置回退，实际执行的模型写进 executions()。
+            result = model_capabilities.invoke(
+                "object_detection", {"image": frame, "min_confidence": min_confidence},
+                task=task, model=detector_id)
+        detectors_used.add(result.get("model"))
         cost["detector_frames"] += 1
         persons = [c for c in result["candidates"] if c["label"] == "人"]
         if persons:

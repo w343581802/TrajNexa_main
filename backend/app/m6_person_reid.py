@@ -58,24 +58,42 @@ def _model_path() -> tuple[Path, str]:
     return candidate, digest
 
 
-def _get_engine():
-    """Cache a single CPU model. Inference requests are serialized by the API."""
-    model, digest = _model_path()
-    key = (str(model), digest)
-    if _ENGINE_CACHE.get("key") != key:
+def engine_for(source) -> tuple:
+    """按权重路径取引擎（B7-B：多 ReID 模型并存，不共用默认缓存槽）。"""
+    root = Path(__file__).resolve().parents[1]
+    model_dir = (root / "models").resolve()
+    candidate = Path(source)
+    if not candidate.is_absolute():
+        candidate = (root / candidate).resolve()
+    if (not candidate.is_relative_to(model_dir) or
+            candidate.suffix.lower() != ".onnx"):
+        raise ReIDError("m6_reid_model_path_invalid")
+    if not candidate.is_file():
+        raise ReIDError("m6_reid_model_missing")
+    digest = sha256(candidate.read_bytes()).hexdigest()
+    key = (str(candidate), digest)
+    cached = _ENGINE_CACHE.get(key)
+    if cached is None:
         try:
             engine = EngineFactory.create(
                 "onnxruntime", task_type="reid", algorithm_type="osnet",
-                model_file=str(model), input_size=(128, 256), device="cpu")
+                model_file=str(candidate), input_size=(128, 256), device="cpu")
             if not engine.load():
                 raise ReIDError("m6_reid_model_load_failed")
         except ReIDError:
             raise
         except Exception:
             raise ReIDError("m6_reid_model_load_failed") from None
-        _ENGINE_CACHE.clear()
-        _ENGINE_CACHE.update(key=key, engine=engine)
-    return _ENGINE_CACHE["engine"], digest
+        _ENGINE_CACHE[key] = engine
+        cached = engine
+    return cached, digest
+
+
+def _get_engine():
+    """默认能力配置指向的权重；保留此入口给旧调用方。"""
+    model, digest = _model_path()
+    engine, _ = engine_for(model)
+    return engine, digest
 
 
 def _pixel_box_from_size(width: int, height: int, box) -> list[int] | None:

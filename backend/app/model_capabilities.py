@@ -45,6 +45,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "model_capabiliti
 CONFIG_ENV = "TRAJNEXA_MODEL_CAPABILITIES"
 _TASK_DEFAULT = "default"
 _CACHE: dict = {"config_key": None, "config": None, "digest": {}}
+_EXECUTIONS: list = []
 
 
 class CapabilityError(ValueError):
@@ -187,10 +188,55 @@ def resolve(capability: str, task: str | None = None, model: str | None = None) 
     return _pick(capability, model, config, task)
 
 
-def invoke(capability: str, payload: dict, task: str | None = None) -> dict:
+def reset_executions() -> None:
+    _EXECUTIONS.clear()
+
+
+def executions() -> list:
+    """本次运行真实执行过的模型（含回退结果），供 provenance 使用。"""
+    return list(_EXECUTIONS)
+
+
+def strategy_for(capability: str, task: str | None = None) -> str:
+    config = _read_config()
+    return ((config.get("strategies") or {}).get(capability)
+            or config.get("strategy") or "small_only")
+
+
+def plan_models(capability: str, mode: str | None = None,
+                task: str | None = None) -> list:
+    """按策略给出要执行的模型序列。
+
+    small_only / large_only：只跑一个；
+    cascade：小模型先跑，结果不完整再跑大模型（由调用方判断 stop）；
+    parallel：两个都跑，各自保留结果；
+    observe_only：主模型照常，影子模型只记录、不参与排序。
+    """
+    config = _read_config()
+    mode = mode or strategy_for(capability, task)
+    if mode not in ("small_only", "large_only", "cascade", "parallel", "observe_only"):
+        raise CapabilityError("strategy_unknown")
+    sizes = (config.get("sizes") or {}).get(capability) or {}
+    small = sizes.get("small")
+    large = sizes.get("large")
+    primary = (config.get("tasks") or {}).get(task or _TASK_DEFAULT, {}).get(capability)
+    primary = primary or config["default"].get(capability)
+    if not small:
+        small = primary
+    return_mode = mode
+    if return_mode == "small_only":
+        return [resolve(capability, task=task, model=small)]
+    if return_mode == "large_only":
+        return [resolve(capability, task=task, model=large or primary)]
+    return [resolve(capability, task=task, model=m) for m in (small, large or primary)]
+
+
+def invoke(capability: str, payload: dict, task: str | None = None,
+           model: str | None = None) -> dict:
     """按能力分派到真实实现；主模型失败时按 fallbacks 降级一次。"""
     config = _read_config()
-    chain = [None] + list((config.get("fallbacks") or {}).get(capability) or [])
+    chain = [model] + list((config.get("fallbacks") or {}).get(capability) or [])
+    primary = model or resolve(capability, task=task)["model"]
     last = None
     for index, candidate in enumerate(chain):
         resolved = resolve(capability, task=task, model=candidate)
@@ -199,6 +245,10 @@ def invoke(capability: str, payload: dict, task: str | None = None) -> dict:
             result["model"] = resolved["model"]
             result["model_version"] = resolved["version"]
             result["fallback_used"] = index > 0
+            _EXECUTIONS.append({"capability": capability, "model": resolved["model"],
+                                "version": resolved["version"],
+                                "fallback_used": index > 0,
+                                "fallback_from": primary if index > 0 else None})
             return result
         except CapabilityError:
             raise
@@ -225,8 +275,10 @@ def _dispatch(capability: str, resolved: dict, payload: dict) -> dict:
         box = payload.get("box")
         if image is None or not box:
             raise CapabilityError("payload_invalid")
-        engine, _ = m6_person_reid._get_engine()
-        return {"vector": engine.extract_embeddings(image, [[int(v) for v in box]])[1][0].tolist()}
+        engine, digest = m6_person_reid.engine_for(resolved.get("path") or "")
+        vector = engine.extract_embeddings(image, [[int(v) for v in box]])[1][0]
+        return {"vector": [float(v) for v in vector],
+                "weights_digest": digest[:16]}
     raise CapabilityError("capability_not_wired")
 
 
@@ -254,6 +306,20 @@ def provenance(task: str | None = None) -> dict:
             continue
         record[capability] = {"model": item["model"], "provider": item["provider"],
                               "version": item["version"], "task": item["task"]}
+    executed = {}
+    for event in _EXECUTIONS:
+        bucket = executed.setdefault(event["capability"], [])
+        same = next((item for item in bucket
+                     if item["model"] == event["model"]
+                     and item["fallback_used"] == event["fallback_used"]), None)
+        if same is None:
+            bucket.append({"model": event["model"], "version": event["version"],
+                           "fallback_used": event["fallback_used"],
+                           "fallback_from": event["fallback_from"], "count": 1})
+        else:
+            same["count"] += 1
+    record["executed"] = executed
+    record["strategies"] = {name: strategy_for(name) for name in CAPABILITIES}
     return record
 
 

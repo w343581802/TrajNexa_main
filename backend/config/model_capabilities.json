@@ -32,5 +32,21 @@
       "name": "OSNet x0.25 (MSMT17)",
       "path": "models/reid/osnet_x0_25_msmt17_b1.onnx"
     }
+  },
+  "strategies": {
+    "object_detection": "small_only",
+    "person_reid": "small_only",
+    "attribute_extraction": "cascade",
+    "visual_grounding": "observe_only"
+  },
+  "sizes": {
+    "attribute_extraction": {
+      "small": "qwen3vl",
+      "large": "qwen3vl4b"
+    },
+    "visual_grounding": {
+      "small": "none",
+      "large": "none"
+    }
   }
 }

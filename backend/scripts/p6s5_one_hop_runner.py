@@ -15,9 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
+from app import m6_attributes  # noqa: E402
 from app import model_capabilities  # noqa: E402
 from app.m6_one_hop import run_one_hop  # noqa: E402
-from app.m6_person_reid import _get_engine  # noqa: E402
+from app.m6_person_reid import engine_for  # noqa: E402
 from app.m6_spatial_adapter import bind_channel, camera_spec, load_bindings  # noqa: E402
 from app.m6_spatial_planner import plan_spatial_candidates, windows_for_candidates  # noqa: E402
 from app.m6_target_reference import extract_reference  # noqa: E402
@@ -83,6 +84,10 @@ def main():
     parser.add_argument("--snapshot-in", default=None)
     parser.add_argument("--snapshot-out", default=None)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--attribute-top", type=int, default=0,
+                        help="为每个窗口得分最高的 N 条候选抽取属性（0=关闭）")
+    parser.add_argument("--strategy", default=None,
+                        help="attribute_extraction 执行策略：small_only/large_only/cascade/parallel/observe_only")
     parser.add_argument("--task", default="m6.one_hop",
                         help="任务级模型配置名（config/model_capabilities.json）")
     args = parser.parse_args()
@@ -130,7 +135,9 @@ def main():
     anchor["camera_uuids"] = {name: uuid for uuid, name in labels.items()}
     anchor["camera_label"] = label
 
-    engine, model_id = _get_engine()
+    reid_entry = model_capabilities.resolve("person_reid", task=args.task)
+    engine, _ = engine_for(reid_entry["path"])
+    model_id = reid_entry["model"]
     tracks = _unwrap_tracks(json.loads(Path(tracks_path).read_text(encoding="utf-8")))
     source_track = next((t for t in tracks if str(t["track_id"]) == str(anchor["tracklet_id"])),
                         None)
@@ -184,7 +191,7 @@ def main():
         return analyze_window("%s/%s" % (args.frames, name), start_index=span["start_index"],
                               end_index=span["end_index"], fps=time_map["fps"],
                               osd_anchor_seconds=time_map["anchor_seconds"],
-                              camera=name, window_id=window_id)
+                              camera=name, window_id=window_id, task=args.task)
 
     quality_by_camera = {}
     batches = []
@@ -246,12 +253,33 @@ def main():
                 best = value if best is None else max(best, value)
             scored.append({"track_id": track["track_id"],
                            "retrieval_score": None if best is None else round(best, 3)})
+        if args.attribute_top > 0 and scored:
+            best_item = max(scored, key=lambda item: item.get("retrieval_score") or 0)
+            track = next((t for t in (window.get("tracks") or [])
+                          if t["track_id"] == best_item["track_id"]), None)
+            obs = (track or {}).get("observations") or []
+            if obs:
+                image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, int(obs[0]["frame_id"]) + 1))
+                if image is not None:
+                    try:
+                        attr = m6_attributes.extract(image, obs[0]["bbox"],
+                                                     task=args.task, mode=args.strategy)
+                        best_item["attributes"] = attr
+                        attribute_records.append({"camera": name,
+                                                  "window_id": window.get("window_id"),
+                                                  "track_id": best_item["track_id"],
+                                                  "retrieval_score": best_item["retrieval_score"],
+                                                  "attributes": attr})
+                    except Exception as exc:  # 属性只是证据，失败不影响追踪
+                        best_item["attributes_error"] = type(exc).__name__
         return scored
 
+    attribute_records = []
     review_events = []
     if args.review_events:
         review_events = json.loads(Path(args.review_events).read_text(encoding="utf-8"))
 
+    model_capabilities.reset_executions()
     result = run_one_hop(anchor=anchor, time_maps=maps, predictions=predictions,
                          analyze=analyze, score=score, spatial=spatial,
                          review_events=review_events, max_actions=80,
@@ -282,6 +310,14 @@ def main():
                            "cross_camera_identity_merged": False},
                "scheduler_state": result["scheduler_state"],
                "elapsed_seconds": round(time.time() - started, 1)}
+    for cand in result["candidate_pool"]:
+        for record in attribute_records:
+            if record["camera"] == cand["camera_label"] and record["track_id"] == cand["track_id"]:
+                cand["attributes"] = record["attributes"]
+    payload["attributes"] = {"mode": args.strategy or model_capabilities.strategy_for(
+        "attribute_extraction", args.task), "records": attribute_records,
+        "cost_ms": round(sum(r["attributes"].get("cost_ms", 0.0) for r in attribute_records), 1),
+        "identity_effect": "none"}
     model_capabilities.stamp(payload, task=args.task)
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     if args.snapshot_out:

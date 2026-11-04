@@ -103,16 +103,18 @@ def test_analyze_window_asks_capability_layer(tmp_path, monkeypatch):
     for index in range(2):
         cv2.imwrite(str(tmp_path / ("%04d.jpg" % (index + 1))),
                     np.zeros((32, 32, 3), dtype=np.uint8))
-    used = []
-    monkeypatch.setattr(mc, "detector_id", lambda task=None: "yolo11n")
+    calls = []
 
-    def fake(image, model_ids, min_confidence=0.35):
-        used.append(model_ids[0])
-        return {"candidates": []}
+    def fake_invoke(capability, payload, task=None, model=None):
+        calls.append((capability, model, task))
+        return {"candidates": [], "model": model or "dfine-n"}
 
-    monkeypatch.setattr(detectors, "detect_flat", fake)
-    result = analyze_window(str(tmp_path), start_index=0, end_index=1, camera="c", window_id="w")
-    assert used == ["yolo11n", "yolo11n"]
+    monkeypatch.setattr(mc, "invoke", fake_invoke)
+    result = analyze_window(str(tmp_path), start_index=0, end_index=1, camera="c",
+                            window_id="w", task="m6.one_hop")
+    assert [item[0] for item in calls] == ["object_detection", "object_detection"]
+    assert all(item[1] for item in calls)
+    assert all(item[2] == "m6.one_hop" for item in calls)
     assert result["status"] in ("ok", "detection_missed")
 
 
@@ -132,3 +134,7 @@ def test_environment_can_point_to_another_config(tmp_path, monkeypatch):
     monkeypatch.setenv(mc.CONFIG_ENV, str(path))
     mc._CACHE.update({"config_key": None, "config": None, "digest": {}})
     assert mc.resolve("object_detection")["model"] == "yolo11n"
+
+
+def test_invoke_respects_pinned_model(config):
+    assert mc.resolve("object_detection", model="yolo11n")["model"] == "yolo11n"
