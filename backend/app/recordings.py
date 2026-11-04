@@ -365,7 +365,8 @@ def case_summary(db: Session, case_id: str) -> dict:
 def rematch_source(db: Session, source_id: str) -> dict:
     """重新匹配摄像头：拿已存的 OCR / 文件名兜底名称，对照当前台账重跑一次精确匹配。
 
-    已有的人员审核结论（confirm/reject）不动；其余 clip 按新台账更新。
+    人工审核结论（confirmed/rejected）不覆盖名称与审核标记；但 confirmed 的名称仍要
+    重新算一次绑定——人工命名时台账可能不可用，不能让它永久停在 catalog_unavailable。
     不重新读视频文件、不跑 OCR，只重算名称到摄像头的绑定关系。
     """
     source = db.get(RecordingSource, source_id)
@@ -379,11 +380,15 @@ def rematch_source(db: Session, source_id: str) -> dict:
     clips = db.scalars(select(RecordingClip).where(RecordingClip.source_id == source.id)).all()
     updated = unchanged = human_kept = 0
     for clip in clips:
-        if clip.review_kind in ('confirmed', 'rejected'):
-            human_kept += 1
-            continue
         name = (clip.camera_name or '').strip()
         name_source = clip.name_source or 'none'
+        is_confirmed = clip.review_kind == 'confirmed'
+        if clip.review_kind == 'rejected' or (is_confirmed and not name):
+            human_kept += 1
+            continue
+        if is_confirmed:
+            # 人工名称保留；下面的 updated/unchanged 只表示绑定有没有变化。
+            human_kept += 1
         if not name:
             label = overlay_identity.filename_camera_label(clip.file_name)
             if label:
@@ -391,11 +396,17 @@ def rematch_source(db: Session, source_id: str) -> dict:
                 name_source = 'filename'
         before = (clip.camera_uuid, clip.match_status)
         outcome = match_camera([name], index, catalog)
-        clip.name_source = name_source
-        clip.camera_name = outcome['camera_name']
-        clip.camera_uuid = outcome['camera_uuid']
-        clip.match_status = outcome['match_status']
-        clip.match_suggestions = outcome['suggestions'] or None
+        if is_confirmed:
+            # 人工名称原样保留；只刷新“这个名称现在对应哪台镜头”。
+            clip.camera_uuid = outcome['camera_uuid']
+            clip.match_status = outcome['match_status']
+            clip.match_suggestions = outcome['suggestions'] or None
+        else:
+            clip.name_source = name_source
+            clip.camera_name = outcome['camera_name']
+            clip.camera_uuid = outcome['camera_uuid']
+            clip.match_status = outcome['match_status']
+            clip.match_suggestions = outcome['suggestions'] or None
         after = (clip.camera_uuid, clip.match_status)
         if before != after:
             updated += 1

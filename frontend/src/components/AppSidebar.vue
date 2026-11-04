@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 
-type SidebarSection = "workspace" | "small-models" | "vision-models" | "model-test";
+type SidebarSection = "workspace" | "recordings" | "history" | "small-models" | "vision-models" | "model-test";
 const props = defineProps<{ active: SidebarSection }>();
 const emit = defineEmits<{ (event: "select", section: SidebarSection): void }>();
 
@@ -19,6 +19,8 @@ function toggle() {
 
 const nav = [
   { id: "workspace" as const, label: "研判工作台", desc: "地图与多镜头任务", icon: "target" as const },
+  { id: "recordings" as const, label: "录像资源", desc: "目录登记与文件核对", icon: "folder" as const },
+  { id: "history" as const, label: "历史记录", desc: "已归档的研判轮次", icon: "clock" as const },
   { id: "small-models" as const, label: "小模型管理", desc: "Rebucca 检测模型", icon: "layers" as const },
   { id: "vision-models" as const, label: "大模型管理", desc: "视觉模型与外观分析", icon: "scan" as const },
   { id: "model-test" as const, label: "模型测试", desc: "图片多模型对比与 ROI 提示词实验", icon: "scan" as const },
@@ -37,7 +39,7 @@ const nav = [
     </div>
     <nav class="side-nav" aria-label="工作台及模型管理">
       <template v-for="(item, index) in nav" :key="item.id">
-        <div v-if="index === 1" class="side-divider">
+        <div v-if="index === 3" class="side-divider">
           <span v-if="!collapsed">AI 模型中心</span>
         </div>
         <button type="button" class="side-link" :class="{ 'is-active': props.active === item.id }"

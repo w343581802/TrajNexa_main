@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from app import m6_obs_clip, m6_recording_source
 from app.m4_video import KeyframeError, checked_offset, resolve_case_clip
 from app.models import (Case, InspectionReport, MediaAsset, RecordingClip, RecordingSource,
-                        TargetObservation, TrackingCandidate, TrackingReviewEvent,
-                        TrackingRun, TrackingWindow)
+                        TargetElementGroup, TargetElementObject, TargetObservation, TrackingCandidate,
+                        TrackingReviewEvent, TrackingRun, TrackingWindow)
 
 RUN_STATUSES = ('queued', 'running', 'awaiting_review', 'budget_exhausted',
                 'unresolved', 'completed', 'failed', 'cancelled')
@@ -81,8 +81,18 @@ def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
     _get_case(db, case_id)
     observation_id = str(payload.get('observation_id') or '').strip()
     clip_id = str(payload.get('clip_id') or '').strip()
+    group_id = str(payload.get('target_group_id') or '').strip()
+    if not observation_id and group_id:
+        group = db.get(TargetElementGroup, group_id)
+        if group is None or group.case_id != case_id:
+            raise TrackingRunError('target_group_not_found')
+        primary = db.get(TargetElementObject, group.primary_object_id)
+        if primary is None or not primary.m4_observation_id:
+            raise TrackingRunError('primary_observation_missing',
+                                   '主目标还没有独立观测，无法作为追踪起点')
+        observation_id = primary.m4_observation_id
     if not observation_id:
-        raise TrackingRunError('observation_required')
+        raise TrackingRunError('observation_or_group_required')
 
     observation = db.get(TargetObservation, observation_id)
     if observation is None or observation.case_id != case_id:

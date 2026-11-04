@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app import overlay_identity, overlay_ocr, recordings, worker
+from app.camera_catalog import CatalogError
 from app.config import settings
 from app.models import RecordingClip, RecordingScanJob, RecordingSource
 
@@ -400,7 +401,7 @@ def test_manual_name_auto_matches_camera_and_can_clear(video_env, monkeypatch):
 
 
 def test_rematch_keeps_manual_name(video_env, monkeypatch):
-    """重新匹配摄像头：人工改过名称的片段整体跳过，不覆盖人工结论。"""
+    """重新匹配摄像头：人工名称原样保留，只重算绑定；名字仍对不上时计数为「未变」。"""
     client, Session, root = video_env
     folder = root / '白天'
     folder.mkdir(parents=True, exist_ok=True)
@@ -418,12 +419,50 @@ def test_rematch_keeps_manual_name(video_env, monkeypatch):
     rematch = client.post(f"/api/v1/recordings/sources/{source['id']}/rematch")
     assert rematch.status_code == 202, rematch.text
     assert rematch.json()['human_kept'] == 1
+    assert rematch.json()['unchanged'] == 1
     assert rematch.json()['updated'] == 0
     assert rematch.json()['source_id'] == source['id']
 
     after = client.get('/api/v1/recordings/clips', params={'case_id': case['id']}).json()[0]
     assert after['camera_name'] == '手工核对的名称'
     assert after['name_source'] == 'manual'
+
+
+def test_rematch_rebinds_confirmed_name_saved_without_catalog(video_env, monkeypatch):
+    """人工命名时台账不可用，不能把 catalog_unavailable 永久钉死；台账恢复后重算绑定。"""
+    client, Session, root = video_env
+    folder = root / '白天'
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / '东门球机A_20261025180000.mp4').write_bytes(b'fake-video')
+    case = make_case(client)
+    source = add_source(client, case['id'])
+    patch_ocr(monkeypatch)
+    client.post(f"/api/v1/recordings/sources/{source['id']}/scan")
+    with Session() as db:
+        assert worker.run_once(db) is True
+    clip = client.get('/api/v1/recordings/clips', params={'case_id': case['id']}).json()[0]
+
+    original_load = recordings.load_catalog
+    monkeypatch.setattr(recordings, 'load_catalog',
+                        lambda: (_ for _ in ()).throw(CatalogError('unavailable')))
+    saved = client.post(f"/api/v1/recordings/clips/{clip['id']}/name",
+                        json={'name': '东门球机 A'})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['match_status'] == 'catalog_unavailable'
+    assert saved.json()['camera_uuid'] is None
+    monkeypatch.setattr(recordings, 'load_catalog', original_load)
+
+    rematch = client.post(f"/api/v1/recordings/sources/{source['id']}/rematch")
+    assert rematch.status_code == 202, rematch.text
+    assert rematch.json()['updated'] == 1
+    assert rematch.json()['human_kept'] == 1
+
+    after = client.get('/api/v1/recordings/clips', params={'case_id': case['id']}).json()[0]
+    assert after['camera_name'] == '东门球机 A'
+    assert after['name_source'] == 'manual'
+    assert after['review_kind'] == 'confirmed'
+    assert after['camera_uuid'] == CAM_A
+    assert after['match_status'] == 'matched'
 
 
 def test_clip_frame_reports_unavailable_for_unreadable_video(video_env, monkeypatch):

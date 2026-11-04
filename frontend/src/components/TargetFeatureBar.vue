@@ -4,6 +4,8 @@ import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { actions, featureBar, featureList, featureStats, visibleElements, wb } from "../store/workbench";
 
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false });
+
 const toneOf = (status: string) =>
   status === "verified" ? "ok" : status === "review" ? "warn" : status === "conflict" ? "danger" : status === "proposed" ? "info" : "muted";
 
@@ -21,7 +23,7 @@ const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.
 </script>
 
 <template>
-  <section class="feature-bar" :class="{ 'is-collapsed': featureBar.collapsed }">
+  <section class="feature-bar" :class="{ 'is-collapsed': featureBar.collapsed && !props.embedded, 'is-embedded': props.embedded }">
     <header class="fb-head">
       <span class="fb-mark"><AppIcon name="sliders" :size="13" /></span>
       <span class="fb-name">目标特征</span>
@@ -37,6 +39,7 @@ const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.
       </div>
 
       <button
+        v-if="!props.embedded"
         class="icon-btn fb-collapse"
         :aria-label="featureBar.collapsed ? '展开目标特征栏' : '收起目标特征栏'"
         :title="featureBar.collapsed ? '展开' : '收起'"
@@ -46,7 +49,7 @@ const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.
       </button>
     </header>
 
-    <div v-if="!featureBar.collapsed" class="fb-body">
+    <div v-if="!featureBar.collapsed || props.embedded" class="fb-body">
       <template v-if="!wb.emptyMode">
         <div class="fb-target">
           <span class="fb-photo">
@@ -139,6 +142,36 @@ const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.
 
 .feature-bar.is-collapsed {
   height: 36px;
+}
+
+/* 嵌入底部任务控制右栏：高度跟随面板，隐藏参考要素与折叠按钮 */
+.feature-bar.is-embedded {
+  height: 100%;
+  border-top: 0;
+  background: transparent;
+}
+
+.is-embedded .fb-head {
+  height: 32px;
+  padding: 0 2px;
+}
+
+.is-embedded .fb-body {
+  gap: 10px;
+  padding: 8px 2px 0 0;
+}
+
+.is-embedded .fb-refs {
+  display: none;
+}
+
+.is-embedded .fb-photo {
+  width: 56px;
+  height: 82px;
+}
+
+.is-embedded .fb-target {
+  align-self: flex-start;
 }
 
 .fb-head {

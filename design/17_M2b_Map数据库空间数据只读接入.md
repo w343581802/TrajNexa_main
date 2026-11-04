@@ -44,6 +44,13 @@ Invoke-RestMethod http://localhost:8000/api/v1/spatial/cameras
 
 返回 `status=available`、`source=map_postgresql_readonly`、`spatial_revision=mapdb-spatial:...`、`counts`、`cameras`。数据库未配置、不可达或数据超限时返回 HTTP 503 与**不包含数据库密码**的错误码；**不自动回退到虚假 GIS 数据**。
 
+## 2026-11 地图无镜头的两个独立原因
+
+1. **API 容器失去 Map 网络**：`trajnexa_main-api-1` 只挂在 `trajnexa_main_default`，没有 `trajnexa_map_default`，`MAP_DB_READONLY_URL` 里的 `postgis` 主机名无法解析，接口固定 503 `map_spatial_query_unavailable`。日志里 `/api/v1/spatial/cameras` 连续 503，地图显示 0 台。用带 `compose.map-db.yaml` 的完整命令重建 api/worker 后恢复：`31 台 / 31 可显示 / 29 有参考帧`。
+2. **前端固定视野不含真实镜头**：`WorkspaceMap.vue` 旧 `GEO` 北界是 `25.25272`，而本机 Map 镜头纬度实际在 `25.25367–25.25791`，整批镜头都在固定视野以北；即使接口恢复，`fitBounds(GEO_BOUNDS)` 也一个都看不到。已改成从快照计算 `cameraBounds`（外扩 12%，maxZoom 17），首次加载与「复位视图」都贴合真实镜头范围；无镜头时才回退旧演示区域。
+
+匹配视频与地图的关系：`recordings/summary.camera_uuids` 只包含名称唯一命中台账的片段，地图用它点亮对应 UUID；未匹配片段没有 `camera_uuid`、没有合法坐标，**不能、也不应该**在地图上编造点位，只保留在录像资源表里。本机该案件 15 段中 6 段匹配，6 个 UUID 全部能在地图快照中找到，因此点亮 6 台。
+
 `cameras[]` 在原有字段上增加 `has_video`，`counts` 增加 `with_video`。它只表示该 Map 镜头的台账下存在 `source_type='video_frame'` 的参考帧，用来在前端区分灰色/点亮；**不表示录像可回放、覆盖完整或实时在线**，也不改变 FOV 的模型几何声明。
 
 ## 范围和后续

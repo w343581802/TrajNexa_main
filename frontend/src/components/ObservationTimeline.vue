@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
@@ -65,11 +65,68 @@ function caption(obs: Observation) {
 
 const dotTone = (obs: Observation) => statusOf(obs).tone;
 
+/* 右侧时间线可拖宽：默认 460px，最小 380，最大 720 / 视口 55% */
+const RAIL_KEY = "trajnexa.rail.width";
+const RAIL_DEFAULT = 460;
+const RAIL_MIN = 380;
+const RAIL_MAX = 720;
+const railWidth = ref(RAIL_DEFAULT);
+
+function applyRailWidth(value: number) {
+  const max = Math.min(RAIL_MAX, Math.round(window.innerWidth * 0.55));
+  const width = Math.round(Math.min(Math.max(value, RAIL_MIN), Math.max(RAIL_MIN, max)));
+  railWidth.value = width;
+  document.documentElement.style.setProperty("--rail-w", `${width}px`);
+}
+
+let detachResize: (() => void) | null = null;
+
+function startResize(event: PointerEvent) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = railWidth.value;
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+
+  const onMove = (moveEvent: PointerEvent) => {
+    // 拖动左边缘：向左拖变宽
+    applyRailWidth(startWidth + (startX - moveEvent.clientX));
+  };
+  const onUp = () => {
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    detachResize = null;
+    try { localStorage.setItem(RAIL_KEY, String(railWidth.value)); } catch { /* 本地显示偏好 */ }
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  detachResize = onUp;
+}
+
+function resetRailWidth() {
+  applyRailWidth(RAIL_DEFAULT);
+  try { localStorage.setItem(RAIL_KEY, String(railWidth.value)); } catch { /* 本地显示偏好 */ }
+}
+
 /* B8 追踪任务卡片：正在研判的镜头 + 已研判窗口（缩略图接口预留，先不伪造画面） */
 const nowMs = ref(Date.now());
 let ticker: number | null = null;
-onMounted(() => { ticker = window.setInterval(() => { nowMs.value = Date.now(); }, 1000); });
-onBeforeUnmount(() => { if (ticker !== null) window.clearInterval(ticker); });
+onMounted(() => {
+  ticker = window.setInterval(() => { nowMs.value = Date.now(); }, 1000);
+  let saved = RAIL_DEFAULT;
+  try { saved = Number(localStorage.getItem(RAIL_KEY)) || RAIL_DEFAULT; } catch { /* 本地显示偏好 */ }
+  applyRailWidth(saved);
+});
+onBeforeUnmount(() => {
+  if (ticker !== null) window.clearInterval(ticker);
+  detachResize?.();
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+});
 
 const active = computed(() => activeTrackingRun.value?.active ?? null);
 const activeElapsed = computed(() => {
@@ -87,6 +144,15 @@ const expandedId = ref<string | null>(null);
 
 <template>
   <aside class="rail" aria-label="观测时间线">
+    <div
+      class="rail-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      :aria-label="`时间线宽 ${railWidth} 像素，拖动调整，双击恢复默认`"
+      title="拖动调宽，双击恢复默认"
+      @pointerdown="startResize"
+      @dblclick="resetRailWidth"
+    />
     <header class="rail-head">
       <span class="rail-mark"><AppIcon name="target" :size="13" /></span>
       <span class="rail-title">观测时间线</span>
@@ -206,11 +272,39 @@ const expandedId = ref<string | null>(null);
 
 <style scoped>
 .rail {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: #080c12;
   border-left: 1px solid var(--line);
+}
+
+.rail-resizer {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.rail-resizer::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background var(--dur) var(--ease);
+}
+
+.rail-resizer:hover::after,
+.rail-resizer:active::after {
+  background: var(--accent-line);
 }
 
 .rail-head {
@@ -230,13 +324,13 @@ const expandedId = ref<string | null>(null);
 }
 
 .rail-title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-0);
 }
 
 .rail-count {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-3);
 }
 
@@ -256,8 +350,8 @@ const expandedId = ref<string | null>(null);
 }
 
 .select--sm {
-  height: 26px;
-  font-size: 11px;
+  height: 28px;
+  font-size: 12.5px;
   padding: 0 6px;
   border-radius: 6px;
 }
@@ -286,7 +380,7 @@ const expandedId = ref<string | null>(null);
 }
 
 .day-label {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-2);
 }
 
@@ -370,14 +464,14 @@ const expandedId = ref<string | null>(null);
 }
 
 .tl-time {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 650;
   color: var(--text-0);
   letter-spacing: 0.01em;
 }
 
 .tl-cam {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -390,14 +484,14 @@ const expandedId = ref<string | null>(null);
   border-radius: 4px;
   background: #5b3fd0;
   color: #efe9ff;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
 .tl-round {
   margin-left: auto;
   flex: none;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-4);
 }
 
@@ -427,7 +521,7 @@ const expandedId = ref<string | null>(null);
   flex: none;
   padding: 3px 9px;
   border-radius: 5px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #06110c;
   background: var(--text-3);
@@ -461,11 +555,11 @@ const expandedId = ref<string | null>(null);
   border: 1px solid var(--line-3);
   background: rgba(77, 141, 255, 0.08);
   color: #8fb6ff;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .tl-note {
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -473,7 +567,7 @@ const expandedId = ref<string | null>(null);
 }
 
 .tl-sub {
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: var(--text-3);
   white-space: nowrap;
@@ -489,10 +583,10 @@ const expandedId = ref<string | null>(null);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 28px;
+  height: 30px;
   padding: 0 10px;
   border-top: 1px solid var(--line);
-  font-size: 10.5px;
+  font-size: 11px;
   flex: none;
 }
 
@@ -521,7 +615,7 @@ const expandedId = ref<string | null>(null);
 }
 
 .rail-empty-text {
-  font-size: 10.5px;
+  font-size: 12.5px;
   line-height: 1.55;
   color: var(--text-3);
 }

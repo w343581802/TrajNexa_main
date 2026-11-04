@@ -319,7 +319,7 @@ export const JOB_STATUS_ACTION: Record<JobStatus, string> = {
   detecting: "正在这段里比对目标的外观特征",
   assembling: "正在把这段里的可疑片段归档成候选",
   review: "读完了，等人工确认这一段",
-  done: "读完了，已归档进候选结果",
+  done: "读完了，已归档为已核实观测",
   nodetect: "读完了，没有找到与目标相符的片段",
   failed: "读取中断，可重新排队",
   canceled: "已取消，不再继续读",
@@ -440,48 +440,6 @@ export const activityView = computed<ActivityView>(() => {
     return { tone: "wait", label: `${queued.length} 段排队中`, detail: "前一段读完后自动开始，不需要手动推进。" };
   }
   return { tone: "idle", label: "已启动，等待录像", detail: "去「录像资源」添加视频或挂载目录，扫描到的片段会按时间顺序进入分析队列。" };
-});
-
-/**
- * 候选结果 = 已经分析过的视频统计（不是原始录像清单）：
- * 只统计跑完的作业（已确认/无检出/待审核/失败），按摄像头汇总。
- */
-export const analyzedView = computed(() => {
-  const list = visibleJobs.value;
-  const analyzed = list.filter((job) => job.status !== "queued" && job.status !== "reading");
-  const detected = analyzed.filter((job) => job.status === "done");
-  const nodetect = analyzed.filter((job) => job.status === "nodetect");
-  const review = analyzed.filter(jobNeedsReview);
-  const failed = analyzed.filter((job) => job.status === "failed");
-  const candidates = analyzed.reduce((sum, job) => sum + job.candidates, 0);
-
-  const rows = new Map<string, { cameraId: string; cameraName: string; analyzed: number; detected: number; review: number; candidates: number }>();
-  for (const job of analyzed) {
-    const key = job.cameraId || "unknown";
-    const row = rows.get(key) ?? {
-      cameraId: key,
-      cameraName: job.cameraName || jobClip(job)?.camera_name || key || "未登记镜头",
-      analyzed: 0,
-      detected: 0,
-      review: 0,
-      candidates: 0,
-    };
-    row.analyzed += 1;
-    if (job.status === "done") row.detected += 1;
-    if (jobNeedsReview(job)) row.review += 1;
-    row.candidates += job.candidates;
-    rows.set(key, row);
-  }
-
-  return {
-    analyzed: analyzed.length,
-    detected: detected.length,
-    nodetect: nodetect.length,
-    review: review.length,
-    failed: failed.length,
-    candidates,
-    cameras: [...rows.values()].sort((a, b) => b.analyzed - a.analyzed || a.cameraName.localeCompare(b.cameraName)),
-  };
 });
 
 /** 所有已登记目录是否都已开启自动扫描（左栏「自动分析」开关的状态） */
@@ -1376,7 +1334,7 @@ export const actions = {
   },
 
   /**
-   * 记录人工审核结论：确认 → 进候选结果；排除 → 不计入候选。
+   * 记录人工审核结论：确认 → 记为已核实观测；排除 → 不计入研判结果。
    * 结论目前只写在前端作业列表里，后端审核接口接入后由这里回写。
    */
   reviewJob(jobId: string, verdict: "accept" | "exclude", note = "") {
@@ -1394,7 +1352,7 @@ export const actions = {
       job.status = "done";
       job.statusLabel = "人工已排除";
       job.candidates = 0;
-      toast("已排除该片段；不计入候选结果，录像文件保持不动", "warn");
+      toast("已排除该片段；不再计入研判结果，录像文件保持不动", "warn");
     }
     ui.reviewClipOpen = false;
   },

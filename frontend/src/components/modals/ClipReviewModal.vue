@@ -25,7 +25,7 @@ const heading = computed(() => card.value?.cameraName ?? "未登记镜头");
 const title = computed(() => `${isReview.value ? "人工审核" : "分析片段"} · ${heading.value}`);
 const subtitle = computed(() =>
   isReview.value
-    ? "模型把这一段标成需要人工确认的片段：确认后进入候选结果，排除后不再计入，录像文件保持不动。"
+    ? "模型把这一段标成需要人工确认的片段：确认后记为已核实观测，排除后不再计入研判结果，录像文件保持不动。"
     : "这一段正在分析或已经结束；缩略帧与片段播放接口接入后可直接回看。",
 );
 

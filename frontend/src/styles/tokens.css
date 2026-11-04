@@ -58,7 +58,7 @@
   /* 尺寸与节奏 */
   --dock-h: 352px;
   --header-h: 52px;
-  --rail-w: clamp(322px, 23.5vw, 384px);
+  --rail-w: 460px;
   --feature-h: 176px;
   --radius-lg: 14px;
   --radius: 10px;

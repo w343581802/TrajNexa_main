@@ -267,3 +267,63 @@ class TrackingReviewEvent(Base):
     reviewer: Mapped[str] = mapped_column(String(120), default='human_reviewer')
     note: Mapped[str] = mapped_column(String(500), default='')
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+
+class TargetElementGroup(Base):
+    """B8-B0 目标要素组：一次录入的主目标 + 0..N 关联对象（单/复合目标）。"""
+    __tablename__ = 'target_element_groups'
+    __table_args__ = (Index('ix_target_groups_case_created', 'case_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), index=True)
+    media_id: Mapped[str] = mapped_column(ForeignKey('media_assets.id'))
+    primary_object_id: Mapped[str] = mapped_column(String(36))
+    source_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default='saved')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class TargetElementObject(Base):
+    __tablename__ = 'target_element_objects'
+    __table_args__ = (Index('ix_target_objects_group', 'group_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey('target_element_groups.id'), index=True)
+    object_class: Mapped[str] = mapped_column(String(16))
+    role: Mapped[str] = mapped_column(String(16))
+    bbox_norm_xyxy: Mapped[list] = mapped_column(JSON)
+    m4_observation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    source: Mapped[str] = mapped_column(String(24), default='human_selected')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TargetObjectRelation(Base):
+    __tablename__ = 'target_object_relations'
+    __table_args__ = (Index('ix_target_relations_group', 'group_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey('target_element_groups.id'), index=True)
+    subject_id: Mapped[str] = mapped_column(String(36))
+    predicate: Mapped[str] = mapped_column(String(24))
+    object_id: Mapped[str] = mapped_column(String(36))
+    status: Mapped[str] = mapped_column(String(20), default='image_observed')
+    temporal_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    evidence_media_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    note: Mapped[str] = mapped_column(String(500), default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TargetObjectAttribute(Base):
+    __tablename__ = 'target_object_attributes'
+    __table_args__ = (Index('ix_target_attrs_group_subject', 'group_id', 'subject_id'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey('target_element_groups.id'), index=True)
+    subject_id: Mapped[str] = mapped_column(String(36))
+    name: Mapped[str] = mapped_column(String(40))
+    value: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    observation_status: Mapped[str] = mapped_column(String(16), default='unknown')
+    review_state: Mapped[str] = mapped_column(String(20), default='unknown')
+    source: Mapped[str] = mapped_column(String(40), default='human')
+    provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

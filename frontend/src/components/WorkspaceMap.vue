@@ -147,7 +147,7 @@ function zoomBy(factor: number) {
 }
 
 function resetView() {
-  map?.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
+  fitView();
 }
 
 /* ---------------------------- Map 快照 ---------------------------- */
@@ -156,6 +156,23 @@ const snapshotState = ref<"loading" | "ready" | "error">("loading");
 const snapshot = ref<MapSnapshot | null>(null);
 const realVisible = ref(true);
 const selectedRealId = ref<number | null>(null);
+
+/** 镜头实际范围：Map 台账的坐标比旧演示区域偏北约 400m，不能再用固定 GEO 框死。 */
+const cameraBounds = computed(() => {
+  const points = (snapshot.value?.cameras ?? []).map((camera) => [camera.lat, camera.lon] as [number, number]);
+  if (!points.length) return null;
+  const bounds = L.latLngBounds(points);
+  return bounds.isValid() ? bounds.pad(0.12) : null;
+});
+
+let hasFittedCameras = false;
+
+/** 有真实镜头就贴合镜头范围；没有才回退到演示区域，避免一打开就看不到任何镜头。 */
+function fitView() {
+  if (!map) return;
+  const bounds = cameraBounds.value ?? GEO_BOUNDS;
+  map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+}
 
 async function reloadSnapshot() {
   snapshotState.value = "loading";
@@ -166,6 +183,10 @@ async function reloadSnapshot() {
     snapshotState.value = "error";
   }
   render();
+  if (snapshotState.value === "ready" && !hasFittedCameras) {
+    hasFittedCameras = true;
+    fitView();
+  }
 }
 
 const selectedReal = computed(
