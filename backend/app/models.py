@@ -190,3 +190,80 @@ class TargetObservation(Base):
     source_inspection_id: Mapped[str | None] = mapped_column(
         ForeignKey('inspection_reports.id'), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TrackingRun(Base):
+    """B8-B：案件内的持久化追踪任务（一次从已登记录像出发的连续搜索）。
+
+    anchor_json 保存服务器核实的起点快照（观察、录像段、OSD 秒、摄像头标签），
+    scope_json 保存预算与参数；progress_json 保存已分析窗口，用于重启后续跑。
+    """
+    __tablename__ = 'tracking_runs'
+    __table_args__ = (Index('ix_tracking_runs_case_status', 'case_id', 'status', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), index=True)
+    observation_id: Mapped[str] = mapped_column(ForeignKey('target_observations.id'))
+    status: Mapped[str] = mapped_column(String(24), default='queued')
+    anchor_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    scope_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    progress_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    attempt: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TrackingWindow(Base):
+    """一次窗口分析的实测记录（做了什么、耗时、是否覆盖失败）。"""
+    __tablename__ = 'tracking_windows'
+    __table_args__ = (Index('ix_tracking_windows_run_created', 'run_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('tracking_runs.id'), index=True)
+    camera_label: Mapped[str] = mapped_column(String(120))
+    clip_id: Mapped[str] = mapped_column(String(36))
+    window_start: Mapped[float] = mapped_column(Float)
+    window_end: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(24), default='unknown')
+    tracks: Mapped[int] = mapped_column(Integer, default=0)
+    cost_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    note: Mapped[str] = mapped_column(String(500), default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TrackingCandidate(Base):
+    """候选轨迹：默认 candidate_unverified，只有人工审核事件能改成 confirmed/rejected。"""
+    __tablename__ = 'tracking_candidates'
+    __table_args__ = (
+        UniqueConstraint('run_id', 'candidate_key', name='uq_tracking_candidate_key'),
+        Index('ix_tracking_candidates_run_state', 'run_id', 'state'),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('tracking_runs.id'), index=True)
+    candidate_key: Mapped[str] = mapped_column(String(200))
+    camera_label: Mapped[str] = mapped_column(String(120))
+    map_camera_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    track_id: Mapped[str] = mapped_column(String(120))
+    state: Mapped[str] = mapped_column(String(24), default='weak_candidate')
+    identity_status: Mapped[str] = mapped_column(String(32), default='candidate_unverified')
+    retrieval_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    margin_top1_top2: Mapped[float | None] = mapped_column(Float, nullable=True)
+    window_start: Mapped[float | None] = mapped_column(Float, nullable=True)
+    window_end: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence_refs: Mapped[list] = mapped_column(JSON, default=list)
+    details_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TrackingReviewEvent(Base):
+    """append-only 人工审核：不覆盖旧决定，撤销也是新事件。"""
+    __tablename__ = 'tracking_review_events'
+    __table_args__ = (Index('ix_tracking_reviews_run_created', 'run_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('tracking_runs.id'), index=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey('tracking_candidates.id'))
+    decision: Mapped[str] = mapped_column(String(16))  # approve/reject/revoke
+    reviewer: Mapped[str] = mapped_column(String(120), default='human_reviewer')
+    note: Mapped[str] = mapped_column(String(500), default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

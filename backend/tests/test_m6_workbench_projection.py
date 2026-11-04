@@ -8,8 +8,8 @@ import pytest
 from app.m6_workbench_projection import TrackingProjectionError, project_tracking_result
 
 
-ROOT = Path(__file__).resolve().parents[2]
-FROZEN = ROOT / "design" / "assets" / "m6_s6_18a_cyan_replay_b7b.json"
+ROOT = Path(__file__).resolve().parents[1]
+FROZEN = Path(__file__).resolve().parent / "fixtures" / "m6_s6_18a_cyan_replay_b7b.json"
 
 
 def _sample():
@@ -66,7 +66,7 @@ def test_duplicate_candidate_id_fails_closed():
 
 
 def test_default_qwen4b_and_grounding_opt_in_only():
-    config = json.loads((ROOT / "backend" / "config" / "model_capabilities.json")
+    config = json.loads((ROOT / "config" / "model_capabilities.json")
                         .read_text(encoding="utf-8"))
     assert config["default"]["attribute_extraction"] == "qwen3vl4b"
     assert config["tasks"]["m6.one_hop"]["attribute_extraction"] == "qwen3vl4b"

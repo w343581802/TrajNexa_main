@@ -156,8 +156,21 @@ def run_recording_job(db: Session) -> bool:
     return True
 
 
+def run_tracking_job(db: Session) -> bool:
+    """B8-B: run the oldest queued tracking run against real case recordings."""
+    from app.m6_run_worker import claim_next_run, execute_run
+
+    run = claim_next_run(db)
+    if run is None:
+        return False
+    execute_run(db, run.id)
+    return True
+
+
 def run_once(db: Session) -> bool:
     if run_media_job(db):
+        return True
+    if run_tracking_job(db):
         return True
     return run_recording_job(db)
 
