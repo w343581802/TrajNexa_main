@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 
 BOX_RE = re.compile(r"<box>(.*?)</box>", re.IGNORECASE | re.DOTALL)
+ABSENT_RE = re.compile(r"^(?:<ref>.*?</ref>\s*)?<box>\s*none\s*</box>$",
+                       re.IGNORECASE | re.DOTALL)
 COORD_RE = re.compile(r"<([0-9]{1,4})>")
 
 
@@ -39,10 +41,12 @@ def parse_referring_response(response: str, width: int, height: int,
     if not isinstance(response, str):
         raise WeVisOneParseError("invalid_model_output")
     text = response.split("<|im_end|>", 1)[0].split("<|endoftext|>", 1)[0].strip()
-    if text.lower() == "none":
+    if text.lower() == "none" or ABSENT_RE.match(text):
+        # 官方文档写 None；实测 2B 会输出 <ref>…</ref><box>none</box>，两者都算模型声称"没有"。
         return {"status": "model_reported_absent", "boxes": [],
                 "identity_established": False, "review_required": True,
-                "score": None, "basis": "wevisone_referring"}
+                "score": None, "basis": "wevisone_referring",
+                "rejection_literal": "none"}
     if not text:
         raise WeVisOneParseError("invalid_model_output")
 

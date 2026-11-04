@@ -61,3 +61,12 @@ def test_box_count_limit():
     body = "".join(f"<box><{i}><0><{i+1}><10></box>" for i in range(40))
     with pytest.raises(WeVisOneParseError, match="too_many_boxes"):
         parse_referring_response(body, 1000, 1000)
+
+
+def test_ref_plus_box_none_counts_as_model_reported_absence():
+    parsed = parse_referring_response(
+        "<ref>person riding an elephant</ref><box>none</box>", 640, 480)
+    assert parsed["status"] == "model_reported_absent"
+    assert parsed["boxes"] == []
+    assert parsed["rejection_literal"] == "none"
+    assert parsed["identity_established"] is False

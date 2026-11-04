@@ -51,7 +51,11 @@ def _as_rgb(image):
 
 def ground(image, query: str, entry: dict, max_new_tokens: int = 512) -> dict:
     """指代定位：返回候选框与"模型声称"状态，不参与排序、不建立身份。"""
-    from app.wevisone_grounding import parse_referring_response, referring_prompt
+    from app.wevisone_grounding import (
+        WeVisOneParseError,
+        parse_referring_response,
+        referring_prompt,
+    )
 
     if not isinstance(query, str) or not query.strip():
         raise WeVisOneError("wevisone_query_missing")
@@ -64,7 +68,12 @@ def ground(image, query: str, entry: dict, max_new_tokens: int = 512) -> dict:
     generated = engine.predict(rgb, task="referring", query=query,
                                decode_matting=False, max_new_tokens=max_new_tokens)
     latency = round(time.time() - started, 3)
-    parsed = parse_referring_response(generated.response, rgb.width, rgb.height)
+    try:
+        parsed = parse_referring_response(generated.response, rgb.width, rgb.height)
+    except WeVisOneParseError as exc:
+        # 解析失败既不能当"没找到"，也不能抛成能力层故障；单独状态留给复核。
+        parsed = {"status": "parse_failed", "reason": str(exc), "boxes": [],
+                  "score": None, "identity_established": False, "review_required": True}
     return {
         "status": parsed["status"], "boxes": parsed["boxes"],
         "score": None, "identity_established": False, "review_required": True,

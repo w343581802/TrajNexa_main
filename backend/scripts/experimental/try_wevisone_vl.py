@@ -16,7 +16,11 @@ BACKEND = Path(__file__).resolve().parents[2]
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from app.wevisone_grounding import parse_referring_response, referring_prompt
+from app.wevisone_grounding import (
+    WeVisOneParseError,
+    parse_referring_response,
+    referring_prompt,
+)
 
 
 def main() -> int:
@@ -25,6 +29,8 @@ def main() -> int:
     parser.add_argument("--query", required=True, help="Referring expression for visible objects")
     parser.add_argument("--model", default="tencent/WeVisOne-VL-2B",
                         choices=("tencent/WeVisOne-VL-2B", "tencent/WeVisOne-VL-4B"))
+    parser.add_argument("--model-path", default=None,
+                        help="Local directory with downloaded weights (offline use)")
     parser.add_argument("--backend", default="transformers", choices=("transformers", "vllm"))
     parser.add_argument("--fixture-response", help="Parse saved raw response WITHOUT loading a model")
     parser.add_argument("--out", required=True, help="Write JSON result to a local path")
@@ -46,20 +52,28 @@ def main() -> int:
         except ImportError as exc:
             parser.error("Official WeVisOne-VL is not installed. Follow Tencent/WeVisOne-VL README.")
         # decode_matting=False avoids producing dense masks; pure referring-box experiment.
-        model = WeVisOneVL(args.model, backend=args.backend)
+        model = WeVisOneVL(args.model_path or args.model, backend=args.backend)
         generated = model.predict(image, task="referring", query=args.query,
                                   decode_matting=False, max_new_tokens=512)
         response = generated.response
         latency_s = round(generated.latency_s, 3)
         evidence_mode = "local_model_inference"
 
-    parsed = parse_referring_response(response, image.width, image.height)
+    raw = (response or "")[:4000]
+    try:
+        parsed = parse_referring_response(response, image.width, image.height)
+    except WeVisOneParseError as exc:
+        # 解析失败必须可见：不当作"没找到"，也不崩掉实验记录。
+        parsed = {"status": "parse_failed", "reason": str(exc), "boxes": [],
+                  "score": None, "identity_established": False, "review_required": True}
     output = {
         "schema": "trajnexa-wevisone-grounding-probe/1",
-        "mode": evidence_mode, "model_id": args.model, "backend": args.backend,
+        "mode": evidence_mode, "model_id": args.model_path or args.model,
+        "backend": args.backend,
         "source_image": args.image, "width": image.width, "height": image.height,
         "query": args.query, "prompt": prompt, "latency_s": latency_s,
-        "inference_result": parsed, "identity_established": False,
+        "inference_result": parsed, "raw_response": raw,
+        "identity_established": False,
         "affects_tracking": False, "requires_human_review": True,
         "note": "Grounding only; score is unavailable and absence is model-reported, not ground truth.",
     }

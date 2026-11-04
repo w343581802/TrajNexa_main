@@ -98,3 +98,19 @@ def test_invoke_grounding_routes_to_provider(config, monkeypatch):
     assert out["model"] == "wevisone_vl_2b"
     assert out["status"] == "candidates_unverified"
     assert out["identity_established"] is False
+
+
+def test_malformed_box_is_parse_failed_not_absent(config, monkeypatch):
+    class BadEngine:
+        def predict(self, image, **kwargs):
+            class G:
+                response = "<ref>person</ref><box><12><34></box>"
+            return G()
+
+    monkeypatch.setattr(wp, "installed", lambda: True)
+    monkeypatch.setattr(wp, "_load_engine", lambda entry: BadEngine())
+    out = wp.ground(np.zeros((50, 50, 3), dtype=np.uint8), "person",
+                    {"model": "wevisone_vl_2b", "version": "tencent/WeVisOne-VL-2B"})
+    assert out["status"] == "parse_failed"
+    assert out["boxes"] == []
+    assert out["identity_established"] is False

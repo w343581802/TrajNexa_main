@@ -1,0 +1,120 @@
+{
+ "schema": "trajnexa-wevisone-grounding-result/1",
+ "model": "tencent/WeVisOne-VL-2B",
+ "weights": "G:\\tools\\wevisone-models\\2B",
+ "backend": "transformers",
+ "device": "cpu (torch 2.11.0+cpu, no CUDA wheel)",
+ "frame_size": [
+  1280,
+  720
+ ],
+ "prompt_style": "official referring prompt, free-text query",
+ "note": "Grounding only; boxes are model claims with no score and no identity. CPU latency includes decode only, not model load.",
+ "load_time_observed_s": [
+  91,
+  45,
+  14,
+  16
+ ],
+ "records": [
+  {
+   "image": "2-2/0334.jpg",
+   "query": "person riding a two-wheeler",
+   "status": "candidates_unverified",
+   "boxes_px_xyxy": [
+    [
+     463,
+     226,
+     540,
+     335
+    ]
+   ],
+   "score": null,
+   "verified": false,
+   "iou_vs_reference": [
+    0.482
+   ],
+   "reference_box_px": [
+    453,
+    230,
+    552,
+    291
+   ],
+   "latency_s": 25.388,
+   "identity_established": false,
+   "review_required": true
+  },
+  {
+   "image": "2-1/0285.jpg",
+   "query": "person riding a two-wheeler",
+   "status": "candidates_unverified",
+   "boxes_px_xyxy": [
+    [
+     767,
+     188,
+     840,
+     310
+    ]
+   ],
+   "score": null,
+   "verified": false,
+   "iou_vs_reference": [
+    0.461
+   ],
+   "reference_box_px": [
+    776.97,
+    194.44,
+    848.32,
+    263.73
+   ],
+   "latency_s": 23.338,
+   "identity_established": false,
+   "review_required": true
+  },
+  {
+   "image": "1-1/0350.jpg",
+   "query": "person riding a two-wheeler",
+   "status": "candidates_unverified",
+   "boxes_px_xyxy": [
+    [
+     202,
+     23,
+     237,
+     91
+    ],
+    [
+     1024,
+     107,
+     1103,
+     243
+    ]
+   ],
+   "score": null,
+   "verified": false,
+   "iou_vs_reference": [],
+   "reference_box_px": null,
+   "latency_s": 23.608,
+   "identity_established": false,
+   "review_required": true
+  },
+  {
+   "image": "2-2/0334.jpg",
+   "query": "person riding an elephant",
+   "status": "model_reported_absent",
+   "boxes_px_xyxy": [],
+   "score": null,
+   "verified": false,
+   "iou_vs_reference": [],
+   "reference_box_px": [
+    453,
+    230,
+    552,
+    291
+   ],
+   "latency_s": 21.06,
+   "raw_response": "<ref>person riding an elephant</ref><box>none</box>",
+   "identity_established": false,
+   "review_required": true
+  }
+ ]
+}
