@@ -114,7 +114,8 @@ class CameraScheduler:
             if action["state"] in SKIPPABLE:
                 self.cursor += 1
                 continue
-            if action["state"] == "planned":
+            if action["state"] == "planned" or (
+                    action["state"] == "running" and action.get("available_ranges") is None):
                 info = self._availability(action, action["estimated_window"])
                 if info.get("available") is False:
                     action["state"] = "recording_unavailable"
@@ -272,6 +273,9 @@ class CameraScheduler:
         if action["cursor"] < action["search_window"][1]:
             action["estimated_window"] = (action["estimated_window"][0], action["search_window"][1])
             action["expanded"] = True
+            # 扩窗后必须按新窗口重新核对可用录像，否则会沿用旧的裁剪范围原地卡死
+            action["available_ranges"] = None
+            action["state"] = "planned"
             return True
         return False
 

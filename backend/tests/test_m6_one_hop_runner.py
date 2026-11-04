@@ -327,3 +327,18 @@ def test_expanded_search_stops_at_recording_end():
     ends = [s["scheduled_window"][1] for s in result["steps"]]
     assert ends and max(ends) <= 54021.9
     assert result["scheduler_state"]["stopped"] is None
+
+
+def test_expanded_window_rechecks_availability_beyond_estimate():
+    maps = {"2-1": frame_time_map("rec-2-1", "u21", 53998.0, 5.0, frame_count=400)}
+
+    def weak_score(label, window):
+        return [{"track_id": "t1", "retrieval_score": 0.5}]
+
+    result = run_one_hop(anchor=_anchor(), time_maps=maps,
+                         predictions=[{"camera": "58", "priority": "high",
+                                       "estimated_window": [54002.0, 54004.0],
+                                       "search_window": [54002.0, 54030.0]}],
+                         analyze=_analyze, score=weak_score, spatial=_spatial)
+    ends = [s["scheduled_window"][1] for s in result["steps"]]
+    assert max(ends) > 54004.5, "扩窗后应继续分析原估计窗之外的录像"

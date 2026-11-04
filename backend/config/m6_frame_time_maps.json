@@ -1,6 +1,6 @@
 {
  "schema": "m6-frame-time-maps/1",
- "note": "每路独立锚点；clock_quality 未校准表示只能比较名义 OSD 时间。",
+ "note": "每路独立锚点；clock_quality 未校准表示只能比较名义 OSD 时间。2026-11-05 扩展到 765 帧（0–152.8 s），覆盖青衣 B→C。",
  "maps": [
   {
    "recording_id": "rec-1-1",
@@ -9,10 +9,10 @@
    "anchor_seconds": 53997,
    "fps": 5,
    "start_index": 0,
-   "frame_count": 370,
+   "frame_count": 765,
    "clock_quality": "uncalibrated",
    "offset_seconds": 0,
-   "revision": 1
+   "revision": 2
   },
   {
    "recording_id": "rec-2-1",
@@ -21,10 +21,10 @@
    "anchor_seconds": 53998,
    "fps": 5,
    "start_index": 0,
-   "frame_count": 370,
+   "frame_count": 765,
    "clock_quality": "uncalibrated",
    "offset_seconds": 0,
-   "revision": 1
+   "revision": 2
   },
   {
    "recording_id": "rec-2-2",
@@ -33,10 +33,10 @@
    "anchor_seconds": 53997,
    "fps": 5,
    "start_index": 0,
-   "frame_count": 370,
+   "frame_count": 765,
    "clock_quality": "uncalibrated",
    "offset_seconds": 0,
-   "revision": 1
+   "revision": 2
   }
  ]
 }
