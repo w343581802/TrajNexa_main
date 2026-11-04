@@ -44,19 +44,19 @@
    "osd_uncertainty_seconds": 0.2,
    "clock_quality": "uncalibrated",
    "binding_status": "pending_human_review",
-   "status": "candidate",
-   "reviewer": null,
-   "reviewed_at": null,
+   "status": "human_confirmed",
+   "reviewer": "张三",
+   "reviewed_at": "2026-11-05T14:30:00+08:00",
    "evidence": [
     "frame:1-1/0348.jpg",
     "frame:1-1/0355.jpg",
     "frame:1-1/0362.jpg",
     "tracks:1-1#225"
    ],
-   "source": "model_candidate",
+   "source": "human_review",
    "synthetic": false,
    "revoked_reason": null,
-   "note": "未人工确认；占位时间 54063.0-54066.0 已按实测更正为 54066.4-54069.2"
+   "note": "盲搜后人工确认（看过候选列表，非独立盲审）；与 2-2 #434 为同一目标"
   }
  ],
  "transitions": [],
