@@ -509,7 +509,7 @@ function applyRecognition(result: InspectionReport) {
   const best = timeCandidates(result.result_json)[0];
   if (best) {
     timeUnknown.value = false;
-    date.value = best.date ?? DEFAULT_EVENT_DATE;
+    date.value = best.date ?? (normalized.capture_time ? normalized.capture_time.slice(0, 10) : DEFAULT_EVENT_DATE);
     timeLabel.value = best.time ?? "";
     timeIndex.value = 0;
   } else if (normalized.capture_time) {
@@ -529,6 +529,13 @@ function applyRecognition(result: InspectionReport) {
     syncCatalogMatch();
   } else {
     nameIndex.value = -1;
+  }
+  // 兜底：OCR 已给出角标原名但候选过滤没命中时，仍把它填进输入框（低信任，需人工确认）。
+  const rawName = result.result_json.camera?.overlay_name_raw;
+  if (!cameraName.value && typeof rawName === "string" && rawName.trim()) {
+    cameraName.value = rawName.trim();
+    nameSource.value = "画面角标（OCR 原文）";
+    syncCatalogMatch();
   }
 }
 
