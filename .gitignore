@@ -21,3 +21,7 @@ compose.override.yaml
 frontend/pnpm-lock.yaml
 frontend/pnpm-workspace.yaml
 .local/
+
+# local browser smoke artifacts
+frontend/smoke*.png
+frontend/smoke*.mjs
