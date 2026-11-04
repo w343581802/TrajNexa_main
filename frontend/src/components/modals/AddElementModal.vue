@@ -51,11 +51,23 @@ const assocBoxStyle = computed(() => {
   return b ? m4CandidateStyle(b) : {};
 });
 const assocOptions = computed(() => m4Proposals.value.filter((p) => p.bbox_normalized));
+const assocFeatures = ref<M4RoiFeatures | null>(null);
+const assocFeaturesBusy = ref(false);
+async function loadAssocFeatures() {
+  const mediaId = selectedMediaId.value;
+  const box = assocBox.value;
+  if (!mediaId || !box) return;
+  assocFeaturesBusy.value = true; assocFeatures.value = null;
+  try { assocFeatures.value = await mainApi.analyzeM4Roi(mediaId, [...box], m4Engine, assocCategory.value); }
+  catch { assocFeatures.value = null; }
+  finally { assocFeaturesBusy.value = false; }
+}
 
 function pickAssocProposal(proposal: M4DetectCandidate | null) {
   assocProposal.value = proposal;
   assocBox.value = proposal ? [...proposal.bbox_normalized] : null;
   assocObservation.value = null;
+  if (proposal) void loadAssocFeatures();
   assocCategory.value = proposal && /车|vehicle|car|truck|bus|motor/i.test(proposal.detector_label)
     ? "vehicle" : "person";
 }
@@ -335,10 +347,23 @@ function autoFillModelFeatures() {
   const feats = (m4Features.value?.appearance.semantic_attributes?.features_unverified ?? [])
     .map((f) => String(f).trim()).filter(Boolean);
   if (!feats.length) return;
-  const row = activeAttrs.value.find((a) => !a.unknown && !a.value.trim());
-  if (!row) return;
-  row.value = feats.slice(0, 2).join(" / ").slice(0, 80);
-  row.auto = true;
+  const rules: Record<string, RegExp> = {
+    上衣: /衣|衫|外套|夹克|t恤|衬衫|制服/i,
+    下装: /裤|裙/i,
+    鞋: /鞋|靴/i,
+    随身物: /包|帽|头盔|眼镜|手机|伞/i,
+    车辆类型: /摩托|电动|自行|三轮|轿车|卡车|客车|面包车/i,
+    车身颜色: /白|黑|红|蓝|灰|银|黄|绿|橙|紫/i,
+    车身标识或附属物: /尾箱|牌照|贴|标识|货架|后视镜/i,
+  };
+  for (const row of activeAttrs.value) {
+    if (row.unknown || row.value.trim()) continue;
+    const rule = rules[row.key];
+    const hit = rule ? feats.find((f) => rule.test(f)) : undefined;
+    if (!hit) continue;
+    row.value = hit.slice(0, 60);
+    row.auto = true;
+  }
 }
 
 /** 选中框后自动出来的关键特征：画质/主色（确定性）+ 外观短语（模型，可降级） */
@@ -964,6 +989,10 @@ function onPanMove(event: PointerEvent) {
 }
 function onPanEnd() { panStart = null; }
 
+const displayFeatures = computed(() => (attrTarget.value === "assoc" ? assocFeatures.value : m4Features.value));
+const displayFeaturesBusy = computed(() => (attrTarget.value === "assoc" ? assocFeaturesBusy.value : m4FeaturesBusy.value));
+const modelFeatureList = computed(() => (displayFeatures.value?.appearance.semantic_attributes?.features_unverified ?? []).map((f) => String(f)).filter(Boolean));
+
 </script>
 
 <template>
@@ -1142,6 +1171,22 @@ function onPanEnd() { panStart = null; }
         <div class="ae-section">
           <span class="field-label">备注 / 来源说明</span>
           <textarea v-model="note" class="textarea" rows="2" placeholder="例如：角标时间与文件名交叉核对；画面低照度" />
+        </div>
+        <div class="ae-section">
+          <div class="ae-field-head">
+            <span class="field-label">大模型外观判断</span>
+            <span class="field-hint">参考 · 待人工核实</span>
+          </div>
+          <p v-if="displayFeaturesBusy" class="field-hint">正在分析当前框…</p>
+          <template v-else-if="displayFeatures">
+            <ul v-if="modelFeatureList.length" class="model-features">
+              <li v-for="(feature, index) in modelFeatureList" :key="index">{{ feature }}</li>
+            </ul>
+            <p v-else class="field-hint">模型没有给出可用外观描述。</p>
+            <p class="field-hint">主色 {{ m4ToneText(displayFeatures.appearance.roi_tones_unverified) }} · 画质 {{ displayFeatures.quality.flags.join("、") || "未见异常" }}</p>
+            <p class="field-hint">来源 {{ displayFeatures.appearance.semantic_attributes?.semantic_model || "视觉模型" }}；只作线索，不自动确认身份。</p>
+          </template>
+          <p v-else class="field-hint">在左侧选择或框选目标后显示。</p>
         </div>
       </aside>
     </div>
@@ -1740,5 +1785,7 @@ function onPanEnd() { panStart = null; }
 .preview-stage { position: relative; width: 100%; height: 100%; transform-origin: center center; }
 .preview-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 4; display: flex; gap: 4px; align-items: center; background: rgba(0,0,0,.55); padding: 3px 6px; border-radius: 6px; font-size: 11px; }
 .preview-zoom button { background: none; border: none; color: #cfd8e3; cursor: pointer; padding: 0 4px; font-size: 12px; }
+
+.model-features { margin: 4px 0; padding-left: 16px; font-size: 11.5px; color: var(--text-2); display: grid; gap: 2px; }
 
 </style>
