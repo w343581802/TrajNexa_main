@@ -901,13 +901,13 @@ function cropThumb(box: [number, number, number, number] | null): string {
   if (!box || !img || !img.naturalWidth) return "";
   const [x1, y1, x2, y2] = box;
   const canvas = document.createElement("canvas");
-  canvas.width = 160; canvas.height = 120;
+  const sw = Math.max(1, (x2 - x1) * img.naturalWidth);
+  const sh = Math.max(1, (y2 - y1) * img.naturalHeight);
+  canvas.width = 160;
+  canvas.height = Math.max(1, Math.round(160 * sh / sw));
   const context = canvas.getContext("2d");
   if (!context) return "";
-  context.drawImage(img,
-    x1 * img.naturalWidth, y1 * img.naturalHeight,
-    Math.max(1, (x2 - x1) * img.naturalWidth), Math.max(1, (y2 - y1) * img.naturalHeight),
-    0, 0, 160, 120);
+  context.drawImage(img, x1 * img.naturalWidth, y1 * img.naturalHeight, sw, sh, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
 }
 
@@ -925,6 +925,10 @@ function bindCatalogCamera(cameraUuid: string) {
   confirmedCamera.value = cameraUuid || null;
 }
 
+function focusTarget(role: "primary" | "assoc") {
+  attrTarget.value = role;
+  if (role === "assoc" && !assocBox.value) assocMode.value = true;
+}
 </script>
 
 <template>
@@ -1016,113 +1020,9 @@ function bindCatalogCamera(cameraUuid: string) {
           </div>
           <input v-model="m4Note" class="input" placeholder="选取依据（可留空）" maxlength="500" />
           <p v-if="m4DetectError" class="field-hint">{{ m4DetectError }}</p>
-          <details v-if="m4Features" class="ae-fold">
-            <summary>识别细节（画质 / 主色 / 外观线索）</summary>
-            <p class="field-hint">亮度 {{ m4Features.quality.median_luminance_0_255 }} · 清晰度 {{ m4Features.quality.laplacian_variance }} · 主色 {{ m4ToneText(m4Features.appearance.roi_tones_unverified) }}</p>
-            <p class="field-hint">外观线索：{{ m4Features.appearance.semantic_attributes?.features_unverified?.join("、") || "未提取" }}</p>
-          </details>
         </section>
-        <details v-if="currentCase" class="ae-fold">
-          <summary>历史区域观测</summary>
-        <section v-if="currentCase" class="m4a-history">
-          <div class="m4a-history-head">
-            <b>M4a · 本案件已保存的区域观测</b>
-            <button type="button" class="chip-btn" :disabled="m4HistoryBusy" @click="loadM4History(true)">刷新历史</button>
-          </div>
-          <p class="m4a-history-hint">数据库持久化记录。点击后恢复原图和框选；不会重新识别时间或自动确认设备。</p>
-          <p v-if="m4HistoryError" class="ae-error">{{ m4HistoryError }}</p>
-          <div v-for="item in m4History" :key="item.id" class="m4a-history-item">
-            <button type="button" class="chip-btn" :disabled="m4Restoring" @click="reopenM4Record(item.id)">
-              恢复 · {{ item.object_class }} · {{ item.created_at.slice(0, 16).replace("T", " ") }}
-              <span class="mono">· {{ item.id.slice(0, 8) }}</span>
-            </button>
-            <span :title="item.review_note">{{ item.review_note }}</span>
-          </div>
-          <div v-if="m4HistoryMore" class="m4a-history-more">
-            <button type="button" class="chip-btn" :disabled="m4HistoryBusy" @click="loadM4History(false)">
-              {{ m4HistoryBusy ? "正在加载…" : "加载更多历史观测" }}
-            </button>
-          </div>
-          <p v-else-if="m4HistoryBusy" class="m4a-history-hint">正在读取历史记录…</p>
-          <p v-else-if="!m4History.length && !m4HistoryError" class="m4a-history-hint">本案件尚无持久化区域观测。</p>
-        </section>
-        </details>
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
 
-        <div class="ae-evidence" :class="{ 'is-open': evidenceOpen }">
-          <div class="ae-evidence-head">
-            <span class="ae-block-title">识别依据</span>
-            <span v-if="selectedMedia" class="ae-block-hint truncate">
-              {{ selectedMedia.mime_detected }} · {{ formatBytes(selectedMedia.size_bytes) }} · sha256 {{ selectedMedia.sha256.slice(0, 10) }}…
-            </span>
-            <span v-if="inspecting" class="ae-progress">
-              <span class="ae-progress-bar"><i :style="{ width: `${jobProgress}%` }" /></span>
-              <span class="num dim">{{ jobProgress }}%</span>
-            </span>
-            <button class="chip-btn ae-evidence-toggle" @click="evidenceOpen = !evidenceOpen">
-              {{ evidenceOpen ? "收起" : "展开" }}
-            </button>
-          </div>
-
-          <p v-if="report && !evidenceOpen" class="ae-evidence-summary">
-            {{ report.result_json.media.technical_metadata?.width ?? "—" }} ×
-            {{ report.result_json.media.technical_metadata?.height ?? "—" }} ·
-            {{ report.result_json.quality?.overall_status ?? "—" }} ·
-            OCR {{ (report.result_json.time.overlay_time_samples[0]?.ocr_rows ?? []).length }} 行
-          </p>
-
-          <p v-if="ocrProblem" class="ae-error">{{ ocrProblem }}</p>
-
-          <p v-if="recognizeError" class="ae-error">{{ recognizeError }}</p>
-
-          <template v-if="evidenceOpen">
-            <div v-if="report" class="evidence">
-              <div class="evidence-row">
-                <span class="evidence-key">画面尺寸</span>
-                <span class="num">
-                  {{ report.result_json.media.technical_metadata?.width ?? "—" }} ×
-                  {{ report.result_json.media.technical_metadata?.height ?? "—" }}
-                  <template v-if="report.result_json.media.technical_metadata?.duration_seconds">
-                    · {{ report.result_json.media.technical_metadata.duration_seconds }}s
-                  </template>
-                </span>
-              </div>
-              <div class="evidence-row">
-                <span class="evidence-key">质量</span>
-                <span>{{ report.result_json.quality?.overall_status ?? "—" }}<template v-if="report.result_json.quality?.issues?.length"> · {{ report.result_json.quality.issues.join("、") }}</template></span>
-              </div>
-              <div class="evidence-row">
-                <span class="evidence-key">识别引擎</span>
-                <span class="mono">{{ engineLabel }}</span>
-              </div>
-              <div v-if="identity" class="evidence-row">
-                <span class="evidence-key">归一结论</span>
-                <span>
-                  时间 {{ identity.capture_time ?? "未识别" }}
-                  <template v-if="identity.time_source === 'filename'">（文件名兜底）</template>
-                  · 名称 {{ identity.camera_name ?? "未识别" }}
-                  <template v-if="identity.names.length > 1"> · 候选 {{ identity.names.length }} 个</template>
-                </span>
-              </div>
-              <div v-if="identityNotes.length" class="evidence-row">
-                <span class="evidence-key">提示</span>
-                <span class="dim">{{ identityNotes.join("；") }}</span>
-              </div>
-              <div class="evidence-rows">
-                <span class="evidence-key">OCR 原始行</span>
-                <div class="ocr-rows">
-                  <span v-for="(row, index) in report.result_json.time.overlay_time_samples[0]?.ocr_rows ?? []" :key="`${row.text}-${index}`" class="ocr-row">
-                    <span class="ocr-region">{{ row.region ?? "—" }}</span>
-                    <span class="ocr-text mono">{{ row.text }}</span>
-                    <span class="num ocr-conf">{{ (row.confidence * 100).toFixed(1) }}%</span>
-                  </span>
-                  <span v-if="!(report.result_json.time.overlay_time_samples[0]?.ocr_rows ?? []).length" class="dim">没有可用的 OCR 行</span>
-                </div>
-              </div>
-            </div>
-            <p v-else-if="!inspecting" class="ae-placeholder">选择截图后会自动识别；识别结果只做候选，保存前需要人工确认。</p>
-          </template>
-        </div>
       </section>
 
       <!-- 右：确认表单 -->
@@ -1158,7 +1058,7 @@ function bindCatalogCamera(cameraUuid: string) {
           <p v-if="dateSuspect" class="field-hint warn">
             日期年份异常（OCR 可能把年份读成 2020 等），请核对画面角标后手动修正；系统不会静默改日期。
           </p>
-          <p class="field-hint">OCR 原值保留在识别依据里；人工修改只影响本要素的入库时间。</p>
+          <p class="field-hint">OCR 原值只用于内部核对；人工修改只影响本要素的入库时间。</p>
         </div>
 
         <div class="ae-section">
@@ -1187,16 +1087,16 @@ function bindCatalogCamera(cameraUuid: string) {
             <span class="field-hint">主目标 + 关联对象</span>
           </div>
           <div class="target-cards">
-            <div class="target-card" :class="{ 'is-on': Boolean(m4Box) }">
+            <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'primary' }" @click="focusTarget('primary')">
               <img v-if="m4Thumb" :src="m4Thumb" alt="主目标" />
               <span class="target-role">主目标要素</span>
               <span class="field-hint">{{ m4Box ? category : "未选择" }}</span>
-            </div>
-            <div class="target-card" :class="{ 'is-on': Boolean(assocBox) }">
+            </button>
+            <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'assoc' }" @click="focusTarget('assoc')">
               <img v-if="assocThumb" :src="assocThumb" alt="关联对象" />
               <span class="target-role">关联要素</span>
               <span class="field-hint">{{ assocBox ? assocCategory : "未选择" }}</span>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -1847,9 +1747,9 @@ function bindCatalogCamera(cameraUuid: string) {
 .camera-line { display: flex; gap: 6px; align-items: center; }
 .camera-line .input { flex: 1 1 auto; min-width: 0; }
 .target-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.target-card { border: 1px dashed var(--line-2); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; min-height: 108px; }
+.target-card { border: 1px dashed var(--line-2); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; min-height: 108px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .target-card.is-on { border-color: var(--accent); }
-.target-card img { width: 100%; height: 72px; object-fit: cover; border-radius: 4px; }
+.target-card img { width: 100%; height: auto; max-height: 96px; object-fit: contain; border-radius: 4px; background: #000; }
 .target-role { font-size: 11px; color: var(--text-2); }
 .ae-fold { border-top: 1px dashed var(--line-2); padding-top: 6px; }
 .ae-fold > summary { cursor: pointer; font-size: 11px; color: var(--text-3); }
