@@ -107,3 +107,16 @@ def test_patch_swaps_primary_and_bumps_revision(env):
     conflict = client.patch('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id']),
                             json={**swapped, 'revision': 1})
     assert conflict.status_code == 409
+
+
+def test_same_client_ids_can_repeat_across_groups(env):
+    client, Session, _ = env
+    case_id, media_id = _case_and_media(Session)
+    first = client.post('/api/v1/cases/%s/target-groups' % case_id,
+                        json=_payload(media_id, [_person(), _vehicle()], primary='P1'))
+    second = client.post('/api/v1/cases/%s/target-groups' % case_id,
+                         json=_payload(media_id, [_person(), _vehicle()], primary='P1'))
+    assert first.status_code == 201 and second.status_code == 201
+    assert first.json()['id'] != second.json()['id']
+    assert {o['id'] for o in first.json()['objects']}.isdisjoint(
+        {o['id'] for o in second.json()['objects']})
