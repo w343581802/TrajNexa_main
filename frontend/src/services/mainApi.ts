@@ -751,6 +751,9 @@ export const mainApi = {
 
   /* ---------------------------- 案件内追踪任务（B8） ---------------------------- */
 
+  listTargetGroups: (caseId: string) =>
+    request<{ items: { id: string; media_id: string; primary_object_id: string; revision: number; created_at: string }[] }>(
+      `/cases/${encodeURIComponent(caseId)}/target-groups`),
   createTargetGroup: (caseId: string, body: {
     media_id: string; primary_object_id: string;
     objects: { id: string; object_class: string; role: string;
@@ -770,7 +773,8 @@ export const mainApi = {
     ),
 
   createTrackingRun: (caseId: string, body: {
-    observation_id: string; clip_id?: string; offset_seconds?: number;
+    observation_id?: string; target_group_id?: string;
+    clip_id?: string; offset_seconds?: number;
     direction?: "forward" | "backward"; research_seconds?: number;
     segment_seconds?: number; gap_seconds?: number;
     max_windows?: number; budget_frames?: number;

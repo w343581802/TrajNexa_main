@@ -18,8 +18,12 @@ import {
   ui,
   wb,
 } from "../../store/workbench";
+import { mainApi } from "../../services/mainApi";
 
 const observationId = ref("");
+const useGroup = ref(false);
+const groupId = ref("");
+const groups = ref<{ id: string; media_id: string; primary_object_id: string; revision: number; created_at: string }[]>([]);
 const clipId = ref("");
 const offset = ref(0);
 const maxWindows = ref(2);
@@ -54,7 +58,7 @@ const statusTone = computed(() => {
   return "ok";
 });
 
-const canStart = computed(() => Boolean(wb.caseId && observationId.value && !trackingLoading.value));
+const canStart = computed(() => Boolean(wb.caseId && (useGroup.value ? groupId.value : observationId.value) && !trackingLoading.value));
 const isBusy = computed(() => {
   const status = activeTrackingRun.value?.status;
   return status === "queued" || status === "running";
@@ -92,10 +96,19 @@ const identityText = (status: string) => {
   return "待核实候选";
 };
 
+watch(() => ui.trackingOpen, async (open) => {
+  if (!open || !wb.caseId) return;
+  try {
+    groups.value = (await mainApi.listTargetGroups(wb.caseId)).items;
+  } catch { groups.value = []; }
+  if (!useGroup.value && observationId.value) return;
+  if (!groupId.value && groups.value.length) groupId.value = groups.value[0].id;
+});
+
 const start = async () => {
   if (!canStart.value) return;
   const created = await actions.startTrackingRun({
-    observation_id: observationId.value,
+    ...(useGroup.value ? { target_group_id: groupId.value } : { observation_id: observationId.value }),
     ...(clipId.value ? { clip_id: clipId.value } : {}),
     offset_seconds: Number(offset.value) || 0,
     max_windows: Number(maxWindows.value) || 2,
@@ -165,7 +178,20 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <section class="start-box">
-        <label class="field">
+        <div class="seg" style="margin-bottom: 8px">
+          <button :class="{ 'is-on': !useGroup }" @click="useGroup = false">按观测发起</button>
+          <button :class="{ 'is-on': useGroup }" @click="useGroup = true">按目标组发起</button>
+        </div>
+        <label v-if="useGroup" class="field">
+          <span class="field-label">复合目标（主对象作为起点）</span>
+          <select v-model="groupId" class="input">
+            <option value="">选择目标组</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">
+              {{ g.id.slice(0, 8) }} · {{ g.created_at?.slice(0, 16).replace("T", " ") }} · rev {{ g.revision }}
+            </option>
+          </select>
+        </label>
+        <label v-else class="field">
           <span class="field-label">目标观察（M4a 人工框选）</span>
           <select v-model="observationId" class="input">
             <option value="">选择案件内的观察</option>

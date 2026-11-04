@@ -895,7 +895,8 @@ export const actions = {
     if (target) await refreshTrackingRun(target);
   },
   async startTrackingRun(payload: {
-    observation_id: string; clip_id?: string; offset_seconds?: number;
+    observation_id?: string; target_group_id?: string;
+    clip_id?: string; offset_seconds?: number;
     segment_seconds?: number; gap_seconds?: number;
     max_windows?: number; budget_frames?: number;
     direction?: "forward" | "backward"; research_seconds?: number;
