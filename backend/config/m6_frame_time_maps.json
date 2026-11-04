@@ -1,10 +1,10 @@
 {
  "schema": "m6-frame-time-maps/1",
- "note": "每路独立锚点；clock_quality 未校准表示只能比较名义 OSD 时间。2026-11-05 扩展到 765 帧（0–152.8 s），覆盖青衣 B→C。",
+ "note": "每路独立锚点；clock_quality 未校准表示只能比较名义 OSD 时间。2026-11-05 扩展到 765 帧（0–152.8 s），覆盖青衣 B→C。 摄像头 uuid 已与 m6_camera_bindings.json 对齐。",
  "maps": [
   {
    "recording_id": "rec-1-1",
-   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "camera_uuid": "f9cc5b92-e85f-4c3d-bdf8-5694290825d2",
    "label": "1-1",
    "anchor_seconds": 53997,
    "fps": 5,
@@ -16,7 +16,7 @@
   },
   {
    "recording_id": "rec-2-1",
-   "camera_uuid": "802e415e-uuid-2-1",
+   "camera_uuid": "4b2d2ec2-a5ce-4546-977f-53d95fd6de81",
    "label": "2-1",
    "anchor_seconds": 53998,
    "fps": 5,
@@ -28,7 +28,7 @@
   },
   {
    "recording_id": "rec-2-2",
-   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "camera_uuid": "802e415e-3a22-4c94-abb0-e29970c6bb98",
    "label": "2-2",
    "anchor_seconds": 53997,
    "fps": 5,
