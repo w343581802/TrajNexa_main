@@ -98,3 +98,9 @@ python -m scripts.experimental.try_wevisone_vl \
 
 结论：这批监控帧上 4B 没有可测出的定位优势，CPU 慢约 7 倍；细描述不改变定位结果。
 官方 benchmark 提升不能外推到小目标监控场景。原始结果 `assets/m6_s6_20e_wevisone_4b_probe.json`。
+## 与 Qwen3-VL-4B 的同任务对比（2026-11-04）
+
+同一批帧、同一句 `person riding a two-wheeler`：WeVisOne-2B IoU 0.482/0.461，WeVisOne-4B 0.524/0.479，
+Qwen3-VL-4B 0.344/0.354 且会多框；1-1/0350 上 Qwen 首次输出重复、加 stop 后目标框与 WeVisOne 几乎重合但多 3 个误框。
+Qwen 速度快是因为跑在 GPU（0.3–5.3 s），WeVisOne 这几轮在 CPU（23–193 s），不能直接比速度。
+结论：定位选 WeVisOne，属性仍用 Qwen；两者分工。

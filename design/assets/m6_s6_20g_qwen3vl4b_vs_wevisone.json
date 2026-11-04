@@ -1,0 +1,160 @@
+{
+ "schema": "trajnexa-grounding-model-compare/1",
+ "date": "2026-11-04",
+ "note": "Same frames, same neutral query \"person riding a two-wheeler\". Qwen3-VL-4B via Ollama (GPU, q4_K_M, JSON 0-1000 normalized prompt); WeVisOne CPU. Speed is not comparable.",
+ "rows": [
+  {
+   "case": "0334",
+   "reference": [
+    453,
+    230,
+    552,
+    291
+   ],
+   "wevisone_2b": {
+    "box": [
+     463,
+     226,
+     540,
+     335
+    ],
+    "iou": 0.482
+   },
+   "wevisone_4b": {
+    "box": [
+     463,
+     225,
+     540,
+     324
+    ],
+    "iou": 0.524
+   },
+   "qwen3vl_4b": {
+    "boxes": [
+     [
+      460,
+      228,
+      538,
+      389
+     ]
+    ],
+    "best_iou": 0.344
+   }
+  },
+  {
+   "case": "0285",
+   "reference": [
+    776.97,
+    194.44,
+    848.32,
+    263.73
+   ],
+   "wevisone_2b": {
+    "box": [
+     767,
+     188,
+     840,
+     310
+    ],
+    "iou": 0.461
+   },
+   "wevisone_4b": {
+    "box": [
+     768,
+     188,
+     841,
+     308
+    ],
+    "iou": 0.479
+   },
+   "qwen3vl_4b": {
+    "boxes": [
+     [
+      762,
+      186,
+      841,
+      338
+     ],
+     [
+      645,
+      158,
+      672,
+      187
+     ],
+     [
+      829,
+      99,
+      850,
+      130
+     ]
+    ],
+    "best_iou": 0.354
+   }
+  },
+  {
+   "case": "0350 (no reference box)",
+   "wevisone_2b": {
+    "boxes": [
+     [
+      1024,
+      107,
+      1103,
+      243
+     ],
+     [
+      202,
+      23,
+      237,
+      91
+     ]
+    ]
+   },
+   "wevisone_4b": {
+    "boxes": [
+     [
+      1025,
+      107,
+      1103,
+      243
+     ],
+     [
+      200,
+      22,
+      238,
+      91
+     ]
+    ]
+   },
+   "qwen3vl_4b": {
+    "boxes": [
+     [
+      1022,
+      108,
+      1114,
+      248
+     ],
+     [
+      188,
+      27,
+      237,
+      108
+     ],
+     [
+      585,
+      27,
+      672,
+      86
+     ],
+     [
+      637,
+      1,
+      689,
+      83
+     ]
+    ],
+    "note": "目标框与 WeVisOne 几乎重合，但另有 3 个明显误框（货车/顶部）"
+   }
+  }
+ ],
+ "qwen_retry_note": "1-1/0350 first run degenerated into repeated 20-px-step boxes and was truncated; a retry with stop tokens produced valid JSON with 4 boxes (target + 3 false)."
+}
