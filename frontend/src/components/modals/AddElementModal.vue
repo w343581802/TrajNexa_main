@@ -324,7 +324,7 @@ async function selectM4Proposal(proposal: M4DetectCandidate) {
   m4Observation.value = null;
   m4Features.value = null;
   category.value = proposal.object_class === "other" ? "other" : proposal.object_class;
-  if (!m4Note.value.trim()) m4Note.value = `${proposal.model_name || "默认检测"} 候选：${proposal.detector_label}`;
+  // 检测器名称/类别只是 provenance，不写进人工备注，更不能当外观特征值。
   m4Error.value = null;
   await loadM4Features();
 }
@@ -538,6 +538,13 @@ const nameIndex = ref(-1);
 const date = ref(DEFAULT_EVENT_DATE);
 const timeLabel = ref("");
 const timeUnknown = ref(false);
+/** 年份明显不合理的 OCR 时间（如把 2026 读成 2020）只提示，不静默改写。 */
+const dateSuspect = computed(() => {
+  const match = /^(\d{4})-\d{2}-\d{2}$/.exec(date.value);
+  if (!match) return true;
+  const year = Number(match[1]);
+  return year < 2015 || year > 2100;
+});
 const cameraName = ref<string | null>(null);
 const confirmedCamera = ref<string | null>(null);
 const catalog = ref<CameraCatalogEntry[]>([]);
@@ -625,6 +632,27 @@ const attributes = reactive([
   { key: "鞋", value: "", unknown: false },
   { key: "随身物", value: "", unknown: false },
 ]);
+
+const assocAttributes = reactive([
+  { key: "车辆类型", value: "", unknown: false },
+  { key: "车身颜色", value: "", unknown: false },
+  { key: "车身标识或附属物", value: "", unknown: false },
+]);
+const attrTarget = ref<"primary" | "assoc">("primary");
+const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttributes : attributes));
+
+/** 只把“明确观察到的值”或“明确未知”送到后端；空字段不产生假属性。 */
+function attrRows(list: { key: string; value: string; unknown: boolean }[], subject: string) {
+  return list
+    .filter((attr) => attr.unknown || attr.value.trim())
+    .map((attr) => ({
+      subject_id: subject, name: attr.key,
+      value: attr.unknown ? null : attr.value.trim() || null,
+      observation_status: attr.unknown ? "unknown" : "known",
+      review_state: attr.unknown ? "unknown" : "human_verified",
+      source: "human",
+    }));
+}
 
 const note = ref("");
 
@@ -819,6 +847,7 @@ async function save(keepOpen: boolean) {
             bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId },
         ],
         relations: [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }],
+        attributes: [...attrRows(attributes, "P1"), ...attrRows(assocAttributes, "A1")],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
       });
     } catch (error) {
@@ -1100,6 +1129,9 @@ async function save(keepOpen: boolean) {
               {{ timeUnknown ? "已标未知" : "标记未知" }}
             </button>
           </div>
+          <p v-if="dateSuspect" class="field-hint warn">
+            日期年份异常（OCR 可能把年份读成 2020 等），请核对画面角标后手动修正；系统不会静默改日期。
+          </p>
           <p class="field-hint">OCR 原值保留在识别依据里；人工修改只影响本要素的入库时间。</p>
         </div>
 
@@ -1210,15 +1242,19 @@ async function save(keepOpen: boolean) {
 
         <div class="ae-section">
           <div class="ae-field-head">
-            <span class="field-label">可观察属性（选填）</span>
-            <span class="field-hint">保存后进入待核查</span>
+            <span class="field-label">可见特征（选填）</span>
+            <span class="field-hint">按对象归属 · 未知≠不匹配</span>
           </div>
-          <div v-for="attr in attributes" :key="attr.key" class="attr-row">
+          <div class="seg">
+            <button :class="{ 'is-on': attrTarget === 'primary' }" @click="attrTarget = 'primary'">主目标</button>
+            <button :class="{ 'is-on': attrTarget === 'assoc' }" :disabled="!assocBox" @click="attrTarget = 'assoc'">关联对象</button>
+          </div>
+          <div v-for="attr in activeAttrs" :key="attr.key" class="attr-row">
             <span class="attr-key">{{ attr.key }}</span>
             <input v-model="attr.value" class="input" :disabled="attr.unknown" :placeholder="attr.unknown ? '未知' : '可观察描述'" />
             <button class="chip-btn" :class="{ 'is-on': attr.unknown }" @click="attr.unknown = !attr.unknown">{{ attr.unknown ? "未知" : "标未知" }}</button>
           </div>
-          <p class="field-hint">属性需人工观察填写，系统不做自动检测与推测。</p>
+          <p class="field-hint">人工填写记为 human_verified；标未知只表示画面看不清，不表示没有或不匹配。</p>
         </div>
 
         <div class="ae-section">
