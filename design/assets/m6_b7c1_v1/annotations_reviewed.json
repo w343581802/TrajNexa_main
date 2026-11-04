@@ -1,0 +1,962 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "observation": "O01_2-2_0334",
+  "crop": "person",
+  "camera": "2-2",
+  "frame": "0334",
+  "box": [
+   462,
+   234,
+   543,
+   287
+  ],
+  "image": "O01_2-2_0334_person.png",
+  "size": [
+   81,
+   53
+  ],
+  "category": "occluded",
+  "notes": "背面视角，车辆只露车把/后视镜",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "上衣浅蓝，深色肩条"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "有领/拼接，外套"
+   },
+   "vehicle_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "只见车把与后视镜，车体不在裁剪内"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "只能判断是两轮，类型不足以确定"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "背面视角看不到前方"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "observation": "O01_2-2_0334",
+  "crop": "context",
+  "camera": "2-2",
+  "frame": "0334",
+  "box": [
+   389,
+   226,
+   615,
+   305
+  ],
+  "image": "O01_2-2_0334_context.png",
+  "size": [
+   226,
+   79
+  ],
+  "category": "occluded",
+  "notes": "背面视角，车辆只露车把/后视镜",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "上衣浅蓝"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色车体/白色尾箱"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板电动车"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "前方被身体挡住"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "observation": "O02_2-1_0285",
+  "crop": "person",
+  "camera": "2-1",
+  "frame": "0285",
+  "box": [
+   764,
+   188,
+   832,
+   316
+  ],
+  "image": "O02_2-1_0285_person.png",
+  "size": [
+   68,
+   128
+  ],
+  "category": "clear",
+  "notes": "正面清晰；胸前粉色包裹物无法确认是否为儿童",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "浅蓝外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色车头/前筐"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板电动车"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "胸前有粉色包裹物，无法确认是儿童还是玩偶/包"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "observation": "O02_2-1_0285",
+  "crop": "context",
+  "camera": "2-1",
+  "frame": "0285",
+  "box": [
+   702,
+   168,
+   893,
+   360
+  ],
+  "image": "O02_2-1_0285_context.png",
+  "size": [
+   191,
+   192
+  ],
+  "category": "clear",
+  "notes": "正面清晰；胸前粉色包裹物无法确认是否为儿童",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "浅蓝外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板电动车"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "胸前有粉色包裹物，无法确认是儿童还是玩偶/包"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "observation": "O03_2-2_0404",
+  "crop": "person",
+  "camera": "2-2",
+  "frame": "0404",
+  "box": [
+   1241,
+   140,
+   1279,
+   175
+  ],
+  "image": "O03_2-2_0404_person.png",
+  "size": [
+   38,
+   35
+  ],
+  "category": "distant",
+  "notes": "极远/模糊，画面被紫色卡车篷布占据",
+  "truth": {
+   "garment_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "无法辨认"
+   },
+   "garment_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "无法辨认"
+   },
+   "vehicle_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "无法辨认"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "无法辨认"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "无法辨认"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "observation": "O03_2-2_0404",
+  "crop": "context",
+  "camera": "2-2",
+  "frame": "0404",
+  "box": [
+   1206,
+   134,
+   1280,
+   187
+  ],
+  "image": "O03_2-2_0404_context.png",
+  "size": [
+   74,
+   53
+  ],
+  "category": "distant",
+  "notes": "极远/模糊，画面被紫色卡车篷布占据",
+  "truth": {
+   "garment_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "目标不可辨认"
+   },
+   "garment_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "目标不可辨认"
+   },
+   "vehicle_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "目标不可辨认"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "目标不可辨认"
+   },
+   "companion_present": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "目标不可辨认"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "observation": "O04_2-2_0700",
+  "crop": "person",
+  "camera": "2-2",
+  "frame": "0700",
+  "box": [
+   929,
+   150,
+   969,
+   199
+  ],
+  "image": "O04_2-2_0700_person.png",
+  "size": [
+   40,
+   49
+  ],
+  "category": "distant",
+  "notes": "远距离小目标，黄色车体清楚",
+  "truth": {
+   "garment_color": {
+    "value": "black",
+    "status": "known",
+    "evidence": "深色/黑色外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "yellow",
+    "status": "known",
+    "evidence": "黄色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "裁剪内只有一名骑手"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "observation": "O04_2-2_0700",
+  "crop": "context",
+  "camera": "2-2",
+  "frame": "0700",
+  "box": [
+   893,
+   142,
+   1005,
+   216
+  ],
+  "image": "O04_2-2_0700_context.png",
+  "size": [
+   112,
+   74
+  ],
+  "category": "distant",
+  "notes": "远距离小目标，黄色车体清楚",
+  "truth": {
+   "garment_color": {
+    "value": "black",
+    "status": "known",
+    "evidence": "深色外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "yellow",
+    "status": "known",
+    "evidence": "黄色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "画面内只有一名骑手"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "observation": "O05_1-1_0350",
+  "crop": "person",
+  "camera": "1-1",
+  "frame": "0350",
+  "box": [
+   1027,
+   115,
+   1105,
+   246
+  ],
+  "image": "O05_1-1_0350_person.png",
+  "size": [
+   78,
+   131
+  ],
+  "category": "multi",
+  "notes": "骑手+车前儿童",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "骑手浅蓝外套；儿童深色外套带粉色"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "骑手外套"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板电动车"
+   },
+   "companion_present": {
+    "value": "yes",
+    "status": "known",
+    "evidence": "车前坐着一名儿童"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "observation": "O05_1-1_0350",
+  "crop": "context",
+  "camera": "1-1",
+  "frame": "0350",
+  "box": [
+   956,
+   95,
+   1175,
+   291
+  ],
+  "image": "O05_1-1_0350_context.png",
+  "size": [
+   219,
+   196
+  ],
+  "category": "multi",
+  "notes": "骑手+车前儿童",
+  "truth": {
+   "garment_color": {
+    "value": "light blue",
+    "status": "known",
+    "evidence": "骑手浅蓝外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板电动车"
+   },
+   "companion_present": {
+    "value": "yes",
+    "status": "known",
+    "evidence": "车前坐着一名儿童"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "observation": "O06_2-2_0504",
+  "crop": "person",
+  "camera": "2-2",
+  "frame": "0504",
+  "box": [
+   471,
+   165,
+   519,
+   252
+  ],
+  "image": "O06_2-2_0504_person.png",
+  "size": [
+   48,
+   87
+  ],
+  "category": "occluded",
+  "notes": "两人贴近，车体下缘被裁掉",
+  "truth": {
+   "garment_color": {
+    "value": "black",
+    "status": "known",
+    "evidence": "男骑手黑色外套；后座白衣乘客"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "red",
+    "status": "known",
+    "evidence": "左下红色车体"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "车体被裁，无法判断三轮/两轮"
+   },
+   "companion_present": {
+    "value": "yes",
+    "status": "known",
+    "evidence": "两人同车"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "observation": "O06_2-2_0504",
+  "crop": "context",
+  "camera": "2-2",
+  "frame": "0504",
+  "box": [
+   427,
+   151,
+   562,
+   282
+  ],
+  "image": "O06_2-2_0504_context.png",
+  "size": [
+   135,
+   131
+  ],
+  "category": "occluded",
+  "notes": "两人贴近，车体下缘被裁掉",
+  "truth": {
+   "garment_color": {
+    "value": "black",
+    "status": "known",
+    "evidence": "黑色外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "red",
+    "status": "known",
+    "evidence": "红色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "复核：红色两轮踏板车（前轮+车把可见），不是三轮"
+   },
+   "companion_present": {
+    "value": "yes",
+    "status": "known",
+    "evidence": "两人同车"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "observation": "O07_2-1_0400",
+  "crop": "person",
+  "camera": "2-1",
+  "frame": "0400",
+  "box": [
+   1218,
+   185,
+   1273,
+   282
+  ],
+  "image": "O07_2-1_0400_person.png",
+  "size": [
+   55,
+   97
+  ],
+  "category": "no_vehicle",
+  "notes": "站立看手机，旁边是盖着挡布的停放车辆",
+  "truth": {
+   "garment_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "复核：躯干被灰白挡布覆盖，无法确认衣物颜色"
+   },
+   "garment_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "复核：躯干被灰白挡布覆盖，无法确认衣物类型"
+   },
+   "vehicle_color": {
+    "value": "unknown",
+    "status": "not_applicable",
+    "evidence": "人物为步行/站立，无骑行车辆"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "not_applicable",
+    "evidence": "人物为步行/站立，无骑行车辆"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "裁剪内只有一人"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "observation": "O07_2-1_0400",
+  "crop": "context",
+  "camera": "2-1",
+  "frame": "0400",
+  "box": [
+   1168,
+   170,
+   1280,
+   315
+  ],
+  "image": "O07_2-1_0400_context.png",
+  "size": [
+   112,
+   145
+  ],
+  "category": "no_vehicle",
+  "notes": "站立看手机，旁边是盖着挡布的停放车辆",
+  "truth": {
+   "garment_color": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "复核：躯干被灰白挡布覆盖，无法确认衣物颜色"
+   },
+   "garment_type": {
+    "value": "unknown",
+    "status": "unknown",
+    "evidence": "复核：躯干被灰白挡布覆盖，无法确认衣物类型"
+   },
+   "vehicle_color": {
+    "value": "unknown",
+    "status": "not_applicable",
+    "evidence": "旁边是停放车辆，非其骑行车辆"
+   },
+   "vehicle_type": {
+    "value": "unknown",
+    "status": "not_applicable",
+    "evidence": "旁边是停放车辆，非其骑行车辆"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "画面内只有一人站立"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "observation": "O08_1-1_0400",
+  "crop": "person",
+  "camera": "1-1",
+  "frame": "0400",
+  "box": [
+   342,
+   41,
+   402,
+   147
+  ],
+  "image": "O08_1-1_0400_person.png",
+  "size": [
+   60,
+   106
+  ],
+  "category": "multi",
+  "notes": "背面骑行，后方另有独立骑手",
+  "truth": {
+   "garment_color": {
+    "value": "dark green",
+    "status": "known",
+    "evidence": "墨绿色外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "yellow",
+    "status": "known",
+    "evidence": "黄黑色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "本人独自骑行"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "observation": "O08_1-1_0400",
+  "crop": "context",
+  "camera": "1-1",
+  "frame": "0400",
+  "box": [
+   288,
+   25,
+   456,
+   184
+  ],
+  "image": "O08_1-1_0400_context.png",
+  "size": [
+   168,
+   159
+  ],
+  "category": "multi",
+  "notes": "背面骑行，后方另有独立骑手",
+  "truth": {
+   "garment_color": {
+    "value": "dark green",
+    "status": "known",
+    "evidence": "墨绿色外套"
+   },
+   "garment_type": {
+    "value": "jacket",
+    "status": "known",
+    "evidence": "外套"
+   },
+   "vehicle_color": {
+    "value": "yellow",
+    "status": "known",
+    "evidence": "黄黑色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "后方是另一名骑手，非同行"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "observation": "O09_1-1_0450",
+  "crop": "person",
+  "camera": "1-1",
+  "frame": "0450",
+  "box": [
+   322,
+   26,
+   382,
+   135
+  ],
+  "image": "O09_1-1_0450_person.png",
+  "size": [
+   60,
+   109
+  ],
+  "category": "no_companion",
+  "notes": "白色上衣骑手，后方有独立骑手",
+  "truth": {
+   "garment_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色上衣"
+   },
+   "garment_type": {
+    "value": "shirt",
+    "status": "known",
+    "evidence": "浅色上衣"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "复核：车体侧板为浅色/白色，黑色是座椅与尾箱"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "本人独自骑行"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "observation": "O09_1-1_0450",
+  "crop": "context",
+  "camera": "1-1",
+  "frame": "0450",
+  "box": [
+   268,
+   9,
+   436,
+   173
+  ],
+  "image": "O09_1-1_0450_context.png",
+  "size": [
+   168,
+   164
+  ],
+  "category": "no_companion",
+  "notes": "白色上衣骑手，后方有独立骑手",
+  "truth": {
+   "garment_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "白色上衣"
+   },
+   "garment_type": {
+    "value": "shirt",
+    "status": "known",
+    "evidence": "浅色上衣"
+   },
+   "vehicle_color": {
+    "value": "white",
+    "status": "known",
+    "evidence": "复核：车体白色，红色是前景汽车"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "后方骑手为另一人，非同行"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "observation": "O10_2-2_0604",
+  "crop": "person",
+  "camera": "2-2",
+  "frame": "0604",
+  "box": [
+   330,
+   175,
+   383,
+   272
+  ],
+  "image": "O10_2-2_0604_person.png",
+  "size": [
+   53,
+   97
+  ],
+  "category": "clear",
+  "notes": "正面清晰",
+  "truth": {
+   "garment_color": {
+    "value": "blue",
+    "status": "known",
+    "evidence": "蓝色短袖"
+   },
+   "garment_type": {
+    "value": "t-shirt",
+    "status": "known",
+    "evidence": "短袖T恤"
+   },
+   "vehicle_color": {
+    "value": "grey",
+    "status": "known",
+    "evidence": "银灰色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "裁剪内只有一人"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "observation": "O10_2-2_0604",
+  "crop": "context",
+  "camera": "2-2",
+  "frame": "0604",
+  "box": [
+   282,
+   160,
+   430,
+   305
+  ],
+  "image": "O10_2-2_0604_context.png",
+  "size": [
+   148,
+   145
+  ],
+  "category": "clear",
+  "notes": "正面清晰",
+  "truth": {
+   "garment_color": {
+    "value": "blue",
+    "status": "known",
+    "evidence": "蓝色短袖"
+   },
+   "garment_type": {
+    "value": "t-shirt",
+    "status": "known",
+    "evidence": "短袖T恤"
+   },
+   "vehicle_color": {
+    "value": "grey",
+    "status": "known",
+    "evidence": "银灰色车体"
+   },
+   "vehicle_type": {
+    "value": "scooter",
+    "status": "known",
+    "evidence": "踏板车"
+   },
+   "companion_present": {
+    "value": "no",
+    "status": "known",
+    "evidence": "画面内只有一名骑手"
+   }
+  },
+  "annotator": "assistant visual review 2026-11-04 (pending human confirmation)"
+ }
+]

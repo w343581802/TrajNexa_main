@@ -1,0 +1,605 @@
+{
+ "wevisone_person": {
+  "json_ok": 0,
+  "n": 10,
+  "json_score": {
+   "garment_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "garment_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "companion_present": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "garment_type": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 0.0,
+    "known_n": 6,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 0.286,
+    "known_n": 7,
+    "unknown_recall": 0.0,
+    "unknown_n": 3,
+    "hallucination": 1.0
+   }
+  },
+  "latency_json": 17.7,
+  "latency_text": 14.5
+ },
+ "wevisone_context": {
+  "json_ok": 0,
+  "n": 10,
+  "json_score": {
+   "garment_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "garment_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "companion_present": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "garment_type": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 0.0,
+    "known_n": 7,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   }
+  },
+  "latency_json": 18.7,
+  "latency_text": 17.4
+ },
+ "wevisone_all": {
+  "json_ok": 0,
+  "n": 20,
+  "json_score": {
+   "garment_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "garment_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_color": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "vehicle_type": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   },
+   "companion_present": {
+    "accuracy": null,
+    "known_n": 0,
+    "unknown_recall": null,
+    "unknown_n": 0,
+    "hallucination": null
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.0,
+    "known_n": 16,
+    "unknown_recall": 1.0,
+    "unknown_n": 4,
+    "hallucination": 0.0
+   },
+   "garment_type": {
+    "accuracy": 0.0,
+    "known_n": 16,
+    "unknown_recall": 1.0,
+    "unknown_n": 4,
+    "hallucination": 0.0
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 15,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 0.0,
+    "known_n": 14,
+    "unknown_recall": 1.0,
+    "unknown_n": 4,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 0.143,
+    "known_n": 14,
+    "unknown_recall": 0.333,
+    "unknown_n": 6,
+    "hallucination": 0.667
+   }
+  },
+  "latency_json": 18.2,
+  "latency_text": 16.0
+ },
+ "qwen_person": {
+  "json_ok": 10,
+  "n": 10,
+  "json_score": {
+   "garment_color": {
+    "accuracy": 1.0,
+    "known_n": 8,
+    "unknown_recall": 0.0,
+    "unknown_n": 2,
+    "hallucination": 1.0
+   },
+   "garment_type": {
+    "accuracy": 0.75,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_color": {
+    "accuracy": 0.286,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 6,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   },
+   "companion_present": {
+    "accuracy": 0.857,
+    "known_n": 7,
+    "unknown_recall": 0.0,
+    "unknown_n": 3,
+    "hallucination": 1.0
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 1.0,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "garment_type": {
+    "accuracy": 0.75,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.286,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 6,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   },
+   "companion_present": {
+    "accuracy": 0.143,
+    "known_n": 7,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   }
+  },
+  "latency_json": 2.3,
+  "latency_text": 0.6
+ },
+ "qwen_context": {
+  "json_ok": 10,
+  "n": 10,
+  "json_score": {
+   "garment_color": {
+    "accuracy": 0.875,
+    "known_n": 8,
+    "unknown_recall": 0.0,
+    "unknown_n": 2,
+    "hallucination": 1.0
+   },
+   "garment_type": {
+    "accuracy": 0.5,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.375,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 0.875,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 1.0,
+    "known_n": 7,
+    "unknown_recall": 0.0,
+    "unknown_n": 3,
+    "hallucination": 1.0
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 1.0,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "garment_type": {
+    "accuracy": 0.25,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.625,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 0.429,
+    "known_n": 7,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   }
+  },
+  "latency_json": 1.7,
+  "latency_text": 0.7
+ },
+ "qwen_all": {
+  "json_ok": 20,
+  "n": 20,
+  "json_score": {
+   "garment_color": {
+    "accuracy": 0.938,
+    "known_n": 16,
+    "unknown_recall": 0.0,
+    "unknown_n": 4,
+    "hallucination": 1.0
+   },
+   "garment_type": {
+    "accuracy": 0.625,
+    "known_n": 16,
+    "unknown_recall": 0.75,
+    "unknown_n": 4,
+    "hallucination": 0.25
+   },
+   "vehicle_color": {
+    "accuracy": 0.333,
+    "known_n": 15,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 0.929,
+    "known_n": 14,
+    "unknown_recall": 0.75,
+    "unknown_n": 4,
+    "hallucination": 0.25
+   },
+   "companion_present": {
+    "accuracy": 0.929,
+    "known_n": 14,
+    "unknown_recall": 0.0,
+    "unknown_n": 6,
+    "hallucination": 1.0
+   }
+  },
+  "text_score": {
+   "garment_color": {
+    "accuracy": 1.0,
+    "known_n": 16,
+    "unknown_recall": 0.5,
+    "unknown_n": 4,
+    "hallucination": 0.5
+   },
+   "garment_type": {
+    "accuracy": 0.5,
+    "known_n": 16,
+    "unknown_recall": 0.5,
+    "unknown_n": 4,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.467,
+    "known_n": 15,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 14,
+    "unknown_recall": 0.75,
+    "unknown_n": 4,
+    "hallucination": 0.25
+   },
+   "companion_present": {
+    "accuracy": 0.286,
+    "known_n": 14,
+    "unknown_recall": 0.667,
+    "unknown_n": 6,
+    "hallucination": 0.333
+   }
+  },
+  "latency_json": 2.0,
+  "latency_text": 0.6
+ },
+ "wevisone_caption_person": {
+  "n": 10,
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.375,
+    "known_n": 8,
+    "unknown_recall": 0.0,
+    "unknown_n": 2,
+    "hallucination": 1.0
+   },
+   "garment_type": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 2,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 6,
+    "unknown_recall": 0.667,
+    "unknown_n": 3,
+    "hallucination": 0.333
+   },
+   "companion_present": {
+    "accuracy": 0.0,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   }
+  },
+  "latency_text": 12.4
+ },
+ "wevisone_caption_context": {
+  "n": 10,
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.375,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "garment_type": {
+    "accuracy": 0.125,
+    "known_n": 8,
+    "unknown_recall": 0.5,
+    "unknown_n": 2,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 8,
+    "unknown_recall": 1.0,
+    "unknown_n": 1,
+    "hallucination": 0.0
+   },
+   "companion_present": {
+    "accuracy": 0.0,
+    "known_n": 7,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   }
+  },
+  "latency_text": 15.8
+ },
+ "wevisone_caption_all": {
+  "n": 20,
+  "text_score": {
+   "garment_color": {
+    "accuracy": 0.375,
+    "known_n": 16,
+    "unknown_recall": 0.25,
+    "unknown_n": 4,
+    "hallucination": 0.75
+   },
+   "garment_type": {
+    "accuracy": 0.062,
+    "known_n": 16,
+    "unknown_recall": 0.5,
+    "unknown_n": 4,
+    "hallucination": 0.5
+   },
+   "vehicle_color": {
+    "accuracy": 0.0,
+    "known_n": 15,
+    "unknown_recall": 1.0,
+    "unknown_n": 3,
+    "hallucination": 0.0
+   },
+   "vehicle_type": {
+    "accuracy": 1.0,
+    "known_n": 14,
+    "unknown_recall": 0.75,
+    "unknown_n": 4,
+    "hallucination": 0.25
+   },
+   "companion_present": {
+    "accuracy": 0.0,
+    "known_n": 14,
+    "unknown_recall": 1.0,
+    "unknown_n": 6,
+    "hallucination": 0.0
+   }
+  },
+  "latency_text": 14.1
+ }
+}

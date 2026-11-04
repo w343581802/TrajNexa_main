@@ -1,0 +1,99 @@
+{
+ "reviewed_at": "2026-11-04",
+ "reviewer": "assistant visual re-inspection (pending human sign-off)",
+ "scope": "20 crops / 100 fields",
+ "changed": 7,
+ "fields": [
+  {
+   "id": "O06_2-2_0504_context",
+   "field": "vehicle_type",
+   "before": {
+    "value": "tricycle",
+    "status": "known"
+   },
+   "after": {
+    "value": "scooter",
+    "status": "known"
+   },
+   "note": "复核：红色两轮踏板车（前轮+车把可见），不是三轮"
+  },
+  {
+   "id": "O07_2-1_0400_person",
+   "field": "garment_color",
+   "before": {
+    "value": "black",
+    "status": "known"
+   },
+   "after": {
+    "value": "unknown",
+    "status": "unknown"
+   },
+   "note": "复核：躯干被灰白挡布覆盖，无法确认衣物颜色"
+  },
+  {
+   "id": "O07_2-1_0400_person",
+   "field": "garment_type",
+   "before": {
+    "value": "jacket",
+    "status": "known"
+   },
+   "after": {
+    "value": "unknown",
+    "status": "unknown"
+   },
+   "note": "复核：躯干被灰白挡布覆盖，无法确认衣物类型"
+  },
+  {
+   "id": "O07_2-1_0400_context",
+   "field": "garment_color",
+   "before": {
+    "value": "black",
+    "status": "known"
+   },
+   "after": {
+    "value": "unknown",
+    "status": "unknown"
+   },
+   "note": "复核：躯干被灰白挡布覆盖，无法确认衣物颜色"
+  },
+  {
+   "id": "O07_2-1_0400_context",
+   "field": "garment_type",
+   "before": {
+    "value": "jacket",
+    "status": "known"
+   },
+   "after": {
+    "value": "unknown",
+    "status": "unknown"
+   },
+   "note": "复核：躯干被灰白挡布覆盖，无法确认衣物类型"
+  },
+  {
+   "id": "O09_1-1_0450_person",
+   "field": "vehicle_color",
+   "before": {
+    "value": "dark grey",
+    "status": "known"
+   },
+   "after": {
+    "value": "white",
+    "status": "known"
+   },
+   "note": "复核：车体侧板为浅色/白色，黑色是座椅与尾箱"
+  },
+  {
+   "id": "O09_1-1_0450_context",
+   "field": "vehicle_color",
+   "before": {
+    "value": "dark grey",
+    "status": "known"
+   },
+   "after": {
+    "value": "white",
+    "status": "known"
+   },
+   "note": "复核：车体白色，红色是前景汽车"
+  }
+ ]
+}
