@@ -1,0 +1,163 @@
+{
+ "schema": "trajnexa-attribute-model-compare/1",
+ "date": "2026-11-04",
+ "prompt": "只描述画面中确实可见的内容。输出一个 JSON 对象，只包含字段 garment_color / garment_type / vehicle_color / vehicle_type / companion_present；看不到同伴写 \"no\"，被遮挡/无法判断写 \"unknown\"，其余无法确定写 \"unknown\"；不要猜测，不要解释。",
+ "crops": "person 与 context 裁剪，来自 2-2/0334、2-1/0285、1-1/0350；与 B7-C0 相同裁剪规则",
+ "qwen3vl_4b": {
+  "model": "qwen3-vl:4b-instruct",
+  "backend": "ollama GPU",
+  "json_ok": "6/6",
+  "records": [
+   {
+    "crop": "1-1_0350_context.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "jacket",
+     "vehicle_color": "white",
+     "vehicle_type": "motorcycle",
+     "companion_present": "yes"
+    },
+    "latency_s": 6.4,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"yes\"\n}"
+   },
+   {
+    "crop": "1-1_0350_person.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "jacket",
+     "vehicle_color": "white",
+     "vehicle_type": "motorcycle",
+     "companion_present": "no"
+    },
+    "latency_s": 1.6,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}"
+   },
+   {
+    "crop": "2-1_0285_context.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "jacket",
+     "vehicle_color": "light yellow",
+     "vehicle_type": "scooter",
+     "companion_present": "no"
+    },
+    "latency_s": 1.7,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}"
+   },
+   {
+    "crop": "2-1_0285_person.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "sweater",
+     "vehicle_color": "light yellow",
+     "vehicle_type": "motorcycle",
+     "companion_present": "no"
+    },
+    "latency_s": 1.7,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"light yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}"
+   },
+   {
+    "crop": "2-2_0334_context.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "jacket",
+     "vehicle_color": "light blue",
+     "vehicle_type": "motorcycle",
+     "companion_present": "no"
+    },
+    "latency_s": 1.7,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light blue\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}"
+   },
+   {
+    "crop": "2-2_0334_person.png",
+    "json_ok": true,
+    "fields": {
+     "garment_color": "light blue",
+     "garment_type": "sweater",
+     "vehicle_color": "white",
+     "vehicle_type": "motorcycle",
+     "companion_present": "no"
+    },
+    "latency_s": 1.7,
+    "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}"
+   }
+  ]
+ },
+ "wevisone_2b": {
+  "model": "tencent/WeVisOne-VL-2B",
+  "backend": "transformers CPU",
+  "json_ok": "0/6",
+  "records": [
+   {
+    "crop": "1-1_0350_context.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 21.1,
+    "raw": "<ref>garment_color</ref><box><423><197><680><712></box>, <ref>garment_type</ref><box><423><196><680><712></box>, <ref>vehicle_color</ref><box><158><370><878><928></box>, <ref>vehicle_type</ref><box><0><0><886><298>,<155><369><879><929></box>, <ref>companion_present</ref><box><419><235><636><765></box>"
+   },
+   {
+    "crop": "1-1_0350_person.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 18,
+    "raw": "<ref>garment_color</ref><box><0><244><325><386>,<311><162><1000><999></box>, <ref>garment_type</ref><box><0><245><326><390>,<312><163><1000><1000></box>, <ref>vehicle_color</ref><box><0><422><1000><1000></box>, <ref>vehicle_type</ref><box><0><419><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>"
+   },
+   {
+    "crop": "2-1_0285_context.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 15.9,
+    "raw": "<ref>garment_color</ref><box><297><320><639><1000></box>, <ref>garment_type</ref><box><298><319><639><1000><OBJ></box>, <ref>vehicle_color</ref><box><244><354><636><1000><OBJ></box>, <ref>vehicle_type</ref><box><243><353><636><1000><OBJ></box>, <ref>companion_present</ref><box><292><159><459><999><OBJ></box>"
+   },
+   {
+    "crop": "2-1_0285_person.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 17.1,
+    "raw": "<ref>garment_color</ref><box><0><275><509><1000></box>, <ref>garment_type</ref><box><0><0><506><999></box>, <ref>vehicle_color</ref><box><192><792><774><1000></box>, <ref>vehicle_type</ref><box><0><276><893><1000></box>, <ref>companion_present</ref><box><0><0><843><1000><OBJ></box>"
+   },
+   {
+    "crop": "2-2_0334_context.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 17.4,
+    "raw": "<ref>garment_color</ref><box><383><333><560><727></box>, <ref>garment_type</ref><box><383><332><560><727><OBJ></box>, <ref>vehicle_color</ref><box><319><0><569><274><OBJ>,<352><721><588><1000><OBJ></box>, <ref>vehicle_type</ref><box><338><334><652><1000><OBJ></box>, <ref>companion_present</ref><box>none</box>"
+   },
+   {
+    "crop": "2-2_0334_person.png",
+    "json_ok": false,
+    "fields": null,
+    "latency_s": 17.9,
+    "raw": "<ref>garment_color</ref><box><132><343><780><1000></box>, <ref>garment_type</ref><box><133><0><783><1000><OBJ></box>, <ref>vehicle_color</ref><box><0><0><716><190><OBJ></box>, <ref>vehicle_type</ref><box><88><312><922><1000><OBJ></box>, <ref>companion_present</ref><box><56><0><890><1000><OBJ></box>"
+   }
+  ]
+ },
+ "wevisone_freeform_probe": [
+  {
+   "prompt": "What color is the person's top? Answer with one word.",
+   "response": "<ref>Blue</ref><box><136><333><744><1000></box>",
+   "latency_s": 8.3
+  },
+  {
+   "prompt": "Describe the person in one sentence.",
+   "response": "<ref>A woman</ref><box><110><0><890><1000></box> wearing <ref>a blue shirt</ref><box><136><333><744><1000></box> is riding a motorcycle .",
+   "latency_s": 8.4
+  },
+  {
+   "prompt": "Describe what the riders are wearing and riding in one sentence.",
+   "response": "<ref>The two women</ref><box><321><95><695><772></box> are riding <ref>a scooter</ref><box><153><365><881><936></box> .",
+   "latency_s": 9.5
+  },
+  {
+   "prompt": "Answer with a JSON object only. Do not output <ref> or <box> tags. Fields: ...",
+   "response": "<ref>garment_color</ref><box><423><196><680><727></box>, <ref>garment_type</ref><box>...  (仍输出 ref/box，未产出 JSON)",
+   "latency_s": 18.2
+  }
+ ],
+ "note": "没有人工逐字段标注，本轮只记录字段值、JSON 合规、unknown 使用与耗时，不计算准确率。"
+}

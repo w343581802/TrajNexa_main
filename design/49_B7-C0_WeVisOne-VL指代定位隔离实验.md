@@ -104,3 +104,14 @@ python -m scripts.experimental.try_wevisone_vl \
 Qwen3-VL-4B 0.344/0.354 且会多框；1-1/0350 上 Qwen 首次输出重复、加 stop 后目标框与 WeVisOne 几乎重合但多 3 个误框。
 Qwen 速度快是因为跑在 GPU（0.3–5.3 s），WeVisOne 这几轮在 CPU（23–193 s），不能直接比速度。
 结论：定位选 WeVisOne，属性仍用 Qwen；两者分工。
+## 属性能力更正与初步对照（2026-11-04）
+
+此前“WeVisOne 不产属性”的说法不准确：官方 `prompts.py` 的 `TASKS` 含 `freeform`，`engine.predict()` 默认 `task="freeform"`，
+Demo 有 Free-form / VQA 与两种 Caption。WeVisOne 具备尝试属性的接口，但没有结构化属性字段的官方评测。
+
+6 个中性裁剪、同一 JSON 提示下：WeVisOne-2B JSON 合规 0/6（输出为 `<ref>字段</ref><box>…</box>`），
+自然提问能答 `Blue`/`blue shirt`/`scooter` 但仍带 ref/box；Qwen3-VL-4B JSON 合规 6/6，但 0 次 `unknown`，
+且有串色（2-2 context 车色答 light blue）与同伴判断矛盾（1-1 person=no / context=yes）。
+
+结论：不能断定 Qwen 属性更好，也不能现在固定分工；需要带逐字段人工标注的属性基准再决定。
+原始记录 `assets/m6_s6_21a_attr_compare_wevisone_qwen.json`。
