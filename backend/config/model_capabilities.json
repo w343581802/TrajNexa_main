@@ -5,7 +5,7 @@
     "object_detection": "dfine-n",
     "person_reid": "osnet_x0_25",
     "attribute_extraction": "qwen3vl4b",
-    "visual_grounding": "none"
+    "visual_grounding": "wevisone_vl_2b"
   },
   "tasks": {
     "m6.one_hop": {
@@ -31,6 +31,18 @@
       "provider": "onnxruntime",
       "name": "OSNet x0.25 (MSMT17)",
       "path": "models/reid/osnet_x0_25_msmt17_b1.onnx"
+    },
+    "wevisone_vl_2b": {
+      "capability": "visual_grounding",
+      "provider": "wevisone_local",
+      "name": "WeVisOne-VL 2B (local)",
+      "weight": "tencent/WeVisOne-VL-2B"
+    },
+    "wevisone_vl_4b": {
+      "capability": "visual_grounding",
+      "provider": "wevisone_local",
+      "name": "WeVisOne-VL 4B (local)",
+      "weight": "tencent/WeVisOne-VL-4B"
     }
   },
   "strategies": {
@@ -45,8 +57,8 @@
       "large": "qwen3vl4b"
     },
     "visual_grounding": {
-      "small": "none",
-      "large": "none"
+      "small": "wevisone_vl_2b",
+      "large": "wevisone_vl_4b"
     }
   }
 }

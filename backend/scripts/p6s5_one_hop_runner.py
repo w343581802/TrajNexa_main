@@ -84,6 +84,8 @@ def main():
     parser.add_argument("--snapshot-in", default=None)
     parser.add_argument("--snapshot-out", default=None)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--grounding-query", default=None,
+                        help="observe_only 指代定位查询（自由文本，不参与排序）")
     parser.add_argument("--attribute-top", type=int, default=0,
                         help="为每个窗口得分最高的 N 条候选抽取属性（0=关闭）")
     parser.add_argument("--strategy", default=None,
@@ -253,6 +255,32 @@ def main():
                 best = value if best is None else max(best, value)
             scored.append({"track_id": track["track_id"],
                            "retrieval_score": None if best is None else round(best, 3)})
+        if args.grounding_query and scored:
+            best_item = max(scored, key=lambda item: item.get("retrieval_score") or 0)
+            track = next((t for t in (window.get("tracks") or [])
+                          if t["track_id"] == best_item["track_id"]), None)
+            obs = (track or {}).get("observations") or []
+            if obs:
+                frame_id = int(obs[0]["frame_id"]) + 1
+                image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, frame_id))
+                if image is not None:
+                    try:
+                        grounded = model_capabilities.invoke(
+                            "visual_grounding", {"image": image, "query": args.grounding_query})
+                        grounding_records.append({
+                            "camera": name, "window_id": window.get("window_id"),
+                            "track_id": best_item["track_id"],
+                            "retrieval_score": best_item["retrieval_score"],
+                            "image_ref": "%s/%04d.jpg" % (name, frame_id),
+                            "query": args.grounding_query, "result": grounded,
+                            "iou_with_detection": _best_iou(grounded.get("boxes") or [],
+                                                            obs[0]["bbox"], image.shape)})
+                    except Exception as exc:
+                        grounding_records.append({
+                            "camera": name, "window_id": window.get("window_id"),
+                            "track_id": best_item["track_id"],
+                            "query": args.grounding_query,
+                            "error": type(exc).__name__, "reason": str(exc)[:120]})
         if args.attribute_top > 0 and scored:
             ranked = sorted(scored, key=lambda item: item.get("retrieval_score") or 0,
                             reverse=True)[:args.attribute_top]
@@ -282,6 +310,7 @@ def main():
         return scored
 
     attribute_records = []
+    grounding_records = []
     review_events = []
     if args.review_events:
         review_events = json.loads(Path(args.review_events).read_text(encoding="utf-8"))
@@ -321,6 +350,8 @@ def main():
         for record in attribute_records:
             if record["camera"] == cand["camera_label"] and record["track_id"] == cand["track_id"]:
                 cand["attributes"] = record["attributes"]
+    payload["grounding"] = {"mode": "observe_only", "records": grounding_records,
+                            "identity_effect": "none", "affects_tracking": False}
     payload["attributes"] = {"mode": args.strategy or model_capabilities.strategy_for(
         "attribute_extraction", args.task), "records": attribute_records,
         "cost_ms": round(sum(r["attributes"].get("cost_ms", 0.0) for r in attribute_records), 1),

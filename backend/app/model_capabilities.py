@@ -114,6 +114,26 @@ def _detector_models() -> dict:
     return result
 
 
+def _grounding_models() -> dict:
+    config = _read_config()
+    result = {}
+    try:
+        from app import wevisone_provider
+
+        has_package = wevisone_provider.installed()
+    except Exception:
+        has_package = False
+    for model_id, spec in (config.get("models") or {}).items():
+        if spec.get("capability") != "visual_grounding":
+            continue
+        result[model_id] = {"model": model_id,
+                            "provider": spec.get("provider", "wevisone_local"),
+                            "name": spec.get("name", model_id),
+                            "version": spec.get("weight", ""),
+                            "installed": bool(has_package)}
+    return result
+
+
 def _vision_models() -> dict:
     from app.config import settings
 
@@ -140,6 +160,8 @@ def available(capability: str) -> list[dict]:
         raise CapabilityError("capability_unknown")
     if capability == "object_detection":
         return list(_detector_models().values())
+    if capability == "visual_grounding":
+        return list(_grounding_models().values())
     if capability == "person_reid":
         config = _read_config()
         result = []
@@ -162,7 +184,11 @@ def _pick(capability: str, model: str | None, config: dict, task: str | None) ->
         model = task_spec.get(capability) or config["default"].get(capability)
     if not model or model == "none":
         raise CapabilityError("capability_model_unavailable")
-    if capability in ("object_detection", "person_reid"):
+    if capability == "visual_grounding":
+        entry = _grounding_models().get(model)
+        if entry is None:
+            raise CapabilityError("capability_model_unavailable")
+    elif capability in ("object_detection", "person_reid"):
         table = _detector_models() if capability == "object_detection" else {
             item["model"]: item for item in available("person_reid")}
         entry = table.get(model)
@@ -268,6 +294,14 @@ def _dispatch(capability: str, resolved: dict, payload: dict) -> dict:
         result = detectors.detect_flat(image, [resolved["model"]],
                                        float(payload.get("min_confidence", 0.35)))
         return {"candidates": result["candidates"]}
+    if capability == "visual_grounding":
+        from app import wevisone_provider
+
+        try:
+            return wevisone_provider.ground(payload.get("image"), payload.get("query"),
+                                            resolved)
+        except wevisone_provider.WeVisOneError as exc:
+            raise CapabilityError(str(exc)) from None
     if capability == "person_reid":
         from app import m6_person_reid
 
