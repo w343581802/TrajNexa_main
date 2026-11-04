@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
@@ -105,7 +105,8 @@ watch(m4Image, async (img) => {
   if (img.parentElement) m4ResizeObserver.observe(img.parentElement);
   await nextTick(); syncM4Layout();
 });
-onUnmounted(() => { m4ResizeObserver?.disconnect(); m4Session += 1; });
+onUnmounted(() => { m4ResizeObserver?.disconnect(); m4Session += 1; window.removeEventListener("keydown", onEscape); });
+onMounted(() => window.addEventListener("keydown", onEscape));
 const m4OverlayStyle = computed(() => m4Layout.value ? ({
   left: m4Layout.value.left + 'px', top: m4Layout.value.top + 'px',
   width: m4Layout.value.width + 'px', height: m4Layout.value.height + 'px',
@@ -698,6 +699,22 @@ const editingElement = computed(() =>
   ui.editingElementId ? elementList.value.find((item) => item.id === ui.editingElementId) ?? null : null,
 );
 
+function hasUnsavedChanges(): boolean {
+  return Boolean(m4Observation.value || assocBox.value || note.value.trim()
+    || cameraName.value
+    || attributes.some((a) => a.unknown || a.value.trim())
+    || assocAttributes.some((a) => a.unknown || a.value.trim()));
+}
+function requestClose() {
+  if (hasUnsavedChanges() && !window.confirm("有未保存的修改，确定关闭？")) return;
+  ui.addElementOpen = false;
+}
+function onEscape(event: KeyboardEvent) {
+  if (event.key !== "Escape" || !ui.addElementOpen) return;
+  if (assocMode.value) { assocMode.value = false; return; }
+  if (m4Anchor.value) { m4PointerCancel(); return; }
+}
+
 function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
@@ -875,7 +892,7 @@ async function save(keepOpen: boolean) {
     subtitle="按已配置的业务模型自动发现截图候选；点框或手动框选后复核外观。模型调试请使用左侧「模型测试」。"
     width="xl"
     height="92vh"
-    @close="ui.addElementOpen = false"
+    @close="requestClose"
   >
     <div class="ae">
       <!-- 左：截图与识别依据 -->
@@ -1267,7 +1284,7 @@ async function save(keepOpen: boolean) {
     <template #footer>
       <p class="ae-foot-note">保存后不会自动启动或扩大研判；未核验属性仅作为特征候选，不会覆盖已核验特征。</p>
       <span class="grow" />
-      <button class="btn btn--ghost" @click="ui.addElementOpen = false">取消</button>
+      <button class="btn btn--ghost" @click="requestClose">取消</button>
       <button v-if="!editingElement" class="btn btn--outline" @click="save(true)">保存并继续添加</button>
       <button class="btn btn--primary" @click="save(false)">
         {{ editingElement ? "保存修改" : "保存为目标要素" }}
