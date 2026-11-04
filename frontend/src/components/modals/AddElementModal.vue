@@ -39,6 +39,14 @@ const m4Image = ref<HTMLImageElement | null>(null);
 const m4Box = ref<[number, number, number, number] | null>(null);
 const m4Anchor = ref<[number, number] | null>(null);
 const m4Observation = ref<M4Observation | null>(null);
+/* B8-B0：同一帧的关联对象（如骑行者旁边的两轮车），独立 ROI，不合并主框 */
+const assocProposal = ref<M4DetectCandidate | null>(null);
+const assocRelation = ref("riding");
+const assocBoxStyle = computed(() => {
+  const b = assocProposal.value?.bbox_normalized;
+  return b ? m4CandidateStyle(b) : {};
+});
+const assocOptions = computed(() => m4Proposals.value.filter((p) => p.bbox_normalized));
 const m4Busy = ref(false);
 const m4Error = ref<string | null>(null);
 /** Business mode always invokes the SERVER-side default, never lab choices. */
@@ -729,7 +737,7 @@ watch(() => currentCase.value?.id, (now, old) => {
   resetForm();
   void loadM4History(true);
 });
-function save(keepOpen: boolean) {
+async function save(keepOpen: boolean) {
   // A selected ROI must have a durable, matching observation record.
   // Never place the synthetic "manual-unsaved" marker on the task timeline.
   if (m4Box.value && !m4MatchesStored()) {
@@ -766,6 +774,30 @@ function save(keepOpen: boolean) {
       label: "人工截图框选", auto: false,
     }] : (editingElement.value?.boxes ?? []),
   };
+
+  // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
+  if (!editingElement.value && assocProposal.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
+    const assoc = assocProposal.value;
+    const assocClass = /车|vehicle|car|truck|bus|motor/i.test(assoc.detector_label) ? "vehicle" : "person";
+    try {
+      await mainApi.createTargetGroup(currentCase.value.id, {
+        media_id: selectedMediaId.value,
+        primary_object_id: "P1",
+        objects: [
+          { id: "P1", object_class: category.value === "vehicle" ? "vehicle" : "person",
+            role: "primary", bbox_norm_xyxy: [...m4Box.value],
+            m4_observation_id: m4Observation.value.id },
+          { id: "A1", object_class: assocClass, role: "associated",
+            bbox_norm_xyxy: [...assoc.bbox_normalized] },
+        ],
+        relations: [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }],
+        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
+      });
+    } catch (error) {
+      toast("目标组保存失败：" + (error instanceof Error ? error.message : String(error)), "danger");
+      return;
+    }
+  }
 
   const id = editingElement.value
     ? actions.updateElement(editingElement.value.id, payload)
@@ -843,6 +875,8 @@ function save(keepOpen: boolean) {
                 :title="(proposal.model_name ? proposal.model_name + ' · ' : '') + proposal.detector_label"
                 @pointerdown.stop.prevent="selectM4Proposal(proposal)" />
               <div v-if="m4Box" class="m4a-selected-box" :style="m4BoxStyle"></div>
+              <div v-if="assocProposal" class="m4a-assoc-box" :style="assocBoxStyle"
+                :title="'关联对象（不参与主目标身份）'"></div>
             </div>
             <span class="preview-tag">只读原始画面 · 选图后自动框出候选，点框或拖拽选中</span>
           </template>
@@ -1149,7 +1183,7 @@ function save(keepOpen: boolean) {
 <style scoped>
 .ae {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
   min-height: 0;
   flex: 1;
 }
@@ -1703,4 +1737,12 @@ function save(keepOpen: boolean) {
   color: var(--text-3);
   line-height: 1.5;
 }
+.m4a-assoc-box {
+  position: absolute;
+  border: 2px solid #f0a020;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
+  pointer-events: none;
+}
+.assoc-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 </style>

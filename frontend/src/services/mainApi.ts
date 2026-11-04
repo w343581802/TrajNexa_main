@@ -751,6 +751,17 @@ export const mainApi = {
 
   /* ---------------------------- 案件内追踪任务（B8） ---------------------------- */
 
+  createTargetGroup: (caseId: string, body: {
+    media_id: string; primary_object_id: string;
+    objects: { id: string; object_class: string; role: string;
+      bbox_norm_xyxy: number[]; m4_observation_id?: string | null }[];
+    relations?: { subject_id: string; predicate: string; object_id: string }[];
+    attributes?: { subject_id: string; name: string; value?: string | null;
+      observation_status?: string; review_state?: string; source?: string }[];
+    source?: Record<string, unknown>;
+  }) => request<{ id: string; revision: number; primary_object_id: string }>(
+    `/cases/${encodeURIComponent(caseId)}/target-groups`, jsonBody(body, "POST")),
+
   listTrackingCameras: (caseId: string) =>
     request<{ camera_uuid: string | null; camera_label: string; clips: number;
       first_start: string | null; last_start: string | null;
