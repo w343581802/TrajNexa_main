@@ -1,0 +1,92 @@
+[
+ {
+  "id": "O02_2-1_0285_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><117><181><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><464><412><1000><1000></box>, <ref>vehicle_type</ref><box><0><415><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 8.7
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><88><150><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><408><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起",
+   "latency_s": 5.5
+  },
+  "peak_gb": 4.94
+ },
+ {
+  "id": "O01_2-2_0334_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><45><333><904><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><0><755><162></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 6.8
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><35><273><771><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><999><1000></box>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起",
+   "latency_s": 5.7
+  },
+  "peak_gb": 4.94
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><67><273><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><0><1000><1000><OBJ></box>, <ref>vehicle_type</ref><box><0><0><1000><1000><OBJ></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 8.0
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0></ref></box>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起",
+   "latency_s": 5.8
+  },
+  "peak_gb": 4.94
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><297><147><1000><875></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><356><1000><1000></box>, <ref>vehicle_type</ref><box><0><348><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 7.3
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><354><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起",
+   "latency_s": 6.1
+  },
+  "peak_gb": 4.94
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><225><819><975></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box>none</box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 6.8
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起",
+   "latency_s": 6.1
+  },
+  "peak_gb": 4.94
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "crop": "person",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><75><0><1000><248></box>, <ref>garment_type</ref><box><67><217><970><558></box>, <ref>vehicle_color</ref><box><96><390><636><998></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 7.5
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><67><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "plain": "穿什么颜色、什么类型的衣服, 骑或开什么颜色、什么类型的车, 是否还有别人和他一起, 看不清的地方直接说看不清",
+   "latency_s": 7.6
+  },
+  "peak_gb": 4.94
+ }
+]

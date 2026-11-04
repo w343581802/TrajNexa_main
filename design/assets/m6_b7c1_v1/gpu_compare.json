@@ -1,0 +1,137 @@
+{
+ "rows": [
+  {
+   "id": "O02_2-1_0285_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 16.2,
+   "gpu_latency_s": 8.7,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 16,
+    "obj_cpu": 0,
+    "obj_gpu": 1,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 0,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": true
+   }
+  },
+  {
+   "id": "O01_2-2_0334_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 18.1,
+   "gpu_latency_s": 6.8,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 10,
+    "obj_cpu": 1,
+    "obj_gpu": 1,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 12,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": false
+   }
+  },
+  {
+   "id": "O03_2-2_0404_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 17.1,
+   "gpu_latency_s": 8,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 8,
+    "obj_cpu": 3,
+    "obj_gpu": 3,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 0,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": true
+   }
+  },
+  {
+   "id": "O05_1-1_0350_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 18.1,
+   "gpu_latency_s": 7.3,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 16,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 0,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": true
+   }
+  },
+  {
+   "id": "O07_2-1_0400_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 18,
+   "gpu_latency_s": 6.8,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 14,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 0,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": true
+   }
+  },
+  {
+   "id": "O09_1-1_0450_person",
+   "gpu_peak_gb": 4.94,
+   "cpu_latency_s": 16.8,
+   "gpu_latency_s": 7.5,
+   "json": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 26,
+    "obj_cpu": 1,
+    "obj_gpu": 1,
+    "exact": false
+   },
+   "text": {
+    "ref_equal": true,
+    "coord_len_equal": true,
+    "max_coord_delta": 0,
+    "obj_cpu": 0,
+    "obj_gpu": 0,
+    "exact": true
+   }
+  }
+ ],
+ "note": "CPU bf16 (engine patched) vs GPU bf16, same weights/prompts/images, 6 person crops"
+}
