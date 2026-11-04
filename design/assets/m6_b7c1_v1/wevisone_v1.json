@@ -1,0 +1,302 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><45><333><904><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><0><755><152></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 18.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><35><275><783><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><999><1000></box>",
+   "plain": ", ,",
+   "latency_s": 15.0
+  }
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><357><333><571><750></box>, <ref>garment_type</ref><box><358><332><572><749></box>, <ref>vehicle_color</ref><box><246><0><584><235>,<322><636><614><1000></box>, <ref>vehicle_type</ref><box><307><304><694><1000>,<688><500><1000><1000></box>, <ref>companion_present</ref><box><312><0><585><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 21.5
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><333><252><619><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><304><0><694><1000></box>, <ref>是否还有别人和他一起</ref><box>none</box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><1000></box>",
+   "plain": ", , ,",
+   "latency_s": 16.3
+  }
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><117><181><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><464><396><1000><1000></box>, <ref>vehicle_type</ref><box><0><416><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": ", , , ,",
+   "latency_s": 16.2
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><88><150><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><408><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": ", ,",
+   "latency_s": 13.3
+  }
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><369><193><717><614></box>, <ref>garment_type</ref><box><370><192><718><615><OBJ></box>, <ref>vehicle_color</ref><box><311><222><719><916><OBJ></box>, <ref>vehicle_type</ref><box><189><0><281><117><OBJ>,<310><221><720><917><OBJ></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 19.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><343><183><712><604></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><304><222><725><919></box>, <ref>是否还有别人和他一起</ref><box>none</box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><1000></box>",
+   "plain": ", , ,",
+   "latency_s": 16.7
+  }
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><75><275><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><0><1000><1000><OBJ></box>, <ref>vehicle_type</ref><box><0><0><1000><1000><OBJ></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 17.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0></ref></box>",
+   "plain": ", ,",
+   "latency_s": 15.5
+  }
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><500><275><1000><825></box>, <ref>garment_type</ref><box><501><276><1000><825></box>, <ref>vehicle_color</ref><box><0><0><1000><1000><OBJ></box>, <ref>vehicle_type</ref><box><0><0><1000><1000><OBJ></box>, <ref>companion_present</ref><box><0><0><1000><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 18.4
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box>none</box>, <ref>是否还有别人和他一起</ref><box>none</box>",
+   "plain": ", ,",
+   "latency_s": 14.6
+  }
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><283><245><969><874></box>, <ref>garment_type</ref><box><0><0><1000><1000><OBJ></box>, <ref>vehicle_color</ref><box><0><446><1000><1000><OBJ></box>, <ref>vehicle_type</ref><box><0><444><1000><1000><OBJ></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 17.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><164><980><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><443><1000><1000></box>, <ref>是否还有别人和他一起</ref><box>none</box>",
+   "plain": ", ,",
+   "latency_s": 12.7
+  }
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><384><313><666><590></box>, <ref>garment_type</ref><box><383><314><666><591></box>, <ref>vehicle_color</ref><box><136><500><789><1000></box>, <ref>vehicle_type</ref><box><134><373><788><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 16.2
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><356><312><673><765></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><133><373><794><1000></box>, <ref>是否还有别人和他一起</ref><box>none</box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><675></box>",
+   "plain": ", , ,",
+   "latency_s": 15.9
+  }
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><309><131><1000><875></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><348><1000><1000></box>, <ref>vehicle_type</ref><box><0><347><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": ", , , ,",
+   "latency_s": 18.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><354><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": ", ,",
+   "latency_s": 15.3
+  }
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><383><172><673><675></box>, <ref>garment_type</ref><box><384><171><672><677></box>, <ref>vehicle_color</ref><box><142><0><867><918></box>, <ref>vehicle_type</ref><box><138><342><868><922></box>, <ref>companion_present</ref><box><312><62><674><759></box>",
+   "plain": ", , , ,",
+   "latency_s": 19.8
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><317><117><678><758></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><136><336><867><925></box>, <ref>是否还有别人和他一起</ref><box><409><200><545><688></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><312></box>",
+   "plain": ", , ,",
+   "latency_s": 20.8
+  }
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><245><667><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box>none</box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><888><1000></box>",
+   "plain": ", , , ,",
+   "latency_s": 18.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><890><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box>none</box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": ", ,",
+   "latency_s": 12.9
+  }
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><356><311><605><545></box>, <ref>garment_type</ref><box><354><0><459><75></box>, <ref>vehicle_color</ref><box><142><544><653><975></box>, <ref>vehicle_type</ref><box><113><197><750><1000></box>, <ref>companion_present</ref><box><360><117><673><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 17.1
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><333><88><620><541></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><136><253><667><973></box>, <ref>是否还有别人和他一起</ref><box><506><0><1000><390></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><1000></box>",
+   "plain": ", , ,",
+   "latency_s": 19.1
+  }
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "crop": "person",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><224><819><989></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box>none</box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 18.0
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": ", ,",
+   "latency_s": 12.9
+  }
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "crop": "context",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><125><1000><780></box>, <ref>garment_type</ref><box><0><0><999><1000><OBJ></box>, <ref>vehicle_color</ref><box><75><0><1000><890><OBJ></box>, <ref>vehicle_type</ref><box><74><0><1000><891><OBJ></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 18.8
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><0><1000><1000><OBJ></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000><OBJ></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000><OBJ></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "plain": ", , , <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "latency_s": 18.8
+  }
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><164><825><482></box>, <ref>garment_type</ref><box><0><0><1000><1000><OBJ></box>, <ref>vehicle_color</ref><box><125><477><783><1000><OBJ></box>, <ref>vehicle_type</ref><box><123><0><1000><1000><OBJ></box>, <ref>companion_present</ref><box><0><15><984><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 21.0
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><148><783><468></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><90><11><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "plain": ", , , <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "latency_s": 17.6
+  }
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><325><231><612><412></box>, <ref>garment_type</ref><box><0><0><125><292></box>, <ref>vehicle_color</ref><box><353><320><584><900>,<592><0><808><554></box>, <ref>vehicle_type</ref><box><0><0><124><295>,<192><0><429><214>,<585><0><809><553></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 19.9
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><317><213><623><459></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><312><104><679><906>,<571><0><822><562></box>, <ref>是否还有别人和他一起</ref><box><0><0><162><297></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "plain": ", , , <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "latency_s": 17.3
+  }
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "crop": "person",
+  "category": "no_companion",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><83><0><1000><248></box>, <ref>garment_type</ref><box><67><217><970><550></box>, <ref>vehicle_color</ref><box><96><416><636><998></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><999><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 16.8
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><67><0><1000><1000></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><0><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "plain": ", , , <ref>看不清的地方直接说看不清</ref><box><0><0><1000></ref>",
+   "latency_s": 15.9
+  }
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "crop": "context",
+  "category": "no_companion",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><375><269><571><413></box>, <ref>garment_type</ref><box><360><0><488><167></box>, <ref>vehicle_color</ref><box><342><244><680><794>,<692><0><1000><147></box>, <ref>vehicle_type</ref><box><0><0><217><362>,<0><562><1000><1000>,<339><92><681><795></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": ", , , ,",
+   "latency_s": 19.4
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><375><211><571><463></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><320><229><688><800></box>, <ref>是否还有别人和他一起</ref><box><333><21><500><247></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><246><365></box>",
+   "plain": ", , ,",
+   "latency_s": 18.0
+  }
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><201><1000><608></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><431><1000><1000></box>, <ref>vehicle_type</ref><box><0><429><1000><1000></box>, <ref>companion_present</ref><box><0><21><984><1000><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 16.5
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><0><147><972><550></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><0><416><1000><1000></box>, <ref>是否还有别人和他一起</ref><box><0><0><1000><1000></box>",
+   "plain": ", ,",
+   "latency_s": 14.3
+  }
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><356><247><650><413></box>, <ref>garment_type</ref><box><0><0><295><163></box>, <ref>vehicle_color</ref><box><302><393><664><975></box>, <ref>vehicle_type</ref><box><0><0><275><560></box>, <ref>companion_present</ref><box><288><117><660><950><OBJ></box>",
+   "plain": ", , , ,",
+   "latency_s": 16.7
+  },
+  "text": {
+   "raw": "<ref>穿什么颜色、什么类型的衣服</ref><box><295><197><660><519></box>, <ref>骑或开什么颜色、什么类型的车</ref><box><278><373><664><979></box>, <ref>是否还有别人和他一起</ref><box><0><0><299><565></box>, <ref>看不清的地方直接说看不清</ref><box><0><0><1000><1000></box>",
+   "plain": ", , ,",
+   "latency_s": 16.7
+  }
+ }
+]

@@ -1,0 +1,122 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "raw": "This image depicts an indoor scene where a person is riding a motorcycle. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing blue clothing</ref><box><32><0><916><1000></box> riding a <ref>black motorcycle</ref><box><0><281><1000><1000></box>.",
+  "plain": "This image depicts an indoor scene where a person is riding a motorcycle. On the , there is  riding a .",
+  "latency_s": 13.3
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "raw": "This image depicts a person riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing a blue shirt</ref><box><320><0><678><1000></box> riding a <ref>white motorcycle</ref><box><316><295><1000><1000></box>.",
+  "plain": "This image depicts a person riding a motorcycle on a road. On the , there is  riding a .",
+  "latency_s": 12.6
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "raw": "This image depicts a man riding a scooter on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>man wearing a blue shirt and black pants</ref><box><56><0><1000><1000></box> riding a <ref>white scooter</ref><box><416><420><1000><1000></box>.",
+  "plain": "This image depicts a man riding a scooter on a road. On the , there is a  riding a .",
+  "latency_s": 14.0
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "raw": "This image depicts a man riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing a white shirt</ref><box><342><95><716><744></box> riding a <ref>white motorcycle</ref><box><308><222><727><916></box>.",
+  "plain": "This image depicts a man riding a motorcycle on a road. On the , there is  riding a .",
+  "latency_s": 14.2
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "raw": "This image depicts a person wearing a purple shirt.   <ref>A person wearing a purple shirt</ref><box><0><0><1000><1000></box> is standing against a <ref>white wall</ref><box><0><0><1000><1000></box> background.",
+  "plain": "This image depicts a person wearing a purple shirt.    is standing against a  background.",
+  "latency_s": 9.6
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "raw": "This image captures a close-up view of a person's upper torso against a dark background. The central figure is a <ref>person</ref><box><492><0><1000><1000></box> wearing a purple shirt featuring a large white graphic on the chest and a small red logo on the right side. Positioned behind the individual is a <ref>dark wall</ref><box><0><0><1000><1000></box> that serves as a backdrop for the scene.",
+  "plain": "This image captures a close-up view of a person's upper torso against a dark background. The central figure is a  wearing a purple shirt featuring a large white graphic on the chest and a small red logo on the right side. Positioned behind the individual is a  that serves as a backdrop for the scene.",
+  "latency_s": 15.7
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "raw": "This image depicts a man riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a man wearing black clothing</ref><box><0><17><970><1000></box> riding a <ref>yellow motorcycle</ref><box><0><446><1000><1000></box>.",
+  "plain": "This image depicts a man riding a motorcycle on a road. On the , there is  riding a .",
+  "latency_s": 12.1
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "raw": "This image depicts a person riding a motorcycle on a road. On the <ref>gray road</ref><box><0><614><1000><1000></box>, there is a <ref>person wearing blue clothing</ref><box><342><120><670><838></box> riding a <ref>yellow motorcycle</ref><box><136><370><792><997></box>.",
+  "plain": "This image depicts a person riding a motorcycle on a road. On the , there is a  riding a .",
+  "latency_s": 12.1
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "raw": "This image depicts a person riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>person wearing gray clothing</ref><box><75><0><976><979></box> sitting on a <ref>white motorcycle</ref><box><0><348><1000><1000></box>.",
+  "plain": "This image depicts a person riding a motorcycle on a road. On the , there is a  sitting on a .",
+  "latency_s": 13.4
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "raw": "This image depicts a person riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>person wearing a blue shirt</ref><box><314><57><674><754></box> riding a <ref>white motorcycle</ref><box><138><338><866><924></box>.",
+  "plain": "This image depicts a person riding a motorcycle on a road. On the , there is a  riding a .",
+  "latency_s": 14.2
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "raw": "This image depicts two people standing on a sidewalk. On the <ref>gray sidewalk</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing black clothing</ref><box><0><0><874><1000></box> and <ref>another person wearing white clothing</ref><box><478><0><1000><1000></box>.",
+  "plain": "This image depicts two people standing on a sidewalk. On the , there is  and .",
+  "latency_s": 11.6
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "raw": "This image depicts two people riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>person wearing black clothing</ref><box><330><117><614><739></box> riding a <ref>red motorcycle</ref><box><136><304><660><1000></box> alongside another <ref>person wearing white clothing</ref><box><470><118><692><791></box>.",
+  "plain": "This image depicts two people riding a motorcycle on a road. On the , there is a  riding a  alongside another .",
+  "latency_s": 13.8
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "raw": "This image depicts an indoor scene where a person is standing on a table, holding a bowl.   <ref>A person wearing red clothing</ref><box><0><0><1000><1000></box> is standing on <ref>a white table</ref><box><0><0><1000><1000></box> and holding a <ref>white bowl</ref><box><0><0><1000><1000></box>.",
+  "plain": "This image depicts an indoor scene where a person is standing on a table, holding a bowl.    is standing on  and holding a .",
+  "latency_s": 13.6
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "raw": "This image depicts a scene where a motorcycle is parked on the road, with only part of it visible.   <ref>The motorcycle is white</ref><box><0><0><1000><890></box> and is parked on <ref>the gray sidewalk</ref><box><0><0><1000><1000></box>.",
+  "plain": "This image depicts a scene where a motorcycle is parked on the road, with only part of it visible.    and is parked on .",
+  "latency_s": 11.8
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "raw": "This image depicts a person riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>person wearing green clothing</ref><box><17><15><970><1000></box> riding a <ref>black motorcycle</ref><box><106><433><904><1000></box>.",
+  "plain": "This image depicts a person riding a motorcycle on a road. On the , there is a  riding a .",
+  "latency_s": 12.4
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "raw": "This image depicts two people riding motorcycles on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing green clothing</ref><box><312><96><636><754></box> riding a <ref>black motorcycle</ref><box><350><197><744><904></box> and another <ref>person wearing white clothing</ref><box><572><0><822><554></box> riding a <ref>white motorcycle</ref><box><558><0><1000><1000></box>.",
+  "plain": "This image depicts two people riding motorcycles on a road. On the , there is  riding a  and another  riding a .",
+  "latency_s": 16.7
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "raw": "This image depicts a person riding a scooter on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is <ref>a person wearing white clothing</ref><box><56><0><774><1000></box> riding a <ref>black-and-gray scooter</ref><box><75><369><904><1000></box>.",
+  "plain": "This image depicts a person riding a scooter on a road. On the , there is  riding a .",
+  "latency_s": 11.8
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "raw": "This image depicts a busy street scene featuring several vehicles and pedestrians. The action takes place on a <ref>gray asphalt road</ref><box><0><0><1000><1000></box> that stretches into the distance under a clear sky. In the foreground, a <ref>white motorcycle</ref><box><330><231><687><793></box> is being ridden by a <ref>person wearing a white shirt and a helmet</ref><box><366><164><614><636></box>, while another <ref>person</ref><box><332><28><459><244></box> is seen riding a <ref>dark-colored motorcycle</ref><box><325><0><377><75></box> further back. To the right of the road, there is a <ref>white car</ref><box><686><0><1000><234></box> parked near a curb. On the left side of the frame, a <ref>black truck</ref><box><0><0><217><361></box> is partially visible, and a <ref>red car</ref><box><0><563><1000><998></box> occupies the bottom portion of the view. Additionally, a <ref>person</ref><box><334><0>",
+  "plain": "This image depicts a busy street scene featuring several vehicles and pedestrians. The action takes place on a  that stretches into the distance under a clear sky. In the foreground, a  is being ridden by a , while another  is seen riding a  further back. To the right of the road, there is a  parked near a curb. On the left side of the frame, a  is partially visible, and a  occupies the bottom portion of the view. Additionally, a <ref>person</ref><box><334><0>",
+  "latency_s": 32.8
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "raw": "This image depicts a man riding a motorcycle on a road. On the <ref>gray road</ref><box><0><0><1000><1000></box>, there is a <ref>man wearing blue clothing</ref><box><0><18><972><1000></box> riding a <ref>black motorcycle</ref><box><0><416><1000><1000></box>.",
+  "plain": "This image depicts a man riding a motorcycle on a road. On the , there is a  riding a .",
+  "latency_s": 11.9
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "raw": "This image depicts two people riding motorcycles on a road. On the <ref>gray road</ref><box><0><596><1000><1000></box>, there is <ref>a man wearing blue clothing</ref><box><284><115><660><904></box> and <ref>another person wearing blue clothing</ref><box><283><115><660><904></box> riding <ref>black motorcycles</ref><box><294><370><664><982></box>.",
+  "plain": "This image depicts two people riding motorcycles on a road. On the , there is  and  riding .",
+  "latency_s": 14.2
+ }
+]

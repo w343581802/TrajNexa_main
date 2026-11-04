@@ -1,0 +1,302 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 7.4
+  },
+  "text": {
+   "raw": "一个人穿着浅蓝色上衣，背着黑色双肩包，骑着一辆摩托车，画面中没有其他人。",
+   "plain": "一个人穿着浅蓝色上衣，背着黑色双肩包，骑着一辆摩托车，画面中没有其他人。",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个人穿着浅蓝色上衣，骑着一辆电动车，车后有白色尾箱，前方有一辆汽车，右侧有另一辆车的后视镜，背景中有一辆大型车辆，画面中没有其他人。",
+   "plain": "一个人穿着浅蓝色上衣，骑着一辆电动车，车后有白色尾箱，前方有一辆汽车，右侧有另一辆车的后视镜，背景中有一辆大型车辆，画面中没有其他人。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一名穿浅蓝色开衫和深色内搭的女性骑着一辆浅色电动车，车前有圆形大灯，她怀里抱着一个小孩，小孩穿着粉色上衣，画面中还有另一人，但看不清其具体特征。",
+   "plain": "一名穿浅蓝色开衫和深色内搭的女性骑着一辆浅色电动车，车前有圆形大灯，她怀里抱着一个小孩，小孩穿着粉色上衣，画面中还有另一人，但看不清其具体特征。",
+   "latency_s": 0.8
+  }
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一位穿浅蓝色外套、深色内搭和浅色裤子的女性骑着一辆米白色电动车，车前有圆形大灯，她怀里抱着一个穿粉色衣服的小孩，小孩的头部和部分身体被遮挡看不清。",
+   "plain": "一位穿浅蓝色外套、深色内搭和浅色裤子的女性骑着一辆米白色电动车，车前有圆形大灯，她怀里抱着一个穿粉色衣服的小孩，小孩的头部和部分身体被遮挡看不清。",
+   "latency_s": 0.8
+  }
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"unknown\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"unknown\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "看不清。",
+   "plain": "看不清。",
+   "latency_s": 0.1
+  }
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "画面中看不清人物的具体样貌和动作，只能看到一个穿着紫色上衣的人，但无法确定其是否骑车或开车，也无法判断车辆颜色和类型，更无从得知是否还有其他人与他一起。",
+   "plain": "画面中看不清人物的具体样貌和动作，只能看到一个穿着紫色上衣的人，但无法确定其是否骑车或开车，也无法判断车辆颜色和类型，更无从得知是否还有其他人与他一起。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个人穿着深色外套，骑着一辆黄色的摩托车，旁边似乎还有另一个人，但看不清。",
+   "plain": "一个人穿着深色外套，骑着一辆黄色的摩托车，旁边似乎还有另一个人，但看不清。",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个人穿着深色上衣和黑色裤子，骑着一辆黄色的电动摩托车，画面中没有其他人。",
+   "plain": "一个人穿着深色上衣和黑色裤子，骑着一辆黄色的电动摩托车，画面中没有其他人。",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一位穿着浅蓝色开衫和深色裤子的女性骑着一辆白色电动车，车后座上有一个穿着粉色帽子和红色衣服的婴儿，婴儿被固定在婴儿背带里，女性身旁似乎还有另一个人，但看不清具体样貌和衣着。",
+   "plain": "一位穿着浅蓝色开衫和深色裤子的女性骑着一辆白色电动车，车后座上有一个穿着粉色帽子和红色衣服的婴儿，婴儿被固定在婴儿背带里，女性身旁似乎还有另一个人，但看不清具体样貌和衣着。",
+   "latency_s": 0.9
+  }
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"yes\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"yes\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一位穿着浅蓝色上衣和灰色裤子的女性骑着一辆白色和浅绿色相间的电动摩托车，车后座有黑色储物箱，她怀里抱着一个婴儿，婴儿被红色背带固定在婴儿车里，没有其他人与她一起。",
+   "plain": "一位穿着浅蓝色上衣和灰色裤子的女性骑着一辆白色和浅绿色相间的电动摩托车，车后座有黑色储物箱，她怀里抱着一个婴儿，婴儿被红色背带固定在婴儿车里，没有其他人与她一起。",
+   "latency_s": 0.8
+  }
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"yes\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"yes\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "画面中有一人戴着红色帽子，身穿深色外套和深色裤子，旁边站着一位穿白色上衣和白色裤子的人，但看不清是否骑或开车，也看不清车的颜色和类型。",
+   "plain": "画面中有一人戴着红色帽子，身穿深色外套和深色裤子，旁边站着一位穿白色上衣和白色裤子的人，但看不清是否骑或开车，也看不清车的颜色和类型。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"electric scooter\",\n  \"companion_present\": \"yes\"\n}",
+   "plain": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"electric scooter\",\n  \"companion_present\": \"yes\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一名戴红色安全帽、穿深色上衣和黑色裤子的人骑着一辆红色电动摩托车，后座坐着一位穿白色衣服的人，两人一同出行。",
+   "plain": "一名戴红色安全帽、穿深色上衣和黑色裤子的人骑着一辆红色电动摩托车，后座坐着一位穿白色衣服的人，两人一同出行。",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "crop": "person",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"apron\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"apron\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "画面中的人穿着浅灰色上衣，骑着一辆红色的电动车，旁边似乎还有其他人，但看不清具体细节。",
+   "plain": "画面中的人穿着浅灰色上衣，骑着一辆红色的电动车，旁边似乎还有其他人，但看不清具体细节。",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "crop": "context",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"cover\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"cover\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "画面中看不清有人物，也看不清人物穿着什么颜色或类型的衣物，看不清人物是否骑或开什么颜色、什么类型的车，也看不清是否有其他人与之同行。",
+   "plain": "画面中看不清有人物，也看不清人物穿着什么颜色或类型的衣物，看不清人物是否骑或开什么颜色、什么类型的车，也看不清是否有其他人与之同行。",
+   "latency_s": 0.6
+  }
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个人戴着头盔，穿着深绿色上衣和蓝色裤子，骑着一辆深色摩托车，车后座上有一个黑色的包，旁边似乎还有另一辆车，但看不清是否有人与他一起。",
+   "plain": "一个人戴着头盔，穿着深绿色上衣和蓝色裤子，骑着一辆深色摩托车，车后座上有一个黑色的包，旁边似乎还有另一辆车，但看不清是否有人与他一起。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一名穿深绿色上衣和蓝色裤子、戴银色头盔的男子骑着一辆灰色踏板摩托车，前方有一辆三轮车，车上坐着另一个人，但看不清其衣着和具体特征。",
+   "plain": "一名穿深绿色上衣和蓝色裤子、戴银色头盔的男子骑着一辆灰色踏板摩托车，前方有一辆三轮车，车上坐着另一个人，但看不清其衣着和具体特征。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "crop": "person",
+  "category": "no_companion",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个人穿着白色上衣和深色裤子，骑着一辆深色电动车，车后有黑色尾箱，车尾有黄色牌照，旁边似乎还有另一辆车，但看不清具体细节。",
+   "plain": "一个人穿着白色上衣和深色裤子，骑着一辆深色电动车，车后有黑色尾箱，车尾有黄色牌照，旁边似乎还有另一辆车，但看不清具体细节。",
+   "latency_s": 0.7
+  }
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "crop": "context",
+  "category": "no_companion",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"car\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"car\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "画面中有一人骑着白色电动车，身穿白色上衣和深色裤子，车后座有黑色箱子，车尾有牌照；其前方有一人骑着红色电动车，穿红色上衣戴头盔，后方有白色汽车和红色汽车，左侧有卡车，但具体细节看不清。",
+   "plain": "画面中有一人骑着白色电动车，身穿白色上衣和深色裤子，车后座有黑色箱子，车尾有牌照；其前方有一人骑着红色电动车，穿红色上衣戴头盔，后方有白色汽车和红色汽车，左侧有卡车，但具体细节看不清。",
+   "latency_s": 1.0
+  }
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一个穿蓝色短袖上衣的光头男子，骑着一辆深色的电动车，画面中没有其他人。",
+   "plain": "一个穿蓝色短袖上衣的光头男子，骑着一辆深色的电动车，画面中没有其他人。",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "一名穿蓝色上衣的男子骑着一辆深色踏板车，旁边有一辆自行车，画面中没有其他人。",
+   "plain": "一名穿蓝色上衣的男子骑着一辆深色踏板车，旁边有一辆自行车，画面中没有其他人。",
+   "latency_s": 0.4
+  }
+ }
+]
