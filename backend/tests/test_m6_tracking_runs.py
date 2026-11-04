@@ -20,7 +20,7 @@ def _recordings_root(tmp_path, monkeypatch):
 
 
 def _seed(Session, tmp_path: Path, *, case_id=None, camera='2-2',
-          start='2026-10-23 15:00:00', duration=60.0):
+          start='2026-10-23 15:00:00', duration=60.0, match_status='matched'):
     case_id = case_id or str(uuid4())
     media_id = str(uuid4())
     obs_id = str(uuid4())
@@ -44,7 +44,7 @@ def _seed(Session, tmp_path: Path, *, case_id=None, camera='2-2',
         db.add(RecordingClip(id=clip_id, source_id=source_id, relpath='recordings/' + case_id + '/cam.mp4',
                              file_name='cam.mp4', size_bytes=st.st_size, mtime_ns=st.st_mtime_ns,
                              duration_seconds=duration, start_local=start, start_source='overlay',
-                             camera_name=camera, match_status='matched', ocr_status='ok'))
+                             camera_name=camera, match_status=match_status, ocr_status='ok'))
         db.commit()
     return {'case_id': case_id, 'observation_id': obs_id, 'clip_id': clip_id,
             'media_id': media_id}
@@ -194,3 +194,67 @@ def test_resume_does_not_duplicate_windows(env):
     windows = client.get('/api/v1/cases/%s/tracking-runs/%s/windows'
                          % (seed['case_id'], run['id'])).json()
     assert len(windows) == 1
+
+
+def test_window_plan_seeks_relative_to_clip_start():
+    """窗口起点是当日绝对秒；取帧必须换算成该段录像内的偏移。"""
+    from types import SimpleNamespace
+
+    clip = SimpleNamespace(
+        id='clip-1', relpath='a/b.mp4', camera_name='2-1',
+        start_local='2026-10-23T15:00:00', duration_seconds=60.0,
+    )
+    run = SimpleNamespace(
+        anchor_json={'camera_label': '2-1', 'anchor_seconds': 54000.0},
+        scope_json={'segment_seconds': 4.0, 'gap_seconds': 2.0, 'max_windows': 1},
+    )
+    plans = m6_run_worker.plan_windows(run, [clip], set())
+    assert plans and plans[0]['start_seconds'] == 54002.0
+    assert plans[0]['seek_seconds'] == 2.0
+    assert plans[0]['duration_seconds'] == 4.0
+
+
+def test_planner_skips_unmatched_camera_clip(env):
+    """未匹配摄像头的段只有 OCR 名称，不能作为后续窗口。"""
+    client, Session, tmp = env
+    seed = _seed(Session, tmp, match_status='unmatched')
+    with Session() as db:
+        assert m6_run_worker._case_clips(db, seed['case_id']) == []
+
+
+def test_window_budget_counts_windows_already_analyzed():
+    """max_windows 是整次任务的预算，审核通过后不会无限追加窗口。"""
+    from types import SimpleNamespace
+
+    clip = SimpleNamespace(
+        id='clip-1', relpath='a/b.mp4', camera_name='2-1',
+        start_local='2026-10-23T15:00:00', duration_seconds=60.0,
+        match_status='matched',
+    )
+    run = SimpleNamespace(
+        anchor_json={'camera_label': '2-1', 'anchor_seconds': 54000.0},
+        scope_json={'segment_seconds': 4.0, 'gap_seconds': 2.0, 'max_windows': 1},
+    )
+    assert m6_run_worker.plan_windows(run, [clip], {'2-1@54002.0'}) == []
+
+
+def test_one_execution_advances_one_camera():
+    """每次执行只分析下一个镜头；预算控制整次任务的总窗口数。"""
+    from types import SimpleNamespace
+
+    def clip(camera, cid):
+        return SimpleNamespace(
+            id=cid, relpath='a/%s.mp4' % cid, camera_name=camera,
+            start_local='2026-10-23T15:00:00', duration_seconds=60.0,
+            match_status='matched',
+        )
+
+    run = SimpleNamespace(
+        anchor_json={'camera_label': '2-2', 'anchor_seconds': 54000.0},
+        scope_json={'segment_seconds': 4.0, 'gap_seconds': 2.0, 'max_windows': 3},
+    )
+    clips = [clip('2-1', 'c1'), clip('2-2', 'c2')]
+    plans = m6_run_worker.plan_windows(run, clips, set())
+    assert len(plans) == 1 and plans[0]['camera_label'] == '2-1'
+    next_plans = m6_run_worker.plan_windows(run, clips, {plans[0]['key']})
+    assert len(next_plans) == 1 and next_plans[0]['camera_label'] == '2-2'

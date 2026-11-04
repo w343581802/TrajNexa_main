@@ -15,6 +15,7 @@ const emit = defineEmits<{ (event: "test-image"): void }>();
 const PAGE_SIZE = 10;
 const smallModels = ref<M5ImageModel[]>([]);
 const visionModels = ref<M5VisionModel[]>([]);
+const enabledVisionCount = computed(() => visionModels.value.filter((m) => m.enabled).length);
 const enabled = ref(false);
 const busy = ref(false);
 const error = ref("");
@@ -252,7 +253,7 @@ const selectedNames = computed(() => isSmall.value
       <span class="rb-result-text">
         <template v-if="error">目录读取失败：{{ error }}</template>
         <template v-else-if="!isSmall">全部就绪 · 共 {{ visionModels.length }} 个已注册模型，已启用
-          {{ visionModels.filter(m => m.enabled).length }} 个</template>
+          {{ enabledVisionCount }} 个</template>
         <template v-else-if="enabled">全部就绪 · 共 {{ smallModels.length }} 个检测器
           {{ busy ? "（检查中）" : "：" + smallModels.length + " 个成功，失败 0 个" }}</template>
         <template v-else>未找到检测器配置：检查 backend/config/detectors.json</template>

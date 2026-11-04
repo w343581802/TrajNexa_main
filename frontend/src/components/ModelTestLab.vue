@@ -37,6 +37,8 @@ const prompt = ref("");
 const referenceFile = ref<File | null>(null);
 const referencePreview = ref("");
 const referenceBox = ref<[number, number, number, number] | null>(null);
+const referenceBoxText = computed(() =>
+  referenceBox.value ? referenceBox.value.map((x) => x.toFixed(3)).join(", ") : "");
 const reidDetectorId = ref("");
 const reidResult = ref<M6PersonReidResult | null>(null);
 const reidBusy = ref(false);
@@ -463,7 +465,7 @@ function pickReidResult(box: [number, number, number, number]) {
             <div v-else class="empty">上传 A 后在图片上拖拽，框选参考人员。</div>
           </div>
           <p class="hint">{{ referenceBox ? "已选人员 ROI：" +
-            referenceBox.map(x => x.toFixed(3)).join(", ") : "请框选 A 中的人员；不要包含整幅背景。" }}</p>
+            referenceBox.map((x: number) => x.toFixed(3)).join(", ") : "请框选 A 中的人员；不要包含整幅背景。" }}</p>
         </div>
         <div class="reid-right">
           <h2>B · 搜索图片（上方已选图片）</h2>

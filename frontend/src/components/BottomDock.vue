@@ -267,6 +267,9 @@ onBeforeUnmount(() => {
               <button class="btn btn--danger" :disabled="wb.emptyMode" @click="actions.stopRound()">
                 <AppIcon name="stop" :size="13" />终止
               </button>
+              <button class="btn btn--outline" @click="actions.openTracking()">
+                <AppIcon name="target" :size="13" />追踪任务
+              </button>
             </div>
 
             <div class="ctl-facts num">

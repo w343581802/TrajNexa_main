@@ -453,6 +453,56 @@ export type RecordingSummary = {
   scanning: boolean;
 };
 
+export type TrackingAnchor = {
+  case_id: string; observation_id: string; media_id: string; target_id: string;
+  bbox_pixels: number[]; camera_label: string; camera_uuid: string | null;
+  map_camera_id: string | null; clip_id: string; clip_relpath: string;
+  start_local: string | null; start_of_day_seconds: number;
+  offset_in_clip_seconds: number; anchor_seconds: number;
+  clock_quality: string; time_source: string;
+};
+
+export type TrackingRunDetail = {
+  schema: string; id: string; case_id: string; observation_id: string;
+  status: "queued" | "running" | "awaiting_review" | "budget_exhausted"
+    | "unresolved" | "completed" | "failed" | "cancelled";
+  attempt: number;
+  anchor: TrackingAnchor;
+  scope: {
+    segment_seconds: number; gap_seconds: number; max_windows: number;
+    budget_frames: number; map_camera_id: string | null;
+    clock_quality: string; exploratory: boolean;
+  };
+  progress: {
+    analyzed_windows?: string[]; windows_done?: number; frames_used?: number;
+    last_camera?: string; last_window?: number[]; reason?: string;
+  };
+  candidates: number; windows: number; reviews: number;
+  error: { code: string; message: string } | null;
+  created_at: string; started_at: string | null; finished_at: string | null;
+  identity_established: false; note: string;
+};
+
+export type TrackingCandidateRow = {
+  id: string; camera_label: string; map_camera_id: string | null;
+  track_id: string; state: string; identity_status: string;
+  retrieval_score: number | null; margin_top1_top2: number | null;
+  window: [number | null, number | null]; evidence_refs: string[];
+  details: { supports?: string[]; conflicts?: string[]; unknown?: string[]; note?: string };
+  review_required: boolean; created_at: string;
+};
+
+export type TrackingWindowRow = {
+  id: string; camera_label: string; clip_id: string;
+  window: [number, number]; status: string; tracks: number;
+  cost: Record<string, number | null>; note: string; created_at: string;
+};
+
+export type TrackingReviewRow = {
+  id: string; candidate_id: string; decision: "approve" | "reject" | "revoke";
+  reviewer: string; note: string; created_at: string;
+};
+
 function jsonBody(payload: Record<string, unknown>, method: string): RequestInit {
   return { method, headers: { "content-type": "application/json" },
     body: JSON.stringify(payload) };
@@ -693,6 +743,54 @@ export const mainApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, note: note ?? null }),
     }),
+
+  /* ---------------------------- 案件内追踪任务（B8） ---------------------------- */
+
+  createTrackingRun: (caseId: string, body: {
+    observation_id: string; clip_id: string; offset_seconds?: number;
+    segment_seconds?: number; gap_seconds?: number;
+    max_windows?: number; budget_frames?: number;
+  }) => request<TrackingRunDetail>(
+    `/cases/${encodeURIComponent(caseId)}/tracking-runs`,
+    jsonBody(body as Record<string, unknown>, "POST"),
+  ),
+
+  listTrackingRuns: (caseId: string) =>
+    request<TrackingRunDetail[]>(`/cases/${encodeURIComponent(caseId)}/tracking-runs`),
+
+  getTrackingRun: (caseId: string, runId: string) =>
+    request<TrackingRunDetail>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}`,
+    ),
+
+  listTrackingCandidates: (caseId: string, runId: string) =>
+    request<TrackingCandidateRow[]>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/candidates`,
+    ),
+
+  listTrackingWindows: (caseId: string, runId: string) =>
+    request<TrackingWindowRow[]>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/windows`,
+    ),
+
+  listTrackingReviews: (caseId: string, runId: string) =>
+    request<TrackingReviewRow[]>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/reviews`,
+    ),
+
+  reviewTrackingCandidate: (caseId: string, runId: string, body: {
+    candidate_id: string; decision: "approve" | "reject" | "revoke";
+    reviewer?: string; note?: string;
+  }) => request<{ review: TrackingReviewRow; run: TrackingRunDetail }>(
+    `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/reviews`,
+    jsonBody(body as Record<string, unknown>, "POST"),
+  ),
+
+  cancelTrackingRun: (caseId: string, runId: string) =>
+    request<TrackingRunDetail>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/cancel`,
+      { method: "POST" },
+    ),
 
   rematchRecordingSource: (sourceId: string) =>
     request<{ source_id: string; updated: number; unchanged: number; human_kept: number }>(

@@ -13,9 +13,14 @@ import {
   mainApi,
   type CaseDeleteResult,
   type CaseItem,
+  type M4Observation,
   type RecordingClip,
   type RecordingSource,
   type RecordingSummary,
+  type TrackingCandidateRow,
+  type TrackingReviewRow,
+  type TrackingRunDetail,
+  type TrackingWindowRow,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -138,6 +143,8 @@ export const ui = reactive({
   dockHeight: 264,
   /** 任务控制卡片统一显示缩略图还是缩略视频 */
   dockThumbMode: storedThumbMode(),
+  /** 案件内追踪任务弹窗（B8-C） */
+  trackingOpen: false,
   /** 人工审核弹窗：正在审哪一段 */
   reviewClipOpen: false,
   reviewClipJobId: null as string | null,
@@ -171,6 +178,33 @@ export const recordingError = ref<string | null>(null);
 export const recordingCameraUuids = computed<Set<string>>(
   () => new Set(recordingSummary.value?.camera_uuids ?? []),
 );
+
+/* --------------------------- 案件内追踪任务（B8） --------------------------- */
+
+/** 真实后端任务：不再用内存模拟 run。创建后由 worker 分析真实录像。 */
+export const caseObservations = ref<M4Observation[]>([]);
+export const trackingRuns = ref<TrackingRunDetail[]>([]);
+export const activeTrackingRun = ref<TrackingRunDetail | null>(null);
+export const trackingCandidates = ref<TrackingCandidateRow[]>([]);
+export const trackingWindows = ref<TrackingWindowRow[]>([]);
+export const trackingReviews = ref<TrackingReviewRow[]>([]);
+export const trackingLoading = ref(false);
+export const trackingError = ref<string | null>(null);
+
+export function trackingStatusText(run: TrackingRunDetail | null): string {
+  if (!run) return "未启动";
+  const map: Record<TrackingRunDetail["status"], string> = {
+    queued: "排队中",
+    running: "分析中",
+    awaiting_review: "待人工审核",
+    budget_exhausted: "预算用尽",
+    unresolved: "未找到候选",
+    completed: "已完成",
+    failed: "失败",
+    cancelled: "已取消",
+  };
+  return map[run.status] ?? run.status;
+}
 
 /* ------------------------------ 案件 ------------------------------ */
 
@@ -818,6 +852,64 @@ function applyAttributes(elementId: string, payload: ElementPayload) {
   featureStats.conflicts = featureList.value.filter((feature) => feature.conflict).length;
 }
 
+/* --------------------------- 追踪任务：读取与执行 --------------------------- */
+
+function trackingErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function loadCaseObservations(): Promise<void> {
+  if (!wb.caseId) {
+    caseObservations.value = [];
+    return;
+  }
+  try {
+    caseObservations.value = await mainApi.listCaseM4Observations(wb.caseId, 100, 0);
+  } catch (error) {
+    trackingError.value = trackingErrorMessage(error);
+    caseObservations.value = [];
+  }
+}
+
+export async function loadTrackingRuns(): Promise<void> {
+  if (!wb.caseId) {
+    trackingRuns.value = [];
+    activeTrackingRun.value = null;
+    return;
+  }
+  try {
+    trackingRuns.value = await mainApi.listTrackingRuns(wb.caseId);
+    if (!activeTrackingRun.value && trackingRuns.value.length) {
+      activeTrackingRun.value = trackingRuns.value[0];
+    }
+  } catch (error) {
+    trackingError.value = trackingErrorMessage(error);
+  }
+}
+
+export async function refreshTrackingRun(runId: string): Promise<void> {
+  if (!wb.caseId) return;
+  try {
+    const caseId = wb.caseId;
+    const [run, candidates, windows, reviews] = await Promise.all([
+      mainApi.getTrackingRun(caseId, runId),
+      mainApi.listTrackingCandidates(caseId, runId),
+      mainApi.listTrackingWindows(caseId, runId),
+      mainApi.listTrackingReviews(caseId, runId),
+    ]);
+    activeTrackingRun.value = run;
+    trackingCandidates.value = candidates;
+    trackingWindows.value = windows;
+    trackingReviews.value = reviews;
+    trackingError.value = null;
+    const index = trackingRuns.value.findIndex((item) => item.id === run.id);
+    if (index >= 0) trackingRuns.value[index] = run;
+    else trackingRuns.value.unshift(run);
+  } catch (error) {
+    trackingError.value = trackingErrorMessage(error);
+  }
+}
+
 export const actions = {
   openCases() {
     ui.caseManageOpen = true;
@@ -833,6 +925,70 @@ export const actions = {
     applyWorkspace(caseWorkspaces.get(caseId) ?? emptyWorkspace());
     void loadRecordings(caseId);
     if (announce) toast(`已切换到案件「${target.name}」`, "info");
+  },
+  openTracking() {
+    ui.trackingOpen = true;
+    void loadCaseObservations();
+    void loadTrackingRuns();
+    if (activeTrackingRun.value) void refreshTrackingRun(activeTrackingRun.value.id);
+  },
+  async openTrackingRefresh(runId?: string) {
+    const target = runId ?? activeTrackingRun.value?.id;
+    if (target) await refreshTrackingRun(target);
+  },
+  async startTrackingRun(payload: {
+    observation_id: string; clip_id: string; offset_seconds?: number;
+    segment_seconds?: number; gap_seconds?: number;
+    max_windows?: number; budget_frames?: number;
+  }): Promise<boolean> {
+    if (!wb.caseId) {
+      toast("请先选择案件", "warn");
+      return false;
+    }
+    trackingLoading.value = true;
+    trackingError.value = null;
+    try {
+      const run = await mainApi.createTrackingRun(wb.caseId, payload);
+      activeTrackingRun.value = run;
+      trackingRuns.value.unshift(run);
+      trackingCandidates.value = [];
+      trackingWindows.value = [];
+      trackingReviews.value = [];
+      toast("追踪任务已创建，等待后台读取真实录像", "ok");
+      return true;
+    } catch (error) {
+      trackingError.value = trackingErrorMessage(error);
+      toast(trackingErrorMessage(error), "danger");
+      return false;
+    } finally {
+      trackingLoading.value = false;
+    }
+  },
+  async reviewTracking(candidateId: string, decision: "approve" | "reject" | "revoke") {
+    const run = activeTrackingRun.value;
+    if (!wb.caseId || !run) return;
+    try {
+      await mainApi.reviewTrackingCandidate(wb.caseId, run.id, {
+        candidate_id: candidateId, decision,
+      });
+      toast(decision === "approve" ? "已确认候选，任务将继续搜索后续镜头"
+        : decision === "reject" ? "已否决该候选，历史事件保留" : "已撤销确认，候选回到待核实",
+      decision === "approve" ? "ok" : "warn");
+      await refreshTrackingRun(run.id);
+    } catch (error) {
+      toast(trackingErrorMessage(error), "danger");
+    }
+  },
+  async cancelTracking() {
+    const run = activeTrackingRun.value;
+    if (!wb.caseId || !run) return;
+    try {
+      await mainApi.cancelTrackingRun(wb.caseId, run.id);
+      await refreshTrackingRun(run.id);
+      toast("已取消该追踪任务；已产出的候选保留", "warn");
+    } catch (error) {
+      toast(trackingErrorMessage(error), "danger");
+    }
   },
   selectCamera(id: string | null) {
     wb.selectedCameraId = id;

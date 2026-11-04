@@ -19,6 +19,7 @@ import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
 import RecordingDirModal from "./components/modals/RecordingDirModal.vue";
 import VideoNamingModal from "./components/modals/VideoNamingModal.vue";
 import ClipReviewModal from "./components/modals/ClipReviewModal.vue";
+import TrackingRunModal from "./components/modals/TrackingRunModal.vue";
 import ToastStack from "./components/ui/ToastStack.vue";
 import { applyDemoHash, loadCases } from "./store/workbench";
 
@@ -100,6 +101,7 @@ onMounted(() => {
     <RecordingDirModal />
     <VideoNamingModal />
     <ClipReviewModal />
+    <TrackingRunModal />
     <!-- 放在添加要素之后：从添加要素弹窗里打开案件管理时叠在它上面 -->
     <CaseManageModal />
     <FeatureDetailSheet />

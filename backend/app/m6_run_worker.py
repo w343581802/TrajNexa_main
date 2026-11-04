@@ -47,6 +47,9 @@ def _case_clips(db: Session, case_id: str) -> list[RecordingClip]:
                              RecordingClip.camera_name.is_not(None))).all()
     clips = []
     for clip, _source in rows:
+        # 未匹配摄像头的段只有 OCR 名称，不能作为“下一台镜头”去分析
+        if not (clip.match_status or '').startswith(('matched', 'suggested')):
+            continue
         if (clip.camera_name or '').strip() and clip.duration_seconds and clip.start_local:
             clips.append(clip)
     return clips
@@ -66,6 +69,9 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     seg = float(scope.get('segment_seconds') or 6.0)
     gap = float(scope.get('gap_seconds') or 2.0)
     budget = int(scope.get('max_windows') or 6)
+    # 一次执行只推进一台镜头：确认/否决后由任务重新排队再走下一台，
+    # 这样“连续追踪”是逐步推进的，不会一口气把预算全花掉。
+    remaining = min(budget - len(done), 1)
 
     by_camera: dict[str, list[RecordingClip]] = {}
     for clip in clips:
@@ -77,7 +83,7 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
 
     plans: list[dict] = []
     for label in order:
-        if len(plans) >= budget:
+        if len(plans) >= remaining:
             break
         start = anchor_seconds + gap
         for clip in sorted(by_camera[label], key=lambda c: c.start_local or ''):
@@ -90,9 +96,15 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
             key = '%s@%.1f' % (label, start)
             if key in done:
                 break
+            end = min(start + seg, clip_end)
             plans.append({'camera_label': label, 'clip_id': clip.id,
-                          'clip_relpath': clip.relpath, 'start_seconds': round(start, 3),
-                          'end_seconds': round(min(start + seg, clip_end), 3),
+                          'clip_relpath': clip.relpath,
+                          # 绝对当日秒用于展示与跨镜头比较；seek 必须相对本段录像
+                          'start_seconds': round(start, 3),
+                          'clip_start_seconds': round(clip_start, 3),
+                          'seek_seconds': round(max(0.0, start - clip_start), 3),
+                          'duration_seconds': round(max(0.1, end - start), 3),
+                          'end_seconds': round(end, 3),
                           'key': key})
             break
     return plans[:budget]
@@ -272,8 +284,10 @@ class RecordingAnalyzer:
         with SessionLocal() as db:
             _clip, path = resolve_case_clip(db, case_id=self.run.case_id, clip_id=plan['clip_id'])
         out_dir.mkdir(parents=True, exist_ok=True)
+        seek = float(plan.get('seek_seconds') or 0.0)
         extraction = m6_recording_source.extract_window_frames(
-            path, plan['start_seconds'], plan['end_seconds'], self.fps, out_dir)
+            path, seek, seek + float(plan.get('duration_seconds') or 4.0),
+            self.fps, out_dir)
         result = analyze_window(
             out_dir, start_index=0, end_index=extraction['frames'] - 1, fps=self.fps,
             osd_anchor_seconds=plan['start_seconds'], camera=plan['camera_label'],

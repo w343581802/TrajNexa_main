@@ -65,21 +65,35 @@ def extract_window_frames(video_path, start_seconds, end_seconds, fps, out_dir,
     if not cap.isOpened():
         raise RecordingFrameError('recording_unreadable')
     try:
-        cap.set(cv2.CAP_PROP_POS_MSEC, start * 1000.0)
+        native_fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        if native_fps <= 0 or native_fps > 240:
+            native_fps = float(fps)
+        # 按帧号定位，比 MSEC 在部分容器/长录像上可靠；定位失败时下面的
+        # 首帧校验会显式报错，绝不从 0 开始解码整段录像冒充窗口。
+        start_frame = max(0, int(round(start * native_fps)))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
         interval = 1.0 / float(fps)
         next_sample = start
         first_pts = None
         saved = 0
         attempted = 0
         read_failed = 0
+        reads = 0
+        max_reads = int((end - start + 5.0) * native_fps) + 30
         while saved < max_frames:
             ok, frame = cap.read()
             if not ok or frame is None:
                 read_failed += 1
                 break
-            pts = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            reads += 1
+            if reads > max_reads:
+                raise RecordingFrameError('window_decode_budget_exceeded')
+            position = float(cap.get(cv2.CAP_PROP_POS_FRAMES) or 0.0)
+            pts = max(0.0, (position - 1.0) / native_fps)
             if first_pts is None:
                 first_pts = pts
+                if start_frame > 0 and pts + 2.0 < start:
+                    raise RecordingFrameError('seek_not_effective')
             if pts + 1e-6 < next_sample:
                 continue
             if pts > end + 0.05:
