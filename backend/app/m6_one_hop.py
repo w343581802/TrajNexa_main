@@ -53,9 +53,14 @@ def run_one_hop(*, anchor, time_maps, predictions, analyze, score, spatial,
         time_map = time_maps[name]
         first = time_at(time_map, time_map["start_index"])
         last = time_at(time_map, time_map["start_index"] + time_map["frame_count"] - 1)
-        if first is None or start < first - 0.2 or end > last + 0.2:
+        if first is None or end < first - 0.2 or start > last + 0.2:
             return {"available": False, "reason": "outside_frozen_frames"}
-        return {"available": True}
+        lo, hi = max(start, first), min(end, last)
+        if hi <= lo:
+            return {"available": False, "reason": "outside_frozen_frames"}
+        # 窗口尾部超出录像末尾时只分析实际存在的部分，不能整段丢弃
+        return {"available": True, "ranges": [(lo, hi)],
+                "partial": (lo, hi) != (start, end)}
 
     params = {"segment_seconds": segment_seconds, "max_decoded_frames": max_decoded_frames}
     state = snapshot or {}

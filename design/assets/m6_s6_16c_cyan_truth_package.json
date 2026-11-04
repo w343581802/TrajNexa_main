@@ -1,0 +1,87 @@
+{
+ "schema": "m6-truth-package/1",
+ "case_id": "cyan-child-rider",
+ "generated_from": "human_review_2026-11-05",
+ "exploratory": true,
+ "observations": [
+  {
+   "observation_id": "cyan-child-rider/f9cc5b92-uuid-2-2/434",
+   "case_id": "cyan-child-rider",
+   "target_id": "cyan-child-rider",
+   "camera_uuid": "f9cc5b92-uuid-2-2",
+   "map_camera_id": "9000000000000057",
+   "tracklet_id": "434",
+   "recording_id": "rec-2-2",
+   "osd_anchor_seconds": 54061.2,
+   "osd_end_seconds": 54063.4,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "human_confirmed",
+   "reviewer": "张三",
+   "reviewed_at": "2026-11-05T14:30:00+08:00",
+   "evidence": [
+    "frame:2-2/0322.jpg",
+    "frame:2-2/0327.jpg",
+    "frame:2-2/0333.jpg",
+    "tracks:2-2#434"
+   ],
+   "source": "human_review",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": "source_video=YD-桂康路中仁路T口2-2_20261023_145957.mp4; frames 0322-0333 (frame 321-332); 12 detections"
+  },
+  {
+   "observation_id": "cyan-child-rider/4b2d2ec2-uuid-1-1/225",
+   "case_id": "cyan-child-rider",
+   "target_id": "cyan-child-rider",
+   "camera_uuid": "4b2d2ec2-uuid-1-1",
+   "map_camera_id": "9000000000000037",
+   "tracklet_id": "225",
+   "recording_id": "rec-1-1",
+   "osd_anchor_seconds": 54066.4,
+   "osd_end_seconds": 54069.2,
+   "osd_uncertainty_seconds": 0.2,
+   "clock_quality": "uncalibrated",
+   "binding_status": "pending_human_review",
+   "status": "candidate",
+   "reviewer": null,
+   "reviewed_at": null,
+   "evidence": [
+    "frame:1-1/0348.jpg",
+    "frame:1-1/0355.jpg",
+    "frame:1-1/0362.jpg",
+    "tracks:1-1#225"
+   ],
+   "source": "model_candidate",
+   "synthetic": false,
+   "revoked_reason": null,
+   "note": "未人工确认；占位时间 54063.0-54066.0 已按实测更正为 54066.4-54069.2"
+  }
+ ],
+ "transitions": [],
+ "bindings": [
+  {
+   "camera_label": "1-1",
+   "camera_uuid": "f9cc5b92-e85f-4c3d-bdf8-5694290825d2",
+   "map_camera_id": "9000000000000037",
+   "binding_status": "pending_human_review",
+   "evidence": "Map 名称同名，未现场核对角度"
+  },
+  {
+   "camera_label": "2-1",
+   "camera_uuid": "4b2d2ec2-a5ce-4546-977f-53d95fd6de81",
+   "map_camera_id": "9000000000000058",
+   "binding_status": "pending_human_review",
+   "evidence": "Map 名称同名，未现场核对角度"
+  },
+  {
+   "camera_label": "2-2",
+   "camera_uuid": "802e415e-3a22-4c94-abb0-e29970c6bb98",
+   "map_camera_id": "9000000000000057",
+   "binding_status": "pending_human_review",
+   "evidence": "Map 名称同名，未现场核对角度"
+  }
+ ],
+ "problems": []
+}

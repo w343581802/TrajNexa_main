@@ -138,6 +138,12 @@ class CameraScheduler:
             if ranges:
                 clipped = _clip_to_ranges(start, end, ranges)
                 if clipped is None:
+                    if end <= action["cursor"]:
+                        # 游标已在录像末尾之外：不能再前进，标记不可用，避免空转
+                        action["state"] = "no_valid_observation"
+                        action["reason"] = "outside_frozen_frames"
+                        self.cursor += 1
+                        continue
                     action["cursor"] = end
                     action["partial_recording"] = True
                     continue

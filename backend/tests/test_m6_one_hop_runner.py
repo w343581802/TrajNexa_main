@@ -286,3 +286,44 @@ def test_full_session_snapshot_resumes_without_losing_candidates():
     pool_ids = {c["candidate_id"] for c in second["candidate_pool"]}
     assert {c["candidate_id"] for c in first["candidate_pool"]} <= pool_ids
     assert second["session"]["main_chain"] == ["A"]
+
+
+def test_window_past_recording_end_is_clipped_not_skipped():
+    short_maps = {"2-1": frame_time_map("rec-2-1", "u21", 53998.0, 5.0, frame_count=50)}
+    a = _anchor()
+    a["camera_ids"] = {"37": "1-1", "58": "2-1"}
+    result = run_one_hop(anchor=a, time_maps=short_maps,
+                         predictions=[{"camera": "58", "priority": "high",
+                                       "estimated_window": [54002.0, 54020.0],
+                                       "search_window": [54002.0, 54020.0]}],
+                         analyze=_analyze, score=_score, spatial=_spatial)
+    assert result["steps"], "尾部越界应分析可用部分"
+    assert result["steps"][0]["scheduled_window"][1] <= 54007.8
+    assert result["ledger"]["measured_frames"] > 0
+
+
+def test_window_fully_outside_recording_is_still_skipped():
+    short_maps = {"2-1": frame_time_map("rec-2-1", "u21", 53998.0, 5.0, frame_count=50)}
+    result = run_one_hop(anchor=_anchor(), time_maps=short_maps,
+                         predictions=[{"camera": "58", "priority": "high",
+                                       "estimated_window": [54100.0, 54110.0],
+                                       "search_window": [54100.0, 54110.0]}],
+                         analyze=_analyze, score=_score, spatial=_spatial)
+    assert result["steps"] == []
+    assert result["ledger"]["measured_frames"] == 0
+
+
+def test_expanded_search_stops_at_recording_end():
+    short_maps = {"2-1": frame_time_map("rec-2-1", "u21", 53998.0, 5.0, frame_count=120)}
+
+    def weak_score(label, window):
+        return [{"track_id": "t1", "retrieval_score": 0.5}]
+
+    result = run_one_hop(anchor=_anchor(), time_maps=short_maps,
+                         predictions=[{"camera": "58", "priority": "high",
+                                       "estimated_window": [54002.0, 54008.0],
+                                       "search_window": [54002.0, 54040.0]}],
+                         analyze=_analyze, score=weak_score, spatial=_spatial)
+    ends = [s["scheduled_window"][1] for s in result["steps"]]
+    assert ends and max(ends) <= 54021.9
+    assert result["scheduler_state"]["stopped"] is None
