@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
+from app import model_capabilities  # noqa: E402
 from app.m6_one_hop import run_one_hop  # noqa: E402
 from app.m6_person_reid import _get_engine  # noqa: E402
 from app.m6_spatial_adapter import bind_channel, camera_spec, load_bindings  # noqa: E402
@@ -82,6 +83,8 @@ def main():
     parser.add_argument("--snapshot-in", default=None)
     parser.add_argument("--snapshot-out", default=None)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--task", default="m6.one_hop",
+                        help="任务级模型配置名（config/model_capabilities.json）")
     args = parser.parse_args()
 
     started = time.time()
@@ -279,6 +282,7 @@ def main():
                            "cross_camera_identity_merged": False},
                "scheduler_state": result["scheduler_state"],
                "elapsed_seconds": round(time.time() - started, 1)}
+    model_capabilities.stamp(payload, task=args.task)
     Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     if args.snapshot_out:
         Path(args.snapshot_out).write_text(json.dumps(result["session_state"]),

@@ -1,0 +1,36 @@
+{
+  "schema": "m6-model-capabilities/1",
+  "note": "B7-A 能力层配置：换模型只改这里。object_detection 的 id 来自 config/detectors.json；person_reid 的 path 必须在 backend/models/ 内；attribute_extraction / visual_grounding 的 id 来自 M5 视觉模型注册表。",
+  "default": {
+    "object_detection": "dfine-n",
+    "person_reid": "osnet_x0_25",
+    "attribute_extraction": "qwen3vl4b",
+    "visual_grounding": "none"
+  },
+  "tasks": {
+    "m6.one_hop": {
+      "object_detection": "dfine-n",
+      "person_reid": "osnet_x0_25",
+      "attribute_extraction": "qwen3vl4b",
+      "visual_grounding": "none"
+    }
+  },
+  "fallbacks": {
+    "object_detection": [
+      "yolo11n"
+    ],
+    "person_reid": [],
+    "attribute_extraction": [
+      "qwen3vl"
+    ],
+    "visual_grounding": []
+  },
+  "models": {
+    "osnet_x0_25": {
+      "capability": "person_reid",
+      "provider": "onnxruntime",
+      "name": "OSNet x0.25 (MSMT17)",
+      "path": "models/reid/osnet_x0_25_msmt17_b1.onnx"
+    }
+  }
+}

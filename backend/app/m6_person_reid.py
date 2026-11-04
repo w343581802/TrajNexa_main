@@ -27,7 +27,19 @@ _ENGINE_CACHE: dict = {}
 def _model_path() -> tuple[Path, str]:
     root = Path(__file__).resolve().parents[1]
     model_dir = (root / "models").resolve()
-    source = (settings.m6_person_reid_model_path or "").strip()
+    # B7-A：能力层配置优先，环境变量作为兜底；换权重只改配置，不改代码。
+    from app import model_capabilities
+
+    source = (model_capabilities.reid_model_path() or "").strip()
+    env_source = (settings.m6_person_reid_model_path or "").strip()
+    if env_source:
+        # 环境变量仍然显式校验：不允许借它把权重指到 models/ 之外。
+        env_path = (root / env_source).resolve()
+        if (not env_path.is_relative_to(model_dir) or
+                env_path.suffix.lower() != ".onnx"):
+            raise ReIDError("m6_reid_model_path_invalid")
+    if not source:
+        source = env_source
     if not source:
         raise ReIDError("m6_reid_model_unconfigured")
     candidate = (root / source).resolve()
