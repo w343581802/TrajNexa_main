@@ -169,7 +169,7 @@ function m4MatchesStored(): boolean {
   return !!b && !!record && record.media_id === selectedMediaId.value &&
     record.object_class === category.value &&
     !!original && original.length === 4 &&
-    original.every((value, index) => Math.abs(value - b[index]) < 0.000001);
+    original.every((value, index) => Math.abs(value - b[index]) < 0.0001);
 }
 const m4History = ref<M4Observation[]>([]);
 const m4HistoryBusy = ref(false);
@@ -1006,7 +1006,7 @@ async function save(keepOpen: boolean) {
             <input v-model="m4Note" class="input" placeholder="选取依据（可留空，自动生成）" maxlength="500" />
             <button class="btn btn--sm btn--primary" type="button"
               :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">
-              {{ m4Busy ? "保存中…" : "保存为目标要素" }}
+              {{ m4Busy ? "保存中…" : "保存区域观测" }}
             </button>
           </div>
           <p v-if="m4Error" class="ae-error">{{ m4Error }}</p>

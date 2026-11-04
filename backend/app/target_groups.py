@@ -6,7 +6,7 @@ All rows are case-scoped; media must belong to the same case. No identity assert
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,6 +21,15 @@ RELATION_STATUS = ('image_observed', 'model_proposed', 'human_verified', 'reject
 ATTR_STATUS = ('known', 'unknown', 'not_applicable')
 ATTR_REVIEW = ('human_verified', 'model_proposed', 'human_rejected', 'unknown')
 MAX_OBJECTS = 8
+
+
+def _object_row_id(group_id: str, client_id: str) -> str:
+    """对象主键用组内哈希：客户端 id 只在组内唯一，不能当全局主键。"""
+    try:
+        # PATCH 回传的是已有行 id；复用，避免同一对象每次编辑换主键。
+        return str(UUID(client_id))
+    except (ValueError, TypeError):
+        return str(uuid5(NAMESPACE_URL, f"target-object:{group_id}:{client_id}"))
 
 
 class TargetGroupError(ValueError):
@@ -142,19 +151,20 @@ def _validate(db: Session, case_id: str, payload: dict) -> tuple[MediaAsset, dic
 
 
 def _write_children(db: Session, group_id: str, objects, relations, attributes) -> None:
+    mapping = {obj['id']: _object_row_id(group_id, obj['id']) for obj in objects}
     for obj in objects:
-        db.add(TargetElementObject(id=obj['id'], group_id=group_id,
+        db.add(TargetElementObject(id=mapping[obj['id']], group_id=group_id,
                                    object_class=obj['object_class'], role=obj['role'],
                                    bbox_norm_xyxy=obj['bbox'],
                                    m4_observation_id=obj['m4_observation_id']))
     for rel in relations:
         db.add(TargetObjectRelation(id=str(uuid4()), group_id=group_id,
-                                    subject_id=rel['subject_id'], predicate=rel['predicate'],
-                                    object_id=rel['object_id'], status=rel['status'],
+                                    subject_id=mapping[rel['subject_id']], predicate=rel['predicate'],
+                                    object_id=mapping[rel['object_id']], status=rel['status'],
                                     temporal_verified=False, note=rel['note']))
     for attr in attributes:
         db.add(TargetObjectAttribute(id=str(uuid4()), group_id=group_id,
-                                     subject_id=attr['subject_id'], name=attr['name'],
+                                     subject_id=mapping[attr['subject_id']], name=attr['name'],
                                      value=attr['value'],
                                      observation_status=attr['observation_status'],
                                      review_state=attr['review_state'],
@@ -164,8 +174,9 @@ def _write_children(db: Session, group_id: str, objects, relations, attributes) 
 
 def create_group(db: Session, case_id: str, payload: dict) -> TargetElementGroup:
     media, primary, objects, relations, attributes, source = _validate(db, case_id, payload)
-    group = TargetElementGroup(id=str(uuid4()), case_id=case_id, media_id=media.id,
-                               primary_object_id=primary['primary'],
+    group_id = str(uuid4())
+    group = TargetElementGroup(id=group_id, case_id=case_id, media_id=media.id,
+                               primary_object_id=_object_row_id(group_id, primary['primary']),
                                source_json=source, revision=1, status='saved')
     db.add(group)
     db.flush()
@@ -243,7 +254,7 @@ def patch_group(db: Session, case_id: str, group_id: str, payload: dict) -> Targ
             db.delete(row)
     db.flush()
     _write_children(db, group.id, objects, relations, attributes)
-    group.primary_object_id = primary['primary']
+    group.primary_object_id = _object_row_id(group.id, primary['primary'])
     group.source_json = source
     group.revision += 1
     group.updated_at = _utcnow()

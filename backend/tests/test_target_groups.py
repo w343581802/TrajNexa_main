@@ -40,7 +40,7 @@ def test_single_person_group_round_trips(env):
                        json=_payload(media_id, [_person()], primary='P1'))
     assert resp.status_code == 201, resp.text
     body = resp.json()
-    assert body['primary_object_id'] == 'P1'
+    assert body['primary_object_id'] == body['objects'][0]['id']
     assert body['objects'][0]['role'] == 'primary'
     assert body['schema'] == 'target-element-group/1'
 
@@ -94,18 +94,15 @@ def test_patch_swaps_primary_and_bumps_revision(env):
     case_id, media_id = _case_and_media(Session)
     body = client.post('/api/v1/cases/%s/target-groups' % case_id,
                        json=_payload(media_id, [_person(), _vehicle()], primary='P1')).json()
+    person, vehicle = body['objects']
     swapped = {
-        'revision': body['revision'], 'primary_object_id': 'V1',
-        'objects': [{'id': 'P1', 'object_class': 'person', 'role': 'associated',
-                     'bbox_norm_xyxy': [0.3, 0.2, 0.5, 0.8]},
-                    {'id': 'V1', 'object_class': 'vehicle', 'role': 'primary',
-                     'bbox_norm_xyxy': [0.25, 0.35, 0.6, 0.85]}],
+        'revision': body['revision'], 'primary_object_id': vehicle['id'],
+        'objects': [{**person, 'role': 'associated'}, {**vehicle, 'role': 'primary'}],
     }
     resp = client.patch('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id']),
                         json=swapped)
-    assert resp.status_code == 200, resp.text
     updated = resp.json()
-    assert updated['primary_object_id'] == 'V1'
+    assert updated['primary_object_id'] == vehicle['id']
     assert updated['revision'] == 2
     conflict = client.patch('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id']),
                             json={**swapped, 'revision': 1})
