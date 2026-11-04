@@ -254,24 +254,31 @@ def main():
             scored.append({"track_id": track["track_id"],
                            "retrieval_score": None if best is None else round(best, 3)})
         if args.attribute_top > 0 and scored:
-            best_item = max(scored, key=lambda item: item.get("retrieval_score") or 0)
-            track = next((t for t in (window.get("tracks") or [])
-                          if t["track_id"] == best_item["track_id"]), None)
-            obs = (track or {}).get("observations") or []
-            if obs:
-                image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, int(obs[0]["frame_id"]) + 1))
-                if image is not None:
-                    try:
-                        attr = m6_attributes.extract(image, obs[0]["bbox"],
-                                                     task=args.task, mode=args.strategy)
-                        best_item["attributes"] = attr
-                        attribute_records.append({"camera": name,
-                                                  "window_id": window.get("window_id"),
-                                                  "track_id": best_item["track_id"],
-                                                  "retrieval_score": best_item["retrieval_score"],
-                                                  "attributes": attr})
-                    except Exception as exc:  # 属性只是证据，失败不影响追踪
-                        best_item["attributes_error"] = type(exc).__name__
+            ranked = sorted(scored, key=lambda item: item.get("retrieval_score") or 0,
+                            reverse=True)[:args.attribute_top]
+            for rank, best_item in enumerate(ranked, start=1):
+                track = next((t for t in (window.get("tracks") or [])
+                              if t["track_id"] == best_item["track_id"]), None)
+                obs = (track or {}).get("observations") or []
+                if not obs:
+                    continue
+                frame_id = int(obs[0]["frame_id"]) + 1
+                image = cv2.imread("%s/%s/%04d.jpg" % (args.frames, name, frame_id))
+                if image is None:
+                    continue
+                try:
+                    attr = m6_attributes.extract(image, obs[0]["bbox"],
+                                                 task=args.task, mode=args.strategy)
+                    best_item["attributes"] = attr
+                    attribute_records.append({
+                        "camera": name, "window_id": window.get("window_id"),
+                        "rank_in_window": rank, "track_id": best_item["track_id"],
+                        "retrieval_score": best_item["retrieval_score"],
+                        "image_ref": "%s/%04d.jpg" % (name, frame_id),
+                        "tracklet_ref": "%s@%s" % (name, window.get("window_id")),
+                        "attributes": attr})
+                except Exception as exc:  # 属性只是证据，失败不影响追踪
+                    best_item["attributes_error"] = type(exc).__name__
         return scored
 
     attribute_records = []

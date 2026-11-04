@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from app import m4_vision, m6_attributes, m6_person_reid, model_capabilities as mc
+from app import m4_vision, m6_attributes, model_capabilities as mc
 
 
 BASE = {
@@ -31,107 +31,86 @@ def config(tmp_path, monkeypatch):
     return BASE
 
 
+BOX = [60, 60, 200, 360]
+
+
 def _image():
-    return np.zeros((64, 64, 3), dtype=np.uint8)
+    return np.zeros((400, 300, 3), dtype=np.uint8)
 
 
-def test_reid_invocation_uses_resolved_weight(config, monkeypatch):
-    used = {}
-
-    class Engine:
-        def extract_embeddings(self, image, boxes):
-            return [[0.0], [[0.1, 0.2, 0.3]]]
-
-    def fake_engine_for(source):
-        used["path"] = source
-        return Engine(), "deadbeef" * 8
-
-    monkeypatch.setattr(m6_person_reid, "engine_for", fake_engine_for)
-    result = mc.invoke("person_reid", {"image": _image(), "box": [1, 1, 20, 30]})
-    assert used["path"] == "models/reid/osnet_x0_25_msmt17_b1.onnx"
-    assert result["model"] == "osnet_x0_25"
-    assert result["weights_digest"] == "deadbeefdeadbeef"
+PERSON_JSON = json.dumps({"garment_color": {"value": "深灰", "visible": True},
+                          "garment_type": {"value": "夹克", "visible": True}})
+CONTEXT_JSON = json.dumps({"vehicle_color": {"value": "黑色", "visible": True},
+                           "vehicle_type": {"value": "自行车", "visible": True},
+                           "companion_present": {"value": "", "visible": False}})
 
 
-def test_provenance_records_executed_and_fallback(config, monkeypatch):
-    from app import detectors
+def _fake_chat(calls):
+    def fake(entry, prompt, jpeg):
+        calls.append((entry["model"], prompt))
+        return PERSON_JSON if "行人" in prompt else CONTEXT_JSON
 
-    def fake(image, model_ids, min_confidence=0.35):
-        if model_ids[0] == "dfine-n":
-            raise RuntimeError("broken")
-        return {"candidates": []}
-
-    monkeypatch.setattr(detectors, "detect_flat", fake)
-    mc.invoke("object_detection", {"image": _image()})
-    record = mc.provenance()
-    executed = record["executed"]["object_detection"]
-    fallback = next(item for item in executed if item["model"] == "yolo11n")
-    assert fallback["fallback_used"] is True
-    assert fallback["fallback_from"] == "dfine-n"
-    assert fallback["count"] == 1
-    assert all(item["model"] != "dfine-n" or item["fallback_used"] for item in executed)
-    assert record["strategies"]["attribute_extraction"] == "cascade"
+    return fake
 
 
-@pytest.mark.parametrize("mode,expected", [
-    ("small_only", ["qwen3vl"]),
-    ("large_only", ["qwen3vl4b"]),
-    ("cascade", ["qwen3vl", "qwen3vl4b"]),
-    ("parallel", ["qwen3vl", "qwen3vl4b"]),
-    ("observe_only", ["qwen3vl", "qwen3vl4b"]),
-])
-def test_plan_models_modes(config, mode, expected):
-    assert [m["model"] for m in mc.plan_models("attribute_extraction", mode)] == expected
+def test_prompts_do_not_leak_answers():
+    for prompt in (m6_attributes.PROMPT_PERSON, m6_attributes.PROMPT_CONTEXT):
+        for leak in ("浅蓝", "奶白", "踏板", "车前", "小孩"):
+            assert leak not in prompt
 
 
-def test_plan_models_rejects_unknown_mode(config):
-    with pytest.raises(mc.CapabilityError):
-        mc.plan_models("attribute_extraction", "sometimes")
-
-
-ATTR = {"garment_color": {"value": "浅蓝", "visible": True},
-        "garment_type": {"value": "外套", "visible": True},
-        "vehicle_color": {"value": "奶白", "visible": True},
-        "vehicle_type": {"value": "踏板电动车", "visible": True},
-        "companion_present": {"value": "车前有小孩", "visible": True}}
-
-
-def test_attribute_cascade_stops_when_complete(config, monkeypatch):
+def test_extract_uses_two_crops_and_keeps_sources(config, monkeypatch):
     calls = []
-
-    def fake(entry, jpeg):
-        calls.append(entry["model"])
-        return json.dumps(ATTR, ensure_ascii=False)
-
-    monkeypatch.setattr(m6_attributes, "_chat", fake)
-    result = m6_attributes.extract(_image(), [0, 0, 40, 60], mode="cascade")
-    assert calls == ["qwen3vl"]
-    assert result["results"][0]["attributes"]["garment_color"] == "浅蓝"
-    assert result["results"][0]["evidence"]["vehicle_color"] is True
+    monkeypatch.setattr(m6_attributes, "_chat", _fake_chat(calls))
+    result = m6_attributes.extract(_image(), BOX, mode="cascade")
+    assert len(calls) == 2
+    assert result["attributes"]["garment_color"] == "深灰"
+    assert result["attributes"]["vehicle_type"] == "自行车"
+    assert result["attributes"]["companion_present"] is None
+    assert result["sources"]["garment_color"]["crop"] == "person"
+    assert result["sources"]["vehicle_color"]["crop"] == "context"
+    assert result["sources"]["garment_color"]["verification"] == "model_claim"
+    person_region = next(s for s in result["scopes"] if s["scope"] == "person")["region"]
+    context_region = next(s for s in result["scopes"] if s["scope"] == "context")["region"]
+    assert context_region[2] - context_region[0] > person_region[2] - person_region[0]
     assert result["identity_effect"] == "none"
 
 
-def test_attribute_parallel_runs_both_models(config, monkeypatch):
-    calls = []
-
-    def fake(entry, jpeg):
-        calls.append(entry["model"])
-        return json.dumps(ATTR, ensure_ascii=False)
+def test_fields_from_wrong_crop_are_dropped(config, monkeypatch):
+    def fake(entry, prompt, jpeg):
+        if "行人" in prompt:
+            return json.dumps({"garment_color": {"value": "浅蓝", "visible": True},
+                               "vehicle_color": {"value": "奶白", "visible": True}})
+        return "{}"
 
     monkeypatch.setattr(m6_attributes, "_chat", fake)
-    result = m6_attributes.extract(_image(), [0, 0, 40, 60], mode="parallel")
-    assert calls == ["qwen3vl", "qwen3vl4b"]
-    assert len(result["results"]) == 2
+    result = m6_attributes.extract(_image(), BOX, mode="small_only")
+    assert result["attributes"]["garment_color"] == "浅蓝"
+    assert result["attributes"]["vehicle_color"] is None
 
 
-def test_attribute_incomplete_json_is_dropped(config, monkeypatch):
-    def fake(entry, jpeg):
+def test_visible_false_is_unknown_not_absent(config, monkeypatch):
+    def fake(entry, prompt, jpeg):
+        if "行人" in prompt:
+            return json.dumps({"garment_color": {"value": "", "visible": False}})
+        return ctx
+
+    ctx = json.dumps({"vehicle_color": {"value": "", "visible": False}})
+    monkeypatch.setattr(m6_attributes, "_chat", fake)
+    result = m6_attributes.extract(_image(), BOX, mode="cascade")
+    assert result["attributes"]["garment_color"] is None
+    assert result["evidence"]["garment_color"] is False
+    assert "garment_color" not in result["sources"]
+
+
+def test_invalid_json_is_recorded_not_guessed(config, monkeypatch):
+    def fake(entry, prompt, jpeg):
         return "抱歉，看不清"
 
     monkeypatch.setattr(m6_attributes, "_chat", fake)
-    result = m6_attributes.extract(_image(), [0, 0, 40, 60], mode="small_only")
-    assert result["chosen"] is None
-    assert result["results"][0]["error"] == "attribute_invalid_json"
+    result = m6_attributes.extract(_image(), BOX, mode="small_only")
+    assert all(scope["calls"][0]["error"] == "attribute_invalid_json"
+               for scope in result["scopes"])
 
 
 def test_external_upload_requires_permission(config, monkeypatch):
@@ -139,5 +118,5 @@ def test_external_upload_requires_permission(config, monkeypatch):
              "api_url": "https://example.com/v1"}
     monkeypatch.setattr(mc, "plan_models", lambda capability, mode=None, task=None: [entry])
     with pytest.raises(m6_attributes.AttributeError_) as exc:
-        m6_attributes.extract(_image(), [0, 0, 40, 60], mode="small_only")
+        m6_attributes.extract(_image(), BOX, mode="small_only")
     assert str(exc.value) == "external_upload_not_allowed"

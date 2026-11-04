@@ -138,3 +138,41 @@ def test_environment_can_point_to_another_config(tmp_path, monkeypatch):
 
 def test_invoke_respects_pinned_model(config):
     assert mc.resolve("object_detection", model="yolo11n")["model"] == "yolo11n"
+
+
+def _frames(tmp_path, count=3):
+    import cv2
+
+    for index in range(count):
+        cv2.imwrite(str(tmp_path / ("%04d.jpg" % (index + 1))),
+                    np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+def test_window_pins_backup_after_first_fallback(tmp_path, monkeypatch):
+    _frames(tmp_path)
+    calls = []
+
+    def fake_invoke(capability, payload, task=None, model=None):
+        calls.append(model)
+        if len(calls) == 1:
+            return {"candidates": [], "model": "yolo11n", "fallback_used": True}
+        return {"candidates": [], "model": model, "fallback_used": False}
+
+    monkeypatch.setattr(mc, "invoke", fake_invoke)
+    result = analyze_window(str(tmp_path), start_index=0, end_index=2, camera="c",
+                            window_id="w", task="m6.one_hop")
+    assert calls[1:] == ["yolo11n", "yolo11n"]
+    assert result["detector"]["final"] == "yolo11n"
+    assert result["detector"]["events"] == [{"frame_index": 0, "from": "dfine-n", "to": "yolo11n"}]
+
+
+def test_window_reports_detector_failure_instead_of_silent_empty(tmp_path, monkeypatch):
+    _frames(tmp_path, 1)
+
+    def broken(capability, payload, task=None, model=None):
+        raise mc.CapabilityError("capability_invoke_failed")
+
+    monkeypatch.setattr(mc, "invoke", broken)
+    result = analyze_window(str(tmp_path), start_index=0, end_index=0, camera="c", window_id="w")
+    assert result["status"] == "detector_failed"
+    assert result["reason"] == "detector_unavailable"

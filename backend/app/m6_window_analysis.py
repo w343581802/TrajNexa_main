@@ -49,6 +49,8 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
         sample_interval_seconds=1.0 / fps,
         params={"max_gap_seconds": max_gap_seconds,
                 "max_missing_frames": max_missing_frames})
+    active_detector = detector_id
+    detector_events = []
     for offset, path in enumerate(window):
         frame = cv2.imread(str(path))
         if frame is None:
@@ -58,13 +60,23 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
         cost["frames_decoded"] += 1
         timestamp = (start_index + offset) / fps
         if detector:
-            result = {"candidates": detectors.detect_flat(frame, [detector], min_confidence)["candidates"]}
+            result = {"candidates": detectors.detect_flat(frame, [detector], min_confidence)["candidates"],
+                      "model": detector, "fallback_used": False}
         else:
-            # B7-B：走能力层，模型故障时按配置回退，实际执行的模型写进 executions()。
-            result = model_capabilities.invoke(
-                "object_detection", {"image": frame, "min_confidence": min_confidence},
-                task=task, model=detector_id)
-        detectors_used.add(result.get("model"))
+            # B7-B/C0：走能力层；首次回退后把备用模型固定到本窗口结束，避免逐帧换模型。
+            try:
+                result = model_capabilities.invoke(
+                    "object_detection", {"image": frame, "min_confidence": min_confidence},
+                    task=task, model=active_detector)
+            except model_capabilities.CapabilityError:
+                return {"status": "detector_failed", "reason": "detector_unavailable",
+                        "tracks": [], "camera": camera, "window_id": window_id,
+                        "detector": {"initial": detector_id, "final": active_detector,
+                                     "events": detector_events}, "cost": cost}
+            if result.get("fallback_used"):
+                detector_events.append({"frame_index": start_index + offset,
+                                        "from": active_detector, "to": result["model"]})
+                active_detector = result["model"]
         cost["detector_frames"] += 1
         persons = [c for c in result["candidates"] if c["label"] == "人"]
         if persons:
@@ -99,4 +111,6 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
                               "last_timestamp_seconds": t["observations"][-1]["timestamp_seconds"]}
                              for t in tracks],
             "cost": cost,
+            "detector": {"initial": detector_id, "final": active_detector,
+                         "events": detector_events},
             "uncertainties": [] if absolute else ["time_mapping_missing"]}

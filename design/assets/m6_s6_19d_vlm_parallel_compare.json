@@ -1,0 +1,32 @@
+{
+ "captured": "2026-11-04",
+ "crop": "2-2/0334.jpg 青衣骑手",
+ "mode": "parallel",
+ "prompt_version": "b7c0-v3",
+ "attributes": {
+  "garment_color": "浅蓝色",
+  "garment_type": "上衣",
+  "vehicle_color": null,
+  "vehicle_type": null,
+  "companion_present": null
+ },
+ "calls": [
+  [
+   "qwen3vl",
+   1284.9
+  ],
+  [
+   "qwen3vl4b",
+   11140.9
+  ],
+  [
+   "qwen3vl",
+   6852
+  ],
+  [
+   "qwen3vl4b",
+   7839.3
+  ]
+ ],
+ "note": "两个模型都把上衣读成浅蓝；车辆与小孩在该视角被遮挡，均记为未知，不能当作“没有”。"
+}
