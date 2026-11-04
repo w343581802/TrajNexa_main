@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
                 录像索引 <b class="num">{{ indexView.files.toLocaleString() }}</b> 文件 · 有时间
                 <b class="num">{{ indexView.parsed.toLocaleString() }}</b> · 匹配 <b class="num">{{ indexView.mapped }}</b>
               </span>
-              <button class="btn btn--sm btn--ghost" @click="openRecording"><AppIcon name="plus" :size="12" />添加</button>
+              <button class="btn btn--sm btn--ghost" @click="actions.openRecordingPicker()"><AppIcon name="plus" :size="12" />添加</button>
             </div>
           </aside>
 

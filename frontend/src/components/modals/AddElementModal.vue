@@ -806,8 +806,9 @@ async function save(keepOpen: boolean) {
   // A selected ROI must have a durable, matching observation record.
   // Never place the synthetic "manual-unsaved" marker on the task timeline.
   if (m4Box.value && !m4MatchesStored()) {
-    toast("请先点击「保存区域观测」，再保存目标要素；未写库的框选不能进入轨迹", "warn");
-    return;
+    if (!selectedMediaId.value) { toast("请先上传截图并保存区域观测", "warn"); return; }
+    await analyzeM4Selection();
+    if (!m4MatchesStored()) { toast("主目标观测保存失败，未写入目标组", "danger"); return; }
   }
   if (m4Observation.value && selectedMedia.value?.case_id !== currentCase.value?.id) {
     toast("当前截图不属于所选案件，请重新打开对应案件", "danger");
