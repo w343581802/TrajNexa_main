@@ -1,11 +1,11 @@
 {
   "schema": "m6-model-capabilities/1",
-  "note": "B7-A 能力层配置：换模型只改这里。object_detection 的 id 来自 config/detectors.json；person_reid 的 path 必须在 backend/models/ 内；attribute_extraction / visual_grounding 的 id 来自 M5 视觉模型注册表。",
+  "note": "B8 稳定默认：Qwen3-VL-4B 属性证据，DFINE 检测、OSNet ReID；WeVisOne 仅保留可选 visual_grounding Provider，不作为默认执行模型。其他模型可经任务/环境配置显式切换，属性不参与身份自动确认。",
   "default": {
     "object_detection": "dfine-n",
     "person_reid": "osnet_x0_25",
     "attribute_extraction": "qwen3vl4b",
-    "visual_grounding": "wevisone_vl_2b"
+    "visual_grounding": "none"
   },
   "tasks": {
     "m6.one_hop": {
@@ -48,7 +48,7 @@
   "strategies": {
     "object_detection": "small_only",
     "person_reid": "small_only",
-    "attribute_extraction": "cascade",
+    "attribute_extraction": "large_only",
     "visual_grounding": "observe_only"
   },
   "sizes": {
