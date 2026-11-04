@@ -86,15 +86,11 @@ function syncM4Layout() {
   const img = m4Image.value;
   const parent = img?.parentElement;
   if (!img || !parent || !img.naturalWidth || !img.naturalHeight) { m4Layout.value = null; return; }
-  const rect = img.getBoundingClientRect();
-  const frame = parent.getBoundingClientRect();
-  if (!rect.width || !rect.height) { m4Layout.value = null; return; }
-  const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
+  const frameWidth = parent.clientWidth, frameHeight = parent.clientHeight;
+  if (!frameWidth || !frameHeight) { m4Layout.value = null; return; }
+  const scale = Math.min(frameWidth / img.naturalWidth, frameHeight / img.naturalHeight);
   const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
-  m4Layout.value = {
-    left: rect.left - frame.left + (rect.width - width) / 2,
-    top: rect.top - frame.top + (rect.height - height) / 2, width, height,
-  };
+  m4Layout.value = { left: (frameWidth - width) / 2, top: (frameHeight - height) / 2, width, height };
 }
 watch(m4Image, async (img) => {
   m4ResizeObserver?.disconnect(); m4ResizeObserver = null;
@@ -160,7 +156,7 @@ function m4PointerUp(event: PointerEvent) {
   if (m4Box.value && (m4Box.value[2] - m4Box.value[0] < .015 ||
       m4Box.value[3] - m4Box.value[1] < .015)) { m4Box.value = null; return; }
   // 手画框也要立刻出关键特征，和点选模型候选框是同一套反馈
-  if (m4Box.value) void loadM4Features();
+  if (m4Box.value) { void loadM4Features().then(autoFillModelFeatures); }
 }
 function m4PointerCancel() { m4Anchor.value = null; m4Box.value = null; }
 function m4MatchesStored(): boolean {
@@ -314,6 +310,10 @@ async function runDetection() {
 }
 
 async function selectM4Proposal(proposal: M4DetectCandidate) {
+  if (attrTarget.value === "assoc") {
+    pickAssocProposal(proposal);
+    return;
+  }
   const b = proposal.bbox_normalized;
   if (!selectedMedia.value || b.length !== 4 || b.some(v => !Number.isFinite(v)) ||
       !(0 <= b[0] && b[0] < b[2] && b[2] <= 1 &&
@@ -328,6 +328,17 @@ async function selectM4Proposal(proposal: M4DetectCandidate) {
   // 检测器名称/类别只是 provenance，不写进人工备注，更不能当外观特征值。
   m4Error.value = null;
   await loadM4Features();
+  autoFillModelFeatures();
+}
+
+function autoFillModelFeatures() {
+  const feats = (m4Features.value?.appearance.semantic_attributes?.features_unverified ?? [])
+    .map((f) => String(f).trim()).filter(Boolean);
+  if (!feats.length) return;
+  const row = activeAttrs.value.find((a) => !a.unknown && !a.value.trim());
+  if (!row) return;
+  row.value = feats.slice(0, 2).join(" / ").slice(0, 80);
+  row.auto = true;
 }
 
 /** 选中框后自动出来的关键特征：画质/主色（确定性）+ 外观短语（模型，可降级） */
@@ -634,31 +645,32 @@ function markTimeUnknown() {
 
 const category = ref<"person" | "vehicle" | "other">("person");
 
-const attributes = reactive([
-  { key: "上衣", value: "", unknown: false },
-  { key: "下装", value: "", unknown: false },
-  { key: "鞋", value: "", unknown: false },
-  { key: "随身物", value: "", unknown: false },
+type AttrRow = { key: string; value: string; unknown: boolean; auto: boolean };
+const attributes = reactive<AttrRow[]>([
+  { key: "上衣", value: "", unknown: false, auto: false },
+  { key: "下装", value: "", unknown: false, auto: false },
+  { key: "鞋", value: "", unknown: false, auto: false },
+  { key: "随身物", value: "", unknown: false, auto: false },
 ]);
 
-const assocAttributes = reactive([
-  { key: "车辆类型", value: "", unknown: false },
-  { key: "车身颜色", value: "", unknown: false },
-  { key: "车身标识或附属物", value: "", unknown: false },
+const assocAttributes = reactive<AttrRow[]>([
+  { key: "车辆类型", value: "", unknown: false, auto: false },
+  { key: "车身颜色", value: "", unknown: false, auto: false },
+  { key: "车身标识或附属物", value: "", unknown: false, auto: false },
 ]);
 const attrTarget = ref<"primary" | "assoc">("primary");
 const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttributes : attributes));
 
 /** 只把“明确观察到的值”或“明确未知”送到后端；空字段不产生假属性。 */
-function attrRows(list: { key: string; value: string; unknown: boolean }[], subject: string) {
+function attrRows(list: AttrRow[], subject: string) {
   return list
     .filter((attr) => attr.unknown || attr.value.trim())
     .map((attr) => ({
       subject_id: subject, name: attr.key,
       value: attr.unknown ? null : attr.value.trim() || null,
       observation_status: attr.unknown ? "unknown" : "known",
-      review_state: attr.unknown ? "unknown" : "human_verified",
-      source: "human",
+      review_state: attr.auto ? "unreviewed" : attr.unknown ? "unknown" : "human_verified",
+      source: attr.auto ? "model" : "human",
     }));
 }
 
@@ -929,6 +941,29 @@ function focusTarget(role: "primary" | "assoc") {
   attrTarget.value = role;
   if (role === "assoc" && !assocBox.value) assocMode.value = true;
 }
+const zoom = ref(1);
+const panX = ref(0);
+const panY = ref(0);
+const stageStyle = computed(() => ({ transform: `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})` }));
+function zoomBy(delta: number) {
+  zoom.value = Math.min(4, Math.max(1, Math.round((zoom.value + delta) * 100) / 100));
+  if (zoom.value === 1) { panX.value = 0; panY.value = 0; }
+}
+function resetZoom() { zoom.value = 1; panX.value = 0; panY.value = 0; }
+function onWheel(event: WheelEvent) { zoomBy(event.deltaY < 0 ? 0.25 : -0.25); }
+let panStart: { x: number; y: number; px: number; py: number } | null = null;
+function onPanStart(event: PointerEvent) {
+  if (event.button !== 1) return;
+  panStart = { x: event.clientX, y: event.clientY, px: panX.value, py: panY.value };
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+function onPanMove(event: PointerEvent) {
+  if (!panStart) return;
+  panX.value = panStart.px + (event.clientX - panStart.x);
+  panY.value = panStart.py + (event.clientY - panStart.y);
+}
+function onPanEnd() { panStart = null; }
+
 </script>
 
 <template>
@@ -978,6 +1013,7 @@ function focusTarget(role: "primary" | "assoc") {
 
         <div class="preview">
           <template v-if="selectedMedia">
+          <div class="preview-stage" :style="stageStyle" @wheel.prevent="onWheel" @pointerdown="onPanStart" @pointermove="onPanMove" @pointerup="onPanEnd" @pointercancel="onPanEnd">
             <img
               ref="m4Image"
               :src="mainApi.mediaContentUrl(selectedMedia.id)"
@@ -998,29 +1034,19 @@ function focusTarget(role: "primary" | "assoc") {
               <div v-if="assocBox" class="m4a-assoc-box" :style="assocBoxStyle"
                 :title="'关联对象（不参与主目标身份）'"></div>
             </div>
+          </div>
+          <div class="preview-zoom">
+            <button type="button" @click="zoomBy(-0.25)">−</button>
+            <span>{{ Math.round(zoom * 100) }}%</span>
+            <button type="button" @click="zoomBy(0.25)">＋</button>
+            <button type="button" @click="resetZoom">重置</button>
+          </div>
             <span class="preview-tag">只读原始画面 · 选图后自动框出候选，点框或拖拽选中</span>
           </template>
           <p v-else class="preview-empty">选择一张截图，自动识别画面角标时间与摄像头名称</p>
         </div>
 
         
-        <section v-if="selectedMedia" class="detect-panel detect-panel--compact">
-          <div class="m4-engine-row">
-            <span class="field-hint">候选 {{ m4Proposals.length }} · 点框或拖拽框选</span>
-            <select class="input input--compact" :value="-1" @change="pickProposalIndex(Number(($event.target as HTMLSelectElement).value))">
-              <option value="-1">切换候选…</option>
-              <option v-for="(proposal, index) in m4Proposals" :key="'p-' + index" :value="index">
-                {{ index + 1 }}. {{ proposal.detector_label }}<template v-if="proposal.confidence != null"> {{ Math.round(proposal.confidence * 100) }}%</template>
-              </option>
-            </select>
-            <span class="grow" />
-            <span v-if="m4Observation" class="field-hint">已保存观测</span>
-            <button type="button" class="btn btn--sm" :disabled="m4DetectBusy" @click="runDetection">{{ m4DetectBusy ? "识别中…" : "重新检测" }}</button>
-            <button type="button" class="btn btn--sm btn--primary" :disabled="m4Busy || !m4Box" @click="analyzeM4Selection">{{ m4Busy ? "保存中…" : "保存区域观测" }}</button>
-          </div>
-          <input v-model="m4Note" class="input" placeholder="选取依据（可留空）" maxlength="500" />
-          <p v-if="m4DetectError" class="field-hint">{{ m4DetectError }}</p>
-        </section>
         <p v-if="mediaError" class="ae-error">{{ mediaError }}</p>
 
       </section>
@@ -1033,20 +1059,6 @@ function focusTarget(role: "primary" | "assoc") {
             <StatusChip :label="timeUnknown ? '已标记未知' : timeStatus.label" :tone="timeUnknown ? 'muted' : timeStatus.tone" />
           </div>
 
-          <div v-if="timeList.length && !timeUnknown" class="candidates">
-            <button
-              v-for="(item, index) in timeList"
-              :key="`t-${index}`"
-              class="candidate-opt"
-              :class="{ 'is-on': timeIndex === index }"
-              @click="pickTime(index)"
-            >
-              <span class="mono">{{ item.text }}</span>
-              <span class="num dim">{{ (item.confidence * 100).toFixed(1) }}%</span>
-              <span v-if="item.date && item.time" class="dim">→ {{ item.date }} {{ item.time }}</span>
-            </button>
-          </div>
-          <p v-else-if="report && !timeUnknown" class="field-hint warn">未识别到可用时间，请手动填写或标记未知。</p>
 
           <div class="time-input">
             <input v-model="date" class="input num" type="date" :disabled="timeUnknown" aria-label="日期" />
@@ -1100,37 +1112,6 @@ function focusTarget(role: "primary" | "assoc") {
           </div>
         </div>
 
-        <div class="ae-section">
-          <div class="ae-field-head">
-            <span class="field-label">关联对象（选填）</span>
-            <span class="field-hint">独立 ROI · 仅作证据</span>
-          </div>
-          <select class="input" :value="assocProposal ? assocOptions.indexOf(assocProposal) : -1"
-            @change="pickAssocProposal(Number(($event.target as HTMLSelectElement).value) >= 0 ? assocOptions[Number(($event.target as HTMLSelectElement).value)] : null)">
-            <option :value="-1">无关联对象</option>
-            <option v-for="(proposal, index) in assocOptions" :key="'assoc-' + index" :value="index">
-              {{ proposal.detector_label }} · 候选 {{ index + 1 }}
-            </option>
-          </select>
-          <div class="assoc-actions">
-            <button type="button" class="btn btn--sm" :class="{ 'is-on': assocMode }"
-              @click="assocMode = !assocMode">{{ assocMode ? "在画面拖拽…" : "手画关联框" }}</button>
-            <button type="button" class="btn btn--sm" :disabled="!assocBox" @click="swapPrimaryAndAssoc">交换主次</button>
-            <button type="button" class="btn btn--sm btn--ghost" :disabled="!assocBox" @click="clearAssoc">清除</button>
-          </div>
-          <p v-if="assocBox" class="field-hint">{{ assocObservation ? "关联观测已保存" : "保存时自动写入关联观测" }}</p>
-          <div v-if="assocBox" class="assoc-row">
-            <select v-model="assocRelation" class="input">
-              <option value="riding">骑行</option>
-              <option value="passenger">乘坐</option>
-              <option value="pushing">推行</option>
-              <option value="nearby">相邻</option>
-              <option value="carrying">携带</option>
-              <option value="unknown">关系不明</option>
-            </select>
-            <span class="field-hint">单帧观察，未做多帧核验</span>
-          </div>
-        </div>
 
         <div class="ae-section">
           <span class="field-label">目标类别</span>
@@ -1152,7 +1133,7 @@ function focusTarget(role: "primary" | "assoc") {
           </div>
           <div v-for="attr in activeAttrs" :key="attr.key" class="attr-row">
             <span class="attr-key">{{ attr.key }}</span>
-            <input v-model="attr.value" class="input" :disabled="attr.unknown" :placeholder="attr.unknown ? '未知' : '可观察描述'" />
+            <input v-model="attr.value" @input="attr.auto = false" class="input" :disabled="attr.unknown" :placeholder="attr.unknown ? '未知' : '可观察描述'" />
             <button class="chip-btn" :class="{ 'is-on': attr.unknown }" @click="attr.unknown = !attr.unknown">{{ attr.unknown ? "未知" : "标未知" }}</button>
           </div>
           <p class="field-hint">人工填写记为 human_verified；标未知只表示画面看不清，不表示没有或不匹配。</p>
@@ -1755,5 +1736,9 @@ function focusTarget(role: "primary" | "assoc") {
 .ae-fold > summary { cursor: pointer; font-size: 11px; color: var(--text-3); }
 .input--compact { height: 26px; max-width: 190px; }
 .detect-panel--compact { display: grid; gap: 6px; }
+
+.preview-stage { position: relative; width: 100%; height: 100%; transform-origin: center center; }
+.preview-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 4; display: flex; gap: 4px; align-items: center; background: rgba(0,0,0,.55); padding: 3px 6px; border-radius: 6px; font-size: 11px; }
+.preview-zoom button { background: none; border: none; color: #cfd8e3; cursor: pointer; padding: 0 4px; font-size: 12px; }
 
 </style>
