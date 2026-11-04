@@ -1,0 +1,302 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 11.0
+  },
+  "text": {
+   "raw": "The person is wearing a light blue long-sleeved top and is riding a dark-colored scooter with no one else accompanying them.",
+   "plain": "The person is wearing a light blue long-sleeved top and is riding a dark-colored scooter with no one else accompanying them.",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 1.7
+  },
+  "text": {
+   "raw": "The person is wearing a light blue long-sleeved top and is riding a light-colored scooter, with no one else visible accompanying them.",
+   "plain": "The person is wearing a light blue long-sleeved top and is riding a light-colored scooter, with no one else visible accompanying them.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 7.6
+  },
+  "text": {
+   "raw": "The person is wearing a light blue cardigan over a dark top and light blue jeans, riding a light green scooter with a child seated in a front-facing baby seat.",
+   "plain": "The person is wearing a light blue cardigan over a dark top and light blue jeans, riding a light green scooter with a child seated in a front-facing baby seat.",
+   "latency_s": 0.6
+  }
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"light green\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 15.4
+  },
+  "text": {
+   "raw": "The person is wearing a light blue jacket over a dark top and light-colored pants, riding a light green scooter with a child seated in front of them.",
+   "plain": "The person is wearing a light blue jacket over a dark top and light-colored pants, riding a light green scooter with a child seated in front of them.",
+   "latency_s": 4.0
+  }
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 12.9
+  },
+  "text": {
+   "raw": "The person is wearing a purple jacket and is accompanied by a white vehicle, but the type of vehicle cannot be determined.",
+   "plain": "The person is wearing a purple jacket and is accompanied by a white vehicle, but the type of vehicle cannot be determined.",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"purple\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 9.4
+  },
+  "text": {
+   "raw": "The person is wearing a purple polo shirt, the vehicle is not clearly identifiable in the image, and there is no indication of anyone accompanying them.",
+   "plain": "The person is wearing a purple polo shirt, the vehicle is not clearly identifiable in the image, and there is no indication of anyone accompanying them.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 8.6
+  },
+  "text": {
+   "raw": "The person is wearing a dark jacket and pants, riding a yellow vehicle, and there is no one else accompanying them.",
+   "plain": "The person is wearing a dark jacket and pants, riding a yellow vehicle, and there is no one else accompanying them.",
+   "latency_s": 0.4
+  }
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"scooter\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 8.9
+  },
+  "text": {
+   "raw": "The person is wearing a dark blue jacket and black pants, riding a yellow scooter alone.",
+   "plain": "The person is wearing a dark blue jacket and black pants, riding a yellow scooter alone.",
+   "latency_s": 0.3
+  }
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"cardigan\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 8.6
+  },
+  "text": {
+   "raw": "The person is wearing a light blue long-sleeved top and dark pants, riding a white scooter with a child in a red and black carrier seated in front of them.",
+   "plain": "The person is wearing a light blue long-sleeved top and dark pants, riding a white scooter with a child in a red and black carrier seated in front of them.",
+   "latency_s": 2.6
+  }
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motor scooter\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"light blue\",\n  \"garment_type\": \"sweater\",\n  \"vehicle_color\": \"white\",\n  \"vehicle_type\": \"motor scooter\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 6.7
+  },
+  "text": {
+   "raw": "The person is wearing a light blue long-sleeved top and gray pants, riding a white and green scooter with a black rear storage box, while carrying a baby in a carrier.",
+   "plain": "The person is wearing a light blue long-sleeved top and gray pants, riding a white and green scooter with a black rear storage box, while carrying a baby in a carrier.",
+   "latency_s": 2.6
+  }
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"yes\"\n}",
+   "plain": "{\n  \"garment_color\": \"dark\",\n  \"garment_type\": \"jacket\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"unknown\",\n  \"companion_present\": \"yes\"\n}",
+   "latency_s": 8.8
+  },
+  "text": {
+   "raw": "The person is wearing a dark-colored jacket and a red helmet, accompanied by another individual in a white outfit, with a red vehicle partially visible nearby.",
+   "plain": "The person is wearing a dark-colored jacket and a red helmet, accompanied by another individual in a white outfit, with a red vehicle partially visible nearby.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"electric scooter\",\n  \"companion_present\": \"yes\"\n}",
+   "plain": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"electric scooter\",\n  \"companion_present\": \"yes\"\n}",
+   "latency_s": 8.9
+  },
+  "text": {
+   "raw": "The person is wearing a red hard hat and dark clothing, riding a red electric scooter with a passenger in a white outfit seated behind them.",
+   "plain": "The person is wearing a red hard hat and dark clothing, riding a red electric scooter with a passenger in a white outfit seated behind them.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "crop": "person",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"apron\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"gray\",\n  \"garment_type\": \"apron\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 8.9
+  },
+  "text": {
+   "raw": "The person is wearing a light-colored, possibly gray or white, long-sleeved garment, and the vehicle is a red scooter or motorcycle, with no one else visible accompanying them.",
+   "plain": "The person is wearing a light-colored, possibly gray or white, long-sleeved garment, and the vehicle is a red scooter or motorcycle, with no one else visible accompanying them.",
+   "latency_s": 2.7
+  }
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "crop": "context",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"cover\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"cover\",\n  \"vehicle_color\": \"yellow\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 6.9
+  },
+  "text": {
+   "raw": "The person is wearing a red helmet and a white shirt, riding a yellow scooter with a white cover, and no one else is accompanying them.",
+   "plain": "The person is wearing a red helmet and a white shirt, riding a yellow scooter with a white cover, and no one else is accompanying them.",
+   "latency_s": 2.4
+  }
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 9.0
+  },
+  "text": {
+   "raw": "The person is wearing a dark green short-sleeved shirt and blue jeans, riding a silver scooter with a black rear storage box, and there is no one else accompanying them.",
+   "plain": "The person is wearing a dark green short-sleeved shirt and blue jeans, riding a silver scooter with a black rear storage box, and there is no one else accompanying them.",
+   "latency_s": 0.6
+  }
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"green\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"gray\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 8.9
+  },
+  "text": {
+   "raw": "The person is wearing a green short-sleeved shirt and blue pants, riding a dark-colored scooter with a black rear storage box, and there is no one accompanying them.",
+   "plain": "The person is wearing a green short-sleeved shirt and blue pants, riding a dark-colored scooter with a black rear storage box, and there is no one accompanying them.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "crop": "person",
+  "category": "no_companion",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"unknown\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 9.5
+  },
+  "text": {
+   "raw": "The person is wearing a white shirt and dark pants, riding a dark-colored scooter with a black rear box, and no one else is accompanying them.",
+   "plain": "The person is wearing a white shirt and dark pants, riding a dark-colored scooter with a black rear box, and no one else is accompanying them.",
+   "latency_s": 2.7
+  }
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "crop": "context",
+  "category": "no_companion",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"car\",\n  \"companion_present\": \"unknown\"\n}",
+   "plain": "{\n  \"garment_color\": \"white\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"red\",\n  \"vehicle_type\": \"car\",\n  \"companion_present\": \"unknown\"\n}",
+   "latency_s": 7.1
+  },
+  "text": {
+   "raw": "The person is wearing a white short-sleeved shirt and dark pants, riding a black scooter with a passenger, while a red car is in the foreground and a white car is in the background.",
+   "plain": "The person is wearing a white short-sleeved shirt and dark pants, riding a black scooter with a passenger, while a red car is in the foreground and a white car is in the background.",
+   "latency_s": 2.7
+  }
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 9.1
+  },
+  "text": {
+   "raw": "The person is wearing a blue short-sleeved shirt and light-colored pants, riding a dark-colored scooter with no one else visible accompanying them.",
+   "plain": "The person is wearing a blue short-sleeved shirt and light-colored pants, riding a dark-colored scooter with no one else visible accompanying them.",
+   "latency_s": 0.5
+  }
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "plain": "{\n  \"garment_color\": \"blue\",\n  \"garment_type\": \"shirt\",\n  \"vehicle_color\": \"dark\",\n  \"vehicle_type\": \"motorcycle\",\n  \"companion_present\": \"no\"\n}",
+   "latency_s": 9.2
+  },
+  "text": {
+   "raw": "The person is wearing a blue short-sleeved shirt and light-colored pants, riding a dark-colored scooter alone.",
+   "plain": "The person is wearing a blue short-sleeved shirt and light-colored pants, riding a dark-colored scooter alone.",
+   "latency_s": 0.4
+  }
+ }
+]

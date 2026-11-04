@@ -1,0 +1,302 @@
+[
+ {
+  "id": "O01_2-2_0334_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><45><333><904><1000></box>, <ref>garment_type</ref><box><42><320><903><1000></box>, <ref>vehicle_color</ref><box><0><0><756><156></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 89.6
+  },
+  "text": {
+   "raw": "<ref>The person is wearing blue jeans</ref><box><31><275><904><1000></box>, <ref>The vehicle is a motorcycle</ref><box><0><0><1000><1000></box>, <ref>Someone is accompanying them</ref><box><2><0><1000><1000></box>",
+   "plain": "The person is wearing blue jeans, The vehicle is a motorcycle, Someone is accompanying them",
+   "latency_s": 63.5
+  }
+ },
+ {
+  "id": "O01_2-2_0334_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><363><333><571><750></box>, <ref>garment_type</ref><box><362><332><572><749></box>, <ref>vehicle_color</ref><box><246><0><580><250>,<320><307><1000><1000></box>, <ref>vehicle_type</ref><box><317><305><1000><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 30.6
+  },
+  "text": {
+   "raw": "<ref>The person wearing blue jeans</ref><box><320><0><680><1000></box>, <ref>The vehicle is a white motorcycle</ref><box><312><297><1000><1000></box>, <ref>The person is accompanied by another person</ref><box>none</point>",
+   "plain": "The person wearing blue jeans, The vehicle is a white motorcycle, The person is accompanied by another personnone",
+   "latency_s": 20.3
+  }
+ },
+ {
+  "id": "O02_2-1_0285_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><117><192><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><463><416><1000><1000></box>, <ref>vehicle_type</ref><box><0><414><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 29.4
+  },
+  "text": {
+   "raw": "<ref>The person wearing a blue shirt</ref><box><0><6><1000><1000></box> is riding <ref>a white scooter</ref><box><343><413><1000><1000></box> with no one accompanying them cannot tell</ref><box><0><0><1000></ref>>.",
+   "plain": "The person wearing a blue shirt is riding a white scooter with no one accompanying them cannot tell>.",
+   "latency_s": 10.5
+  }
+ },
+ {
+  "id": "O02_2-1_0285_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><369><197><714><603></box>, <ref>garment_type</ref><box><370><196><713><604></box>, <ref>vehicle_color</ref><box><309><224><711><916></box>, <ref>vehicle_type</ref><box><189><0><276><117></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 12.2
+  },
+  "text": {
+   "raw": "<ref>The man wearing blue jeans and white shoes</ref><box><369><90><719><750></box> is riding <ref>a white scooter</ref><box><305><222><729><919></box> with someone accompanying him.",
+   "plain": "The man wearing blue jeans and white shoes is riding a white scooter with someone accompanying him.",
+   "latency_s": 7.4
+  }
+ },
+ {
+  "id": "O03_2-2_0404_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><75><275><1000><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><0></ref></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.8
+  },
+  "text": {
+   "raw": "<ref>The person is wearing purple</ref><box><0><43><1000><1000></box>, <ref>The vehicle is white</ref><box><0><0><1000><1000></box>, <ref>Someone is accompanying them</ref><box><0><0><1000><1000></box>",
+   "plain": "The person is wearing purple, The vehicle is white, Someone is accompanying them",
+   "latency_s": 7.4
+  }
+ },
+ {
+  "id": "O03_2-2_0404_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><500><275><1000><1000></box>, <ref>garment_type</ref><box><499><276><1000><1000></box>, <ref>vehicle_color</ref><box><0><0><1000><1000></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 10.8
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><492><0><1000><1000></box> is wearing purple shirt and white pants. The vehicle is gray. There is no one accompanying them.",
+   "plain": "The person is wearing purple shirt and white pants. The vehicle is gray. There is no one accompanying them.",
+   "latency_s": 5.6
+  }
+ },
+ {
+  "id": "O04_2-2_0700_person",
+  "crop": "person",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><320><247><970><874></box>, <ref>garment_type</ref><box><0><244><1000><1000></box>, <ref>vehicle_color</ref><box><0><450><1000><1000></box>, <ref>vehicle_type</ref><box><0><446><1000><1000></box>, <ref>companion_present</ref><box><0><24><980><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.2
+  },
+  "text": {
+   "raw": "<ref>The man is wearing black clothing</ref><box><0><157><972><1000></box>, <ref>The vehicle is yellow</ref><box><0><443><1000><1000></box>, <ref>There is no one accompanying him</ref><box>none</point>",
+   "plain": "The man is wearing black clothing, The vehicle is yellow, There is no one accompanying himnone",
+   "latency_s": 7.5
+  }
+ },
+ {
+  "id": "O04_2-2_0700_context",
+  "crop": "context",
+  "category": "distant",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><375><333><666><607></box>, <ref>garment_type</ref><box><0><0><1000><644></box>, <ref>vehicle_color</ref><box><136><459><788><1000></box>, <ref>vehicle_type</ref><box><134><320><787><1000></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 10.6
+  },
+  "text": {
+   "raw": "<ref>The man wearing blue jeans and black shoes</ref><box><342><96><675><828></box> is riding <ref>a yellow scooter</ref><box><136><333><798><993></box> with someone accompanying him cannot tell</ref><box><0><0><1000><1000></point>",
+   "plain": "The man wearing blue jeans and black shoes is riding a yellow scooter with someone accompanying him cannot tell",
+   "latency_s": 7.8
+  }
+ },
+ {
+  "id": "O05_1-1_0350_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><293><131><980><880></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><348><1000><1000></box>, <ref>vehicle_type</ref><box><0><350><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><984></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.2
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><0><0><982><979></box> is wearing <ref>a white shirt</ref><box><557><117><981><413></box> and <ref>gray pants</ref><box><231><410><985><904></box>. The vehicle is a white scooter. There cannot be anyone accompanying them because they are sitting alone on the scooter.",
+   "plain": "The person is wearing a white shirt and gray pants. The vehicle is a white scooter. There cannot be anyone accompanying them because they are sitting alone on the scooter.",
+   "latency_s": 10.6
+  }
+ },
+ {
+  "id": "O05_1-1_0350_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><381><180><672><678></box>, <ref>garment_type</ref><box><380><181><672><677></box>, <ref>vehicle_color</ref><box><147><0><867><920></box>, <ref>vehicle_type</ref><box><138><339><866><922></box>, <ref>companion_present</ref><box><312><62><674><758></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.7
+  },
+  "text": {
+   "raw": "<ref>The man wearing blue shirt and jeans</ref><box><312><60><680><762></box> is riding <ref>a white motorcycle</ref><box><138><334><856><925></box> with no one accompanying him cannot tell</ref><box><0><0><1000><320></box>.",
+   "plain": "The man wearing blue shirt and jeans is riding a white motorcycle with no one accompanying him cannot tell.",
+   "latency_s": 8.3
+  }
+ },
+ {
+  "id": "O06_2-2_0504_person",
+  "crop": "person",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><245><614><1000></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box>none</box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><888><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 10.8
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><0><0><890><1000></box> is wearing black pants and shoes and black shoes cannot tell if they are accompanying them because they are wearing white shoes</ref><box><548><0><1000><1000></box>",
+   "plain": "The person is wearing black pants and shoes and black shoes cannot tell if they are accompanying them because they are wearing white shoes",
+   "latency_s": 7.1
+  }
+ },
+ {
+  "id": "O06_2-2_0504_context",
+  "crop": "context",
+  "category": "occluded",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><354><317><592><545></box>, <ref>garment_type</ref><box><591><333><672><740></box>, <ref>vehicle_color</ref><box><147><547><657><975></box>, <ref>vehicle_type</ref><box><117><0><783><727></box>, <ref>companion_present</ref><box><356><105><673><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.5
+  },
+  "text": {
+   "raw": "<ref>The man wearing black clothing</ref><box><333><96><623><762></box> is riding <ref>a red scooter</ref><box><136><321><660><982></box> with someone walking beside him.",
+   "plain": "The man wearing black clothing is riding a red scooter with someone walking beside him.",
+   "latency_s": 6.4
+  }
+ },
+ {
+  "id": "O07_2-1_0400_person",
+  "crop": "person",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><238><822><972></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box>none</box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><1000><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 11.4
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><0><0><846><1000></box> is wearing white apron and black pants cannot tell if they are accompanying someone because there is no visible person</ref><box><0><0><1000><1000></box>",
+   "plain": "The person is wearing white apron and black pants cannot tell if they are accompanying someone because there is no visible person",
+   "latency_s": 7.2
+  }
+ },
+ {
+  "id": "O07_2-1_0400_context",
+  "crop": "context",
+  "category": "no_vehicle",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><147><1000><769></box>, <ref>garment_type</ref><box><0><0><999><1000></box>, <ref>vehicle_color</ref><box><75><0><1000><890></box>, <ref>vehicle_type</ref><box><0><0><1000><888></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 12.1
+  },
+  "text": {
+   "raw": "<ref>The person wearing black shoes</ref><box><0><0><1000><1000></box> cannot tell clothing color and type, the vehicle's color and type, and whether anyone is accompanying them.",
+   "plain": "The person wearing black shoes cannot tell clothing color and type, the vehicle's color and type, and whether anyone is accompanying them.",
+   "latency_s": 7.4
+  }
+ },
+ {
+  "id": "O08_1-1_0400_person",
+  "crop": "person",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><164><838><482></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><120><440><844><1000></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><19><980><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 7.0
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><0><18><968><1000></box> is wearing <ref>a green shirt</ref><box><0><147><830><482></box> and riding <ref>a black motorcycle</ref><box><96><433><930><1000></box>.",
+   "plain": "The person is wearing a green shirt and riding a black motorcycle.",
+   "latency_s": 3.4
+  }
+ },
+ {
+  "id": "O08_1-1_0400_context",
+  "crop": "context",
+  "category": "multi",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><330><247><612><431></box>, <ref>garment_type</ref><box><0><0><125><273></box>, <ref>vehicle_color</ref><box><353><320><614><900>,<590><0><808><552></box>, <ref>vehicle_type</ref><box><0><0><124><297>,<201><0><419><214></box>, <ref>companion_present</ref><box>none</box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 7.3
+  },
+  "text": {
+   "raw": "<ref>The man on the motorcycle</ref><box><317><90><646><768></box> wears green clothing and rides a black motorcycle cannot tell if there is anyone accompanying him</ref><box><0><0><1000><1000></box>",
+   "plain": "The man on the motorcycle wears green clothing and rides a black motorcycle cannot tell if there is anyone accompanying him",
+   "latency_s": 3.5
+  }
+ },
+ {
+  "id": "O09_1-1_0450_person",
+  "crop": "person",
+  "category": "no_companion",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><75><216><736><446></box>, <ref>garment_type</ref><box><0><0><1000><325></box>, <ref>vehicle_color</ref><box><90><416><664><998></box>, <ref>vehicle_type</ref><box><0><0><1000><1000></box>, <ref>companion_present</ref><box><0><0><999><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 5.0
+  },
+  "text": {
+   "raw": "<ref>The person</ref><box><57><0><972><601></box> is wearing <ref>a white shirt</ref><box><56><190><973><592></box> and riding <ref>a black scooter</ref><box><72><339><950><993></box>. They cannot tell if there is anyone accompanying them.",
+   "plain": "The person is wearing a white shirt and riding a black scooter. They cannot tell if there is anyone accompanying them.",
+   "latency_s": 6.8
+  }
+ },
+ {
+  "id": "O09_1-1_0450_context",
+  "crop": "context",
+  "category": "no_companion",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><375><273><573><592></box>, <ref>garment_type</ref><box><374><0><485><200></box>, <ref>vehicle_color</ref><box><0><566><1000><1000>,<330><244><687><794></box>, <ref>vehicle_type</ref><box><0><0><217><362>,<666><0><1000><234></box>, <ref>companion_present</ref><box><333><0><484><250></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 5.9
+  },
+  "text": {
+   "raw": "<ref>The person wearing white shirt and black pants</ref><box><375><188><596><625></box>, <ref>The vehicle</ref><box><330><240><688><802></box>, <ref>white motorcycle</ref><box><331><241><688><802></box>, <ref>black car</ref><box><0><558><1000><1000></box>",
+   "plain": "The person wearing white shirt and black pants, The vehicle, white motorcycle, black car",
+   "latency_s": 3.5
+  }
+ },
+ {
+  "id": "O10_2-2_0604_person",
+  "crop": "person",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><0><201><970><592></box>, <ref>garment_type</ref><box><0><0><1000><1000></box>, <ref>vehicle_color</ref><box><0><430><1000><1000></box>, <ref>vehicle_type</ref><box><0><428><1000><1000></box>, <ref>companion_present</ref><box><0><22><980><1000></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 4.0
+  },
+  "text": {
+   "raw": "<ref>The man is wearing blue jeans</ref><box><0><180><976><545></box>, <ref>The vehicle is black</ref><box><0><419><1000><1000></box>, <ref>The person is accompanied by a child</ref><box><0><0><1000><1000></box>",
+   "plain": "The man is wearing blue jeans, The vehicle is black, The person is accompanied by a child",
+   "latency_s": 3.0
+  }
+ },
+ {
+  "id": "O10_2-2_0604_context",
+  "crop": "context",
+  "category": "clear",
+  "json": {
+   "raw": "<ref>garment_color</ref><box><357><250><652><431></box>, <ref>garment_type</ref><box><356><249><653><430></box>, <ref>vehicle_color</ref><box><300><393><664><978></box>, <ref>vehicle_type</ref><box><0><0><297><560></box>, <ref>companion_present</ref><box><288><117><660><904></box>",
+   "plain": "garment_color, garment_type, vehicle_color, vehicle_type, companion_present",
+   "latency_s": 3.9
+  },
+  "text": {
+   "raw": "<ref>The man wearing blue shirt and black pants</ref><box><283><106><673><904></box> is riding <ref>a black motorcycle</ref><box><297><374><670><982></box> with no one accompanying him cannot tell</ref><box><0><0><301><565></box>.",
+   "plain": "The man wearing blue shirt and black pants is riding a black motorcycle with no one accompanying him cannot tell.",
+   "latency_s": 3.1
+  }
+ }
+]
