@@ -142,7 +142,7 @@ def _validate(db: Session, case_id: str, payload: dict) -> tuple[MediaAsset, dic
             value = None
         elif value is not None:
             value = str(value)[:200]
-        attributes.append({'subject_id': subject, 'name': name, 'value': value,
+        attributes.append({'subject_id': subject, 'name': name, 'attribute_key': str(item.get('attribute_key') or name)[:60], 'value': value,
                            'observation_status': status, 'review_state': review,
                            'source': str(item.get('source') or 'human')[:40],
                            'provenance': item.get('provenance') if isinstance(item.get('provenance'), dict) else {}})
@@ -167,7 +167,7 @@ def _write_children(db: Session, group_id: str, objects, relations, attributes) 
                                      subject_id=mapping[attr['subject_id']], name=attr['name'],
                                      value=attr['value'],
                                      observation_status=attr['observation_status'],
-                                     review_state=attr['review_state'],
+                                     review_state=attr['review_state'], attribute_key=attr['attribute_key'],
                                      source=attr['source'],
                                      provenance_json=attr['provenance']))
 
@@ -215,7 +215,7 @@ def group_detail(db: Session, case_id: str, group_id: str) -> dict:
                       for r in relations],
         'attributes': [{'id': a.id, 'subject_id': a.subject_id, 'name': a.name,
                         'value': a.value, 'observation_status': a.observation_status,
-                        'review_state': a.review_state, 'source': a.source,
+                        'review_state': a.review_state, 'source': a.source, 'attribute_key': a.attribute_key,
                         'provenance': a.provenance_json or {}}
                        for a in attributes],
         'created_at': group.created_at, 'updated_at': group.updated_at,

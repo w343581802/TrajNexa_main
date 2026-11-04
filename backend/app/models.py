@@ -320,6 +320,7 @@ class TargetObjectAttribute(Base):
     group_id: Mapped[str] = mapped_column(ForeignKey('target_element_groups.id'), index=True)
     subject_id: Mapped[str] = mapped_column(String(36))
     name: Mapped[str] = mapped_column(String(40))
+    attribute_key: Mapped[str | None] = mapped_column(String(60), nullable=True)
     value: Mapped[str | None] = mapped_column(String(200), nullable=True)
     observation_status: Mapped[str] = mapped_column(String(16), default='unknown')
     review_state: Mapped[str] = mapped_column(String(20), default='unknown')
