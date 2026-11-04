@@ -58,8 +58,10 @@ async function loadAssocFeatures() {
   const box = assocBox.value;
   if (!mediaId || !box) return;
   assocFeaturesBusy.value = true; assocFeatures.value = null;
-  try { assocFeatures.value = await mainApi.analyzeM4Roi(mediaId, [...box], m4Engine, assocCategory.value); }
-  catch { assocFeatures.value = null; }
+  try {
+    assocFeatures.value = await mainApi.analyzeM4Roi(mediaId, [...box], m4Engine, assocCategory.value);
+    autoFillFromFeatures(assocFeatures.value, assocAttrs.value);
+  } catch { assocFeatures.value = null; }
   finally { assocFeaturesBusy.value = false; }
 }
 
@@ -168,7 +170,7 @@ function m4PointerUp(event: PointerEvent) {
   if (m4Box.value && (m4Box.value[2] - m4Box.value[0] < .015 ||
       m4Box.value[3] - m4Box.value[1] < .015)) { m4Box.value = null; return; }
   // 手画框也要立刻出关键特征，和点选模型候选框是同一套反馈
-  if (m4Box.value) { void loadM4Features().then(autoFillModelFeatures); }
+  if (m4Box.value) { void loadM4Features().then(() => autoFillFromFeatures(m4Features.value, primaryAttrs.value)); }
 }
 function m4PointerCancel() { m4Anchor.value = null; m4Box.value = null; }
 function m4MatchesStored(): boolean {
@@ -340,32 +342,40 @@ async function selectM4Proposal(proposal: M4DetectCandidate) {
   // 检测器名称/类别只是 provenance，不写进人工备注，更不能当外观特征值。
   m4Error.value = null;
   await loadM4Features();
-  autoFillModelFeatures();
+  autoFillFromFeatures(m4Features.value, primaryAttrs.value);
 }
 
-function autoFillModelFeatures() {
-  const feats = (m4Features.value?.appearance.semantic_attributes?.features_unverified ?? [])
+function autoFillFromFeatures(features: M4RoiFeatures | null, list: AttrRow[]) {
+  const feats = (features?.appearance.semantic_attributes?.features_unverified ?? [])
     .map((f) => String(f).trim()).filter(Boolean);
   if (!feats.length) return;
   const rules: Record<string, RegExp> = {
-    上衣: /衣|衫|外套|夹克|t恤|衬衫|制服/i,
-    下装: /裤|裙/i,
-    鞋: /鞋|靴/i,
-    随身物: /包|帽|头盔|眼镜|手机|伞/i,
-    车辆类型: /摩托|电动|自行|两轮|三轮|轿车|卡车|客车|面包车|单车/i,
-    车身颜色: /白|黑|红|蓝|灰|银|黄|绿|橙|紫|深色|浅色/i,
-    车身标识或附属物: /尾箱|货箱|箱|牌照|贴|标识|货架|后视镜/i,
+    "garment.upper.color": /白|黑|红|蓝|灰|绿|黄|橙|紫|米|棕|粉/,
+    "garment.upper.type": /外套|夹克|短袖|长袖|衬衫|t恤|卫衣|制服|背心|马甲/i,
+    "garment.lower.color": /白|黑|红|蓝|灰|绿|黄|橙|紫|米|棕|粉/,
+    "garment.lower.type": /裤|裙/i,
+    "head.appearance": /头盔|帽|发|头部/,
+    "footwear": /鞋|靴/,
+    "carried.item": /包|伞|手提|携带|袋/,
+    "vehicle.class": /两轮|三轮|摩托|电动|自行|轿车|卡车|客车/,
+    "vehicle.color": /白|黑|红|蓝|灰|绿|黄|橙|紫|银|深色|浅色/,
+    "vehicle.form": /踏板|跨骑|弯梁/,
+    "vehicle.attachment": /尾箱|货箱|箱|后视镜|货架|挡风/,
+    "vehicle.distinctive": /大灯|图案|贴|标识|灯/,
   };
   const used = new Set<string>();
-  for (const row of activeAttrs.value) {
-    if (row.unknown || row.value.trim()) continue;
-    const rule = rules[row.key];
+  for (const row of list) {
+    if (row.custom || row.unknown || row.value.trim()) continue;
+    const rule = rules[row.attributeKey];
     const hit = rule ? feats.find((f) => !used.has(f) && rule.test(f)) : undefined;
     if (!hit) continue;
     row.value = hit.slice(0, 60);
-    used.add(hit);
     row.auto = true;
+    used.add(hit);
   }
+}
+function addCustomAttribute() {
+  activeAttrs.value.push({ key: "", attributeKey: "custom", value: "", unknown: false, auto: false, custom: true });
 }
 
 /** 选中框后自动出来的关键特征：画质/主色（确定性）+ 外观短语（模型，可降级） */
@@ -532,6 +542,7 @@ async function recognize() {
     jobProgress.value = 100;
     jobStatus.value = "succeeded";
     applyRecognition(result);
+
     toast("识别完成：已填入时间与摄像头名称，请人工确认", "ok");
   } catch (error) {
     recognizeError.value = error instanceof Error ? error.message : String(error);
@@ -591,6 +602,20 @@ const dateSuspect = computed(() => {
   const year = Number(match[1]);
   return year < 2015 || year > 2100;
 });
+/** 画面 OCR 里出现的年份；与填写日期不一致时要求人工确认。 */
+const ocrYears = computed(() => {
+  const raw = JSON.stringify(report.value?.result_json?.time ?? {});
+  return [...new Set([...raw.matchAll(/20\d{2}/g)].map((m) => m[0]))];
+});
+const dateAcknowledged = ref(false);
+const dateConflict = computed(() => {
+  if (timeUnknown.value || !ocrYears.value.length) return false;
+  const match = /^(\d{4})-/.exec(date.value);
+  if (!match) return false;
+  if (ocrYears.value.length > 1) return true;
+  return !ocrYears.value.includes(match[1]);
+});
+watch(date, () => { dateAcknowledged.value = false; });
 const cameraName = ref<string | null>(null);
 const confirmedCamera = ref<string | null>(null);
 const catalog = ref<CameraCatalogEntry[]>([]);
@@ -672,31 +697,28 @@ function markTimeUnknown() {
 
 const category = ref<"person" | "vehicle" | "other">("person");
 
-type AttrRow = { key: string; value: string; unknown: boolean; auto: boolean };
+type AttrRow = { key: string; attributeKey: string; value: string; unknown: boolean; auto: boolean; custom?: boolean };
+function attrRow(key: string, attributeKey: string): AttrRow {
+  return { key, attributeKey, value: "", unknown: false, auto: false };
+}
 const attributes = reactive<AttrRow[]>([
-  { key: "上衣", value: "", unknown: false, auto: false },
-  { key: "下装", value: "", unknown: false, auto: false },
-  { key: "鞋", value: "", unknown: false, auto: false },
-  { key: "随身物", value: "", unknown: false, auto: false },
+  attrRow("上衣颜色", "garment.upper.color"),
+  attrRow("上衣类型", "garment.upper.type"),
+  attrRow("下装颜色", "garment.lower.color"),
+  attrRow("下装类型", "garment.lower.type"),
+  attrRow("头部特征", "head.appearance"),
+  attrRow("鞋", "footwear"),
+  attrRow("随身物", "carried.item"),
 ]);
-
-const assocAttributes = reactive<AttrRow[]>([
-  { key: "车辆类型", value: "", unknown: false, auto: false },
-  { key: "车身颜色", value: "", unknown: false, auto: false },
-  { key: "车身标识或附属物", value: "", unknown: false, auto: false },
-]);
-
 const vehicleAttributes = reactive<AttrRow[]>([
-  { key: "车辆类型", value: "", unknown: false, auto: false },
-  { key: "车身颜色", value: "", unknown: false, auto: false },
-  { key: "车身标识或附属物", value: "", unknown: false, auto: false },
+  attrRow("车辆大类", "vehicle.class"),
+  attrRow("车身颜色", "vehicle.color"),
+  attrRow("外观类型", "vehicle.form"),
+  attrRow("明显附属物", "vehicle.attachment"),
+  attrRow("特殊外观", "vehicle.distinctive"),
 ]);
-const assocPersonAttributes = reactive<AttrRow[]>([
-  { key: "上衣", value: "", unknown: false, auto: false },
-  { key: "下装", value: "", unknown: false, auto: false },
-  { key: "鞋", value: "", unknown: false, auto: false },
-  { key: "随身物", value: "", unknown: false, auto: false },
-]);
+const assocAttributes = reactive<AttrRow[]>(vehicleAttributes.map((row) => ({ ...row })));
+const assocPersonAttributes = reactive<AttrRow[]>(attributes.map((row) => ({ ...row })));
 const primaryAttrs = computed(() => (category.value === "vehicle" ? vehicleAttributes : attributes));
 const assocAttrs = computed(() => (assocCategory.value === "vehicle" ? assocAttributes : assocPersonAttributes));
 const attrTarget = ref<"primary" | "assoc">("primary");
@@ -706,11 +728,12 @@ const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttrs.va
 function attrRows(list: AttrRow[], subject: string) {
   return list
     .filter((attr) => attr.unknown || attr.value.trim())
-    .map((attr) => ({
-      subject_id: subject, name: attr.key,
+    .map((attr, index) => ({
+      subject_id: subject, name: attr.key.trim() || `特征${index + 1}`,
+      attribute_key: attr.custom ? `custom.${(attr.key.trim() || "feature")}` : attr.attributeKey,
       value: attr.unknown ? null : attr.value.trim() || null,
       observation_status: attr.unknown ? "unknown" : "known",
-      review_state: attr.auto ? "unreviewed" : attr.unknown ? "unknown" : "human_verified",
+      review_state: attr.unknown ? "unknown" : attr.auto ? "model_proposed" : "human_verified",
       source: attr.auto ? "model" : "human",
     }));
 }
@@ -863,6 +886,10 @@ watch(() => currentCase.value?.id, (now, old) => {
   void loadM4History(true);
 });
 async function save(keepOpen: boolean) {
+  if (dateConflict.value && !dateAcknowledged.value) {
+    toast("画面年份与填写日期冲突：请核对角标并勾选「已人工核对日期」后再保存", "danger");
+    return;
+  }
   // A selected ROI must have a durable, matching observation record.
   // Never place the synthetic "manual-unsaved" marker on the task timeline.
   if (m4Box.value && !m4MatchesStored()) {
@@ -902,10 +929,10 @@ async function save(keepOpen: boolean) {
   };
 
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
-  if (!editingElement.value && assocBox.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
+  if (!editingElement.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
     try {
-      let assocObsId = assocObservation.value?.id ?? null;
-      if (!assocObsId) {
+      let assocObsId = assocBox.value ? (assocObservation.value?.id ?? null) : null;
+      if (assocBox.value && !assocObsId) {
         const saved = await mainApi.addM4Observation(selectedMediaId.value, {
           object_class: assocCategory.value === "other" ? "other" : assocCategory.value,
           bbox_normalized: [...assocBox.value],
@@ -921,11 +948,11 @@ async function save(keepOpen: boolean) {
           { id: "P1", object_class: category.value === "other" ? "other" : category.value,
             role: "primary", bbox_norm_xyxy: [...m4Box.value],
             m4_observation_id: m4Observation.value.id },
-          { id: "A1", object_class: assocCategory.value, role: "associated",
-            bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId },
+          ...(assocBox.value ? [{ id: "A1", object_class: assocCategory.value, role: "associated",
+            bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId }] : []),
         ],
-        relations: [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }],
-        attributes: [...attrRows(primaryAttrs.value, "P1"), ...attrRows(assocAttrs.value, "A1")],
+        relations: assocBox.value ? [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }] : [],
+        attributes: [...attrRows(primaryAttrs.value, "P1"), ...(assocBox.value ? attrRows(assocAttrs.value, "A1") : [])],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
       });
     } catch (error) {
@@ -1115,6 +1142,10 @@ const modelFeatureList = computed(() => (displayFeatures.value?.appearance.seman
           <p v-if="dateSuspect" class="field-hint warn">
             日期年份异常（OCR 可能把年份读成 2020 等），请核对画面角标后手动修正；系统不会静默改日期。
           </p>
+          <template v-if="dateConflict">
+            <p class="field-hint warn">画面 OCR 年份为 {{ ocrYears.join(" / ") }}，与填写日期不一致；请核对角标，确认后才能保存。</p>
+            <label class="field-hint"><input v-model="dateAcknowledged" type="checkbox" /> 已人工核对日期</label>
+          </template>
           <p class="field-hint">OCR 原值只用于内部核对；人工修改只影响本要素的入库时间。</p>
         </div>
 
@@ -1147,12 +1178,12 @@ const modelFeatureList = computed(() => (displayFeatures.value?.appearance.seman
             <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'primary' }" @click="focusTarget('primary')">
               <img v-if="m4Thumb" :src="m4Thumb" alt="主目标" />
               <span class="target-role">主目标要素</span>
-              <span class="field-hint">{{ m4Box ? category : "未选择" }}</span>
+              <span class="field-hint"><select v-model="category" class="input" @click.stop @change="attrTarget = 'primary'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
             </button>
             <button type="button" class="target-card" :class="{ 'is-on': attrTarget === 'assoc' }" @click="focusTarget('assoc')">
               <img v-if="assocThumb" :src="assocThumb" alt="关联对象" />
               <span class="target-role">关联要素</span>
-              <span class="field-hint">{{ assocBox ? assocCategory : "未选择" }}</span>
+              <span class="field-hint"><select v-model="assocCategory" class="input" @click.stop @change="attrTarget = 'assoc'"><option value="person">人员</option><option value="vehicle">车辆</option><option value="other">其他</option></select></span>
             </button>
           </div>
         </div>
@@ -1176,11 +1207,14 @@ const modelFeatureList = computed(() => (displayFeatures.value?.appearance.seman
             <button :class="{ 'is-on': attrTarget === 'primary' }" @click="attrTarget = 'primary'">主目标</button>
             <button :class="{ 'is-on': attrTarget === 'assoc' }" :disabled="!assocBox" @click="attrTarget = 'assoc'">关联对象</button>
           </div>
-          <div v-for="attr in activeAttrs" :key="attr.key" class="attr-row">
-            <span class="attr-key">{{ attr.key }}</span>
+          <div v-for="(attr, index) in activeAttrs" :key="index" class="attr-row">
+            <input v-if="attr.custom" v-model="attr.key" class="input attr-custom-key" placeholder="特征部位" />
+            <span v-else class="attr-key">{{ attr.key }}</span>
             <input v-model="attr.value" @input="attr.auto = false" class="input" :disabled="attr.unknown" :placeholder="attr.unknown ? '未知' : '可观察描述'" />
+            <button v-if="attr.custom" class="chip-btn" @click="activeAttrs.splice(index, 1)">删</button>
             <button class="chip-btn" :class="{ 'is-on': attr.unknown }" @click="attr.unknown = !attr.unknown">{{ attr.unknown ? "未知" : "标未知" }}</button>
           </div>
+          <button class="chip-btn" @click="addCustomAttribute">＋ 其他可辨识特征</button>
           <p class="field-hint">人工填写记为 human_verified；标未知只表示画面看不清，不表示没有或不匹配。</p>
         </div>
 
