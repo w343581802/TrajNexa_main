@@ -1036,6 +1036,17 @@ const displayFeatures = computed(() => (attrTarget.value === "assoc" ? assocFeat
 const displayFeaturesBusy = computed(() => (attrTarget.value === "assoc" ? assocFeaturesBusy.value : m4FeaturesBusy.value));
 const modelFeatureList = computed(() => (displayFeatures.value?.appearance.semantic_attributes?.features_unverified ?? []).map((f) => String(f)).filter(Boolean));
 
+const ignoredAiFeatures = ref<string[]>([]);
+const aiSuggestions = computed(() => {
+  const used = new Set(activeAttrs.value.map((a) => a.value.trim()).filter(Boolean));
+  return modelFeatureList.value.filter((f) => !used.has(f) && !ignoredAiFeatures.value.includes(f));
+});
+function acceptAiFeature(feature: string) {
+  activeAttrs.value.push({ key: "AI线索", attributeKey: "custom.ai", value: feature, unknown: false, auto: true, custom: true });
+  ignoredAiFeatures.value.push(feature);
+}
+function ignoreAiFeature(feature: string) { ignoredAiFeatures.value.push(feature); }
+
 </script>
 
 <template>
@@ -1235,6 +1246,14 @@ const modelFeatureList = computed(() => (displayFeatures.value?.appearance.seman
             <p v-else class="field-hint">模型没有给出可用外观描述。</p>
             <p class="field-hint">主色 {{ m4ToneText(displayFeatures.appearance.roi_tones_unverified) }} · 画质 {{ displayFeatures.quality.flags.join("、") || "未见异常" }}</p>
             <p class="field-hint">来源 {{ displayFeatures.appearance.semantic_attributes?.semantic_model || "视觉模型" }}；只作线索，不自动确认身份。</p>
+            <div v-if="aiSuggestions.length" class="ai-suggest">
+              <p class="field-hint">AI 新发现（{{ aiSuggestions.length }}）</p>
+              <div v-for="(feature, index) in aiSuggestions" :key="index" class="ai-suggest-row">
+                <span class="truncate">{{ feature }}</span>
+                <button class="chip-btn" @click="acceptAiFeature(feature)">加入其他特征</button>
+                <button class="chip-btn" @click="ignoreAiFeature(feature)">忽略</button>
+              </div>
+            </div>
           </template>
           <p v-else class="field-hint">在左侧选择或框选目标后显示。</p>
         </div>
@@ -1837,5 +1856,9 @@ const modelFeatureList = computed(() => (displayFeatures.value?.appearance.seman
 .preview-zoom button { background: none; border: none; color: #cfd8e3; cursor: pointer; padding: 0 4px; font-size: 12px; }
 
 .model-features { margin: 4px 0; padding-left: 16px; font-size: 11.5px; color: var(--text-2); display: grid; gap: 2px; }
+
+.ai-suggest { display: grid; gap: 4px; margin-top: 6px; }
+.ai-suggest-row { display: flex; gap: 6px; align-items: center; }
+.ai-suggest-row .truncate { flex: 1; font-size: 11.5px; }
 
 </style>
