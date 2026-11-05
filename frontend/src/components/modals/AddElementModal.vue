@@ -843,6 +843,7 @@ async function loadGroupForEdit(groupId: string) {
       else list.push({ key: String(at.name ?? "特征"), attributeKey: String(at.attribute_key ?? "custom"), value: at.value ?? "", unknown: at.observation_status === "unknown", auto, custom: true });
     }
     ignoredAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_ignored) ? [...(detail.source as Record<string, any>).ai_ignored] : [];
+    rejectedAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_rejected) ? [...(detail.source as Record<string, any>).ai_rejected] : [];
     toast("已载入目标组，可修改特征后保存", "ok");
     void recognize();
   } catch (error) {
@@ -966,7 +967,7 @@ async function save(keepOpen: boolean) {
           ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
         ],
         attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
-        source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value] },
+        source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
       toast("目标组已更新", "ok");
       ui.addElementOpen = false;
@@ -1028,7 +1029,7 @@ async function save(keepOpen: boolean) {
         ],
         relations: assocBox.value ? [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }] : [],
         attributes: [...attrRows(primaryAttrs.value, "P1"), ...(assocBox.value ? attrRows(assocAttrs.value, "A1") : [])],
-        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value] },
+        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
     } catch (error) {
       toast("目标组保存失败：" + (error instanceof Error ? error.message : String(error)), "danger");
@@ -1111,16 +1112,19 @@ const displayFeatures = computed(() => (attrTarget.value === "assoc" ? assocFeat
 const displayFeaturesBusy = computed(() => (attrTarget.value === "assoc" ? assocFeaturesBusy.value : m4FeaturesBusy.value));
 const modelFeatureList = computed(() => (displayFeatures.value?.appearance.semantic_attributes?.features_unverified ?? []).map((f) => String(f)).filter(Boolean));
 
+const rejectedAiFeatures = ref<string[]>([]);
 const ignoredAiFeatures = ref<string[]>([]);
 const aiSuggestions = computed(() => {
   const used = new Set(activeAttrs.value.map((a) => a.value.trim()).filter(Boolean));
-  return modelFeatureList.value.filter((f) => !used.has(f) && !ignoredAiFeatures.value.includes(f));
+  return modelFeatureList.value.filter((f) => !used.has(f) && !ignoredAiFeatures.value.includes(f) && !rejectedAiFeatures.value.includes(f));
 });
 function acceptAiFeature(feature: string) {
   activeAttrs.value.push({ key: "AI线索", attributeKey: "custom.ai", value: feature, unknown: false, auto: true, custom: true });
   ignoredAiFeatures.value.push(feature);
 }
 function ignoreAiFeature(feature: string) { ignoredAiFeatures.value.push(feature); }
+function rejectAiFeature(feature: string) { if (!rejectedAiFeatures.value.includes(feature)) rejectedAiFeatures.value.push(feature); }
+function undoReject(feature: string) { rejectedAiFeatures.value = rejectedAiFeatures.value.filter((f) => f !== feature); }
 
 </script>
 
@@ -1323,10 +1327,18 @@ function ignoreAiFeature(feature: string) { ignoredAiFeatures.value.push(feature
                 <span class="truncate">{{ feature }}</span>
                 <button class="chip-btn" @click="acceptAiFeature(feature)">加入其他特征</button>
                 <button class="chip-btn" @click="ignoreAiFeature(feature)">忽略</button>
+                <button class="chip-btn" @click="rejectAiFeature(feature)">否决</button>
               </div>
             </div>
           </template>
           <p v-else class="field-hint">在左侧选择或框选目标后显示。</p>
+            <div v-if="rejectedAiFeatures.length" class="ai-suggest">
+              <p class="field-hint">已否决 {{ rejectedAiFeatures.length }} 条（不会进入属性）</p>
+              <div v-for="(feature, index) in rejectedAiFeatures" :key="index" class="ai-suggest-row">
+                <span class="truncate">{{ feature }}</span>
+                <button class="chip-btn" @click="undoReject(feature)">撤销否决</button>
+              </div>
+            </div>
         </div>
       </aside>
     </div>
