@@ -243,6 +243,51 @@ function runTest(id: string) {
 const selectedNames = computed(() => isSmall.value
   ? smallModels.value.filter(m => selectedSmallIds.value.includes(m.id)).map(m => m.name).join("、")
   : visionModels.value.find(m => m.id === modelChoices.visionModelId)?.name || "");
+const promptOpen = ref(false);
+const promptTab = ref<"person" | "vehicle" | "other">("vehicle");
+const promptDraft = ref("");
+const promptDefaults = ref<Record<string, string>>({});
+const promptOverrides = ref<Record<string, string | null>>({});
+const promptBusy = ref(false);
+const promptNotice = ref("");
+const promptSaved = computed(() => Boolean(promptOverrides.value[promptTab.value]));
+const promptHint = computed(() => promptSaved.value ? "已保存覆盖（来自服务端设置）" : "内置默认模板");
+async function openPrompts() {
+  promptOpen.value = true; promptNotice.value = "";
+  try {
+    const data = await mainApi.testM5Prompts();
+    promptDefaults.value = data.defaults;
+    promptOverrides.value = data.overrides;
+    promptDraft.value = data.effective[promptTab.value] || data.defaults[promptTab.value] || "";
+  } catch (err) { promptNotice.value = err instanceof Error ? err.message : String(err); }
+}
+function switchPromptTab(tab: "person" | "vehicle" | "other") {
+  promptTab.value = tab;
+  promptDraft.value = promptOverrides.value[tab] || promptDefaults.value[tab] || "";
+  promptNotice.value = "";
+}
+async function savePrompt() {
+  if (promptBusy.value) return;
+  promptBusy.value = true; promptNotice.value = "";
+  try {
+    const data = await mainApi.saveM5Prompt(promptTab.value, promptDraft.value.trim());
+    promptOverrides.value = { ...promptOverrides.value, [promptTab.value]: promptDraft.value.trim() ? data.prompt : null };
+    promptDraft.value = data.prompt;
+    promptNotice.value = promptDraft.value === (promptDefaults.value[promptTab.value] || "") ? "已恢复内置默认" : "已保存";
+  } catch (err) { promptNotice.value = err instanceof Error ? err.message : String(err); }
+  finally { promptBusy.value = false; }
+}
+async function resetPrompt() {
+  if (promptBusy.value) return;
+  promptBusy.value = true; promptNotice.value = "";
+  try {
+    await mainApi.saveM5Prompt(promptTab.value, "");
+    promptOverrides.value = { ...promptOverrides.value, [promptTab.value]: null };
+    promptDraft.value = promptDefaults.value[promptTab.value] || "";
+    promptNotice.value = "已恢复内置默认";
+  } catch (err) { promptNotice.value = err instanceof Error ? err.message : String(err); }
+  finally { promptBusy.value = false; }
+}
 </script>
 
 <template>
@@ -270,6 +315,7 @@ const selectedNames = computed(() => isSmall.value
             <option value="">全部引擎</option>
             <option v-for="engine in engines" :key="engine" :value="engine">{{ engine }}</option>
           </select>
+          <button v-if="!isSmall" type="button" class="rb-btn" @click="openPrompts">✎ 提示词设置</button>
           <button type="button" class="rb-btn" :disabled="busy" @click="reloadConfig">↻ 重载配置</button>
           <button type="button" class="rb-btn" :disabled="busy" @click="loadModels">刷新列表</button>
         </div>
@@ -362,6 +408,33 @@ const selectedNames = computed(() => isSmall.value
         <span class="rb-foot-count">共 {{ rowsCount }} 条</span>
         <span class="rb-foot-note">{{ isSmall ? "检测器" : "外观模型" }}：
           {{ selectedNames || "未选择" }}（选择只用于模型测试，不改研判工作台默认模型）</span>
+      </div>
+    </div>
+
+    <div v-if="promptOpen" class="rb-mask" @click.self="promptOpen = false">
+      <div class="rb-modal" role="dialog" aria-modal="true">
+        <div class="rb-modal-head">
+          <h4><span class="dot" />大模型提示词设置</h4>
+          <button type="button" class="rb-modal-x" aria-label="关闭" @click="promptOpen = false">×</button>
+        </div>
+        <div class="rb-modal-body">
+          <div class="rb-tabs">
+            <button v-for="tab in (['person', 'vehicle', 'other'] as const)" :key="tab" type="button"
+              class="rb-tab" :class="{ 'is-on': promptTab === tab }" @click="switchPromptTab(tab)">
+              {{ tab === "person" ? "人员" : tab === "vehicle" ? "车辆" : "其他" }}</button>
+          </div>
+          <p class="rb-hint">{{ promptHint }}；提示词会用于该类别在「添加目标要素」和「模型测试」中的 ROI 分析。留空保存即恢复内置默认。</p>
+          <textarea v-model="promptDraft" class="rb-input rb-textarea" rows="9"
+            maxlength="2400" placeholder="留空保存可恢复内置默认提示词"></textarea>
+          <p class="rb-hint">模型输出仍只是建议：看不清的属性必须写未知，不能据此认定身份。</p>
+          <p v-if="promptNotice" class="rb-hint">{{ promptNotice }}</p>
+        </div>
+        <div class="rb-modal-foot">
+          <button type="button" class="rb-btn" :disabled="promptBusy" @click="resetPrompt">恢复默认</button>
+          <button type="button" class="rb-btn" @click="promptOpen = false">取消</button>
+          <button type="button" class="rb-btn rb-btn-primary" :disabled="promptBusy" @click="savePrompt">
+            {{ promptBusy ? "保存中…" : "保存" }}</button>
+        </div>
       </div>
     </div>
 
@@ -636,6 +709,9 @@ input.rb-input:focus, select.rb-input:focus { outline: none; border-color: #169f
   min-height: 92px; max-height: 200px; overflow-y: auto; }
 .rb-error { margin: 0; font-size: 12px; color: #f0a8a8; background: rgba(239,68,68,.10);
   border: 1px solid rgba(239,68,68,.35); border-radius: 6px; padding: 8px 10px; }
+.rb-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+.rb-tab { border: 1px solid var(--line-2); background: var(--bg-1); color: var(--text-2); border-radius: 4px; padding: 4px 14px; font-size: 11px; cursor: pointer; }
+.rb-tab.is-on { border-color: var(--accent); color: var(--text-1); background: var(--bg-3); }
 .rb-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px;
   border-top: 1px solid var(--line); background: var(--bg-2); }
 @media (max-width: 900px) {

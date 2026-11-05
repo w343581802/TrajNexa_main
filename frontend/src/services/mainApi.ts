@@ -629,7 +629,12 @@ export const mainApi = {
     });
   },
   testM5Prompts: () => request<{ person: string; vehicle: string; other: string; detect: string;
-    max_override_length: number }>("/ai/model-test/prompts"),
+    defaults: Record<string, string>; overrides: Record<string, string | null>;
+    effective: Record<string, string>; max_override_length: number }>("/ai/model-test/prompts"),
+  saveM5Prompt: (objectClass: string, prompt: string) =>
+    request<{ ok: boolean; object_class: string; prompt: string }>(
+      `/ai/model-test/prompts/${encodeURIComponent(objectClass)}`,
+      jsonBody({ prompt }, "PUT")),
   testM5Roi: (file: File, box: number[], objectClass: "person" | "vehicle" | "other",
     visionIds: string[], prompt = "") => {
     const form = new FormData();

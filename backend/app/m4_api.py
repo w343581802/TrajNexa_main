@@ -23,7 +23,7 @@ from app.db import get_db
 from app.m4_features import analyze_image_roi, FeatureInputError
 from app.models import MediaAsset, InspectionReport, TargetObservation
 from app.recording_api import fail
-from app import detectors, m4_vision, media_image
+from app import ai_prompts, detectors, m4_vision, media_image
 from app.m5_vision_registry import (public_vision_models, resolve_vision_model,
                                     VisionRegistryError)
 from app.m5_vision_transport import chat_for
@@ -504,6 +504,10 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
         names = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
             else [settings.vision_feature_model, settings.vision_model]
         models = [{'model_id': name, 'provider': 'ollama'} for name in dict.fromkeys(names)]
+    prompt_used = ai_prompts.effective(db, body.object_class, body.prompt_override)
+    prompt_scope = ('single_image_experiment' if body.prompt_override else
+                    'configured' if ai_prompts.stored(db, body.object_class) else
+                    'builtin_default')
     last_error = 'm4d_model_unavailable'
     for entry in models:
         model = entry['model_id']
@@ -512,20 +516,18 @@ def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get
                 image, body.bbox_normalized, base_url=settings.vision_base_url,
                 model=model, timeout=min(120, settings.vision_timeout_seconds),
                 object_class=body.object_class,
-                prompt_override=body.prompt_override,
+                prompt_override=prompt_used,
                 chat_fn=chat_for(entry))
         except m4_vision.VisionError as exc:
             last_error = str(exc)
             if last_error == 'm4d_model_unavailable':
                 continue  # 4B 没拉就用 2B 兜底
             break
-        prompt_used = m4_vision.effective_feature_prompt(
-            body.object_class, body.prompt_override)
         result['appearance']['semantic_attributes'] = {
             'features_unverified': features, 'semantic_model': model,
             'object_class': body.object_class,
             'prompt_sha256': sha256(prompt_used.encode('utf-8')).hexdigest(),
-            'prompt_scope': 'single_image_experiment' if body.prompt_override else 'builtin_default',
+            'prompt_scope': prompt_scope,
         }
         result['appearance']['semantic_status'] = 'vlm_unverified'
         return result

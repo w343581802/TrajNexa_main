@@ -13,9 +13,13 @@ from threading import BoundedSemaphore
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app import detectors, m4_vision, m6_person_reid
+from app.db import get_db
+
+from app import ai_prompts, detectors, m4_vision, m6_person_reid
 from app.config import settings
 from app.m5_vision_registry import VisionRegistryError, resolve_vision_model
 from app.m5_vision_transport import chat_for
@@ -157,15 +161,38 @@ def detect(
 
 
 @router.get("/prompts")
-def prompts():
-    """当前内置的大模型提示词（只读）。前端用于展示实际生效的提示词。"""
+def prompts(db: Session = Depends(get_db)):
+    """当前生效的大模型提示词：内置默认、已保存覆盖、最终生效值。"""
+    defaults = {key: ai_prompts.builtin(key) for key in ai_prompts.CLASSES}
+    overrides = {key: ai_prompts.stored(db, key) for key in ai_prompts.CLASSES}
+    effective = {key: overrides[key] or defaults[key] for key in ai_prompts.CLASSES}
     return {
-        "person": m4_vision.FEATURE_PROMPT,
-        "vehicle": m4_vision.VEHICLE_FEATURE_PROMPT,
-        "other": m4_vision.OTHER_FEATURE_PROMPT,
+        **effective,
+        "defaults": defaults,
+        "overrides": overrides,
+        "effective": effective,
         "detect": m4_vision.DETECT_PROMPT,
-        "max_override_length": 2400,
+        "max_override_length": ai_prompts.MAX_LENGTH,
     }
+
+
+class PromptBody(BaseModel):
+    prompt: str = ""
+
+
+@router.put("/prompts/{object_class}")
+def save_prompt(object_class: str, body: PromptBody, db: Session = Depends(get_db)):
+    if object_class not in ai_prompts.CLASSES:
+        fail(422, "m5-test-class", "无效目标类别。")
+    prompt = (body.prompt or "").strip()
+    if len(prompt) > ai_prompts.MAX_LENGTH:
+        fail(422, "m5-test-prompt", "提示词不能超过 2400 字。")
+    if prompt:
+        ai_prompts.save(db, object_class, prompt)
+    else:
+        ai_prompts.reset(db, object_class)
+    return {"ok": True, "object_class": object_class,
+            "prompt": ai_prompts.effective(db, object_class)}
 
 
 @router.post("/roi")
@@ -175,6 +202,7 @@ def roi(
     bbox_normalized: str = Form("[0,0,1,1]"),
     object_class: str = Form("person"),
     prompt_override: str = Form(""),
+    db: Session = Depends(get_db),
 ):
     ids = _ids(vision_model_ids, 3)
     if not ids:
@@ -197,7 +225,7 @@ def roi(
     image, digest = _read_image(file)
     if not _vlm_gate.acquire(blocking=False):
         fail(429, "m5-test-vision-busy", "视觉模型繁忙。")
-    prompt = m4_vision.effective_feature_prompt(object_class, prompt_override)
+    prompt = ai_prompts.effective(db, object_class, prompt_override or None)
     rows = []
     try:
         for entry in entries:
