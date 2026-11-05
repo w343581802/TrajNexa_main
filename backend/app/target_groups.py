@@ -248,6 +248,7 @@ def patch_group(db: Session, case_id: str, group_id: str, payload: dict) -> Targ
         for o in current['objects']]
     merged['relations'] = payload.get('relations', current['relations'])
     merged['attributes'] = payload.get('attributes', current['attributes'])
+    merged['source'] = payload.get('source') if isinstance(payload.get('source'), dict) else current.get('source', {})
     media, primary, objects, relations, attributes, source = _validate(db, case_id, merged)
     for table in (TargetElementObject, TargetObjectRelation, TargetObjectAttribute):
         for row in db.scalars(select(table).where(table.group_id == group.id)):

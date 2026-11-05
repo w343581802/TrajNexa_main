@@ -842,6 +842,7 @@ async function loadGroupForEdit(groupId: string) {
       if (fixed) { fixed.value = at.value ?? ""; fixed.unknown = at.observation_status === "unknown"; fixed.auto = auto; }
       else list.push({ key: String(at.name ?? "特征"), attributeKey: String(at.attribute_key ?? "custom"), value: at.value ?? "", unknown: at.observation_status === "unknown", auto, custom: true });
     }
+    ignoredAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_ignored) ? [...(detail.source as Record<string, any>).ai_ignored] : [];
     toast("已载入目标组，可修改特征后保存", "ok");
     void recognize();
   } catch (error) {
@@ -965,6 +966,7 @@ async function save(keepOpen: boolean) {
           ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
         ],
         attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
+        source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value] },
       });
       toast("目标组已更新", "ok");
       ui.addElementOpen = false;
@@ -1026,7 +1028,7 @@ async function save(keepOpen: boolean) {
         ],
         relations: assocBox.value ? [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }] : [],
         attributes: [...attrRows(primaryAttrs.value, "P1"), ...(assocBox.value ? attrRows(assocAttrs.value, "A1") : [])],
-        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified" },
+        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value] },
       });
     } catch (error) {
       toast("目标组保存失败：" + (error instanceof Error ? error.message : String(error)), "danger");
