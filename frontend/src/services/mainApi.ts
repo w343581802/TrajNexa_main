@@ -1001,3 +1001,29 @@ export const CAMERA_STATUS_TEXT: Record<string, { label: string; tone: "ok" | "w
   no_camera_name_pattern: { label: "画面无结构化摄像头名称", tone: "warn" },
   observed_unverified: { label: "名称待人工确认", tone: "warn" },
 };
+
+export type TargetSpatialObservationRow = {
+  id: string;
+  case_id: string;
+  observation_id: string;
+  camera_uuid: string | null;
+  calibration_id: string | null;
+  calibration_revision: string | null;
+  spatial_level: "L0" | "L1" | "L2";
+  quality: string;
+  identity_status: string;
+  ground_point: { x: number; y: number; crs: string } | null;
+  uncertainty_radius_m: number | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
+/** B8-S：读取案件的目标空间观测；未审核标定不会产生 L2 行。 */
+export async function listTargetSpatialObservations(
+  caseId: string,
+): Promise<TargetSpatialObservationRow[]> {
+  const response = await fetch(`${BASE}/cases/${caseId}/spatial-observations`);
+  if (!response.ok) throw new Error(`spatial_observations_${response.status}`);
+  const data = (await response.json()) as { items?: TargetSpatialObservationRow[] };
+  return data.items ?? [];
+}

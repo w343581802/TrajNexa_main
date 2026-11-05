@@ -54,7 +54,9 @@ export const wb = reactive({
 
   direction: "backward" as Direction,
   from: "18:00",
-  to: "20:12",
+  to: "24:00",
+  /** 用户手动改过时间范围后，添加要素不再自动把范围挪到要素时间 */
+  rangeManual: false,
 
   roundStatus: "draft" as RoundStatus,
   roundProgress: 0,
@@ -69,6 +71,7 @@ export const wb = reactive({
 });
 
 export const layers = reactive({
+  spatial: true,
   fov: true,
   anchors: true,
 });
@@ -276,7 +279,86 @@ function applyWorkspace(work: WorkspaceSnapshot) {
 
 export const visibleElements = computed(() => (wb.emptyMode ? [] : elementList.value));
 export const visibleObservations = computed(() => (wb.emptyMode ? [] : observationList.value));
-export const visibleJobs = computed(() => (wb.emptyMode ? [] : jobList.value));
+/* ------------------------------ 时间与作业规划 ------------------------------ */
+
+const clockMinutes = (value: string | null | undefined): number | null => {
+  const match = /(\d{2}):(\d{2})/.exec(value ?? "");
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const clockDate = (value: string | null | undefined): string | null =>
+  /^(\d{4}-\d{2}-\d{2})/.exec(value ?? "")?.[1] ?? null;
+
+const clockLabel = (value: number): string => {
+  const total = Math.max(0, Math.min(1440, Math.round(value)));
+  if (total >= 1440) return "24:00";
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
+
+function recordingOverlapsWindow(clip: RecordingClip, from: number, to: number): boolean {
+  const start = clockMinutes(clip.start_local);
+  if (start === null) return false;
+  const end = start + Math.max(1, clip.duration_seconds ?? 60) / 60;
+  return end > from && start < to;
+}
+
+/** 当前锚点：优先选中的起始要素，没有就用第一个要素。 */
+const currentAnchor = computed(
+  () => elementList.value.find((element) => element.id === wb.selectedAnchorId) ?? elementList.value[0] ?? null,
+);
+
+/**
+ * 按「锚点日期 + 镜头 + 当前时间窗」从真实录像台账生成待分析作业。
+ * 这只是把已扫描到的录像排进队列，不会伪造分析结果；真实执行仍走「追踪任务」。
+ */
+export const plannedJobs = computed<Job[]>(() => {
+  if (wb.emptyMode || !currentAnchor.value) return [];
+  const anchor = currentAnchor.value;
+  const from = clockMinutes(wb.from) ?? 0;
+  const to = clockMinutes(wb.to) ?? 1440;
+  if (from >= to) return [];
+  const date = clockDate(anchor.time);
+  const cameraId = anchor.cameraId;
+  const clips = recordingClips.value
+    .filter((clip) => {
+      if (clockMinutes(clip.start_local) === null) return false;
+      if (date && clockDate(clip.start_local) !== date) return false;
+      if (cameraId && clip.camera_uuid !== cameraId) return false;
+      // 锚点未绑定镜头时，只排已经匹配到 Map 镜头的录像；未匹配片段先留在录像资源里核对。
+      if (!cameraId && !clip.camera_uuid) return false;
+      return recordingOverlapsWindow(clip, from, to);
+    })
+    .sort((a, b) => (a.start_local ?? "").localeCompare(b.start_local ?? ""));
+
+  return clips.map((clip) => {
+    const start = clockMinutes(clip.start_local) ?? from;
+    const end = Math.min(1440, start + Math.max(1, clip.duration_seconds ?? 60) / 60);
+    return {
+      id: `plan-${clip.id}`,
+      cameraId: clip.camera_uuid ?? cameraId ?? "",
+      file: clip.file_name,
+      from: clockLabel(start),
+      to: clockLabel(end),
+      status: "queued",
+      statusLabel: "待分析",
+      progress: 0,
+      candidates: 0,
+      undetected: 0,
+      cameraName: clip.camera_name ?? undefined,
+      clipId: clip.id,
+      thumbUrl: mainApi.recordingClipFrameUrl(clip.id),
+      clipUrl: null,
+      note: "按当前时间窗与锚点镜头从录像索引匹配",
+    };
+  });
+});
+
+export const visibleJobs = computed(() => {
+  if (wb.emptyMode) return [];
+  const existing = new Set(jobList.value.map((job) => job.clipId).filter(Boolean));
+  return [...jobList.value, ...plannedJobs.value.filter((job) => !existing.has(job.clipId))];
+});
 
 /* --------------------------- 底部任务控制：分析卡片 --------------------------- */
 
@@ -438,7 +520,63 @@ export const activityView = computed<ActivityView>(() => {
     return { tone: "fail", label: `${failed.length} 段读取中断`, detail: "录像可能损坏或被占用；可在卡片里重新排队。" };
   }
   if (queued.length) {
-    return { tone: "wait", label: `${queued.length} 段排队中`, detail: "前一段读完后自动开始，不需要手动推进。" };
+    const anchor = currentAnchor.value;
+    const date = clockDate(anchor?.time);
+    const from = clockMinutes(wb.from) ?? 0;
+    const to = clockMinutes(wb.to) ?? 1440;
+    const unmatched = recordingClips.value.filter(
+      (clip) =>
+        !clip.camera_uuid &&
+        clockMinutes(clip.start_local) !== null &&
+        (!date || clockDate(clip.start_local) === date) &&
+        recordingOverlapsWindow(clip, from, to),
+    ).length;
+    return {
+      tone: "wait",
+      label: `${queued.length} 段录像待分析`,
+      detail: `已按时间顺序列入作业；进入「追踪任务」可选择其中一段启动真实分析。${
+        unmatched ? `另有 ${unmatched} 段未匹配镜头，留在录像资源核对。` : ""
+      }`,
+    };
+  }
+  const timedClips = recordingClips.value.filter((clip) => clockMinutes(clip.start_local) !== null);
+  if (!timedClips.length && recordingClips.value.length) {
+    return {
+      tone: "wait",
+      label: "录像缺少开始时间",
+      detail: `已索引 ${recordingClips.value.length} 段，但没有识别到开始时间；请到「录像资源」人工核对名称或角标时间。`,
+    };
+  }
+  if (timedClips.length) {
+    const anchor = currentAnchor.value;
+    const anchorDate = clockDate(anchor?.time);
+    const sameDate = anchorDate ? timedClips.filter((clip) => clockDate(clip.start_local) === anchorDate) : timedClips;
+    if (!sameDate.length) {
+      return {
+        tone: "wait",
+        label: "录像日期与要素日期不一致",
+        detail: `要素 ${anchorDate ?? "日期未知"}；录像日期 ${clockDate(timedClips[0]!.start_local) ?? "未知"}。请确认案发日和录像文件。`,
+      };
+    }
+    const cameraClips = anchor?.cameraId
+      ? sameDate.filter((clip) => clip.camera_uuid === anchor.cameraId)
+      : sameDate;
+    if (!cameraClips.length) {
+      return {
+        tone: "wait",
+        label: "没有锚点镜头的录像",
+        detail: `当前要素绑定「${anchor?.cameraLabel ?? "未知镜头"}」，已扫描的录像里没有这个镜头；请换锚点或核对该镜头的识别名称。`,
+      };
+    }
+    const times = cameraClips
+      .map((clip) => clockMinutes(clip.start_local))
+      .filter((value): value is number => value !== null)
+      .sort((a, b) => a - b);
+    return {
+      tone: "wait",
+      label: "录像不在当前时间窗",
+      detail: `已扫描录像 ${clockLabel(times[0]!)}–${clockLabel(times[times.length - 1]!)}，当前范围 ${wb.from}–${wb.to}；点地图上方时间范围调整后会自动排队。`,
+    };
   }
   return { tone: "idle", label: "已启动，等待录像", detail: "去「录像资源」添加视频或挂载目录，扫描到的片段会按时间顺序进入分析队列。" };
 });
@@ -534,14 +672,44 @@ const toMinutes = (label: string) => {
 export const startConditions = computed(() => {
   const from = toMinutes(wb.from);
   const to = toMinutes(wb.to);
-  const inScope = from < to && from >= 1080 && to <= 1380;
+  const inScope = from < to && from >= 0 && to <= 1440;
   return [
     { id: "source", label: "服务端录像目录可访问", ok: !wb.emptyMode },
     { id: "anchor", label: "已选有效起始锚点", ok: Boolean(wb.selectedAnchorId) && !wb.emptyMode },
     { id: "direction", label: "已选择研判方向", ok: Boolean(wb.direction) },
-    { id: "scope", label: "时间范围在授权范围内", ok: inScope },
+    { id: "scope", label: "时间范围有效", ok: inScope },
   ];
 });
+
+function applyRoundWindow(start: number, end: number, manual: boolean) {
+  const from = Math.max(0, Math.min(1440, Math.round(start)));
+  const to = Math.max(from + 1, Math.min(1440, Math.round(end)));
+  wb.from = clockLabel(from);
+  wb.to = clockLabel(to);
+  wb.rangeManual = manual;
+  timeWindow.start = from;
+  timeWindow.end = to;
+  timeWindow.preset = "custom";
+}
+
+/** 第一次添加要素时，把研判范围落到要素时间附近；用户手动改过则尊重用户。 */
+function alignRangeToElement(element: TargetElement) {
+  if (wb.rangeManual) return;
+  const minutes = clockMinutes(element.timeLabel);
+  if (minutes === null) return;
+  let from = Math.max(0, minutes - 120);
+  let to = Math.min(1440, minutes + 120);
+  // 同一天的录像也纳入范围：避免要素时间与录像时间差几小时时，明明有录像却显示空队列。
+  const date = clockDate(element.time);
+  for (const clip of recordingClips.value) {
+    if (date && clockDate(clip.start_local) !== date) continue;
+    const start = clockMinutes(clip.start_local);
+    if (start === null) continue;
+    from = Math.min(from, Math.max(0, start - 5));
+    to = Math.max(to, Math.min(1440, start + Math.max(1, clip.duration_seconds ?? 60) / 60 + 5));
+  }
+  applyRoundWindow(from, to, false);
+}
 
 /* ------------------------------ 弹窗 / 提示 ------------------------------ */
 
@@ -1008,14 +1176,11 @@ export const actions = {
   applyPreset(id: string) {
     const preset = timeWindowPresets.find((p) => p.id === id);
     if (!preset) return;
-    timeWindow.start = preset.start;
-    timeWindow.end = preset.end;
+    applyRoundWindow(preset.start, preset.end, true);
     timeWindow.preset = preset.id;
   },
   setWindow(start: number, end: number) {
-    timeWindow.start = start;
-    timeWindow.end = end;
-    timeWindow.preset = "custom";
+    applyRoundWindow(start, end, true);
   },
   setRange(from: string, to: string) {
     wb.from = from;
@@ -1036,9 +1201,18 @@ export const actions = {
     toast("已暂停本轮研判；后台已完成的证据保留", "warn");
   },
   resumeRound() {
-    if (wb.roundStatus !== "paused") return;
+    if (wb.roundStatus === "paused") {
+      wb.roundStatus = "running";
+      toast("已恢复本轮研判", "ok");
+      return;
+    }
+    if (wb.roundStatus === "running") {
+      toast("本轮已启动；实际读帧请在「追踪任务」选择一段录像", "info");
+      return;
+    }
     wb.roundStatus = "running";
-    toast("已恢复本轮研判", "ok");
+    wb.roundProgress = Math.max(4, wb.roundProgress);
+    toast("已登记本轮研判；实际读帧请在「追踪任务」选择一段录像启动", "info");
   },
   stopRound() {
     if (wb.roundStatus === "review" || wb.roundStatus === "done") return;
@@ -1131,6 +1305,7 @@ export const actions = {
     if (wb.emptyMode) wb.emptyMode = false;
     const element = buildElement(id, payload);
     elementList.value.push(element);
+    if (elementList.value.length === 1) alignRangeToElement(element);
     observationList.value.push(buildAnchorObservation(element));
     observationList.value.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
     applyAttributes(id, payload);

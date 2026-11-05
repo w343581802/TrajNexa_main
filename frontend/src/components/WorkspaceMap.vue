@@ -8,6 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
+import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
  * 底图为 OSM 瓦片（WGS84），进界面后被 styles/map.css 压成暗色。镜头点位直接使用 Map 发布经纬度；
@@ -42,6 +43,7 @@ const lReal = L.layerGroup();
 const lFocus = L.layerGroup();
 const lAnchors = L.layerGroup();
 const lTrack = L.layerGroup();
+const lSpatial = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -108,7 +110,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack, lSpatial].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -377,9 +379,26 @@ function anchorIcon(label: string, selected: boolean): L.DivIcon {
   });
 }
 
+const spatialObservations = ref<TargetSpatialObservationRow[]>([]);
+const spatialL2Count = computed(() => spatialObservations.value.filter((row) => row.spatial_level === "L2").length);
+const spatialL1Count = computed(() => spatialObservations.value.filter((row) => row.spatial_level !== "L2").length);
+const spatialNonWgs = computed(() => spatialObservations.value.filter((row) => row.spatial_level === "L2" && row.ground_point?.crs !== "EPSG:4326").length);
+
+async function loadSpatialObservations() {
+  if (!wb.caseId) {
+    spatialObservations.value = [];
+    return;
+  }
+  try {
+    spatialObservations.value = await listTargetSpatialObservations(wb.caseId);
+  } catch {
+    spatialObservations.value = [];
+  }
+}
+
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack, lSpatial].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -462,19 +481,57 @@ function render() {
       }).addTo(lAnchors);
     }
   }
+
+  /* B8-S：目标空间状态。L2 仅在 WGS84 且标定已发布时画点；否则只画 L1 可能区域。 */
+  if (layers.spatial) {
+    for (const row of spatialObservations.value) {
+      const camera = snapshot.value?.cameras.find((item) => item.camera_uuid === row.camera_uuid);
+      if (row.spatial_level === "L2" && row.ground_point && row.ground_point.crs === "EPSG:4326" && camera) {
+        const point: [number, number] = [row.ground_point.y, row.ground_point.x];
+        L.polyline([[camera.lat, camera.lon], point], {
+          color: "#ffd166", weight: 1.2, dashArray: "4 6", opacity: 0.7, interactive: false,
+        }).addTo(lSpatial);
+        L.circle(point, {
+          radius: row.uncertainty_radius_m ?? 12,
+          color: "#ffb020", weight: 1.3,
+          dashArray: row.uncertainty_radius_m == null ? "4 4" : undefined,
+          fillColor: "#ffb020", fillOpacity: 0.12, interactive: false,
+        }).addTo(lSpatial);
+        L.circleMarker(point, {
+          radius: 5.5, color: "#0b0f14", weight: 1.6, fillColor: "#ffd166", fillOpacity: 1,
+        })
+          .addTo(lSpatial)
+          .bindTooltip(
+            `L2 目标估计点 · 误差 ${row.uncertainty_radius_m == null ? "未量化（不显示 ±N 米）" : "±" + row.uncertainty_radius_m.toFixed(1) + " m"} · 标定 ${row.calibration_revision ?? "未知"} · 位置待核实，不代表身份`,
+            { direction: "top", offset: [0, -6], className: "map-tip" },
+          );
+      } else if (camera) {
+        L.circle([camera.lat, camera.lon], {
+          radius: 35, color: "#4fd1d9", weight: 1, dashArray: "3 5",
+          fillColor: "#4fd1d9", fillOpacity: 0.05, interactive: false,
+        })
+          .addTo(lSpatial)
+          .bindTooltip("L1 可能区域：该观测没有可用地面标定，不显示精确点",
+            { direction: "top", offset: [0, -6], className: "map-tip" });
+      }
+    }
+  }
+
 }
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun],
+   trackingWindows, activeTrackingRun, spatialObservations],
   () => render(),
   { deep: true },
 );
 
 onMounted(() => {
+  void loadSpatialObservations();
   initMap();
   render();
   void reloadSnapshot();
+  watch(() => wb.caseId, () => void loadSpatialObservations());
   window.addEventListener("focus", refreshSnapshotOnFocus);
 });
 
@@ -515,6 +572,11 @@ function focusAnchor() {
         </svg>
       </div>
 
+      <div v-if="spatialObservations.length" class="map-spatial-chip popover">
+        <AppIcon name="target" :size="12" />
+        <span>目标空间观测 {{ spatialObservations.length }} · L2 {{ spatialL2Count }} · L1 {{ spatialL1Count }}</span>
+        <em v-if="spatialNonWgs">（{{ spatialNonWgs }} 条非 WGS84，仅保留记录不绘制）</em>
+      </div>
       <div v-if="snapshotState !== 'ready'" class="map-snapshot-hint" :data-tone="snapshotState">
         <AppIcon :name="snapshotState === 'error' ? 'warning' : 'refresh'" :size="13" />
         <span>{{ snapshotState === "error" ? "Map 空间数据不可用：暂时没有镜头点位与视域" : "正在加载 Map 空间数据…" }}</span>
@@ -586,6 +648,9 @@ function focusAnchor() {
         <input v-model="layers.fov" type="checkbox" /><span>标定视域 FOV</span><em>{{ snapshot?.counts.with_focus ?? 0 }}</em>
       </label>
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
+      <label class="layer-row">
+        <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
+      </label>
       <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
 
@@ -604,6 +669,13 @@ function focusAnchor() {
       <ul class="legend">
         <li><i class="ln ln--anchor" />起始锚点（标签显示时间 / 摄像头名称）</li>
         <li><i class="sw sw--idle" />区域锚点：未绑定镜头，仅示意待定位区域</li>
+      </ul>
+      <p class="legend-title">目标空间状态（B8-S）</p>
+      <ul class="legend">
+        <li><i class="sw sw--spatial-l2" />L2 地面估计点（琥珀）＋误差圆</li>
+        <li><i class="sw sw--spatial-l1" />L1 可能区域：无可用地面标定，不画精确点</li>
+        <li><i class="ln ln--evidence" />镜头 → 估计点证据连线（虚线）</li>
+        <li class="legend-note">位置只是可追溯估计，不构成身份证据；标定未审核时不产生 L2。</li>
       </ul>
     </div>
 
@@ -1068,6 +1140,12 @@ function focusAnchor() {
   padding-top: 7px;
 }
 
+.sw--spatial-l2 { background: #ffd166; border-radius: 50%; }
+.sw--spatial-l1 { background: transparent; border: 1px dashed #4fd1d9; border-radius: 50%; }
+.ln--evidence { background: repeating-linear-gradient(90deg, #ffd166 0 4px, transparent 4px 8px); }
+.legend-note { color: #8b9bb0; font-size: 11px; line-height: 1.5; padding: 2px 0 0 18px; }
+.map-spatial-chip { position: absolute; left: 12px; top: 64px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 11.5px; color: #ffd8a3; background: rgba(12,17,24,0.9); border: 1px solid #3a3320; border-radius: 6px; }
+.map-spatial-chip em { color: #9aa8b8; font-style: normal; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;
