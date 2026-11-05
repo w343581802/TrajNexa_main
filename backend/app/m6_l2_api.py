@@ -48,7 +48,8 @@ def project_ground_point(case_id: str, observation_id: str, payload: dict,
             calibration = map_db_spatial.read_ground_calibration(
                 dsn=settings.map_db_readonly_url, calibration_id=calibration_id)
         except map_db_spatial.SpatialReadError as exc:
-            status = 404 if str(exc) == 'calibration_not_published' else 409
+            status = 404 if str(exc) == 'calibration_not_published' else (
+                422 if str(exc) == 'calibration_id_invalid' else 409)
             fail(status, str(exc), str(exc))
     frame_size = payload.get('frame_size')
     contact = payload.get('contact') if isinstance(payload.get('contact'), dict) else None

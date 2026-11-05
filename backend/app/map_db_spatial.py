@@ -265,6 +265,11 @@ def read_ground_calibration(*, dsn, calibration_id, connect=None):
         raise SpatialReadError('map_spatial_db_not_configured')
     if not isinstance(calibration_id, str) or not calibration_id.strip():
         raise SpatialReadError('calibration_id_required')
+    try:
+        from uuid import UUID
+        UUID(calibration_id)
+    except ValueError:
+        raise SpatialReadError('calibration_id_invalid') from None
     if connect is None:
         try:
             import psycopg
