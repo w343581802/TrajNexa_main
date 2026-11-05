@@ -112,7 +112,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack, lSpatial].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -407,7 +407,11 @@ const experimentalDegraded = ref(0);
 const experimentalError = ref("");
 const experimentalOk = computed(() => experimentalPoints.value.filter((row) => row.spatial_level === "L2-candidate").length);
 
+let experimentalRequestId = 0;
+
 async function loadExperimentalEstimates() {
+  // 每次切换图层或案件都使上一请求失效，防止异步返回将旧点画回地图。
+  const requestId = ++experimentalRequestId;
   experimentalPoints.value = [];
   experimentalDegraded.value = 0;
   experimentalError.value = "";
@@ -417,16 +421,22 @@ async function loadExperimentalEstimates() {
       camera: PILOT_CAMERA,
       points: PILOT_SAMPLES.map(([name, u, v]) => ({ pixel: [u, v], observation_id: name })),
     });
+    if (requestId !== experimentalRequestId || !layers.experimental) return;
+    if (report.layer !== "experimental_estimate" || !Array.isArray(report.points)) {
+      throw new Error("experimental_projection_invalid_payload");
+    }
     experimentalPoints.value = report.points;
     experimentalDegraded.value = report.degraded;
   } catch (error) {
-    experimentalError.value = (error as Error).message;
+    if (requestId === experimentalRequestId && layers.experimental) {
+      experimentalError.value = error instanceof Error ? error.message : "experimental_projection_failed";
+    }
   }
 }
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack, lSpatial].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -548,23 +558,30 @@ function render() {
   /* B8-SA5：实验估计（紫色空心点 + 虚线不确定范围），与正式 L2 完全隔离。 */
   if (layers.experimental) {
     for (const row of experimentalPoints.value as ExperimentalProjectionRow[]) {
-      if (row.spatial_level !== "L2-candidate" || !row.ground_point) continue;
+      if (row.spatial_level !== "L2-candidate" || row.ground_point?.crs !== "EPSG:4326") continue;
       const lat = row.ground_point.y;
       const lon = row.ground_point.x;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      const radius = row.uncertainty_radius_m;
+      const hasRadius = typeof radius === "number" && Number.isFinite(radius) && radius > 0;
+      const uncertainty = hasRadius ? `模型扰动半径约 ${radius.toFixed(1)} m（非实测误差）` : "模型不确定度未量化";
       L.circleMarker([lat, lon], { radius: 5, color: "#b98cff", weight: 2, fillColor: "transparent", fillOpacity: 0, dashArray: "3 3" })
         .addTo(lExperimental)
-        .bindTooltip(`试点几何投影样本 · ${row.observation_id ?? ""}<br/>实验估计，未经审核 / 无独立真值<br/>不确定半径 ±${row.uncertainty_radius_m ?? "?"} m`, { direction: "top" });
-      if (row.uncertainty_radius_m) {
-        L.circle([lat, lon], { radius: row.uncertainty_radius_m, color: "#b98cff", weight: 1, opacity: 0.5, dashArray: "2 6", fill: false }).addTo(lExperimental);
+        .bindTooltip(`试点几何投影样本 · ${escapeLabel(row.observation_id ?? "")}<br/>实验估计，未经审核 / 无独立真值<br/>${uncertainty}`, { direction: "top" });
+      if (hasRadius) {
+        L.circle([lat, lon], { radius, color: "#b98cff", weight: 1, opacity: 0.5, dashArray: "2 6", fill: false }).addTo(lExperimental);
       }
     }
   }
 
 }
 
+// 开启实验图层才请求；关闭和换案件立即清空，并忽略之前的异步响应。
+watch([() => layers.experimental, () => wb.caseId], () => { void loadExperimentalEstimates(); });
+
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints],
   () => render(),
   { deep: true },
 );
@@ -574,11 +591,12 @@ onMounted(() => {
   initMap();
   render();
   void reloadSnapshot();
-  watch(() => wb.caseId, () => { void loadSpatialObservations(); experimentalPoints.value = []; void loadExperimentalEstimates(); });
+  watch(() => wb.caseId, () => void loadSpatialObservations());
   window.addEventListener("focus", refreshSnapshotOnFocus);
 });
 
 onBeforeUnmount(() => {
+  ++experimentalRequestId;
   window.removeEventListener("focus", refreshSnapshotOnFocus);
   map?.remove();
   map = null;
