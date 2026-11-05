@@ -62,3 +62,29 @@ def test_sample_track_endpoint(env):
     assert data["persisted"] is False
     assert data["summary"]["total"] == data["sample"]["count"]
     assert data["summary"]["projected"] >= 1
+
+
+def test_projected_points_carry_quality_and_evidence():
+    report = ts.project_track(CAM, [{"t": 1.5, "box": [900, 600, 980, 760]}],
+                              evidence={"clip": "c.mp4", "fps": 2.0})
+    point = report["points"][0]
+    assert point["quality"] == "experimental_estimate"
+    assert point["degrade_reason"] is None
+    assert point["evidence"]["clip"] == "c.mp4"
+    assert point["t"] == 1.5
+
+
+def test_track_layer_does_not_write_formal_observations(env):
+    from sqlalchemy import func, select
+    from app.models import TargetSpatialObservation
+    client, Session, _ = env
+    with Session() as db:
+        before = db.scalar(select(func.count()).select_from(TargetSpatialObservation))
+    response = client.post("/api/v1/track-spatial", json={
+        "camera": CAM,
+        "samples": [{"t": 0.0, "box": [900, 600, 980, 760]}],
+    })
+    assert response.status_code == 200
+    with Session() as db:
+        after = db.scalar(select(func.count()).select_from(TargetSpatialObservation))
+    assert after == before

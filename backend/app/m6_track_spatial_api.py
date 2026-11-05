@@ -55,6 +55,8 @@ def track_spatial_sample() -> dict:
     payload = json.loads(SAMPLE_PATH.read_text(encoding="utf-8"))
     report = m6_track_spatial.project_track(
         payload["camera"], payload["samples"], kind="vehicle", max_range_m=80.0,
+        evidence={"clip": payload.get("clip"), "fps": payload.get("fps"),
+                  "method": payload.get("method"), "sample_scale": payload.get("source_scale")},
     )
     report["sample"] = {k: payload.get(k) for k in ("clip", "fps", "method", "note", "frame_width", "frame_height")}
     report["sample"]["count"] = len(payload["samples"])

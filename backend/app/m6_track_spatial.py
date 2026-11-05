@@ -7,18 +7,21 @@ from app import m6_ground_contact as ground
 RELIABLE_CONTACT = ("estimated",)
 
 
-def project_track(camera, samples, *, kind="vehicle", max_range_m=80.0):
+def project_track(camera, samples, *, kind="vehicle", max_range_m=80.0, evidence=None):
     """samples: [{"t": sec, "box": [x1,y1,x2,y2]}] → 观测序列与汇总。"""
     points = []
     for sample in samples or []:
-        record = {"t": sample.get("t"), "box": sample.get("box")}
+        record = {"t": sample.get("t"), "box": sample.get("box"),
+                  "quality": "experimental_estimate", "degrade_reason": None,
+                  "evidence": dict(evidence or {})}
         try:
             contact = ground.from_box(
                 sample.get("box"), kind,
                 frame_width=camera.get("width"), frame_height=camera.get("height"),
             )
         except ground.ContactUnavailable as exc:
-            record.update({"spatial_level": "L1", "degrade_reason": str(exc)})
+            record["spatial_level"] = "L1"
+            record["degrade_reason"] = str(exc)
             points.append(record)
             continue
         record.update({"pixel": contact["contact_pixel"],
@@ -29,7 +32,8 @@ def project_track(camera, samples, *, kind="vehicle", max_range_m=80.0):
             record.update(projection)
             record["uncertainty_radius_m"] = ray.uncertainty_radius(camera, contact["contact_pixel"])
         except ray.ProjectionUnavailable as exc:
-            record.update({"spatial_level": "L1", "degrade_reason": str(exc)})
+            record["spatial_level"] = "L1"
+            record["degrade_reason"] = str(exc)
         points.append(record)
     projected = [p for p in points if p.get("spatial_level") == "L2-candidate"]
     reliable = [p for p in projected if p.get("contact_quality") in RELIABLE_CONTACT]
