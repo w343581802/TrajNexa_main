@@ -1069,3 +1069,27 @@ export async function experimentalTrackSample(): Promise<{
   if (!response.ok) throw new Error(`track_spatial_sample_${response.status}`);
   return await response.json();
 }
+
+/** TB4：目标绑定后的单镜头实验轨迹（含片段偏移与身份状态）。 */
+export interface TargetTrackPoint extends ExperimentalProjectionRow {
+  frame?: number | null;
+  box?: number[];
+  evidence?: { clip_id?: string; offset_seconds?: number; track_id?: string; time_quality?: string };
+}
+export interface TargetTrackSegment {
+  track_id: string; continuity_status: string; break_reason: string; points: TargetTrackPoint[];
+}
+export async function getTargetTrackSample(): Promise<{
+  identity_status: string; persisted: boolean; segments: TargetTrackSegment[];
+  bind_evidence: Record<string, unknown> | null;
+  playback: { clip_id?: string; case_id?: string; start_of_day_seconds?: number; time_quality?: string; time_note?: string };
+  sample: Record<string, unknown>;
+  summary: { segments: number; projected: number; degraded: number };
+}> {
+  const response = await fetch(`${BASE}/target-track/sample`);
+  if (!response.ok) throw new Error(`target_track_sample_${response.status}`);
+  return await response.json();
+}
+export function keyframeUrl(caseId: string, clipId: string, offsetSeconds: number): string {
+  return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/keyframes/image?authorized=true&offset_seconds=${offsetSeconds}`;
+}

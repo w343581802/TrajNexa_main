@@ -8,7 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
-import { experimentalProjection, experimentalTrackSample, type ExperimentalProjectionRow } from "../services/mainApi";
+import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
@@ -47,6 +47,7 @@ const lTrack = L.layerGroup();
 const lSpatial = L.layerGroup();
 const lExperimental = L.layerGroup();
 const lTrackExp = L.layerGroup();
+const lTargetTrack = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -113,7 +114,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -455,9 +456,59 @@ async function loadTrackSample() {
   }
 }
 
+/* TB4：目标绑定后的实验轨迹；点击点回看该帧关键帧。 */
+const targetTrack = ref<TargetTrackSegment[]>([]);
+const targetTrackMeta = ref<{ identity_status: string; playback: Record<string, unknown>; bind_evidence: Record<string, unknown> | null } | null>(null);
+const targetTrackSummary = ref<{ segments: number; projected: number; degraded: number } | null>(null);
+const targetTrackError = ref("");
+const targetFrameSize = ref<{ w: number; h: number } | null>(null);
+const evidenceView = ref<{ url: string; box: number[]; label: string; meta: string } | null>(null);
+const evidenceBoxStyle = computed(() => {
+  const box = evidenceView.value?.box ?? [0, 0, 0, 0];
+  const size = targetFrameSize.value;
+  if (!size || !size.w || !size.h) return { display: "none" };
+  const [x1, y1, x2, y2] = box;
+  return { left: `${(x1 / size.w) * 100}%`, top: `${(y1 / size.h) * 100}%`, width: `${((x2 - x1) / size.w) * 100}%`, height: `${((y2 - y1) / size.h) * 100}%` };
+});
+
+async function loadTargetTrack() {
+  targetTrack.value = [];
+  targetTrackMeta.value = null;
+  targetTrackSummary.value = null;
+  targetTrackError.value = "";
+  evidenceView.value = null;
+  if (!layers.targetTrack) return;
+  try {
+    const report = await getTargetTrackSample();
+    if (!layers.targetTrack) return;
+    targetTrack.value = report.segments;
+    targetTrackSummary.value = report.summary;
+    targetTrackMeta.value = { identity_status: report.identity_status, playback: report.playback ?? {}, bind_evidence: report.bind_evidence };
+    targetFrameSize.value = { w: Number((report.sample as any)?.width ?? 0), h: Number((report.sample as any)?.height ?? 0) };
+  } catch (error) {
+    targetTrackError.value = error instanceof Error ? error.message : "target_track_failed";
+  }
+}
+
+function openEvidence(point: TargetTrackPoint, trackId: string) {
+  const caseId = String(targetTrackMeta.value?.playback?.case_id ?? "");
+  const clipId = String(targetTrackMeta.value?.playback?.clip_id ?? "");
+  const offset = Number(point.evidence?.offset_seconds ?? NaN);
+  if (!caseId || !clipId || Number.isNaN(offset)) {
+    targetTrackError.value = "evidence_missing_time_basis";
+    return;
+  }
+  evidenceView.value = {
+    url: keyframeUrl(caseId, clipId, offset),
+    box: (point.box as number[]) ?? [0, 0, 0, 0],
+    label: `${trackId} · t=${point.t ?? "?"}s · frame ${point.frame ?? "?"}`,
+    meta: `身份：候选未确认 · 空间：实验估计 · 接触点 ${point.contact_quality ?? "?"} · 偏移 ${offset.toFixed(2)}s · 时间源 ${String(targetTrackMeta.value?.playback?.time_quality ?? "unknown")}`,
+  };
+}
+
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -612,11 +663,35 @@ function render() {
     }
   }
 
+  /* TB4：目标绑定轨迹。每个 segment 单独成线；遇到无有效地面点的帧就断开，绝不跨接。 */
+  if (layers.targetTrack) {
+    for (const segment of targetTrack.value) {
+      let path: Array<[number, number]> = [];
+      const flush = () => {
+        if (path.length > 1) {
+          L.polyline(path, { color: "#22d3ee", weight: 2, opacity: 0.9, dashArray: "6 4" }).addTo(lTargetTrack);
+        }
+        path = [];
+      };
+      for (const point of segment.points) {
+        if (point.spatial_level !== "L2-candidate" || !point.ground_point) { flush(); continue; }
+        const lat = point.ground_point.y;
+        const lon = point.ground_point.x;
+        path.push([lat, lon]);
+        L.circleMarker([lat, lon], { radius: 4, color: "#22d3ee", weight: 2, fillOpacity: 0.9, fillColor: "#0e7490" })
+          .addTo(lTargetTrack)
+          .on("click", () => openEvidence(point, segment.track_id))
+          .bindTooltip(`${segment.track_id} · t=${point.t ?? "?"}s · frame ${point.frame ?? "?"}<br/>接触点 ${point.contact_quality ?? "?"} · 点击回看录像帧`, { direction: "top" });
+      }
+      flush();
+    }
+  }
+
 }
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack],
   () => render(),
   { deep: true },
 );
@@ -625,9 +700,11 @@ onMounted(() => {
   void loadSpatialObservations();
   void loadExperimentalEstimates();
   void loadTrackSample();
-  watch([() => layers.experimental, () => layers.trackSample, () => wb.caseId], () => {
+  void loadTargetTrack();
+  watch([() => layers.experimental, () => layers.trackSample, () => layers.targetTrack, () => wb.caseId], () => {
     void loadExperimentalEstimates();
     void loadTrackSample();
+    void loadTargetTrack();
   });
   initMap();
   render();
@@ -683,6 +760,26 @@ function focusAnchor() {
       <span>追踪实验估计：成功 {{ trackSampleSummary?.projected ?? 0 }} · 降级 {{ trackSampleSummary?.degraded ?? 0 }} · 可靠接触点 {{ trackSampleSummary?.reliable_contact ?? 0 }}</span>
       <em v-if="trackSampleError">{{ trackSampleError }}</em>
       <em>追踪框推断，未经审核 · 不是已确认目标轨迹</em>
+    </div>
+    <div v-if="layers.targetTrack &amp;&amp; (targetTrackSummary || targetTrackError)" class="map-spatial-chip map-target-chip popover">
+      <span>目标轨迹：{{ targetTrackSummary?.projected ?? 0 }} 点 · {{ targetTrackSummary?.segments ?? 0 }} 段 · 身份 {{ targetTrackMeta?.identity_status ?? "-" }}</span>
+      <em v-if="targetTrackError">{{ targetTrackError }}</em>
+      <em>候选目标｜身份未确认｜空间为实验估计 · 非正式 L2</em>
+    </div>
+
+    <div v-if="evidenceView" class="evidence-panel">
+      <div class="evidence-card">
+        <header>
+          <span>{{ evidenceView.label }}</span>
+          <button type="button" @click="evidenceView = null">关闭</button>
+        </header>
+        <div class="evidence-frame">
+          <img :src="evidenceView.url" alt="录像关键帧" />
+          <div class="evidence-box" :style="evidenceBoxStyle"></div>
+        </div>
+        <p class="evidence-meta">{{ evidenceView.meta }}</p>
+        <p class="evidence-note">关键帧按请求偏移解码（PTS 未独立核验）；身份结论与空间质量相互独立。</p>
+      </div>
     </div>
       <div v-if="spatialObservations.length" class="map-spatial-chip popover">
         <AppIcon name="target" :size="12" />
@@ -764,6 +861,7 @@ function focusAnchor() {
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
         <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
         <label class="legend-toggle"><input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em></label>
+        <label class="legend-toggle"><input v-model="layers.targetTrack" type="checkbox" /><span>目标轨迹（实验估计）</span><em>{{ targetTrack.reduce((n, s) => n + s.points.length, 0) }}</em></label>
       </label>
       <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
@@ -788,6 +886,7 @@ function focusAnchor() {
       <ul class="legend">
         <li><span class="sw sw--experimental"></span>实验估计（未经审核／无独立真值）</li>
         <li><span class="sw sw--track"></span>追踪实验估计（片段样本）</li>
+        <li><span class="sw sw--target"></span>目标轨迹（实验估计，点击回看）</li>
         <li><i class="sw sw--spatial-l2" />L2 地面估计点（琥珀）＋误差圆</li>
         <li><i class="sw sw--spatial-l1" />L1 可能区域：无可用地面标定，不画精确点</li>
         <li><i class="ln ln--evidence" />镜头 → 估计点证据连线（虚线）</li>
@@ -1266,6 +1365,17 @@ function focusAnchor() {
 .sw--experimental { border: 2px dashed #b98cff; background: transparent; border-radius: 50%; }
 .map-track-chip { top: 136px; color: #b5f5ee; border-color: #234b47; }
 .sw--track { border: 2px solid #4fd1c5; background: #4fd1c5; border-radius: 50%; }
+.evidence-panel { position: absolute; right: 12px; bottom: 12px; z-index: 900; }
+.evidence-card { width: 420px; background: rgba(9, 13, 20, 0.96); border: 1px solid #164e63; border-radius: 8px; padding: 10px; color: #d7e3ee; }
+.evidence-card header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #a5f3fc; margin-bottom: 8px; }
+.evidence-card header button { background: transparent; border: 1px solid #2b3a4a; color: #9aa8b8; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+.evidence-frame { position: relative; width: 100%; }
+.evidence-frame img { width: 100%; display: block; border-radius: 4px; }
+.evidence-box { position: absolute; border: 2px solid #22d3ee; box-shadow: 0 0 0 9999px rgba(0,0,0,0.18) inset; pointer-events: none; }
+.evidence-meta { font-size: 11.5px; color: #b6c6d6; margin: 8px 0 4px; }
+.evidence-note { font-size: 10.5px; color: #7b8b9c; margin: 0; }
+.map-target-chip { top: 172px; color: #a5f3fc; border-color: #164e63; }
+.sw--target { border: 2px solid #22d3ee; background: #0e7490; border-radius: 50%; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;

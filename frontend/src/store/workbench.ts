@@ -74,6 +74,7 @@ export const layers = reactive({
   spatial: true,
   experimental: false,
   trackSample: false,
+  targetTrack: false,
   fov: true,
   anchors: true,
 });
