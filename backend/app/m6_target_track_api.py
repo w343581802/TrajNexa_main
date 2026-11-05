@@ -21,8 +21,15 @@ def target_track_sample() -> dict:
         payload["anchor"], payload["tracklets"], payload["camera"], kind="person",
         evidence={"clip": payload["clip"], "fps": payload["fps"],
                   "method": payload["method"], "window_start": payload["window_start"]},
+        playback={"clip_id": payload.get("clip_id"), "case_id": payload.get("case_id"),
+                  "clip_start_local": payload.get("clip_start_local"),
+                  "start_of_day_seconds": payload.get("start_of_day_seconds"),
+                  "time_basis": payload.get("time_basis"),
+                  "time_quality": payload.get("time_quality"),
+                  "time_note": payload.get("time_note")},
     )
     report["sample"] = {k: payload.get(k) for k in
-                        ("clip", "fps", "width", "height", "window_start", "window_end", "method")}
+                        ("clip", "fps", "width", "height", "window_start", "window_end", "method",
+                         "clip_id", "case_id", "clip_start_local")}
     report["anchor"] = payload["anchor"]
     return report

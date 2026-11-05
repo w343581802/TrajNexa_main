@@ -95,8 +95,10 @@ def segment_frames(frames, *, max_gap_s=MAX_GAP_S, track_iou=TRACK_IOU, max_jump
     return segments
 
 
-def build_track(anchor, tracklets, camera, *, kind="person", evidence=None):
+def build_track(anchor, tracklets, camera, *, kind="person", evidence=None, playback=None):
     """绑定 → 分段 → 逐帧投影；返回实验估计轨迹，persisted 恒为 False。"""
+    playback = dict(playback or {})
+    start_of_day = playback.get("start_of_day_seconds")
     binding = bind_tracklets(anchor, tracklets)
     if not binding["bound"]:
         return {"identity_status": binding["identity_status"], "persisted": False,
@@ -111,10 +113,18 @@ def build_track(anchor, tracklets, camera, *, kind="person", evidence=None):
         points = []
         for frame in frames:
             sample = {"t": _frame_t(frame), "box": frame["box"]}
+            frame_t = _frame_t(frame)
+            point_evidence = {**(evidence or {}),
+                              "track_id": tracklet.get("track_id"),
+                              "frame": frame.get("frame"),
+                              "clip_id": playback.get("clip_id"),
+                              "time_basis": playback.get("time_basis"),
+                              "time_quality": playback.get("time_quality"),
+                              "day_seconds": frame_t}
+            if start_of_day is not None:
+                point_evidence["offset_seconds"] = round(frame_t - float(start_of_day), 2)
             report = m6_track_spatial.project_track(
-                camera, [sample], kind=kind, evidence={**(evidence or {}),
-                                                      "track_id": tracklet.get("track_id"),
-                                                      "frame": frame.get("frame")})
+                camera, [sample], kind=kind, evidence=point_evidence)
             point = dict(report["points"][0])
             point["frame"] = frame.get("frame")
             if frames and frame is not frames[0]:
@@ -130,6 +140,7 @@ def build_track(anchor, tracklets, camera, *, kind="person", evidence=None):
     return {"identity_status": binding["identity_status"], "persisted": False,
             "layer": "experimental_estimate", "quality": "experimental_estimate",
             "bind_evidence": binding["bind_evidence"], "scored": binding["scored"],
+            "playback": playback,
             "segments": segments_out,
             "note": "候选身份绑定 + 实验估计投影；未经身份确认与标定审核，不写正式观测",
             "summary": {"segments": len(segments_out), "projected": projected, "degraded": degraded}}

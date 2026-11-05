@@ -887,5 +887,12 @@
     }
    ]
   }
- ]
+ ],
+ "clip_id": "6d2e8d6c-73bd-4ece-86ba-aa9a36246836",
+ "case_id": "4da6cac0-5047-488e-af49-087e1513eb17",
+ "clip_start_local": "2026-10-23T15:00:00",
+ "start_of_day_seconds": 54000,
+ "time_basis": "clip_start_local",
+ "time_quality": "uncalibrated_osd_ocr",
+ "time_note": "片段起始时间来自 OSD 识别（未校准），偏移秒数 = 当天秒数 - 54000，与 PTS 是否一致尚未验证"
 }

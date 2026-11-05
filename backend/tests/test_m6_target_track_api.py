@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_target_track_sample_endpoint(env):
     client, _, _ = env
     response = client.get("/api/v1/target-track/sample")
@@ -10,3 +13,8 @@ def test_target_track_sample_endpoint(env):
     point = data["segments"][0]["points"][0]
     assert point["evidence"]["track_id"]
     assert point["evidence"]["clip"]
+    assert data["playback"]["clip_id"]
+    first_point = data["segments"][0]["points"][0]
+    assert first_point["evidence"]["offset_seconds"] == pytest.approx(
+        first_point["evidence"]["day_seconds"] - 54000.0)
+    assert first_point["evidence"]["time_quality"] == "uncalibrated_osd_ocr"
