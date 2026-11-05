@@ -247,3 +247,47 @@ def read_map_spatial(*, dsn, connect=None):
     except Exception:
         raise SpatialReadError('map_spatial_query_unavailable') from None
     return build_spatial_payload(points,fov,video)
+
+
+GROUND_CALIBRATION_SQL = """
+    SELECT id::text, camera_uuid, map_camera_id, review_status, world_crs,
+           reference_width, reference_height, image_preprocess, frame_mode,
+           homography_3x3, ground_valid_polygon, holdout_residual_m,
+           calibration_revision, spatial_revision
+      FROM cameras_ground_calibration
+     WHERE id = %s::uuid AND review_status = 'approved'
+"""
+
+
+def read_ground_calibration(*, dsn, calibration_id, connect=None):
+    """只读取已审核发布的 Map 标定；草稿/拒绝版本一律返回 None。"""
+    if not isinstance(dsn, str) or not dsn.strip():
+        raise SpatialReadError('map_spatial_db_not_configured')
+    if not isinstance(calibration_id, str) or not calibration_id.strip():
+        raise SpatialReadError('calibration_id_required')
+    if connect is None:
+        try:
+            import psycopg
+        except ImportError:
+            raise SpatialReadError('map_spatial_driver_unavailable') from None
+        connect = psycopg.connect
+    try:
+        with connect(dsn, connect_timeout=4) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+                cursor.execute("SET LOCAL statement_timeout = '6000ms'")
+                cursor.execute(GROUND_CALIBRATION_SQL, (calibration_id,))
+                row = cursor.fetchone()
+    except SpatialReadError:
+        raise
+    except Exception:
+        raise SpatialReadError('map_spatial_db_unavailable') from None
+    if row is None:
+        raise SpatialReadError('calibration_not_published')
+    return {'calibration_id': row[0], 'camera_uuid': row[1], 'map_camera_id': row[2],
+            'review_status': row[3], 'world_crs': row[4],
+            'reference_width': float(row[5]), 'reference_height': float(row[6]),
+            'image_preprocess': row[7], 'frame_mode': row[8],
+            'homography_3x3': row[9], 'ground_valid_polygon': row[10],
+            'holdout_residual_m': row[11], 'calibration_revision': row[12],
+            'spatial_revision': row[13]}

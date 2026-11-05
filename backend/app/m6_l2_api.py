@@ -9,6 +9,8 @@ from app.db import get_db
 from app import m6_l2_observation as l2
 from app.models import Case, TargetObservation, TargetSpatialObservation
 from app.recording_api import fail
+from app import map_db_spatial
+from app.config import settings
 
 router = APIRouter(prefix='/api/v1')
 
@@ -38,7 +40,15 @@ def project_ground_point(case_id: str, observation_id: str, payload: dict,
              '必须由用户或复核明确的接地点像素，不能用检测框几何中心代替')
     calibration = payload.get('calibration')
     if not isinstance(calibration, dict):
-        fail(422, 'calibration_required')
+        calibration_id = str(payload.get('calibration_id') or '').strip()
+        if not calibration_id:
+            fail(422, 'calibration_or_calibration_id_required')
+        try:
+            calibration = map_db_spatial.read_ground_calibration(
+                dsn=settings.map_db_readonly_url, calibration_id=calibration_id)
+        except map_db_spatial.SpatialReadError as exc:
+            status = 404 if str(exc) == 'calibration_not_published' else 409
+            fail(status, str(exc), str(exc))
     frame_size = payload.get('frame_size')
     contact = payload.get('contact') if isinstance(payload.get('contact'), dict) else None
     evaluation = l2.evaluate(observation_id=observation_id,
