@@ -10,6 +10,7 @@ points.json:
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 import cv2
@@ -20,6 +21,17 @@ def _arrays(points):
     image = np.array([p["image"] for p in points], dtype="float64")
     ground = np.array([p["ground"] for p in points], dtype="float64")
     return image, ground
+
+
+def _meter_scales(ground, world_crs):
+    if str(world_crs or '').upper() in ('EPSG:4326', 'WGS84', 'CRS:84'):
+        lat = float(np.mean(ground[:, 1]))
+        return 111320.0 * math.cos(math.radians(lat)), 110540.0
+    return 1.0, 1.0
+
+
+def _errors_m(delta, scales):
+    return np.hypot(delta[:, 0] * scales[0], delta[:, 1] * scales[1])
 
 
 def _stats(values):
@@ -41,8 +53,10 @@ def calibrate(payload):
         raise SystemExit("homography_failed")
     mask = mask.ravel().astype(bool)
     projected_fit = cv2.perspectiveTransform(image.reshape(-1, 1, 2), homography).reshape(-1, 2)
-    fit_errors = np.linalg.norm(projected_fit - ground, axis=1)
+    scales = _meter_scales(ground, payload.get("world_crs"))
+    fit_errors = _errors_m(projected_fit - ground, scales)
     report = {"homography_3x3": homography.tolist(),
+              "residual_unit": "m",
               "fit_points": len(fit),
               "inliers": int(mask.sum()),
               "outliers": [int(i) for i, ok in enumerate(mask) if not ok],
@@ -50,7 +64,7 @@ def calibrate(payload):
     if holdout:
         h_image, h_ground = _arrays(holdout)
         projected = cv2.perspectiveTransform(h_image.reshape(-1, 1, 2), homography).reshape(-1, 2)
-        errors = np.linalg.norm(projected - h_ground, axis=1)
+        errors = _errors_m(projected - h_ground, scales)
         report["holdout_residual_m"] = _stats(errors)
         report["holdout_errors_m"] = [round(float(v), 3) for v in errors]
     return report
