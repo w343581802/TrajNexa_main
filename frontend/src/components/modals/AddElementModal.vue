@@ -721,6 +721,7 @@ const assocAttributes = reactive<AttrRow[]>(vehicleAttributes.map((row) => ({ ..
 const assocPersonAttributes = reactive<AttrRow[]>(attributes.map((row) => ({ ...row })));
 const primaryAttrs = computed(() => (category.value === "vehicle" ? vehicleAttributes : attributes));
 const assocAttrs = computed(() => (assocCategory.value === "vehicle" ? assocAttributes : assocPersonAttributes));
+const groupRevisions = ref<{ id: string; name: string; old_value: string | null; new_value: string | null; old_review_state: string | null; new_review_state: string; changed_at: string }[]>([]);
 const editingGroup = ref<Record<string, unknown> | null>(null);
 const editingPrimaryId = ref<string | null>(null);
 const editingAssocId = ref<string | null>(null);
@@ -845,6 +846,7 @@ async function loadGroupForEdit(groupId: string) {
     }
     ignoredAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_ignored) ? [...(detail.source as Record<string, any>).ai_ignored] : [];
     rejectedAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_rejected) ? [...(detail.source as Record<string, any>).ai_rejected] : [];
+    groupRevisions.value = await mainApi.listGroupRevisions(caseId, groupId);
     toast("已载入目标组，可修改特征后保存", "ok");
     void recognize();
   } catch (error) {
@@ -990,6 +992,7 @@ async function save(keepOpen: boolean) {
         attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value, m4Box.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value, assocBox.value) : [])],
         source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
+      groupRevisions.value = await mainApi.listGroupRevisions(caseId, groupId);
       toast("目标组已更新", "ok");
       ui.addElementOpen = false;
       return;
@@ -1329,6 +1332,17 @@ function undoReject(feature: string) { rejectedAiFeatures.value = rejectedAiFeat
         </div>
 
         <div class="ae-section">
+        <div v-if="groupRevisions.length" class="ae-section">
+          <details>
+            <summary class="field-label">修订历史（{{ groupRevisions.length }}）</summary>
+            <div v-for="rev in groupRevisions" :key="rev.id" class="rev-row">
+              <span class="rev-name">{{ rev.name }}</span>
+              <span class="rev-diff">{{ rev.old_value ?? "（无）" }} → {{ rev.new_value ?? "（无）" }}</span>
+              <span class="rev-state">{{ rev.old_review_state ?? "" }} → {{ rev.new_review_state }}</span>
+              <span class="rev-time">{{ rev.changed_at.slice(0, 19).replace("T", " ") }}</span>
+            </div>
+          </details>
+        </div>
           <span class="field-label">备注 / 来源说明</span>
           <textarea v-model="note" class="textarea" rows="2" placeholder="例如：角标时间与文件名交叉核对；画面低照度" />
         </div>
@@ -1968,4 +1982,8 @@ function undoReject(feature: string) { rejectedAiFeatures.value = rejectedAiFeat
 .ai-suggest-row { display: flex; gap: 6px; align-items: center; }
 .ai-suggest-row .truncate { flex: 1; font-size: 11.5px; }
 
+.rev-row { display: grid; grid-template-columns: 80px 1fr auto auto; gap: 8px; font-size: 11.5px; padding: 3px 0; border-bottom: 1px dashed var(--line-weak); }
+.rev-name { color: var(--fg); }
+.rev-diff { color: var(--fg-dim); }
+.rev-state, .rev-time { color: var(--fg-mute); font-size: 11px; }
 </style>

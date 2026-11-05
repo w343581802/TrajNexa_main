@@ -771,6 +771,11 @@ export const mainApi = {
     request<Record<string, unknown>>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}`,
       jsonBody(body, "PATCH")),
 
+  listGroupRevisions: (caseId: string, groupId: string) =>
+    request<{ id: string; attribute_key: string; name: string; old_value: string | null;
+      old_review_state: string | null; new_value: string | null; new_review_state: string;
+      changed_at: string }[]>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}/revisions`),
+
   listTrackingCameras: (caseId: string) =>
     request<{ camera_uuid: string | null; camera_label: string; clips: number;
       first_start: string | null; last_start: string | null;
