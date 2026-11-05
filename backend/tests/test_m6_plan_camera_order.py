@@ -29,3 +29,19 @@ def test_without_camera_order_keeps_alphabetical_behaviour():
     clips = [_clip('B-二号', 'b'), _clip('A-起始', 'a')]
     plan = m6_run_worker.plan_windows(_run([]), clips, set())
     assert plan and plan[0]['camera_label'] == 'B-二号'
+
+
+def test_spatial_hint_orders_nearer_camera_first_keeps_all():
+    clips = [_clip('A-远', 'a'), _clip('B-近', 'b')]
+    plan = m6_run_worker.plan_windows(
+        _run([]), clips, set(), spatial_hint=(110.0, 25.0),
+        camera_locations={'A-远': (110.02, 25.02), 'B-近': (110.0005, 25.0005)})
+    # 一次执行只推进一台镜头：软优先级只体现为“先查近的”，其余仍在后续轮次。
+    assert [p['camera_label'] for p in plan] == ['B-近']
+
+
+def test_without_hint_or_locations_order_stays_baseline():
+    clips = [_clip('A-远', 'a'), _clip('B-近', 'b')]
+    assert [p['camera_label'] for p in m6_run_worker.plan_windows(_run([]), clips, set())] == ['A-远']
+    assert [p['camera_label'] for p in m6_run_worker.plan_windows(
+        _run([]), clips, set(), spatial_hint=(110.0, 25.0))] == ['A-远']

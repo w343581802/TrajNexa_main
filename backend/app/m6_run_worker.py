@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session
 
 from app import m6_recording_source
 from app.m6_recording_source import RecordingFrameError
+from app import m6_l2_trajectory
+from app import map_db_spatial
 from app.config import settings
 from app.m4_video import resolve_case_clip
 from app.m6_run_service import TrackingRunError
@@ -60,7 +62,9 @@ def _clip_start(clip: RecordingClip) -> float | None:
     return source.seconds_of_day(clip.start_local)
 
 
-def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -> list[dict]:
+def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str],
+                spatial_hint: tuple[float, float] | None = None,
+                camera_locations: dict[str, tuple[float, float]] | None = None) -> list[dict]:
     """Build camera windows around the anchor; deterministic and budget-aware."""
     anchor = run.anchor_json or {}
     scope = run.scope_json or {}
@@ -78,7 +82,6 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     for clip in clips:
         by_camera.setdefault((clip.camera_name or '').strip(), []).append(clip)
     requested = [str(v).strip() for v in (scope.get('camera_order') or []) if isinstance(v, str)]
-    requested = [str(v).strip() for v in (scope.get('camera_order') or []) if isinstance(v, str)]
     if requested:
         order = [label for label in requested if label in by_camera]
         order += sorted(label for label in by_camera if label not in order)
@@ -86,6 +89,10 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
         order = sorted(by_camera)
         if direction == 'backward':
             order = list(reversed(order))
+        if spatial_hint and camera_locations:
+            # S4 软优先级：只调整“先查哪台”，不删除镜头；同分保持原有顺序。
+            order = sorted(order, key=lambda label: -m6_l2_trajectory.spatial_priority(
+                spatial_hint, *camera_locations.get(label, spatial_hint)))
         if anchor_label in order:
             order.remove(anchor_label)
             order.append(anchor_label)  # anchor camera continuation comes last
@@ -147,6 +154,36 @@ def _store_candidate(db: Session, run: TrackingRun, plan: dict, candidate: dict,
     return row
 
 
+def _latest_spatial_hint(db: Session, case_id: str):
+    """最近一条 L2/WGS84 估计点；取不到就返回 None，规划保持原基线。"""
+    from app.models import TargetSpatialObservation
+    row = db.scalars(select(TargetSpatialObservation)
+                     .where(TargetSpatialObservation.case_id == case_id,
+                            TargetSpatialObservation.spatial_level == 'L2')
+                     .order_by(TargetSpatialObservation.created_at.desc()).limit(1)).first()
+    ground = getattr(row, 'ground_point', None)
+    if not isinstance(ground, dict) or ground.get('crs') != 'EPSG:4326':
+        return None
+    try:
+        return float(ground['x']), float(ground['y'])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _camera_locations() -> dict[str, tuple[float, float]] | None:
+    try:
+        payload = map_db_spatial.read_map_spatial(dsn=settings.map_db_readonly_url)
+    except Exception:
+        return None
+    result = {}
+    for camera in payload.get('cameras') or []:
+        location = camera.get('location') or {}
+        name = camera.get('display_name')
+        if name and location.get('lon') is not None and location.get('lat') is not None:
+            result[name] = (float(location['lon']), float(location['lat']))
+    return result or None
+
+
 def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
                 storage_root: Path | None = None) -> TrackingRun:
     """Run or resume one tracking run; idempotent per planned window."""
@@ -177,7 +214,9 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             return run
         if analyzer is None:
             analyzer = RecordingAnalyzer(run, fps=fps)
-        plans = plan_windows(run, clips, done)
+        hint = _latest_spatial_hint(db, run.case_id)
+        locations = _camera_locations() if hint else None
+        plans = plan_windows(run, clips, done, spatial_hint=hint, camera_locations=locations)
         for plan in plans:
             if frames_used >= budget:
                 run.status = 'budget_exhausted'
