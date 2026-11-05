@@ -1027,3 +1027,30 @@ export async function listTargetSpatialObservations(
   const data = (await response.json()) as { items?: TargetSpatialObservationRow[] };
   return data.items ?? [];
 }
+
+
+/** B8-SA5：实验估计投影（不写库、不产生正式 L2）。 */
+export interface ExperimentalProjectionRow {
+  observation_id: string | null;
+  pixel: number[];
+  spatial_level: string;
+  quality?: string;
+  ground_point?: { x: number; y: number; crs: string };
+  uncertainty_radius_m?: number | null;
+  degrade_reason?: string;
+}
+
+export async function experimentalProjection(body: unknown): Promise<{
+  points: ExperimentalProjectionRow[];
+  degraded: number;
+  layer: string;
+  note: string;
+}> {
+  const response = await fetch(`${BASE}/experimental-projection`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`experimental_projection_${response.status}`);
+  return (await response.json()) as { points: ExperimentalProjectionRow[]; degraded: number; layer: string; note: string };
+}

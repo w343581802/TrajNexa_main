@@ -72,6 +72,7 @@ export const wb = reactive({
 
 export const layers = reactive({
   spatial: true,
+  experimental: false,
   fov: true,
   anchors: true,
 });

@@ -8,6 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
+import { experimentalProjection, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
@@ -44,6 +45,7 @@ const lFocus = L.layerGroup();
 const lAnchors = L.layerGroup();
 const lTrack = L.layerGroup();
 const lSpatial = L.layerGroup();
+const lExperimental = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -389,10 +391,36 @@ async function loadSpatialObservations() {
     spatialObservations.value = [];
     return;
   }
+
   try {
     spatialObservations.value = await listTargetSpatialObservations(wb.caseId);
   } catch {
     spatialObservations.value = [];
+  }
+}
+
+/* B8-SA5：试点几何投影样本（实验估计，仅展示，不写库、不是目标轨迹）。 */
+const PILOT_CAMERA = { width: 1920, height: 1080, hfov_deg: 64, pitch_deg: 25, yaw_deg: 168, height_m: 4, lon: 110.211389, lat: 25.256698 };
+const PILOT_SAMPLES = [["井盖",622,497],["排水篦子",720,503],["车位线T点",1128,678],["车位线端头",1003,693],["坡垫",1095,813],["坡垫路缘",1112,826],["树池",158,710],["红砖路缘",350,870]] as const;
+const experimentalPoints = ref<ExperimentalProjectionRow[]>([]);
+const experimentalDegraded = ref(0);
+const experimentalError = ref("");
+const experimentalOk = computed(() => experimentalPoints.value.filter((row) => row.spatial_level === "L2-candidate").length);
+
+async function loadExperimentalEstimates() {
+  experimentalPoints.value = [];
+  experimentalDegraded.value = 0;
+  experimentalError.value = "";
+  if (!layers.experimental) return;
+  try {
+    const report = await experimentalProjection({
+      camera: PILOT_CAMERA,
+      points: PILOT_SAMPLES.map(([name, u, v]) => ({ pixel: [u, v], observation_id: name })),
+    });
+    experimentalPoints.value = report.points;
+    experimentalDegraded.value = report.degraded;
+  } catch (error) {
+    experimentalError.value = (error as Error).message;
   }
 }
 
@@ -517,6 +545,21 @@ function render() {
     }
   }
 
+  /* B8-SA5：实验估计（紫色空心点 + 虚线不确定范围），与正式 L2 完全隔离。 */
+  if (layers.experimental) {
+    for (const row of experimentalPoints.value as ExperimentalProjectionRow[]) {
+      if (row.spatial_level !== "L2-candidate" || !row.ground_point) continue;
+      const lat = row.ground_point.y;
+      const lon = row.ground_point.x;
+      L.circleMarker([lat, lon], { radius: 5, color: "#b98cff", weight: 2, fillColor: "transparent", fillOpacity: 0, dashArray: "3 3" })
+        .addTo(lExperimental)
+        .bindTooltip(`试点几何投影样本 · ${row.observation_id ?? ""}<br/>实验估计，未经审核 / 无独立真值<br/>不确定半径 ±${row.uncertainty_radius_m ?? "?"} m`, { direction: "top" });
+      if (row.uncertainty_radius_m) {
+        L.circle([lat, lon], { radius: row.uncertainty_radius_m, color: "#b98cff", weight: 1, opacity: 0.5, dashArray: "2 6", fill: false }).addTo(lExperimental);
+      }
+    }
+  }
+
 }
 
 watch(
@@ -531,7 +574,7 @@ onMounted(() => {
   initMap();
   render();
   void reloadSnapshot();
-  watch(() => wb.caseId, () => void loadSpatialObservations());
+  watch(() => wb.caseId, () => { void loadSpatialObservations(); experimentalPoints.value = []; void loadExperimentalEstimates(); });
   window.addEventListener("focus", refreshSnapshotOnFocus);
 });
 
@@ -572,6 +615,11 @@ function focusAnchor() {
         </svg>
       </div>
 
+    <div v-if="layers.experimental &amp;&amp; (experimentalPoints.length || experimentalError)" class="map-spatial-chip map-experimental-chip popover">
+      <span>实验估计：成功 {{ experimentalOk }} · 降级 {{ experimentalDegraded }}</span>
+      <em v-if="experimentalError">{{ experimentalError }}</em>
+      <em>未经审核 / 无独立真值 · 仅试点样本，非目标轨迹</em>
+    </div>
       <div v-if="spatialObservations.length" class="map-spatial-chip popover">
         <AppIcon name="target" :size="12" />
         <span>目标空间观测 {{ spatialObservations.length }} · L2 {{ spatialL2Count }} · L1 {{ spatialL1Count }}</span>
@@ -650,6 +698,7 @@ function focusAnchor() {
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
       <label class="layer-row">
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
+        <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
       </label>
       <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
@@ -672,6 +721,7 @@ function focusAnchor() {
       </ul>
       <p class="legend-title">目标空间状态（B8-S）</p>
       <ul class="legend">
+        <li><span class="sw sw--experimental"></span>实验估计（未经审核／无独立真值）</li>
         <li><i class="sw sw--spatial-l2" />L2 地面估计点（琥珀）＋误差圆</li>
         <li><i class="sw sw--spatial-l1" />L1 可能区域：无可用地面标定，不画精确点</li>
         <li><i class="ln ln--evidence" />镜头 → 估计点证据连线（虚线）</li>
@@ -1146,6 +1196,8 @@ function focusAnchor() {
 .legend-note { color: #8b9bb0; font-size: 11px; line-height: 1.5; padding: 2px 0 0 18px; }
 .map-spatial-chip { position: absolute; left: 12px; top: 64px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 11.5px; color: #ffd8a3; background: rgba(12,17,24,0.9); border: 1px solid #3a3320; border-radius: 6px; }
 .map-spatial-chip em { color: #9aa8b8; font-style: normal; }
+.map-experimental-chip { top: 100px; color: #d9c2ff; border-color: #3a2b55; }
+.sw--experimental { border: 2px dashed #b98cff; background: transparent; border-radius: 50%; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;
