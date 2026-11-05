@@ -12,7 +12,7 @@
 | 姿态 | `pose_quality=calibrated`，bearing 355°，tilt 25°，安装高 4 m | 通过 |
 | 水平视角 | `horizontal_fov_deg = NULL` | **缺**：无法生成 L1 方向带，但 L2 单应标定不依赖它 |
 | 位置质量 | `position_quality=reported` | 仅报告值，未实测 |
-| 通道绑定 | 主系统 `m6_camera_bindings.json` 仅有 1-1/2-1/2-2 三条 `pending_human_review`，**无该相机的 camera_uuid ↔ map_camera_id 绑定** | **阻断**：未绑定不得输出 L2 |
+| 通道绑定 | 录像段 `recording_clips.camera_uuid = 345f9636-…`，与 registry.id 一致，`match_status=matched`；主系统 `m6_camera_bindings.json` 仍无该条目 | 部分通过：clip 已绑定设备；发布前仍应补显式通道绑定记录 |
 | 录像段 | 查询输出：8dd9ca8c-ebab-4ab7-85d0-fa65ce1b930a / matched / 345f9636-0dff-4fb5-87e9-01d5f1cb9e1d / 1801.923076923077
 0faff109-7f92-43cc-8b87-ef75d0dac057 / matched / 345f9636-0dff-4fb5-87e9-01d5f1cb9e1d / 1801.923076923077 | 需人工确认 |
 
