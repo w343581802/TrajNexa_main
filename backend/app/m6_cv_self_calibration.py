@@ -242,3 +242,65 @@ def validate_against_pose(candidate, *, reported_pitch_deg=None, reported_focal_
     elif "delta_pitch_deg" in result or "focal_ratio" in result:
         result["verdict"] = "consistent"
     return result
+
+
+def motion_tracks(frames, *, min_area=600.0, max_age=3, iou_threshold=0.2):
+    """纯传统视觉：背景差分 + IoU 关联，返回每条轨迹的框底中心点序列。
+
+    frames: 灰度帧序列（同一视角、相机静止）。不依赖任何模型或人工标注。
+    """
+    import cv2
+
+    subtractor = cv2.createBackgroundSubtractorMOG2(history=120, varThreshold=36, detectShadows=False)
+    tracks, active = [], {}
+    next_id = 0
+    for frame in frames:
+        mask = subtractor.apply(frame)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+        mask = cv2.dilate(mask, np.ones((7, 7), np.uint8), iterations=2)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        boxes = []
+        for contour in contours:
+            if cv2.contourArea(contour) < min_area:
+                continue
+            x, y, w, h = cv2.boundingRect(contour)
+            if h < 12 or w < 8:
+                continue
+            boxes.append((float(x), float(y), float(x + w), float(y + h)))
+        assigned = {}
+        for track_id, state in list(active.items()):
+            best, best_iou = None, iou_threshold
+            for index, box in enumerate(boxes):
+                if index in assigned:
+                    continue
+                overlap = _iou(box, state["box"])
+                if overlap > best_iou:
+                    best, best_iou = index, overlap
+            if best is not None:
+                assigned[best] = track_id
+                state["box"] = boxes[best]
+                state["age"] = 0
+                tracks[track_id].append(((boxes[best][0] + boxes[best][2]) / 2.0, boxes[best][3]))
+            else:
+                state["age"] += 1
+                if state["age"] > max_age:
+                    active.pop(track_id)
+        for index, box in enumerate(boxes):
+            if index in assigned:
+                continue
+            track_id = next_id
+            next_id += 1
+            tracks.append([((box[0] + box[2]) / 2.0, box[3])])
+            active[track_id] = {"box": box, "age": 0}
+    return [{"points": [[round(x, 1), round(y, 1)] for x, y in track]}
+            for track in tracks if len(track) >= 4]
+
+
+def _iou(a, b):
+    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
+    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+    inter = (x2 - x1) * (y2 - y1)
+    area = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / area if area > 0 else 0.0

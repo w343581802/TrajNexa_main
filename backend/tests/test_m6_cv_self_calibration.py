@@ -79,3 +79,20 @@ def test_validate_consistent_when_candidate_matches_horizon():
     result = cv.validate_against_pose(candidate, reported_pitch_deg=pitch,
                                       reported_focal_px=focal, cy=cy, frame_height=1080)
     assert result["verdict"] == "consistent"
+
+
+def test_motion_tracks_follow_moving_box():
+    import numpy as np
+    frames = []
+    for step in range(8):
+        frame = np.zeros((240, 320), dtype=np.uint8)
+        x = 40 + step * 20
+        frame[120:200, x:x + 50] = 255
+        frames.append(frame)
+    tracks = cv.motion_tracks(frames, min_area=200.0)
+    assert tracks, "应至少检出一次运动目标"
+    longest = max(tracks, key=lambda item: len(item["points"]))
+    ys = [point[1] for point in longest["points"]]
+    assert max(ys) - min(ys) <= 2.0
+    xs = [point[0] for point in longest["points"]]
+    assert xs[-1] > xs[0]
