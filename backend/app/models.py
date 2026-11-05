@@ -366,3 +366,21 @@ class TargetObjectAttribute(Base):
     provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+class TargetSpatialObservation(Base):
+    """L2 地面定位观测：由已审核标定推算，独立于身份认定，绝不写 human_confirmed。"""
+    __tablename__ = 'target_spatial_observations'
+    __table_args__ = (Index('ix_target_spatial_observations_case', 'case_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), index=True)
+    observation_id: Mapped[str] = mapped_column(ForeignKey('target_observations.id'), index=True)
+    camera_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    calibration_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    calibration_revision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    spatial_level: Mapped[str] = mapped_column(String(4), default='L1')
+    quality: Mapped[str] = mapped_column(String(40), default='region_only_unverified')
+    identity_status: Mapped[str] = mapped_column(String(32), default='candidate_unverified')
+    ground_point: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    uncertainty_radius_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

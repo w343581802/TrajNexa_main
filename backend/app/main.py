@@ -20,6 +20,7 @@ from app import m4_video_api
 from app import video_naming_api
 from app import m6_run_api
 from app import target_group_api
+from app import m6_l2_api
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
@@ -36,6 +37,7 @@ app.include_router(m4_video_api.router)
 app.include_router(video_naming_api.router)
 app.include_router(m6_run_api.router)
 app.include_router(target_group_api.router)
+app.include_router(m6_l2_api.router)
 
 class MediaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
