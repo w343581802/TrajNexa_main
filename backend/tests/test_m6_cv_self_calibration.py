@@ -96,3 +96,13 @@ def test_motion_tracks_follow_moving_box():
     assert max(ys) - min(ys) <= 2.0
     xs = [point[0] for point in longest["points"]]
     assert xs[-1] > xs[0]
+
+
+def test_depth_motion_filter_keeps_growing_box_only():
+    big = [{"points": [[100 + 5 * i, 300] for i in range(14)],
+            "heights": [20 + 3 * i for i in range(14)]}]
+    flat = [{"points": [[100, 300 + i] for i in range(14)],
+             "heights": [40] * 14}]
+    kept = cv.depth_motion_tracks(big + flat)
+    assert len(kept) == 1
+    assert kept[0]["height_ratio"] > 1.4

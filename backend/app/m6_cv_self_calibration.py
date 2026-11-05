@@ -280,7 +280,7 @@ def motion_tracks(frames, *, min_area=600.0, max_age=3, iou_threshold=0.2):
                 assigned[best] = track_id
                 state["box"] = boxes[best]
                 state["age"] = 0
-                tracks[track_id].append(((boxes[best][0] + boxes[best][2]) / 2.0, boxes[best][3]))
+                tracks[track_id].append(((boxes[best][0] + boxes[best][2]) / 2.0, boxes[best][3], boxes[best][3] - boxes[best][1]))
             else:
                 state["age"] += 1
                 if state["age"] > max_age:
@@ -290,10 +290,34 @@ def motion_tracks(frames, *, min_area=600.0, max_age=3, iou_threshold=0.2):
                 continue
             track_id = next_id
             next_id += 1
-            tracks.append([((box[0] + box[2]) / 2.0, box[3])])
+            tracks.append([((box[0] + box[2]) / 2.0, box[3], box[3] - box[1])])
             active[track_id] = {"box": box, "age": 0}
-    return [{"points": [[round(x, 1), round(y, 1)] for x, y in track]}
+    return [{"points": [[round(x, 1), round(y, 1)] for x, y, _ in track],
+             "heights": [round(h, 1) for _, _, h in track]}
             for track in tracks if len(track) >= 4]
+
+
+def depth_motion_tracks(tracks, *, min_points=12, min_height_ratio=1.4):
+    """只保留“明显沿纵深运动”的轨迹：框高单调变化且幅度足够。"""
+    kept = []
+    for track in tracks:
+        points, heights = track["points"], track["heights"]
+        if len(points) < min_points or not heights:
+            continue
+        first, last = heights[:max(3, len(heights) // 4)], heights[-max(3, len(heights) // 4):]
+        start = sum(first) / len(first)
+        end = sum(last) / len(last)
+        if start <= 0 or end <= 0:
+            continue
+        ratio = max(start, end) / min(start, end)
+        if ratio < min_height_ratio:
+            continue
+        steps = [b - a for a, b in zip(heights, heights[1:])]
+        monotone = sum(1 for d in steps if d > 0) / max(1, len(steps))
+        if not (monotone > 0.75 or monotone < 0.25):
+            continue
+        kept.append({"points": points, "height_ratio": round(ratio, 2)})
+    return kept
 
 
 def _iou(a, b):
