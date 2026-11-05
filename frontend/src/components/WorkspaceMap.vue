@@ -8,7 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
-import { experimentalProjection, type ExperimentalProjectionRow } from "../services/mainApi";
+import { experimentalProjection, experimentalTrackSample, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
@@ -46,6 +46,7 @@ const lAnchors = L.layerGroup();
 const lTrack = L.layerGroup();
 const lSpatial = L.layerGroup();
 const lExperimental = L.layerGroup();
+const lTrackExp = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -112,7 +113,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -434,9 +435,29 @@ async function loadExperimentalEstimates() {
   }
 }
 
+/* TB：真实追踪框 → 实验估计（只读取样片段，不写库、不是已确认目标）。 */
+const trackSamplePoints = ref<ExperimentalProjectionRow[]>([]);
+const trackSampleSummary = ref<{ total: number; projected: number; degraded: number; reliable_contact: number } | null>(null);
+const trackSampleError = ref("");
+
+async function loadTrackSample() {
+  trackSamplePoints.value = [];
+  trackSampleSummary.value = null;
+  trackSampleError.value = "";
+  if (!layers.trackSample) return;
+  try {
+    const report = await experimentalTrackSample();
+    if (!layers.trackSample) return;
+    trackSamplePoints.value = report.points;
+    trackSampleSummary.value = report.summary;
+  } catch (error) {
+    trackSampleError.value = error instanceof Error ? error.message : "track_sample_failed";
+  }
+}
+
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -574,10 +595,28 @@ function render() {
     }
   }
 
+  /* TB：追踪实验估计（青色折线 + 小圆点），与固定样本的紫色点区分。 */
+  if (layers.trackSample && trackSamplePoints.value.length) {
+    const path: Array<[number, number]> = [];
+    for (const row of trackSamplePoints.value as ExperimentalProjectionRow[]) {
+      if (row.spatial_level !== "L2-candidate" || !row.ground_point) continue;
+      const lat = row.ground_point.y;
+      const lon = row.ground_point.x;
+      path.push([lat, lon]);
+      L.circleMarker([lat, lon], { radius: 3, color: "#4fd1c5", weight: 1, fillOpacity: 0.7, fillColor: "#4fd1c5" })
+        .addTo(lTrackExp)
+        .bindTooltip(`追踪框 → 实验估计 · t=${row.t ?? "?"}s<br/>接触点质量 ${row.contact_quality ?? "?"}<br/>不确定半径 ±${row.uncertainty_radius_m ?? "?"} m`, { direction: "top" });
+    }
+    if (path.length > 1) {
+      L.polyline(path, { color: "#4fd1c5", weight: 2, opacity: 0.8, dashArray: "4 4" }).addTo(lTrackExp);
+    }
+  }
+
 }
 
 // 开启实验图层才请求；关闭和换案件立即清空，并忽略之前的异步响应。
-watch([() => layers.experimental, () => wb.caseId], () => { void loadExperimentalEstimates(); });
+  watch([() => layers.experimental, () => layers.trackSample, () => wb.caseId], () => { void loadExperimentalEstimates(); void loadTrackSample(); });
+  void loadTrackSample();
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
@@ -637,6 +676,11 @@ function focusAnchor() {
       <span>实验估计：成功 {{ experimentalOk }} · 降级 {{ experimentalDegraded }}</span>
       <em v-if="experimentalError">{{ experimentalError }}</em>
       <em>未经审核 / 无独立真值 · 仅试点样本，非目标轨迹</em>
+    </div>
+    <div v-if="layers.trackSample &amp;&amp; (trackSampleSummary || trackSampleError)" class="map-spatial-chip map-track-chip popover">
+      <span>追踪实验估计：成功 {{ trackSampleSummary?.projected ?? 0 }} · 降级 {{ trackSampleSummary?.degraded ?? 0 }} · 可靠接触点 {{ trackSampleSummary?.reliable_contact ?? 0 }}</span>
+      <em v-if="trackSampleError">{{ trackSampleError }}</em>
+      <em>追踪框推断，未经审核 · 不是已确认目标轨迹</em>
     </div>
       <div v-if="spatialObservations.length" class="map-spatial-chip popover">
         <AppIcon name="target" :size="12" />
@@ -717,6 +761,7 @@ function focusAnchor() {
       <label class="layer-row">
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
         <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
+        <label class="legend-toggle"><input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em></label>
       </label>
       <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
@@ -740,6 +785,7 @@ function focusAnchor() {
       <p class="legend-title">目标空间状态（B8-S）</p>
       <ul class="legend">
         <li><span class="sw sw--experimental"></span>实验估计（未经审核／无独立真值）</li>
+        <li><span class="sw sw--track"></span>追踪实验估计（片段样本）</li>
         <li><i class="sw sw--spatial-l2" />L2 地面估计点（琥珀）＋误差圆</li>
         <li><i class="sw sw--spatial-l1" />L1 可能区域：无可用地面标定，不画精确点</li>
         <li><i class="ln ln--evidence" />镜头 → 估计点证据连线（虚线）</li>
@@ -1216,6 +1262,8 @@ function focusAnchor() {
 .map-spatial-chip em { color: #9aa8b8; font-style: normal; }
 .map-experimental-chip { top: 100px; color: #d9c2ff; border-color: #3a2b55; }
 .sw--experimental { border: 2px dashed #b98cff; background: transparent; border-radius: 50%; }
+.map-track-chip { top: 136px; color: #b5f5ee; border-color: #234b47; }
+.sw--track { border: 2px solid #4fd1c5; background: #4fd1c5; border-radius: 50%; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;

@@ -1038,6 +1038,8 @@ export interface ExperimentalProjectionRow {
   ground_point?: { x: number; y: number; crs: string };
   uncertainty_radius_m?: number | null;
   degrade_reason?: string;
+  t?: number | null;
+  contact_quality?: string;
 }
 
 export async function experimentalProjection(body: unknown): Promise<{
@@ -1053,4 +1055,17 @@ export async function experimentalProjection(body: unknown): Promise<{
   });
   if (!response.ok) throw new Error(`experimental_projection_${response.status}`);
   return (await response.json()) as { points: ExperimentalProjectionRow[]; degraded: number; layer: string; note: string };
+}
+
+/** TB：真实片段追踪框 → 实验估计地面点（只读样本）。 */
+export async function experimentalTrackSample(): Promise<{
+  points: ExperimentalProjectionRow[];
+  summary: { total: number; projected: number; degraded: number; reliable_contact: number };
+  sample: { clip?: string; fps?: number; method?: string; note?: string; count?: number };
+  layer: string;
+  persisted: boolean;
+}> {
+  const response = await fetch(`${BASE}/track-spatial/sample`);
+  if (!response.ok) throw new Error(`track_spatial_sample_${response.status}`);
+  return await response.json();
 }

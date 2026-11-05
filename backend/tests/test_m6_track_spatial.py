@@ -51,3 +51,14 @@ def test_route_serves_track_spatial(env):
     })
     assert response.status_code == 200, response.text
     assert response.json()["layer"] == "experimental_estimate"
+
+
+def test_sample_track_endpoint(env):
+    client, _, _ = env
+    response = client.get("/api/v1/track-spatial/sample")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["layer"] == "experimental_estimate"
+    assert data["persisted"] is False
+    assert data["summary"]["total"] == data["sample"]["count"]
+    assert data["summary"]["projected"] >= 1
