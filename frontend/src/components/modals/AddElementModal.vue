@@ -697,7 +697,7 @@ function markTimeUnknown() {
 
 const category = ref<"person" | "vehicle" | "other">("person");
 
-type AttrRow = { key: string; attributeKey: string; value: string; unknown: boolean; auto: boolean; custom?: boolean };
+type AttrRow = { key: string; attributeKey: string; value: string; unknown: boolean; auto: boolean; rejected?: boolean; custom?: boolean };
 function attrRow(key: string, attributeKey: string): AttrRow {
   return { key, attributeKey, value: "", unknown: false, auto: false };
 }
@@ -736,8 +736,8 @@ function attrRows(list: AttrRow[], subject: string) {
       attribute_key: attr.custom ? `custom.${(attr.key.trim() || "feature")}` : attr.attributeKey,
       value: attr.unknown ? null : attr.value.trim() || null,
       observation_status: attr.unknown ? "unknown" : "known",
-      review_state: attr.unknown ? "unknown" : attr.auto ? "model_proposed" : "human_verified",
-      source: attr.auto ? "model" : "human",
+      review_state: attr.unknown ? "unknown" : attr.rejected ? "human_rejected" : attr.auto ? "model_proposed" : "human_verified",
+      source: attr.auto && !attr.rejected ? "model" : "human",
     }));
 }
 
@@ -804,7 +804,7 @@ function onEscape(event: KeyboardEvent) {
 function resetAttrList(list: AttrRow[]) {
   for (let i = list.length - 1; i >= 0; i -= 1) {
     if (list[i].custom) list.splice(i, 1);
-    else { list[i].value = ""; list[i].unknown = false; list[i].auto = false; }
+    else { list[i].value = ""; list[i].unknown = false; list[i].auto = false; list[i].rejected = false; }
   }
 }
 async function loadGroupForEdit(groupId: string) {
@@ -839,8 +839,8 @@ async function loadGroupForEdit(groupId: string) {
       const list = at.subject_id === editingPrimaryId.value ? primaryAttrs.value : assocAttrs.value;
       const fixed = list.find((row) => !row.custom && row.attributeKey === String(at.attribute_key ?? ""));
       const auto = at.review_state === "model_proposed";
-      if (fixed) { fixed.value = at.value ?? ""; fixed.unknown = at.observation_status === "unknown"; fixed.auto = auto; }
-      else list.push({ key: String(at.name ?? "特征"), attributeKey: String(at.attribute_key ?? "custom"), value: at.value ?? "", unknown: at.observation_status === "unknown", auto, custom: true });
+      if (fixed) { fixed.value = at.value ?? ""; fixed.unknown = at.observation_status === "unknown"; fixed.auto = auto; fixed.rejected = at.review_state === "human_rejected"; }
+      else list.push({ key: String(at.name ?? "特征"), attributeKey: String(at.attribute_key ?? "custom"), value: at.value ?? "", unknown: at.observation_status === "unknown", auto, rejected: at.review_state === "human_rejected", custom: true });
     }
     ignoredAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_ignored) ? [...(detail.source as Record<string, any>).ai_ignored] : [];
     rejectedAiFeatures.value = Array.isArray((detail.source as Record<string, any> | undefined)?.ai_rejected) ? [...(detail.source as Record<string, any>).ai_rejected] : [];
@@ -938,6 +938,26 @@ watch(() => currentCase.value?.id, (now, old) => {
   resetForm();
   void loadM4History(true);
 });
+/** 固定字段与动态特征之间的重复/冲突检查，避免同一特征两处取值。 */
+function featureConflict(): string | null {
+  for (const list of [primaryAttrs.value, assocAttrs.value]) {
+    const seen = new Set<string>();
+    for (const row of list) {
+      const value = row.value.trim();
+      if (!value) continue;
+      const label = row.key.trim() || "特征";
+      const signature = `${label}::${value}`;
+      if (seen.has(signature)) return `存在重复特征「${label}：${value}」，请合并后再保存`;
+      seen.add(signature);
+      if (row.custom) {
+        const fixed = list.find((item) => !item.custom && item.key === label && item.value.trim() && item.value.trim() !== value);
+        if (fixed) return `「${label}」已由固定字段记录为「${fixed.value.trim()}」，请直接修改该字段或换个描述`;
+      }
+    }
+  }
+  return null;
+}
+
 async function save(keepOpen: boolean) {
   if (dateConflict.value && !dateAcknowledged.value) {
     toast("画面年份与填写日期冲突：请核对角标并勾选「已人工核对日期」后再保存", "danger");
@@ -1036,6 +1056,8 @@ async function save(keepOpen: boolean) {
       return;
     }
   }
+  const conflict = featureConflict();
+  if (conflict) { toast(conflict, "warn"); return; }
 
   const id = editingElement.value
     ? actions.updateElement(editingElement.value.id, payload)
@@ -1298,6 +1320,7 @@ function undoReject(feature: string) { rejectedAiFeatures.value = rejectedAiFeat
             <span v-else class="attr-key">{{ attr.key }}</span>
             <input v-model="attr.value" @input="attr.auto = false" class="input" :disabled="attr.unknown" :placeholder="attr.unknown ? '未知' : '可观察描述'" />
             <button v-if="attr.custom" class="chip-btn" @click="activeAttrs.splice(index, 1)">删</button>
+            <button class="chip-btn" :class="{ 'is-on': attr.rejected }" @click="attr.rejected = !attr.rejected">驳回</button>
             <button class="chip-btn" :class="{ 'is-on': attr.unknown }" @click="attr.unknown = !attr.unknown">{{ attr.unknown ? "未知" : "标未知" }}</button>
           </div>
           <button class="chip-btn" @click="addCustomAttribute">＋ 其他可辨识特征</button>
