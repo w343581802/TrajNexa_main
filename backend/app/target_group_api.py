@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app import target_groups as service
+from app.models import TargetAttributeRevision
 from app.target_groups import TargetGroupError
 from app.recording_api import fail
 
@@ -36,6 +38,17 @@ def list_target_groups(case_id: str, limit: int = Query(50, ge=1, le=200),
 @router.get('/cases/{case_id}/target-groups/{group_id}')
 def get_target_group(case_id: str, group_id: str, db: Session = Depends(get_db)):
     return _guard(service.group_detail, db, case_id, group_id)
+
+
+@router.get('/cases/{case_id}/target-groups/{group_id}/revisions')
+def list_group_revisions(case_id: str, group_id: str, db: Session = Depends(get_db)):
+    _guard(service._group, db, case_id, group_id)
+    rows = db.scalars(select(TargetAttributeRevision).where(
+        TargetAttributeRevision.group_id == group_id).order_by(TargetAttributeRevision.changed_at)).all()
+    return [{'id': r.id, 'attribute_key': r.attribute_key, 'name': r.name,
+             'old_value': r.old_value, 'old_review_state': r.old_review_state,
+             'new_value': r.new_value, 'new_review_state': r.new_review_state,
+             'changed_at': r.changed_at} for r in rows]
 
 
 @router.patch('/cases/{case_id}/target-groups/{group_id}')

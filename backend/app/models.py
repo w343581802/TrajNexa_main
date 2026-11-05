@@ -313,6 +313,21 @@ class TargetObjectRelation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class TargetAttributeRevision(Base):
+    __tablename__ = 'target_attribute_revisions'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    group_id: Mapped[str] = mapped_column(String(36), ForeignKey('target_element_groups.id', ondelete='CASCADE'), index=True)
+    subject_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    attribute_key: Mapped[str] = mapped_column(String(60))
+    name: Mapped[str] = mapped_column(String(40))
+    old_value: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    old_observation_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    old_review_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_value: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    new_observation_status: Mapped[str] = mapped_column(String(20))
+    new_review_state: Mapped[str] = mapped_column(String(20))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class TargetObjectAttribute(Base):
     __tablename__ = 'target_object_attributes'
     __table_args__ = (Index('ix_target_attrs_group_subject', 'group_id', 'subject_id'),)

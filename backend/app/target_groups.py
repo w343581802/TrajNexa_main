@@ -11,8 +11,8 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import (Case, MediaAsset, TargetElementGroup, TargetElementObject,
-                        TargetObjectAttribute, TargetObjectRelation)
+from app.models import (Case, MediaAsset, TargetAttributeRevision, TargetElementGroup,
+                        TargetElementObject, TargetObjectAttribute, TargetObjectRelation)
 
 OBJECT_CLASSES = ('person', 'vehicle', 'other')
 ROLES = ('primary', 'associated')
@@ -250,6 +250,20 @@ def patch_group(db: Session, case_id: str, group_id: str, payload: dict) -> Targ
     merged['attributes'] = payload.get('attributes', current['attributes'])
     merged['source'] = payload.get('source') if isinstance(payload.get('source'), dict) else current.get('source', {})
     media, primary, objects, relations, attributes, source = _validate(db, case_id, merged)
+    old_rows = db.scalars(select(TargetObjectAttribute).where(TargetObjectAttribute.group_id == group.id)).all()
+    old_map = {(row.subject_id, row.attribute_key or row.name): row for row in old_rows}
+    for attr in attributes:
+        row_id = _object_row_id(group.id, attr['subject_id'])
+        old = old_map.get((row_id, attr['attribute_key']))
+        if old is None or old.value != attr['value'] or old.review_state != attr['review_state'] or old.observation_status != attr['observation_status']:
+            db.add(TargetAttributeRevision(
+                id=str(uuid4()), group_id=group.id, subject_id=row_id,
+                attribute_key=attr['attribute_key'], name=attr['name'],
+                old_value=old.value if old else None,
+                old_observation_status=old.observation_status if old else None,
+                old_review_state=old.review_state if old else None,
+                new_value=attr['value'], new_observation_status=attr['observation_status'],
+                new_review_state=attr['review_state']))
     for table in (TargetElementObject, TargetObjectRelation, TargetObjectAttribute):
         for row in db.scalars(select(table).where(table.group_id == group.id)):
             db.delete(row)
