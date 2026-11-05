@@ -987,7 +987,7 @@ async function save(keepOpen: boolean) {
         primary_object_id: editingPrimaryId.value,
         objects: [
           { id: editingPrimaryId.value, object_class: category.value, role: "primary", bbox_norm_xyxy: [...m4Box.value], m4_observation_id: m4Observation.value?.id ?? null },
-          ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
+          ...(assocBox.value ? [{ id: editingAssocId.value ?? "A1", object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
         ],
         attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value, m4Box.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value, assocBox.value) : [])],
         source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
