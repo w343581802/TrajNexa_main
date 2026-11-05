@@ -9,8 +9,8 @@ from uuid import uuid4
 import pytest
 
 from app.models import (AnalysisJob, Case, InspectionReport, MediaAsset, RecordingClip,
-                        RecordingSource, TargetObservation, TrackingCandidate, TrackingRun)
-from app import m6_run_worker
+                        RecordingSource, TargetObservation, TrackingCandidate, TrackingCandidateReview, TrackingRun)
+from app import m6_run_worker, m6_candidate_visual_review
 from app.config import settings
 
 
@@ -323,3 +323,46 @@ def test_tracking_cameras_only_lists_verified_recordings(env):
     cameras = client.get('/api/v1/cases/%s/tracking-cameras' % seed['case_id']).json()
     assert cameras and cameras[0]['camera_label'] == '2-2'
     assert cameras[0]['clips'] == 1
+
+
+def test_visual_review_is_stored_separately_from_identity(env, monkeypatch):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    run = _create(client, seed).json()
+    with Session() as db:
+        m6_run_worker.execute_run(db, run['id'], analyzer=FakeAnalyzer(), storage_root=tmp)
+
+    calls = []
+
+    def fake_review(anchor_image, anchor_box, candidate_image, candidate_box, entry=None):
+        calls.append((anchor_box, candidate_box))
+        return {'overall': 'supports', 'image_quality': 'sufficient',
+                'prompt_version': 'm6-candidate-review/1', 'model': 'stub-vl',
+                'prompt_sha256': 'a' * 64,
+                'dimensions': {'garment_color': {'label': '衣着颜色', 'status': 'consistent',
+                                                 'evidence': '同为白色上衣', 'region': 'A,B'}},
+                'summary': '衣着一致'}
+
+    monkeypatch.setattr(m6_candidate_visual_review, 'review_pair', fake_review)
+    monkeypatch.setattr('cv2.imread', lambda path: __import__('numpy').zeros((64, 64, 3), dtype='uint8'))
+
+    with Session() as db:
+        from app.models import TrackingCandidate
+        rows = db.query(TrackingCandidate).filter(TrackingCandidate.run_id == run['id']).all()
+        print('CAND_ROWS', len(rows))
+        row = rows[0]
+        m6_run_worker._store_visual_review(
+            db, db.get(TrackingRun, run['id']), {'camera_label': '2-2'}, row,
+            {'frame_no': 1, 'bbox_pixels': [1, 1, 9, 19]},
+            {'frames_dir': str(tmp)})
+        db.commit()
+
+    with Session() as db:
+        reviews = db.query(TrackingCandidateReview).filter(
+            TrackingCandidateReview.candidate_id == row.id).all()
+        print('REVIEW_ROWS', len(reviews))
+        review = reviews[0]
+        assert review.overall == 'supports'
+        assert review.model == 'stub-vl'
+        assert review.review_json['dimensions']['garment_color']['status'] == 'consistent'
+    assert calls and calls[0][0] == [10, 20, 110, 220]

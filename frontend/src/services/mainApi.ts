@@ -495,6 +495,13 @@ export type TrackingCandidateRow = {
   window: [number | null, number | null]; evidence_refs: string[];
   details: { supports?: string[]; conflicts?: string[]; unknown?: string[]; note?: string };
   review_required: boolean; created_at: string;
+  visual_review?: {
+    id: string; overall: string; model: string | null; prompt_sha256: string | null;
+    error_code: string | null; created_at: string;
+    review: { image_quality?: string; summary?: string; cost_ms?: number;
+      dimensions?: Record<string, { label: string; status: string; evidence: string; region: string }>;
+      prompt_version?: string };
+  } | null;
 };
 
 export type TrackingWindowRow = {

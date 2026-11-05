@@ -6,11 +6,13 @@ worker loop. No request field can set a candidate to confirmed.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app import m6_run_service as service
 from app.m6_run_service import TrackingRunError
+from app.models import TrackingCandidateReview
 from app.recording_api import fail
 
 router = APIRouter(prefix='/api/v1')
@@ -59,6 +61,12 @@ def _window_out(row) -> dict:
     }
 
 
+def _visual_review_out(row) -> dict:
+    return {'id': row.id, 'overall': row.overall, 'model': row.model,
+            'prompt_sha256': row.prompt_sha256, 'error_code': row.error_code,
+            'review': row.review_json or {}, 'created_at': row.created_at}
+
+
 def _review_out(row) -> dict:
     return {
         'id': row.id, 'candidate_id': row.candidate_id, 'decision': row.decision,
@@ -93,7 +101,14 @@ def get_tracking_run(case_id: str, run_id: str, db: Session = Depends(get_db)):
 @router.get('/cases/{case_id}/tracking-runs/{run_id}/candidates')
 def list_tracking_candidates(case_id: str, run_id: str, db: Session = Depends(get_db)):
     rows = _guard(service.list_candidates, db, case_id, run_id)
-    return [_candidate_out(r) for r in rows]
+    reviews = {}
+    for review in db.scalars(select(TrackingCandidateReview)
+                             .where(TrackingCandidateReview.run_id == run_id)
+                             .order_by(TrackingCandidateReview.created_at)).all():
+        reviews[review.candidate_id] = review
+    return [{**_candidate_out(r),
+             'visual_review': (_visual_review_out(reviews[r.id]) if r.id in reviews else None)}
+            for r in rows]
 
 
 @router.get('/cases/{case_id}/tracking-runs/{run_id}/windows')

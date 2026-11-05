@@ -164,6 +164,17 @@ onBeforeUnmount(() => {
   stopPolling();
   if (ticker !== null) window.clearInterval(ticker);
 });
+const REVIEW_OVERALL: Record<string, string> = {
+  supports: "证据支持", inconclusive: "证据不足以下结论",
+  conflicts_present: "存在冲突", insufficient_evidence: "证据不足",
+};
+const REVIEW_STATUS: Record<string, string> = {
+  consistent: "一致", conflict: "冲突", unknown: "未知",
+};
+function reviewDims(cand: { visual_review?: { review?: { dimensions?: Record<string, { label: string; status: string; evidence: string }> } } | null }) {
+  const dims = cand.visual_review?.review?.dimensions || {};
+  return Object.keys(dims).map((key) => ({ key, ...dims[key] }));
+}
 </script>
 
 <template>
@@ -309,6 +320,25 @@ onBeforeUnmount(() => {
               状态 {{ cand.state }} · 证据 {{ cand.evidence_refs.length }} 张
               <template v-if="cand.details.unknown?.length"> · 未知：{{ cand.details.unknown.join("、") }}</template>
             </p>
+            <div v-if="cand.visual_review" class="ai-review">
+              <div class="ai-head">
+                <span class="ai-overall" :data-overall="cand.visual_review.overall">
+                  {{ REVIEW_OVERALL[cand.visual_review.overall] || cand.visual_review.overall }}</span>
+                <span class="ai-model">Qwen 视觉复核 · {{ cand.visual_review.model || "未记录" }}
+                  <template v-if="cand.visual_review.error_code"> · {{ cand.visual_review.error_code }}</template>
+                </span>
+                <span v-if="cand.visual_review.review?.summary" class="ai-summary">
+                  {{ cand.visual_review.review.summary }}</span>
+              </div>
+              <ul v-if="reviewDims(cand).length" class="ai-dims">
+                <li v-for="dim in reviewDims(cand)" :key="dim.key">
+                  <span>{{ dim.label }}</span>
+                  <b :data-status="dim.status">{{ REVIEW_STATUS[dim.status] || dim.status }}</b>
+                  <small>{{ dim.evidence }}</small>
+                </li>
+              </ul>
+              <p class="ai-note">AI 复核只补充证据，不改变相似度排名，也不代表身份确认。</p>
+            </div>
             <div class="cand-actions">
               <button class="btn btn--sm btn--primary" :disabled="cand.identity_status === 'human_confirmed'" @click="actions.rememberCandidateObservation(cand); actions.reviewTracking(cand.id, 'approve')">
                 通过并继续搜索
@@ -439,6 +469,20 @@ onBeforeUnmount(() => {
 .cand-card header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
 .score { color: var(--text-2); }
 .cand-meta { margin: 8px 0; font-size: 12px; color: var(--text-3); }
+.ai-review { border-top: 1px dashed var(--line-2); margin-top: 8px; padding-top: 8px; display: grid; gap: 5px; }
+.ai-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px; }
+.ai-overall { border-radius: 10px; padding: 1px 8px; border: 1px solid var(--line-2); }
+.ai-overall[data-overall="supports"] { color: #3fa66a; border-color: #3fa66a; }
+.ai-overall[data-overall="conflicts_present"] { color: #d06060; border-color: #d06060; }
+.ai-model, .ai-summary { color: var(--text-3); font-size: 10.5px; }
+.ai-dims { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px 14px; }
+.ai-dims li { display: flex; gap: 6px; align-items: baseline; font-size: 10.5px; color: var(--text-2); }
+.ai-dims b { font-weight: 500; flex: none; }
+.ai-dims b[data-status="consistent"] { color: #3fa66a; }
+.ai-dims b[data-status="conflict"] { color: #d06060; }
+.ai-dims b[data-status="unknown"] { color: var(--text-4); }
+.ai-dims small { color: var(--text-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-note { margin: 0; font-size: 10px; color: var(--text-4); }
 .cand-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .review-list { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-2); }
 .review-list li { margin-bottom: 4px; display: flex; gap: 8px; flex-wrap: wrap; }

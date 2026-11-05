@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     m5_workspace_detector_id: str = ''
     # M6 P1-A person-only similarity lab. Must point inside backend/models/.
     # No packaged weight; not a face/identity recognition service.
+    m6_candidate_review: bool = True  # B8-C1: Qwen visual review of Top-K candidates (observe-only)
+    m6_candidate_review_top_k: int = 3
     m6_person_reid_model_path: str = ''
     m6_person_reid_model_sha256: str = ''
     # Extra local Ollama vision models shown in the large-model menu.

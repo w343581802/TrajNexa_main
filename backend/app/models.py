@@ -256,6 +256,22 @@ class TrackingCandidate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class TrackingCandidateReview(Base):
+    """AI 视觉复核记录：只补充证据，不影响排名与身份状态。"""
+    __tablename__ = 'tracking_candidate_reviews'
+    __table_args__ = (Index('ix_tracking_candidate_reviews_run', 'run_id', 'created_at'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('tracking_runs.id'), index=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey('tracking_candidates.id'), index=True)
+    camera_label: Mapped[str] = mapped_column(String(120))
+    overall: Mapped[str] = mapped_column(String(32), default='insufficient_evidence')
+    model: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    prompt_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    review_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TrackingReviewEvent(Base):
     """append-only 人工审核：不覆盖旧决定，撤销也是新事件。"""
     __tablename__ = 'tracking_review_events'

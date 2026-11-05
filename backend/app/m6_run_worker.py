@@ -22,7 +22,7 @@ from app.config import settings
 from app.m4_video import resolve_case_clip
 from app.m6_run_service import TrackingRunError
 from app.m6_target_candidate_adapter import candidates_from_scores
-from app.models import (RecordingClip, RecordingSource, TrackingCandidate,
+from app.models import (RecordingClip, RecordingSource, TrackingCandidate, TrackingCandidateReview,
                         TrackingRun, TrackingWindow)
 
 IN_PROGRESS_STATUSES = ('queued', 'running')
@@ -200,11 +200,16 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             scored = analyzer.score(result) if tracks else []
             refs = list(result.get('evidence_refs') or [])
             if tracks and scored:
-                verdict = candidates_from_scores(scored)
+                top_k = (int(getattr(settings, 'm6_candidate_review_top_k', 3) or 1)
+                         if (isinstance(analyzer, RecordingAnalyzer)
+                             and bool(getattr(settings, 'm6_candidate_review', True))) else 1)
+                verdict = candidates_from_scores(scored, top_k=max(1, top_k))
                 for candidate in verdict.get('target_candidates') or []:
-                    _store_candidate(db, run, plan, candidate, refs,
+                    row = _store_candidate(db, run, plan, candidate, refs,
                                      'top1=%s margin=%s' % (candidate.get('retrieval_score'),
                                                               candidate.get('margin_top1_top2')))
+                    if row is not None and top_k > 1:
+                        _store_visual_review(db, run, plan, row, candidate, result)
             done.add(plan['key'])
             frames_used += frames
             progress = {'schema': 'b8-run-progress/1', 'analyzed_windows': sorted(done),
@@ -337,7 +342,8 @@ class RecordingAnalyzer:
                     best = float(embeddings[0] @ reference)
                     break
             if best is not None:
-                scored.append({'track_id': track['track_id'], 'retrieval_score': round(best, 4)})
+                scored.append({'track_id': track['track_id'], 'retrieval_score': round(best, 4),
+                           'frame_no': frame_no, 'bbox_pixels': box})
         return scored
 
 
@@ -345,3 +351,49 @@ def claim_next_run(db: Session) -> TrackingRun | None:
     run = db.scalar(select(TrackingRun).where(TrackingRun.status == 'queued')
                     .order_by(TrackingRun.created_at, TrackingRun.id).limit(1))
     return run
+def _store_visual_review(db: Session, run: TrackingRun, plan: dict, row: TrackingCandidate,
+                          candidate: dict, result: dict) -> None:
+    """B8-C1 observe_only: 双图复核结果只入库，不改排名、不改身份状态。"""
+    if not bool(getattr(settings, 'm6_candidate_review', True)):
+        return
+    import cv2
+    from app import m6_candidate_visual_review as review
+    from app.models import MediaAsset
+    anchor = run.anchor_json or {}
+    media = db.get(MediaAsset, anchor.get('media_id'))
+    relpath = media.storage_relpath if media else None
+    frame_no, bbox = candidate.get('frame_no'), candidate.get('bbox_pixels')
+    frames_dir = Path(result.get('frames_dir') or '')
+    base = {'candidate_key': row.candidate_key,
+            'anchor_media_id': anchor.get('media_id'),
+            'anchor_bbox_pixels': anchor.get('bbox_pixels'),
+            'frame_no': frame_no, 'bbox_pixels': bbox,
+            'schema': 'b8-candidate-visual-review/1'}
+    data = None
+    try:
+        if not relpath or not anchor.get('bbox_pixels'):
+            raise review.ReviewError('candidate_review_anchor_missing')
+        if frame_no is None or not bbox:
+            raise review.ReviewError('candidate_review_frame_missing')
+        anchor_image = cv2.imread(str(Path(settings.storage_root).resolve() / relpath))
+        frame_image = cv2.imread(str(frames_dir / ('%04d.jpg' % int(frame_no))))
+        if anchor_image is None or frame_image is None:
+            raise review.ReviewError('candidate_review_image_unreadable')
+        data = review.review_pair(anchor_image, anchor.get('bbox_pixels'),
+                                  frame_image, bbox)
+    except Exception as exc:  # noqa: BLE001 - 复核失败不能中断追踪
+        code = str(getattr(exc, 'code', None) or exc or 'candidate_review_failed')[:80]
+        db.add(TrackingCandidateReview(
+            id=str(uuid4()), run_id=run.id, candidate_id=row.id,
+            camera_label=plan['camera_label'], overall='insufficient_evidence',
+            error_code=code, review_json=base))
+        return
+    base.update(data)
+    db.add(TrackingCandidateReview(
+        id=str(uuid4()), run_id=run.id, candidate_id=row.id,
+        camera_label=plan['camera_label'],
+        overall=str(data.get('overall') or 'inconclusive'),
+        model=data.get('model'), prompt_sha256=data.get('prompt_sha256'),
+        review_json=base))
+
+

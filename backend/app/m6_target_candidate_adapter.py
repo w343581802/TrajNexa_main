@@ -15,10 +15,13 @@ DEFAULT_MIN_SCORE = 0.60
 DEFAULT_MIN_MARGIN = 0.08
 
 
-def candidates_from_scores(scored, min_score=DEFAULT_MIN_SCORE, min_margin=DEFAULT_MIN_MARGIN):
+def candidates_from_scores(scored, min_score=DEFAULT_MIN_SCORE, min_margin=DEFAULT_MIN_MARGIN,
+                            top_k=1):
     """把窗口内的外观得分变成候选，并用 top1-top2 间距区分强弱。
 
     外观分只能排序；"弱候选"（分数挤在一起）不触发复核暂停，继续查其他窗口。
+    top_k>1 时为 B8-C1 保留复核用的 Top-K；排名与强弱语义不变，后续候选一律是
+    weak_candidate，只有第 1 名可能成为 candidate。
     """
     ranked = [s for s in scored if s.get("retrieval_score") is not None]
     ranked.sort(key=lambda s: -s["retrieval_score"])
@@ -28,14 +31,20 @@ def candidates_from_scores(scored, min_score=DEFAULT_MIN_SCORE, min_margin=DEFAU
     margin = round(top["retrieval_score"] - ranked[1]["retrieval_score"], 3) if len(ranked) > 1 else None
     strong = (top["retrieval_score"] >= min_score
               and (margin is None or margin >= min_margin))
-    candidate = {"track_id": top["track_id"],
-                 "retrieval_score": top["retrieval_score"],
-                 "margin_top1_top2": margin,
-                 "state": "candidate" if strong else "weak_candidate",
-                 "supports": ["appearance_similarity"],
-                 "conflicts": [],
-                 "unknown": ["spatiotemporal_unverified"]}
-    return {"status": "ok", "target_candidates": [candidate], "margin": margin,
+    keep = ranked[:max(1, int(top_k))]
+    candidates = []
+    for rank, item in enumerate(keep, 1):
+        candidates.append({"track_id": item["track_id"],
+                           "retrieval_score": item["retrieval_score"],
+                           "margin_top1_top2": margin,
+                           "rank": rank,
+                           "state": "candidate" if (rank == 1 and strong) else "weak_candidate",
+                           "supports": ["appearance_similarity"],
+                           "conflicts": [],
+                           "unknown": ["spatiotemporal_unverified"],
+                           "frame_no": item.get("frame_no"),
+                           "bbox_pixels": item.get("bbox_pixels")})
+    return {"status": "ok", "target_candidates": candidates, "margin": margin,
             "min_score": min_score, "min_margin": min_margin,
             "note": "candidate 仍需人工确认；weak_candidate 不应暂停搜索"}
 
