@@ -952,6 +952,28 @@ async function save(keepOpen: boolean) {
     toast("当前截图不属于所选案件，请重新打开对应案件", "danger");
     return;
   }
+  if (!editingElement.value && ui.editingGroupId && currentCase.value && m4Box.value && editingPrimaryId.value) {
+    const caseId = currentCase.value.id;
+    const groupId = ui.editingGroupId;
+    const detail = editingGroup.value as Record<string, any> | null;
+    try {
+      await mainApi.updateTargetGroup(caseId, groupId, {
+        revision: detail?.revision ?? 1,
+        primary_object_id: editingPrimaryId.value,
+        objects: [
+          { id: editingPrimaryId.value, object_class: category.value, role: "primary", bbox_norm_xyxy: [...m4Box.value], m4_observation_id: m4Observation.value?.id ?? null },
+          ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
+        ],
+        attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
+      });
+      toast("目标组已更新", "ok");
+      ui.addElementOpen = false;
+      return;
+    } catch (error) {
+      toast("目标组更新失败：" + (error instanceof Error ? error.message : String(error)), "danger");
+      return;
+    }
+  }
   const payload: ElementPayload = {
     date: date.value,
     timeLabel: timeLabel.value,
@@ -979,28 +1001,6 @@ async function save(keepOpen: boolean) {
     }] : (editingElement.value?.boxes ?? []),
   };
 
-  if (!editingElement.value && ui.editingGroupId && currentCase.value && m4Box.value && editingPrimaryId.value) {
-    const caseId = currentCase.value.id;
-    const groupId = ui.editingGroupId;
-    const detail = editingGroup.value as Record<string, any> | null;
-    try {
-      await mainApi.updateTargetGroup(caseId, groupId, {
-        revision: detail?.revision ?? 1,
-        primary_object_id: editingPrimaryId.value,
-        objects: [
-          { id: editingPrimaryId.value, object_class: category.value, role: "primary", bbox_norm_xyxy: [...m4Box.value], m4_observation_id: m4Observation.value?.id ?? null },
-          ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
-        ],
-        attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
-      });
-      toast("目标组已更新", "ok");
-      ui.addElementOpen = false;
-      return;
-    } catch (error) {
-      toast("目标组更新失败：" + (error instanceof Error ? error.message : String(error)), "danger");
-      return;
-    }
-  }
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
   if (!editingElement.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
     try {
