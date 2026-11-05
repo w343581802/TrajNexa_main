@@ -77,12 +77,18 @@ def plan_windows(run: TrackingRun, clips: list[RecordingClip], done: set[str]) -
     by_camera: dict[str, list[RecordingClip]] = {}
     for clip in clips:
         by_camera.setdefault((clip.camera_name or '').strip(), []).append(clip)
-    order = sorted(by_camera)
-    if direction == 'backward':
-        order = list(reversed(order))
-    if anchor_label in order:
-        order.remove(anchor_label)
-        order.append(anchor_label)  # anchor camera continuation comes last
+    requested = [str(v).strip() for v in (scope.get('camera_order') or []) if isinstance(v, str)]
+    requested = [str(v).strip() for v in (scope.get('camera_order') or []) if isinstance(v, str)]
+    if requested:
+        order = [label for label in requested if label in by_camera]
+        order += sorted(label for label in by_camera if label not in order)
+    else:
+        order = sorted(by_camera)
+        if direction == 'backward':
+            order = list(reversed(order))
+        if anchor_label in order:
+            order.remove(anchor_label)
+            order.append(anchor_label)  # anchor camera continuation comes last
 
     plans: list[dict] = []
     for label in order:

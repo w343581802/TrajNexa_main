@@ -145,6 +145,8 @@ def create_run(db: Session, case_id: str, payload: dict) -> TrackingRun:
         'clock_quality': 'uncalibrated',
         'exploratory': True,
         'direction': _direction(payload),
+        'camera_order': [str(v).strip() for v in (payload.get('camera_order') or [])
+                         if isinstance(v, str) and 0 < len(v.strip()) <= 120][:12],
         'research_seconds': int(_number(payload.get('research_seconds'), default=120.0,
                                         low=15, high=3600, code='invalid_research_seconds')),
     }
