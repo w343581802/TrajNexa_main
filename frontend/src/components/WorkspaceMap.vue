@@ -614,19 +614,21 @@ function render() {
 
 }
 
-// 开启实验图层才请求；关闭和换案件立即清空，并忽略之前的异步响应。
-  watch([() => layers.experimental, () => layers.trackSample, () => wb.caseId], () => { void loadExperimentalEstimates(); void loadTrackSample(); });
-  void loadTrackSample();
-
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints],
   () => render(),
   { deep: true },
 );
 
 onMounted(() => {
   void loadSpatialObservations();
+  void loadExperimentalEstimates();
+  void loadTrackSample();
+  watch([() => layers.experimental, () => layers.trackSample, () => wb.caseId], () => {
+    void loadExperimentalEstimates();
+    void loadTrackSample();
+  });
   initMap();
   render();
   void reloadSnapshot();
