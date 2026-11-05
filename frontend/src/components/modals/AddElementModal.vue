@@ -721,6 +721,9 @@ const assocAttributes = reactive<AttrRow[]>(vehicleAttributes.map((row) => ({ ..
 const assocPersonAttributes = reactive<AttrRow[]>(attributes.map((row) => ({ ...row })));
 const primaryAttrs = computed(() => (category.value === "vehicle" ? vehicleAttributes : attributes));
 const assocAttrs = computed(() => (assocCategory.value === "vehicle" ? assocAttributes : assocPersonAttributes));
+const editingGroup = ref<Record<string, unknown> | null>(null);
+const editingPrimaryId = ref<string | null>(null);
+const editingAssocId = ref<string | null>(null);
 const attrTarget = ref<"primary" | "assoc">("primary");
 const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttrs.value : primaryAttrs.value));
 
@@ -798,6 +801,53 @@ function onEscape(event: KeyboardEvent) {
   if (m4Anchor.value) { m4PointerCancel(); return; }
 }
 
+function resetAttrList(list: AttrRow[]) {
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i].custom) list.splice(i, 1);
+    else { list[i].value = ""; list[i].unknown = false; list[i].auto = false; }
+  }
+}
+async function loadGroupForEdit(groupId: string) {
+  const caseId = currentCase.value?.id;
+  if (!caseId) return;
+  try {
+    const detail = (await mainApi.getTargetGroup(caseId, groupId)) as Record<string, any>;
+    const media = (await mainApi.getMedia(String(detail.media_id))) as unknown as Record<string, any>;
+    if (!ui.addElementOpen || ui.editingGroupId !== groupId) return;
+    editingGroup.value = detail;
+    editingPrimaryId.value = null; editingAssocId.value = null;
+    selectedMedia.value = media as any;
+    date.value = String(media.capture_time ?? "").slice(0, 10) || DEFAULT_EVENT_DATE;
+    const objects = (detail.objects ?? []) as Record<string, any>[];
+    const primary = objects.find((o) => o.role === "primary");
+    const assoc = objects.find((o) => o.role === "associated");
+    if (primary) {
+      editingPrimaryId.value = String(primary.id);
+      m4Box.value = [...primary.bbox_norm_xyxy] as [number, number, number, number];
+      category.value = String(primary.object_class) as "person" | "vehicle" | "other";
+      m4Observation.value = primary.m4_observation_id ? ({ id: primary.m4_observation_id } as M4Observation) : null;
+    }
+    if (assoc) {
+      editingAssocId.value = String(assoc.id);
+      assocBox.value = [...assoc.bbox_norm_xyxy] as [number, number, number, number];
+      assocCategory.value = String(assoc.object_class) as "person" | "vehicle" | "other";
+      assocObservation.value = assoc.m4_observation_id ? ({ id: assoc.m4_observation_id } as M4Observation) : null;
+    }
+    resetAttrList(attributes); resetAttrList(vehicleAttributes);
+    resetAttrList(assocAttributes); resetAttrList(assocPersonAttributes);
+    for (const at of (detail.attributes ?? []) as Record<string, any>[]) {
+      const list = at.subject_id === editingPrimaryId.value ? primaryAttrs.value : assocAttrs.value;
+      const fixed = list.find((row) => !row.custom && row.attributeKey === String(at.attribute_key ?? ""));
+      const auto = at.review_state === "model_proposed";
+      if (fixed) { fixed.value = at.value ?? ""; fixed.unknown = at.observation_status === "unknown"; fixed.auto = auto; }
+      else list.push({ key: String(at.name ?? "特征"), attributeKey: String(at.attribute_key ?? "custom"), value: at.value ?? "", unknown: at.observation_status === "unknown", auto, custom: true });
+    }
+    toast("已载入目标组，可修改特征后保存", "ok");
+    void recognize();
+  } catch (error) {
+    toast("目标组载入失败：" + (error instanceof Error ? error.message : String(error)), "danger");
+  }
+}
 function resetForm() {
   timeIndex.value = -1;
   nameIndex.value = -1;
@@ -850,6 +900,7 @@ function fillFromElement() {
 watch(
   () => ui.addElementOpen,
   (open) => {
+    if (ui.editingGroupId) { resetForm(); void loadGroupForEdit(ui.editingGroupId); return; }
     if (!open) { m4Session += 1; m4HistoryEpoch += 1; return; }
     m4Session += 1;
     resetForm();
@@ -892,7 +943,7 @@ async function save(keepOpen: boolean) {
   }
   // A selected ROI must have a durable, matching observation record.
   // Never place the synthetic "manual-unsaved" marker on the task timeline.
-  if (m4Box.value && !m4MatchesStored()) {
+  if (m4Box.value && !ui.editingGroupId && !m4MatchesStored()) {
     if (!selectedMediaId.value) { toast("请先上传截图并保存区域观测", "warn"); return; }
     await analyzeM4Selection();
     if (!m4MatchesStored()) { toast("主目标观测保存失败，未写入目标组", "danger"); return; }
@@ -928,6 +979,28 @@ async function save(keepOpen: boolean) {
     }] : (editingElement.value?.boxes ?? []),
   };
 
+  if (!editingElement.value && ui.editingGroupId && currentCase.value && m4Box.value && editingPrimaryId.value) {
+    const caseId = currentCase.value.id;
+    const groupId = ui.editingGroupId;
+    const detail = editingGroup.value as Record<string, any> | null;
+    try {
+      await mainApi.updateTargetGroup(caseId, groupId, {
+        revision: detail?.revision ?? 1,
+        primary_object_id: editingPrimaryId.value,
+        objects: [
+          { id: editingPrimaryId.value, object_class: category.value, role: "primary", bbox_norm_xyxy: [...m4Box.value], m4_observation_id: m4Observation.value?.id ?? null },
+          ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
+        ],
+        attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
+      });
+      toast("目标组已更新", "ok");
+      ui.addElementOpen = false;
+      return;
+    } catch (error) {
+      toast("目标组更新失败：" + (error instanceof Error ? error.message : String(error)), "danger");
+      return;
+    }
+  }
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
   if (!editingElement.value && currentCase.value && selectedMediaId.value && m4Observation.value && m4Box.value) {
     try {

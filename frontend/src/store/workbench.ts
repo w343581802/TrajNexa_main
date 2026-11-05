@@ -129,6 +129,7 @@ export const featureBar = reactive({ collapsed: false });
 export const ui = reactive({
   coverageOpen: false,
   coverageCameraId: null as string | null,
+  editingGroupId: null as string | null,
   caseManageOpen: false,
   recordingDirOpen: false,
   videoNamingOpen: false,
@@ -1055,6 +1056,7 @@ export const actions = {
    */
   async openAddElement(elementId?: string) {
     ui.editingElementId = elementId ?? null;
+    ui.editingGroupId = null;
     if (elementId) {
       ui.addElementOpen = true;
       return;
@@ -1068,6 +1070,14 @@ export const actions = {
     const file = await pickImageFile();
     if (!file) return;
     pendingElementFile.value = file;
+    ui.addElementOpen = true;
+  },
+  async openLatestGroupEditor() {
+    if (!wb.caseId) { toast('请先选择案件', 'warn'); return; }
+    const groups = await mainApi.listTargetGroups(wb.caseId);
+    const latest = groups.items[0];
+    if (!latest) { toast('当前案件还没有目标组，先添加目标要素', 'info'); return; }
+    ui.editingGroupId = latest.id;
     ui.addElementOpen = true;
   },
   openElements() {

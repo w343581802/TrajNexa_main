@@ -765,6 +765,12 @@ export const mainApi = {
   }) => request<{ id: string; revision: number; primary_object_id: string }>(
     `/cases/${encodeURIComponent(caseId)}/target-groups`, jsonBody(body, "POST")),
 
+  getTargetGroup: (caseId: string, groupId: string) =>
+    request<Record<string, unknown>>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}`),
+  updateTargetGroup: (caseId: string, groupId: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}`,
+      jsonBody(body, "PATCH")),
+
   listTrackingCameras: (caseId: string) =>
     request<{ camera_uuid: string | null; camera_label: string; clips: number;
       first_start: string | null; last_start: string | null;

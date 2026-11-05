@@ -61,6 +61,7 @@ const updatedAt = computed(() => (wb.emptyMode ? "—" : (visibleElements.value.
             <span class="fb-updated">更新于 <i class="num">{{ updatedAt }}</i></span>
             <button class="fb-btn" @click="actions.openFeature()">查看详情</button>
             <button class="fb-btn" @click="actions.openFeature()">编辑特征</button>
+          <button class="fb-btn" @click="actions.openLatestGroupEditor()">编辑目标组</button>
           </div>
         </div>
 
