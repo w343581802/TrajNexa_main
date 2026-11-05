@@ -27,13 +27,19 @@ def test_missing_fov_degrades_point():
     assert report["points"][0]["degrade_reason"] == "hfov_deg_missing"
 
 
-def test_experimental_route_is_registered_on_main_app():
-    """避免实验接口模块存在、但忘记 include_router 时生产返回 404。"""
-    from app.main import app
+def test_experimental_route_is_registered_on_main_app(env):
+    """真实 POST 一次：同时验证路由注册、请求解析与 persisted=false。
 
-    matches = [
-        route for route in app.routes
-        if getattr(route, "path", None) == "/api/v1/experimental-projection"
-    ]
-    assert len(matches) == 1
-    assert "POST" in matches[0].methods
+    注：曾用 app.routes 列表断言，但该列表与请求实际路由结果不一致
+    （实测 routes 里查不到该路径时 TestClient 仍返回 200），因此改为发真实请求。
+    """
+    client, _, _ = env
+    response = client.post(
+        "/api/v1/experimental-projection",
+        json={"camera": CAM, "points": [{"pixel": [960, 540], "observation_id": "route-check"}]},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["layer"] == "experimental_estimate"
+    assert data["persisted"] is False
+    assert data["points"][0]["spatial_level"] == "L2-candidate"
