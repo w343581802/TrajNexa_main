@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app import m6_l2_observation as l2
+from app import m6_l2_trajectory as trajectory
 from app.models import Case, TargetObservation, TargetSpatialObservation
 from app.recording_api import fail
 from app import map_db_spatial
@@ -68,3 +69,16 @@ def list_spatial_observations(case_id: str, db: Session = Depends(get_db)) -> di
                       .where(TargetSpatialObservation.case_id == case_id)
                       .order_by(TargetSpatialObservation.created_at.desc()).limit(200)).all()
     return {'items': [_out(row) for row in rows]}
+
+
+@router.get('/cases/{case_id}/spatial-trajectories')
+def list_spatial_trajectories(case_id: str, db: Session = Depends(get_db)) -> dict:
+    if db.get(Case, case_id) is None:
+        fail(404, 'case_not_found', 'case_not_found')
+    rows = db.scalars(select(TargetSpatialObservation)
+                      .where(TargetSpatialObservation.case_id == case_id)
+                      .order_by(TargetSpatialObservation.created_at)).all()
+    result = trajectory.build_segments(rows)
+    return {'case_id': case_id, 'segments': result['segments'],
+            'skipped_rows': result['skipped_rows'],
+            'note': 'L2 片段是可追溯估计，不含身份结论；单点不给方向。'}
