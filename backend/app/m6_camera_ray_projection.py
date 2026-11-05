@@ -44,8 +44,8 @@ def validate(camera):
     f = focal_px(width, camera.get("hfov_deg"))
     return {
         "width": width, "height": height, "f": f,
-        "cx": float(camera.get("cx", width / 2.0)),
-        "cy": float(camera.get("cy", height / 2.0)),
+        "cx": float(camera.get("cx") if camera.get("cx") is not None else width / 2.0),
+        "cy": float(camera.get("cy") if camera.get("cy") is not None else height / 2.0),
         "pitch_deg": _num(camera.get("pitch_deg"), "pitch_deg", low=-85, high=85),
         "yaw_deg": _num(camera.get("yaw_deg"), "yaw_deg", low=-360, high=360),
         "height_m": _num(camera.get("height_m"), "height_m", low=0.5, high=60),
