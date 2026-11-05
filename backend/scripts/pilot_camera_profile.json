@@ -1,17 +1,18 @@
 {
   "camera_uuid": "345f9636-0dff-4fb5-87e9-01d5f1cb9e1d",
+  "map_camera_id": "9000000000000030",
   "display_name": "3-DX-中仁路98号-球",
   "width": 1920,
   "height": 1080,
-  "hfov_deg": null,
-  "hfov_source": "missing_in_registry",
+  "hfov_deg": 64,
+  "hfov_source": "map_registry_2026-11-05",
   "pitch_deg": 25,
-  "yaw_deg": 355,
+  "yaw_deg": 168,
   "height_m": 4,
-  "lon": 110.211405,
-  "lat": 25.256655,
-  "pose_source": "reported",
+  "lon": 110.211389,
+  "lat": 25.256698,
+  "pose_source": "map_registry",
   "pose_quality": "calibrated",
   "position_quality": "reported",
-  "notes": "V1.2 SA0 基线：俯仰/朝向/高度来自台账，未实测；水平 FOV 缺失。"
+  "notes": "V1.2 SA0 基线（台账补 FOV 后）：水平 FOV=64，朝向 168，俯仰 25，高度 4 m，位置 reported。旧记录 355/缺失为过期数据。"
 }
