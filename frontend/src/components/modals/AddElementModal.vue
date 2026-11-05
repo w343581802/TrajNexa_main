@@ -728,7 +728,7 @@ const attrTarget = ref<"primary" | "assoc">("primary");
 const activeAttrs = computed(() => (attrTarget.value === "assoc" ? assocAttrs.value : primaryAttrs.value));
 
 /** 只把“明确观察到的值”或“明确未知”送到后端；空字段不产生假属性。 */
-function attrRows(list: AttrRow[], subject: string) {
+function attrRows(list: AttrRow[], subject: string, bbox: number[] | null = null) {
   return list
     .filter((attr) => attr.unknown || attr.value.trim())
     .map((attr, index) => ({
@@ -738,6 +738,7 @@ function attrRows(list: AttrRow[], subject: string) {
       observation_status: attr.unknown ? "unknown" : "known",
       review_state: attr.unknown ? "unknown" : attr.rejected ? "human_rejected" : attr.auto ? "model_proposed" : "human_verified",
       source: attr.auto && !attr.rejected ? "model" : "human",
+      provenance: attr.auto && !attr.rejected ? { model: displayFeatures.value?.appearance.semantic_attributes?.semantic_model ?? null, engine: m4Engine, feature_text: attr.value.trim(), bbox_norm_xyxy: bbox } : {},
     }));
 }
 
@@ -986,7 +987,7 @@ async function save(keepOpen: boolean) {
           { id: editingPrimaryId.value, object_class: category.value, role: "primary", bbox_norm_xyxy: [...m4Box.value], m4_observation_id: m4Observation.value?.id ?? null },
           ...(assocBox.value && editingAssocId.value ? [{ id: editingAssocId.value, object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
         ],
-        attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value) : [])],
+        attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value, m4Box.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value, assocBox.value) : [])],
         source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
       toast("目标组已更新", "ok");
@@ -1048,7 +1049,7 @@ async function save(keepOpen: boolean) {
             bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObsId }] : []),
         ],
         relations: assocBox.value ? [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }] : [],
-        attributes: [...attrRows(primaryAttrs.value, "P1"), ...(assocBox.value ? attrRows(assocAttrs.value, "A1") : [])],
+        attributes: [...attrRows(primaryAttrs.value, "P1", m4Box.value), ...(assocBox.value ? attrRows(assocAttrs.value, "A1", assocBox.value) : [])],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
     } catch (error) {
