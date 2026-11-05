@@ -1,0 +1,17 @@
+{
+  "camera_uuid": "345f9636-0dff-4fb5-87e9-01d5f1cb9e1d",
+  "display_name": "3-DX-中仁路98号-球",
+  "width": 1920,
+  "height": 1080,
+  "hfov_deg": null,
+  "hfov_source": "missing_in_registry",
+  "pitch_deg": 25,
+  "yaw_deg": 355,
+  "height_m": 4,
+  "lon": 110.211405,
+  "lat": 25.256655,
+  "pose_source": "reported",
+  "pose_quality": "calibrated",
+  "position_quality": "reported",
+  "notes": "V1.2 SA0 基线：俯仰/朝向/高度来自台账，未实测；水平 FOV 缺失。"
+}
