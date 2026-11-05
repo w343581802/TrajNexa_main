@@ -628,6 +628,8 @@ export const mainApi = {
       method: "POST", body: form,
     });
   },
+  testM5Prompts: () => request<{ person: string; vehicle: string; other: string; detect: string;
+    max_override_length: number }>("/ai/model-test/prompts"),
   testM5Roi: (file: File, box: number[], objectClass: "person" | "vehicle" | "other",
     visionIds: string[], prompt = "") => {
     const form = new FormData();

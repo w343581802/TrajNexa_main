@@ -156,6 +156,18 @@ def detect(
             "identity_established": False, "case_id": None}
 
 
+@router.get("/prompts")
+def prompts():
+    """当前内置的大模型提示词（只读）。前端用于展示实际生效的提示词。"""
+    return {
+        "person": m4_vision.FEATURE_PROMPT,
+        "vehicle": m4_vision.VEHICLE_FEATURE_PROMPT,
+        "other": m4_vision.OTHER_FEATURE_PROMPT,
+        "detect": m4_vision.DETECT_PROMPT,
+        "max_override_length": 2400,
+    }
+
+
 @router.post("/roi")
 def roi(
     file: UploadFile = File(...),

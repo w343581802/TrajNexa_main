@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { mainApi, type M4DetectCandidate, type M5ImageModel, type M5VisionModel,
   type M5TestDetectionResult, type M5TestRoiResult, type M6PersonReidResult } from "../services/mainApi";
@@ -33,6 +33,39 @@ const roi = ref<M5TestRoiResult | null>(null);
 const selectedBox = ref<[number, number, number, number] | null>(null);
 const objectClass = ref<ObjectClass>("vehicle");
 const prompt = ref("");
+const builtinPrompts = ref<{ person: string; vehicle: string; other: string; detect: string; max_override_length: number } | null>(null);
+const effectivePrompt = computed(() => {
+  const custom = prompt.value.trim();
+  if (custom) return custom;
+  const cls = objectClass.value;
+  return builtinPrompts.value ? builtinPrompts.value[cls] : "";
+});
+const promptSource = computed(() => (prompt.value.trim() ? "自定义覆盖" : "内置模板"));
+const FEATURE_FIELDS: Record<ObjectClass, string[]> = {
+  person: ["上衣颜色", "上衣类型", "下装颜色", "下装类型", "头部特征", "鞋", "随身物"],
+  vehicle: ["车辆大类", "车身颜色", "外观类型", "明显附属物", "特殊外观"],
+  other: ["外观描述", "明显附属物", "特殊外观"],
+};
+const expectedFeatures = reactive<Record<ObjectClass, Record<string, string>>>({ person: {}, vehicle: {}, other: {} });
+const customExpected = reactive<Record<ObjectClass, { key: string; value: string }[]>>({ person: [], vehicle: [], other: [] });
+function addCustomExpected() { customExpected[objectClass.value].push({ key: "", value: "" }); }
+const expectedMatch = computed(() => {
+  const rows: { label: string; value: string; hits: number }[] = [];
+  const cls = objectClass.value;
+  for (const label of FEATURE_FIELDS[cls]) {
+    const value = (expectedFeatures[cls][label] ?? "").trim();
+    if (value) rows.push({ label, value, hits: matchCount(value) });
+  }
+  for (const row of customExpected[cls]) {
+    const value = row.value.trim();
+    if (value) rows.push({ label: row.key.trim() || "自定义", value, hits: matchCount(value) });
+  }
+  return rows;
+});
+function matchCount(value: string) {
+  if (!roi.value) return 0;
+  return roi.value.results.filter((r) => r.features_unverified.some((f) => f.includes(value) || value.includes(f))).length;
+}
 // M6 P1-A: image A is a manually selected PERSON reference; existing test image = B.
 const referenceFile = ref<File | null>(null);
 const referencePreview = ref("");
@@ -223,6 +256,11 @@ function drawEnd(e: PointerEvent) {
   if (!b || b[2] - b[0] < .01 || b[3] - b[1] < .01) selectedBox.value = null;
   roi.value = null;
 }
+async function loadPrompts() {
+  try { builtinPrompts.value = await mainApi.testM5Prompts(); } catch { builtinPrompts.value = null; }
+}
+onMounted(() => { void loadPrompts(); });
+
 function boxStyle(b: readonly number[]) {
   return { left: b[0] * 100 + "%", top: b[1] * 100 + "%",
     width: (b[2] - b[0]) * 100 + "%", height: (b[3] - b[1]) * 100 + "%" };
@@ -422,10 +460,35 @@ function pickReidResult(box: [number, number, number, number]) {
         <span class="hint">{{ selectedBox ? "已框选：" + boxText :
           "请先在上方图中选择一个候选或手动框选。" }}</span>
       </div>
-      <label class="prompt-label">本次提示词（留空即按人员/车辆类别使用内置模板）
+      <div class="prompt-panel">
+        <div class="prompt-head">
+          <span>当前生效的大模型提示词</span>
+          <span class="hint">{{ promptSource }} · {{ objectClass === "person" ? "人员" : objectClass === "vehicle" ? "车辆" : "其他" }}</span>
+        </div>
+        <pre class="prompt-text">{{ effectivePrompt || "（未加载到内置模板）" }}</pre>
+      </div>
+      <label class="prompt-label">自定义提示词（留空则使用上方内置模板）
         <textarea v-model="prompt" maxlength="2400" rows="4"
           placeholder="例如：只描述车身颜色、轮数、货厢和可见遮挡；看不清就写未知。JSON 输出 features 数组。" />
       </label>
+      <div class="feature-panel">
+        <div class="prompt-head">
+          <span>期望特征（与要素框同款，仅用于结果对照，不写入提示词）</span>
+          <span class="hint">人工填写 · 不发送给模型</span>
+        </div>
+        <div class="feature-grid">
+          <label v-for="label in FEATURE_FIELDS[objectClass]" :key="label" class="feature-row">
+            <span class="feature-label">{{ label }}</span>
+            <input v-model="expectedFeatures[objectClass][label]" class="feature-input" placeholder="期望值（选填）" />
+          </label>
+          <label v-for="(row, index) in customExpected[objectClass]" :key="'custom-' + index" class="feature-row">
+            <input v-model="row.key" class="feature-input feature-input--key" placeholder="特征部位" />
+            <input v-model="row.value" class="feature-input" placeholder="期望值" />
+            <button class="chip-btn" type="button" @click="customExpected[objectClass].splice(index, 1)">删</button>
+          </label>
+        </div>
+        <button class="chip-btn" type="button" @click="addCustomExpected">＋ 其他可辨识特征</button>
+      </div>
       <button class="primary-btn" type="button" :disabled="roiBusy || !file || !selectedBox ||
         !visionSelected.length" @click="analyzeRoi">
         {{ roiBusy ? "逐模型分析中…" : "对比选中区域" }}
@@ -437,6 +500,13 @@ function pickReidResult(box: [number, number, number, number]) {
             "未返回可用外观信息：" + (result.error_code || "未知") }}</p>
           <small>Prompt SHA-256 {{ result.prompt_sha256.slice(0, 16) }}…</small>
         </article>
+      </div>
+      <div v-if="roi && expectedMatch.length" class="match-panel">
+        <p class="hint">期望特征对照：{{ expectedMatch.filter((row) => row.hits > 0).length }} / {{ expectedMatch.length }} 项被至少一个模型命中</p>
+        <div v-for="row in expectedMatch" :key="row.label + row.value" class="match-row">
+          <span>{{ row.label }}：{{ row.value }}</span>
+          <b :class="row.hits ? 'is-hit' : 'is-miss'">{{ row.hits ? "命中 " + row.hits + " 个模型" : "未命中" }}</b>
+        </div>
       </div>
       <p class="hint">所有大模型输出仅供比较，不能仅凭颜色、外观或模型一致意见认定跨镜头身份。</p>
     </section>
@@ -619,6 +689,19 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 select, textarea { background: var(--bg-2); border: 1px solid var(--line-2);
   border-radius: 5px; color: var(--text-1); font: inherit; padding: 7px; }
 .prompt-label { display: grid; gap: 7px; font-size: 11px; }
+.prompt-panel { border: 1px solid var(--line-2); background: var(--bg-2); border-radius: 6px; padding: 9px 10px; display: grid; gap: 6px; }
+.prompt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; }
+.prompt-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.6; color: var(--text-2); max-height: 190px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.feature-panel { display: grid; gap: 8px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 12px; }
+.feature-row { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+.feature-label { width: 76px; color: var(--text-3); flex: none; }
+.feature-input { flex: 1; min-width: 0; height: 26px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg-1); color: var(--text-1); padding: 0 7px; font-size: 11px; }
+.feature-input--key { flex: 0 0 96px; }
+.match-panel { border-top: 1px dashed var(--line-2); padding-top: 8px; display: grid; gap: 4px; }
+.match-row { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--text-2); }
+.match-row .is-hit { color: #3fa66a; }
+.match-row .is-miss { color: var(--text-4); font-weight: 400; }
 textarea { resize: vertical; width: 100%; box-sizing: border-box; }
 .roi-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 9px; }
 .roi-result { border: 1px solid var(--line-2); background: var(--bg-2); padding: 11px; border-radius: 6px; }
