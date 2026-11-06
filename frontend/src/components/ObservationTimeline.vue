@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
+import TimelineMain from "./TimelineMain.vue";
 import { proxyVideoUrl, type TimelineCard } from "../services/mainApi";
 import {
   actions,
@@ -15,11 +16,15 @@ import {
   timelineLoading,
   timelineNote,
   timelinePhase,
+  timelineView,
   trackingWindows,
   wb,
 } from "../store/workbench";
 
 const order = ref<"asc" | "desc">("asc");
+/** 默认显示简洁主视图；详细列表保留为排查入口，不删除既有技术卡能力。 */
+const mode = ref<"main" | "detail">("main");
+const railCount = computed(() => timelineView.value?.counts.total ?? timelineCards.value.length);
 
 /* 右侧时间线可拖宽：默认 460px，最小 380，最大 720 / 视口 55% */
 const RAIL_KEY = "trajnexa.rail.width";
@@ -372,8 +377,14 @@ const emptyText = computed(() => {
     />
     <header class="rail-head">
       <span class="rail-mark"><AppIcon name="target" :size="13" /></span>
-      <span class="rail-title">观测时间线</span>
-      <span class="rail-count num">({{ timelineCards.length }})</span>
+      <span class="rail-title">目标追踪时间线</span>
+      <span class="rail-count num">共 {{ railCount }} 条记录</span>
+      <button
+        class="rail-mode-btn"
+        :aria-pressed="mode === 'detail'"
+        :title="mode === 'main' ? '显示全部技术卡片' : '返回简洁时间轴'"
+        @click="mode = mode === 'main' ? 'detail' : 'main'"
+      >{{ mode === 'main' ? '详细列表' : '简洁视图' }}</button>
       <button
         class="icon-btn rail-refresh"
         aria-label="刷新时间线"
@@ -385,6 +396,9 @@ const emptyText = computed(() => {
       </button>
     </header>
 
+    <TimelineMain v-if="mode === 'main'" />
+
+    <div v-else class="detail-body">
     <div v-if="timelineCards.length" class="rail-filters rail-filters--views">
       <div class="view-tabs" role="tablist" aria-label="按研判视角筛选">
         <button
@@ -605,6 +619,7 @@ const emptyText = computed(() => {
       <span class="dim">按真实观测时间排序 · 不构成身份结论</span>
       <span class="dim num">{{ timelineCards.length }} 条</span>
     </footer>
+    </div>
   </aside>
 </template>
 
@@ -672,10 +687,31 @@ const emptyText = computed(() => {
   color: var(--text-3);
 }
 
-.rail-refresh {
+.rail-mode-btn {
   margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.rail-mode-btn:hover {
+  border-color: var(--accent-line);
+  color: var(--accent-hi);
+}
+
+.rail-refresh {
   width: 24px;
   height: 24px;
+}
+
+.detail-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rail-filters {

@@ -891,6 +891,7 @@ export const mainApi = {
   /* ------------------------------ B8 V1.1 时间轴 ------------------------------ */
 
   getTargetTimeline,
+  getTimelineView,
   listRunEvents,
 };
 
@@ -1172,6 +1173,108 @@ export type TimelinePayload = {
   anchorLinked?: boolean;
   cards: TimelineCard[];
 };
+
+/* ---------------------- R1.9 主视图（目标活动过程） ---------------------- */
+
+export type TimelineViewKind = "confirmed_track" | "candidate_clue" | "region_investigation";
+
+export type TimelineWindowRange = {
+  startSeconds: number;
+  endSeconds: number;
+  startAt: string | null;
+  endAt: string | null;
+  contiguousToPrev: boolean;
+};
+
+export type TimelineViewCameraTask = TimelineRegionTask & {
+  runId?: string | null;
+  runIds?: string[];
+  regionCardId?: string;
+  /** 同区域、同摄像头的候选条数；0 表示该设备当前没有产出候选。 */
+  candidateCount?: number;
+  /** 该设备被检索的窗口覆盖范围（多次 Run 合并后的连续区间）。 */
+  windowRanges?: TimelineWindowRange[];
+  /** 该设备被检索的次数；同一设备可能被多个 Run 重复检索。 */
+  windowCount?: number;
+};
+
+export type TimelineViewRegion = {
+  status: string;
+  timeBasis: string;
+  timeQuality: string;
+  regionSource: string;
+  plannedObservationWindow: {
+    startSeconds: number | null;
+    endSeconds: number | null;
+    startAt: string | null;
+    endAt: string | null;
+    contiguous: boolean;
+  } | null;
+  windowRanges: TimelineWindowRange[];
+  hasWindowGap: boolean;
+  cameraTasks: TimelineViewCameraTask[];
+  completedWindows: number;
+  plannedWindows: number;
+  deviceCount: number;
+  phaseCounts: { queued: number; running: number; completed: number; failed: number; no_recording: number; unknown: number };
+  candidateCount: number;
+  pendingCandidates: number;
+  runIds: string[];
+  primaryRunId: string | null;
+  researchBudgetSeconds: number | null;
+  researchSecondsUsed: number | null;
+  executionCount: number;
+  lastUpdatedAt: string | null;
+  centroid: { lat: number; lon: number } | null;
+  note: string;
+};
+
+export type TimelineViewCard = {
+  cardId: string;
+  kind: TimelineViewKind;
+  title: string;
+  place: string;
+  subtitle: string | null;
+  observedAt: string | null;
+  observedAtSource: "event_time" | "unmapped" | string;
+  timeQuality: string | null;
+  identityStatus: string | null;
+  spatialQuality: string | null;
+  detailCardIds: string[];
+  candidate?: { count: number; pending: number; confirmedWithoutFrames?: number; cardIds?: string[] } | null;
+  region?: TimelineViewRegion | null;
+  labels?: string[];
+};
+
+export type TimelineNavigationSide = {
+  available: boolean;
+  anchorCardId: string | null;
+  observedAt: string | null;
+  basis: string;
+  enabled: boolean;
+  reason: string | null;
+  disabledReason: string | null;
+};
+
+export type TimelineViewPayload = {
+  schema: string;
+  caseId: string;
+  targetId: string;
+  derived: boolean;
+  phase: string;
+  anchorLinked: boolean;
+  counts: { confirmed: number; review: number; region: number; total: number };
+  cards: TimelineViewCard[];
+  navigation: { earlier: TimelineNavigationSide; later: TimelineNavigationSide };
+  note: string;
+};
+
+/** 主视图：三类卡 + 双向追踪入口；技术对象在详情里。 */
+export async function getTimelineView(caseId: string, targetId: string): Promise<TimelineViewPayload> {
+  return request<TimelineViewPayload>(
+    `/cases/${encodeURIComponent(caseId)}/targets/${encodeURIComponent(targetId)}/timeline-view`,
+  );
+}
 
 export type TimelineEvent = {
   seq: number;

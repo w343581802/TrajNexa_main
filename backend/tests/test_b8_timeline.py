@@ -264,3 +264,130 @@ def test_explicit_map_camera_id_wins_over_name_match(env):
     assert task["cameraUuid"] == "explicit-camera"
     assert task["cameraUuidSource"] == "candidate_explicit"
 
+
+def test_window_iso_accepts_start_local_alias():
+    anchor = {"start_local": "2026-10-23T15:00:00", "start_of_day_seconds": 54000.0}
+    assert projection._window_iso(anchor, 54007.0) == "2026-10-23T15:00:07"
+    assert projection._window_iso({"clip_start_local": "2026-10-23T15:00:00",
+                                  "start_of_day_seconds": 54000.0}, 54007.0) == "2026-10-23T15:00:07"
+    assert projection._window_iso({}, 54007.0) is None
+
+
+def _view_region(card_id, run_id, camera, window_id, start, end, **extra):
+    window_seconds = extra.pop("window_seconds", [54002.0, 54015.0])
+    return {
+        "cardId": card_id, "kind": "region_investigation", "cameraLabel": camera,
+        "observedAt": extra.pop("observedAt", "2026-10-23T15:00:00"),
+        "analysisAt": "2026-10-23T15:10:00", "identityStatus": "candidate_unverified",
+        "region": {
+            "runId": run_id, "attempt": 1, "runStatus": extra.pop("run_status", "awaiting_review"),
+            "status": "awaiting_review", "timeBasis": "clip_start_local",
+            "timeQuality": "uncalibrated_osd_ocr", "cameraTasks": [{
+                "windowId": window_id, "cameraLabel": camera, "cameraUuid": None,
+                "cameraUuidSource": None, "clipId": "clip-1",
+                "plannedStartAt": start, "plannedEndAt": end,
+                "windowSeconds": window_seconds, "phase": "completed",
+                "status": "ok", "tracks": 1, "errorCode": None, "note": None,
+            }], "derivedCardIds": [card_id], "researchBudgetSeconds": 120,
+            "researchSecondsUsed": 30, "executionCount": 1, "stopReason": None,
+            "lastUpdatedAt": "2026-10-23T15:10:00",
+        },
+    }
+
+
+def _view_segment(card_id, camera, track_id, identity="candidate_unverified", frames=None):
+    return {
+        "cardId": card_id, "kind": "track_segment", "cameraLabel": camera,
+        "observedAt": "2026-10-23T15:00:02", "observedAtSource": "event_time",
+        "analysisAt": "2026-10-23T15:10:00", "identityStatus": identity,
+        "spatialQuality": None, "segment": {"window": [54002.0, 54015.0], "frames": frames},
+        "evidence": {"trackId": track_id, "frames": frames},
+    }
+
+
+def test_view_groups_adjacent_cameras_and_hides_technical_cards():
+    from app.timeline_view import compose_view
+    cards = [
+        _view_region("region:r1:1:windows", "r1", "1-LT-桂康路松山巷", "w1",
+                     "2026-10-23T15:00:02", "2026-10-23T15:00:15"),
+        _view_region("region:r2:1:windows", "r2", "1-LT-桂康路松山巷-向北", "w2",
+                     "2026-10-23T15:00:02", "2026-10-23T15:00:15"),
+        _view_region("region:r3:1:windows", "r3", "1-LT-桂康路正通路口-向西", "w3",
+                     "2026-10-23T15:00:03", "2026-10-23T15:00:15"),
+        _view_segment("segment:v1", "1-LT-桂康路松山巷", "t1"),
+        _view_segment("segment:v2", "1-LT-桂康路松山巷", "t1",
+                      identity="human_confirmed"),
+    ]
+    positions = {
+        projection.canonical_name("1-LT-桂康路松山巷"): {"lat": 25.257477, "lon": 110.204471},
+        projection.canonical_name("1-LT-桂康路松山巷-向北"): {"lat": 25.257477, "lon": 110.204471},
+        projection.canonical_name("1-LT-桂康路正通路口-向西"): {"lat": 25.257734, "lon": 110.214201},
+    }
+    view = compose_view({"caseId": "c", "targetId": "t", "phase": "awaiting_review",
+                         "anchorLinked": True, "cards": cards}, positions)
+    assert view["counts"]["region"] == 2
+    assert view["counts"]["review"] == 1
+    assert all(card["kind"] != "camera_task" for card in view["cards"])
+    regions = [card for card in view["cards"] if card["kind"] == "region_investigation"]
+    merged = next(card for card in regions if card["place"].startswith("桂康路松山巷"))
+    assert merged["region"]["deviceCount"] == 2
+    assert merged["region"]["plannedWindows"] == 2
+    assert merged["region"]["candidateCount"] == 1  # 同一 track+window 去重
+    clue = next(card for card in view["cards"] if card["kind"] == "candidate_clue")
+    assert clue["candidate"]["count"] == 1
+    assert "已确认身份但无逐帧轨迹" in clue["subtitle"]
+
+
+def test_view_merges_repeated_searches_of_one_camera():
+    from app.timeline_view import compose_view
+    cards = [
+        _view_region("region:r1:1:windows", "r1", "1-LT-桂康路松山巷", "w1",
+                     "2026-10-23T15:00:02", "2026-10-23T15:00:10",
+                     window_seconds=[54002.0, 54010.0]),
+        _view_region("region:r2:1:windows", "r2", "1-LT-桂康路松山巷", "w2",
+                     "2026-10-23T15:00:03", "2026-10-23T15:00:11",
+                     window_seconds=[54003.0, 54011.0]),
+    ]
+    positions = {projection.canonical_name("1-LT-桂康路松山巷"): {"lat": 25.257477, "lon": 110.204471}}
+    view = compose_view({"caseId": "c", "targetId": "t", "cards": cards}, positions)
+    region = next(card for card in view["cards"]
+                  if card["kind"] == "region_investigation")["region"]
+    assert region["deviceCount"] == 1
+    assert region["plannedWindows"] == 2
+    assert len(region["cameraTasks"]) == 1
+    task = region["cameraTasks"][0]
+    assert task["windowCount"] == 2
+    assert len(task["runIds"]) == 2
+    assert len(task["windowRanges"]) == 1  # 54002–54011 连续，合并成一个覆盖范围
+    assert (task["windowRanges"][0]["startSeconds"], task["windowRanges"][0]["endSeconds"]) == (54002.0, 54011.0)
+
+
+def test_view_without_positions_does_not_guess_adjacency():
+    from app.timeline_view import compose_view
+    cards = [
+        _view_region("region:r1:1:windows", "r1", "1-LT-桂康路松山巷", "w1", None, None),
+        _view_region("region:r2:1:windows", "r2", "1-LT-桂康路松山巷-向北", "w2", None, None),
+    ]
+    view = compose_view({"caseId": "c", "targetId": "t", "cards": cards}, {})
+    assert view["counts"]["region"] == 2
+    assert all(card["observedAt"] is None for card in view["cards"])
+    assert all(card["observedAtSource"] == "unmapped" for card in view["cards"])
+
+
+def test_view_promotes_confirmed_candidate_only_with_frames():
+    from app.timeline_view import compose_view
+    cards = [
+        _view_region("region:r1:1:windows", "r1", "cam-a", "w1", "2026-10-23T15:00:02",
+                     "2026-10-23T15:00:15"),
+        _view_segment("segment:no-frames", "cam-a", "t1", "human_confirmed"),
+    ]
+    view = compose_view({"caseId": "c", "targetId": "t", "cards": cards},
+                        {projection.canonical_name("cam-a"): {"lat": 25.0, "lon": 110.0}})
+    assert view["counts"]["confirmed"] == 0
+    assert view["counts"]["review"] == 1
+    cards.append(_view_segment("segment:with-frames", "cam-a", "t2", "confirmed", frames=31))
+    view = compose_view({"caseId": "c", "targetId": "t", "cards": cards},
+                        {projection.canonical_name("cam-a"): {"lat": 25.0, "lon": 110.0}})
+    assert view["counts"]["confirmed"] == 1
+    assert view["counts"]["review"] == 1
+

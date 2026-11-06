@@ -92,12 +92,14 @@ def _anchor_card(obs: TargetObservation, anchor: dict) -> dict:
             "timeBasis": anchor.get("time_basis"),
             "timeQuality": anchor.get("clock_quality"),
         }
+    observed = _window_iso(anchor, anchor.get("anchor_seconds"))
     return {
         "cardId": f"anchor:{obs.id}",
         "kind": "anchor",
         "title": "起始锚点",
         "subtitle": f"{obs.object_class} · 人工框选 · {obs.review_state}",
-        "observedAt": _iso(obs.created_at),
+        "observedAt": observed,
+        "observedAtSource": "event_time" if observed else "unmapped",
         "analysisAt": _iso(obs.created_at),
         "targetId": obs.id,
         "cameraLabel": anchor.get("camera_label"),
@@ -167,15 +169,18 @@ def _gap_card(run: TrackingRun, window: TrackingWindow) -> dict:
     }
 
 
-def _segment_card(run: TrackingRun, candidate: TrackingCandidate) -> dict:
+def _segment_card(run: TrackingRun, candidate: TrackingCandidate,
+                  anchor: dict) -> dict:
     details = candidate.details_json or {}
+    observed = _window_iso(anchor, candidate.window_start)
     return {
         "cardId": f"segment:{candidate.id}",
         "kind": "track_segment",
         "title": f"候选轨迹 {candidate.track_id}",
         "subtitle": (f"{candidate.camera_label} · 窗口 {candidate.window_start}-{candidate.window_end}"
                      f" · {candidate.state}"),
-        "observedAt": _iso(candidate.created_at),
+        "observedAt": observed,
+        "observedAtSource": "event_time" if observed else "unmapped",
         "analysisAt": _iso(candidate.created_at),
         "targetId": run.observation_id,
         "cameraLabel": candidate.camera_label,
@@ -232,7 +237,7 @@ def _window_iso(anchor: dict, seconds: float | None) -> str | None:
     """把录像当天秒数换算成墙钟时间；基准不完整就返回 None，不猜。"""
     if seconds is None:
         return None
-    start_local = anchor.get("clip_start_local")
+    start_local = anchor.get("clip_start_local") or anchor.get("start_local")
     start_day = anchor.get("start_of_day_seconds")
     if not start_local or start_day is None:
         return None
@@ -343,6 +348,7 @@ def _region_card(run: TrackingRun, windows: list[TrackingWindow],
         "subtitle": (f"{len(devices)} 台设备 · {len(ordered)} 个窗口 · 完成 {counts['completed']}"
                      f" · {status}"),
         "observedAt": min(observed) if observed else None,
+        "observedAtSource": "event_time" if observed else "unmapped",
         "analysisAt": _iso(run.started_at or run.created_at),
         "targetId": run.observation_id,
         "cameraLabel": "、".join(devices) or None,
@@ -443,7 +449,7 @@ def build_timeline(db: Session, case_id: str, target_id: str,
     for candidate in candidates:
         run = next((r for r in runs if r.id == candidate.run_id), None)
         if run is not None:
-            cards.append(_segment_card(run, candidate))
+            cards.append(_segment_card(run, candidate, run.anchor_json or {}))
     for row in spatial:
         cards.append(_spatial_card(obs, row))
 

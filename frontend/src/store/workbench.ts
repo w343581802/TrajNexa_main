@@ -24,6 +24,7 @@ import {
   type TrackingWindowRow,
   type TimelineCard,
   type TimelineEvent,
+  type TimelineViewPayload,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -209,6 +210,10 @@ export const trackingError = ref<string | null>(null);
 
 /* 时间轴读模型：卡片由后端按既有记录派生，前端只做呈现与选中，不拼事实。 */
 export const timelineCards = ref<TimelineCard[]>([]);
+/** R1.9 主视图：三类卡 + 双向追踪入口，和详细技术卡并行存在 */
+export const timelineView = ref<TimelineViewPayload | null>(null);
+export const timelineViewLoading = ref(false);
+export const timelineViewError = ref<string | null>(null);
 export const timelineAnchorLinked = ref(false);
 export const timelineCardCounts = ref<Record<string, number>>({});
 export const timelinePhase = ref<string>("not_started");
@@ -1069,6 +1074,9 @@ export function currentTimelineTargetId(): string | null {
 
 export function clearTimeline(): void {
   timelineCards.value = [];
+  timelineView.value = null;
+  timelineViewLoading.value = false;
+  timelineViewError.value = null;
   timelineAnchorLinked.value = false;
   timelineCardCounts.value = {};
   timelinePhase.value = "not_started";
@@ -1111,6 +1119,19 @@ export async function loadTimeline(keepSelection = false): Promise<void> {
     timelineNote.value = payload.note ?? "";
     timelineTargetId.value = payload.targetId;
     timelineError.value = null;
+    timelineViewLoading.value = true;
+    try {
+      const view = await mainApi.getTimelineView(caseId, targetId);
+      if (wb.caseId === caseId) {
+        timelineView.value = view;
+        timelineViewError.value = null;
+      }
+    } catch (error) {
+      // 主视图是派生读模型；失败时保留详细卡可用，但把原因显示出来，不静默退回示例数据
+      if (wb.caseId === caseId) timelineViewError.value = trackingErrorMessage(error);
+    } finally {
+      if (wb.caseId === caseId) timelineViewLoading.value = false;
+    }
     const desired = keepSelection ? wb.selectedCardId : readStoredCard(caseId) ?? wb.selectedCardId;
     const stillThere = timelineCards.value.some((card) => card.cardId === desired);
     applyCardSelection(stillThere ? desired : timelineCards.value[0]?.cardId ?? null);
