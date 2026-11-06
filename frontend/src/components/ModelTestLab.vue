@@ -4,6 +4,7 @@ import AppIcon from "./ui/AppIcon.vue";
 import { mainApi, type M4DetectCandidate, type M5ImageModel, type M5VisionModel,
   type M5TestDetectionResult, type M5TestRoiResult, type M6PersonReidResult } from "../services/mainApi";
 import { modelChoices, setSmallModelIds, setVisionModelId } from "../store/modelChoices";
+import { visionErrorText } from "../services/visionErrors";
 
 type ObjectClass = "person" | "vehicle" | "other";
 const file = ref<File | null>(null);
@@ -497,7 +498,7 @@ function pickReidResult(box: [number, number, number, number]) {
         <article v-for="result in roi.results" :key="result.model_id" class="roi-result">
           <b>{{ result.model_name }}</b><span>{{ result.elapsed_ms }}ms · {{ result.status }}</span>
           <p>{{ result.features_unverified.length ? result.features_unverified.join("、") :
-            "未返回可用外观信息：" + (result.error_code || "未知") }}</p>
+            "未返回可用外观信息：" + visionErrorText(result.error_code) }}</p>
           <small>Prompt SHA-256 {{ result.prompt_sha256.slice(0, 16) }}…</small>
         </article>
       </div>

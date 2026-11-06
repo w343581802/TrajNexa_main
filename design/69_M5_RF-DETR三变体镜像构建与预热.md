@@ -84,3 +84,18 @@ INFO:app.detectors:detector warmup done: dfine-n, rfdetr-l, rfdetr-m, rfdetr-s, 
 - worker 没有预热：首个真实研判任务会自己加载模型，可能慢一分多钟；
 - 三个变体都是 COCO 80 类通用检测，不认“外卖骑手”这类业务类别，结果只能是待核实候选；
 - CPU 推理吞吐有限，Large 单帧 0.48s，多路视频同时分析要排队（`_infer_lock` 是全局单并发）。
+
+## 7. 运行时注意（2026-11-07 事故与护栏）
+
+现象：模型测试页选 Qwen3-VL 4B 立即返回 `inference_error`、`m4d_model_unavailable`（4ms、Prompt SHA-256 正常），看起来像“大模型坏了”。
+
+两个独立原因，必须分开查：
+
+1. **Ollama 没在跑。** 4ms 级失败是 `backend/app/m4_vision.py` 的 `_chat()` 连 `http://host.docker.internal:11434` 被拒（`URLError` → `m4d_model_unavailable`），请求根本没到模型。本机 Ollama 是便携版，必须常驻一个 `ollama serve` 窗口，且要绑 `0.0.0.0:11434`（只绑回环容器连不上）。验证：宿主 `(Invoke-RestMethod 'http://127.0.0.1:11434/api/tags').models.name`；容器内 `urlopen('http://host.docker.internal:11434/api/tags')`。
+2. **api 镜像被普通 compose 重建覆盖。** 有人执行了不带 RF-DETR overlay 的 `docker compose up -d --build`，`trajnexa_main-api:latest` 退回 1.47GB 轻量镜像，容器里 `import rfdetr` 直接 `ModuleNotFoundError`，三个 rfdetr 进 `unavailable_models`（`detector_engine_unavailable`），模型测试选它们报 `invalid_model_selection`。
+
+护栏：`compose.override.yaml`（本机未跟踪文件）现在直接携带 build 覆盖——api → `Dockerfile.rfdetr`、worker → `Dockerfile.ocr-rfdetr`。因此**任何** `docker compose up -d --build` 都得到带 RF-DETR 的镜像，不再依赖是否记得加 `-f compose.rfdetr.yaml`；`compose.override.yaml` 丢失时才需要那套四文件命令（见第 3 节）。
+
+前端：`frontend/src/services/visionErrors.ts` 把 `m4d_*` 错误码翻成中文提示（`m4d_model_unavailable` → “多半天是本机 Ollama 没在跑”），模型测试页不再只显示内部码。
+
+实测（修复后，经由 5173 的浏览器同款路径）：`POST /api/v1/ai/model-test/roi` 4B = 200 / 11.6s / `["白色上衣","黑色电动车","正骑车","低头看路","黄色电动车","背对镜头"]`；2B = 200 / 10.1s / 仅颜色词。RF-DETR 检测：`rfdetr-m` 对同一图 200 / 2.3s / 5 个候选。

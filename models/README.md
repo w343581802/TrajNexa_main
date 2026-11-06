@@ -27,13 +27,25 @@ curl.exe -L --fail -o models/dfine.onnx `
 不在这个目录，走本机 Ollama：
 
 ```powershell
+# 容器通过 host.docker.internal 访问，所以必须绑 0.0.0.0（只绑 127.0.0.1 会连不上）
 $env:OLLAMA_MODELS='G:\tools\ollama\models'
+$env:OLLAMA_HOST='0.0.0.0:11434'
 & 'G:\tools\ollama\app\ollama.exe' pull qwen3-vl:2b-instruct
-& 'G:\tools\ollama\app\ollama.exe' serve      # 另开一个窗口常驻
+& 'G:\tools\ollama\app\ollama.exe' serve      # 另开一个窗口常驻，关掉就全挂了
 ```
 
 `.env` 对应 `VISION_ENABLED=true`、`VISION_BASE_URL=http://host.docker.internal:11434`、
 `VISION_MODEL=qwen3-vl:2b-instruct`。
+
+排错：大模型测试报 `inference_error / m4d_model_unavailable`（通常几毫秒就返回）
+**不是模型质量问题，是 Ollama 没在跑**——请求还没到模型就连接被拒。先在宿主确认：
+
+```powershell
+(Invoke-RestMethod 'http://127.0.0.1:11434/api/tags').models.name
+docker exec trajnexa_main-api-1 python -c "import urllib.request;print(urllib.request.urlopen('http://host.docker.internal:11434/api/tags',timeout=8).status)"
+```
+
+两条都通再点测试。`m4d_model_thinking_only` 才是选错变体（用了 thinking 版）。
 
 > 注意：`qwen3-vl:2b`（thinking 变体）会把 token 全花在推理上、`content` 为空，
 > 接口会返回 `m4d-model-thinking-only`，请使用 `*-instruct` 变体。
