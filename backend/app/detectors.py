@@ -82,7 +82,7 @@ def _build(spec: dict) -> dict:
         raise DetectorError("detector_weight_missing:" + model_id)
     labels = _labels(spec)
     algorithm_type = str(spec.get("algorithm_type") or "yolo8")
-    if algorithm_type == "dfine" and not labels:
+    if algorithm_type in ("dfine", "rfdetr") and not labels:
         raise DetectorError("detector_dfine_requires_labels")
     input_w = int(spec.get("input_width", 640))
     input_h = int(spec.get("input_height", 640))
@@ -222,6 +222,35 @@ def list_models() -> list[dict]:
     models = _load_all()
     return [{k: v for k, v in item.items() if k not in ("engine_obj", "failures")}
             for item in models.values()]
+
+
+def unavailable_models() -> list[dict]:
+    """管理页显示未就绪配置，推理接口仍仅接受已加载模型。不要暴露本地权重路径。"""
+    loaded = _load_all()
+    errors = dict(_cache.get("errors") or {})
+    raw = _read_raw()
+    out = []
+    for spec in raw["detectors"]:
+        if not isinstance(spec, dict) or spec.get("id") in loaded:
+            continue
+        model_id = str(spec.get("id") or "")
+        if not model_id:
+            continue
+        out.append({
+            "id": model_id,
+            "name": str(spec.get("name") or model_id),
+            "engine": str(spec.get("engine") or "onnxruntime"),
+            "algorithm_type": str(spec.get("algorithm_type") or "yolo8"),
+            "task_type": str(spec.get("task_type") or "detect"),
+            "device": str(spec.get("device") or "cpu"),
+            "input_size": [int(spec.get("input_width") or 640),
+                           int(spec.get("input_height") or 640)],
+            "conf_threshold": float(spec.get("conf_threshold") or 0.35),
+            "iou_threshold": float(spec.get("iou_threshold") or 0.5),
+            "error_code": errors.get(model_id, "detector_unavailable"),
+            "status": "unavailable",
+        })
+    return out
 
 
 def default_model_id() -> str:
@@ -390,7 +419,7 @@ def create_spec(spec: dict) -> list[dict]:
         raise DetectorError("detector_create_bad_engine")
     algorithm = str(spec.get("algorithm_type") or "yolo8").strip().lower()
     # 引擎层 yolo_postprocess 支持 yolo5/8/11/26 四代输出格式；D-FINE 走专用引擎
-    if algorithm not in ("dfine", "yolo5", "yolov5", "yolo8", "yolov8",
+    if algorithm not in ("dfine", "rfdetr", "yolo5", "yolov5", "yolo8", "yolov8",
                          "yolo11", "yolo26", "yolo", "yolo_end2end"):
         raise DetectorError("detector_create_bad_algorithm")
     task = str(spec.get("task_type") or "detect").strip().lower()
@@ -399,6 +428,11 @@ def create_spec(spec: dict) -> list[dict]:
     weight = _resolve(str(spec.get("model_file") or ""))
     if not weight.is_file():
         raise DetectorError("detector_create_weight_missing")
+    if algorithm == "rfdetr" and (engine != "rfdetr_pytorch" or task != "detect"
+                                   or weight.suffix.lower() != ".pth" or
+                                   int(spec.get("input_width") or 640) != 512 or
+                                   int(spec.get("input_height") or 640) != 512):
+        raise DetectorError("detector_create_rfdetr_contract_invalid")
     entry.update({"engine": engine, "algorithm_type": algorithm, "task_type": task,
                   "model_file": str(spec["model_file"]),
                   "input_width": int(spec.get("input_width") or 640),
@@ -410,7 +444,7 @@ def create_spec(spec: dict) -> list[dict]:
         if not labels_path.is_file():
             raise DetectorError("detector_create_labels_missing")
         entry["labels_file"] = str(spec["labels_file"])
-    elif entry["algorithm_type"] == "dfine":
+    elif entry["algorithm_type"] in ("dfine", "rfdetr"):
         raise DetectorError("detector_create_labels_required")
     original = config_path().read_text(encoding="utf-8")
     raw["detectors"].append(entry)
