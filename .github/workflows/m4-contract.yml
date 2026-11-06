@@ -23,6 +23,7 @@ jobs:
             tests/test_packaged_detector_config.py \
             tests/test_m6_person_reid.py \
             tests/test_detectors_registry.py \
+            tests/test_rfdetr_engine.py \
             tests/test_m4a_observations.py \
             tests/test_m4c_keyframes.py \
             tests/test_m4c_api.py \
