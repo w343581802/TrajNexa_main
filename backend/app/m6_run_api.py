@@ -134,8 +134,8 @@ def add_tracking_review(case_id: str, run_id: str, payload: dict,
 @router.post('/cases/{case_id}/tracking-runs/{run_id}/extend')
 def extend_tracking_run(case_id: str, run_id: str, payload: dict,
                         db: Session = Depends(get_db)):
-    run = _guard(service.extend_research, db, case_id, run_id, payload)
-    return service.run_detail(db, run)
+    result = _guard(service.extend_research, db, case_id, run_id, payload)
+    return {**service.run_detail(db, result['run']), 'dispatch': result['dispatch']}
 
 
 @router.post('/cases/{case_id}/tracking-runs/{run_id}/cancel')

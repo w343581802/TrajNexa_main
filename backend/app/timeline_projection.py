@@ -311,9 +311,15 @@ def _region_card(run: TrackingRun, windows: list[TrackingWindow],
     devices = sorted({window.camera_label for window in ordered if window.camera_label})
     status = _region_status(run, ordered, candidates)
     stage_key = "windows" if ordered else "planned"
+    progress = run.progress_json or {}
+    used = progress.get('research_seconds_used')
     elapsed = None
-    if run.started_at is not None and run.finished_at is not None:
+    if used is not None:
+        # 预算口径是跨执行轮次累计的分析耗时，不能每轮 started_at 重置。
+        elapsed = round(float(used), 1)
+    elif run.started_at is not None and run.finished_at is not None:
         elapsed = round((run.finished_at - run.started_at).total_seconds(), 1)
+    last_execution = progress.get('last_execution') or {}
     stamps = [value for value in (run.created_at, run.started_at, run.finished_at) if value]
     stamps += [window.created_at for window in ordered if window.created_at]
     stamps += [candidate.created_at for candidate in candidates if candidate.created_at]
@@ -363,7 +369,15 @@ def _region_card(run: TrackingRun, windows: list[TrackingWindow],
             "candidateCount": len(candidates),
             "pendingCandidates": sum(1 for candidate in candidates
                                     if candidate.identity_status == "candidate_unverified"),
+            "runId": run.id,
+            "attempt": run.attempt,
+            "runStatus": run.status,
             "researchBudgetSeconds": (run.scope_json or {}).get("research_seconds"),
+            "researchSecondsUsed": (round(float(used), 1) if used is not None else None),
+            "executionCount": int(progress.get("executions") or 0),
+            "lastExecutionAt": last_execution.get("finishedAt"),
+            "lastExecutionSeconds": last_execution.get("addedSeconds"),
+            "stopReason": progress.get("stop_reason"),
             "elapsedAnalysisSeconds": elapsed,
             "lastUpdatedAt": _iso(last_updated),
             "derivedCardIds": derived,

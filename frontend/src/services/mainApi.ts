@@ -479,16 +479,43 @@ export type TrackingRunDetail = {
   progress: {
     analyzed_windows?: string[]; windows_done?: number; frames_used?: number;
     last_camera?: string; last_window?: number[]; reason?: string;
+    research_seconds_used?: number; executions?: number;
+    first_started_at?: string | null; stop_reason?: string | null;
+    last_execution?: {
+      startedAt?: string | null; finishedAt?: string | null;
+      addedSeconds?: number; cumulativeSeconds?: number; windows?: number;
+      status?: string; stopReason?: string | null; errorCode?: string | null;
+    } | null;
   };
   candidates: number; windows: number; reviews: number;
   error: { code: string; message: string } | null;
   direction: "forward" | "backward";
   research_seconds: number | null;
+  research_seconds_used: number;
+  research_seconds_remaining: number;
+  research_budget_mode: "cumulative_analysis_seconds";
   research_started_at: string | null;
   research_deadline: string | null;
   active: { camera_label: string; window: [number, number]; started_at: string } | null;
   created_at: string; started_at: string | null; finished_at: string | null;
   identity_established: false; note: string;
+};
+
+export type ExtendDispatchStatus =
+  "budget_updated" | "running" | "awaiting_review" | "no_pending_work";
+
+export type ExtendDispatch = {
+  status: ExtendDispatchStatus;
+  message: string;
+  runStatus: string;
+  previousBudgetSeconds: number;
+  budgetSeconds: number;
+  addedSeconds: number;
+  requestedSeconds: number;
+  researchSecondsUsed: number;
+  remainingSeconds: number;
+  nextWindowAvailable: boolean | null;
+  queuedForWorker: boolean;
 };
 
 export type TrackingCandidateRow = {
@@ -843,7 +870,7 @@ export const mainApi = {
   ),
 
   extendTrackingRun: (caseId: string, runId: string, seconds: number) =>
-    request<TrackingRunDetail>(
+    request<TrackingRunDetail & { dispatch: ExtendDispatch }>(
       `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/extend`,
       jsonBody({ seconds }, "POST"),
     ),
@@ -1088,7 +1115,15 @@ export type TimelineRegion = {
   phaseCounts: { queued: number; running: number; completed: number; failed: number; no_recording: number; unknown: number };
   candidateCount: number;
   pendingCandidates: number;
+  runId: string;
+  attempt: number;
+  runStatus: string;
   researchBudgetSeconds: number | null;
+  researchSecondsUsed: number | null;
+  executionCount: number;
+  lastExecutionAt: string | null;
+  lastExecutionSeconds: number | null;
+  stopReason: string | null;
   elapsedAnalysisSeconds: number | null;
   lastUpdatedAt: string | null;
   derivedCardIds: string[];

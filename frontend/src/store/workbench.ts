@@ -13,6 +13,7 @@ import {
   mainApi,
   type CaseDeleteResult,
   type CaseItem,
+  type ExtendDispatch,
   type M4Observation,
   type RecordingClip,
   type RecordingSource,
@@ -196,6 +197,10 @@ export const recordingCameraUuids = computed<Set<string>>(
 export const caseObservations = ref<M4Observation[]>([]);
 export const trackingRuns = ref<TrackingRunDetail[]>([]);
 export const activeTrackingRun = ref<TrackingRunDetail | null>(null);
+/** 最近一次“继续研判”的回执；按 runId 对齐区域卡，避免把 A 区域的回执显示到 B 区域。 */
+export const lastExtendDispatch = ref<{
+  caseId: string; runId: string; dispatch: ExtendDispatch;
+} | null>(null);
 export const trackingCandidates = ref<TrackingCandidateRow[]>([]);
 export const trackingWindows = ref<TrackingWindowRow[]>([]);
 export const trackingReviews = ref<TrackingReviewRow[]>([]);
@@ -1071,6 +1076,7 @@ export function clearTimeline(): void {
   timelineTargetId.value = null;
   timelineEvents.value = [];
   timelineError.value = null;
+  lastExtendDispatch.value = null;
   wb.selectedCardId = null;
   // 不清本地记住的卡片：切回同一个案件时仍恢复到上次位置
 }
@@ -1256,12 +1262,29 @@ export const actions = {
       sources: 1, window: window,
     });
   },
-  async extendTracking(seconds = 60) {
-    const run = activeTrackingRun.value;
-    if (!wb.caseId || !run) return;
+  async extendTracking(seconds = 60, runId?: string) {
+    const targetId = runId ?? activeTrackingRun.value?.id ?? trackingRuns.value[0]?.id;
+    const caseId = wb.caseId;
+    if (!caseId || !targetId) return;
     try {
-      activeTrackingRun.value = await mainApi.extendTrackingRun(wb.caseId, run.id, seconds);
-      toast('已延长研判时间窗口 ' + seconds + ' 秒', 'ok');
+      const result = await mainApi.extendTrackingRun(caseId, targetId, seconds);
+      if (wb.caseId !== caseId) return;
+      const { dispatch, ...run } = result;
+      lastExtendDispatch.value = { caseId, runId: targetId, dispatch };
+      const index = trackingRuns.value.findIndex((item) => item.id === targetId);
+      if (index >= 0) trackingRuns.value[index] = run;
+      else trackingRuns.value.unshift(run);
+      if (activeTrackingRun.value?.id === targetId) {
+        await refreshTrackingRun(targetId);
+      }
+      const tone = dispatch.status === 'budget_updated' ? 'ok'
+        : dispatch.status === 'running' ? 'info' : 'warn';
+      toast(
+        dispatch.message + ' 预算 ' + dispatch.previousBudgetSeconds + '→'
+          + dispatch.budgetSeconds + ' 秒（+' + dispatch.addedSeconds + '）',
+        tone,
+      );
+      await loadTimeline(true);
     } catch (error) {
       toast(trackingErrorMessage(error), 'danger');
     }

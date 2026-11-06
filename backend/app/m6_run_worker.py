@@ -9,6 +9,7 @@ without loading D-FINE or OSNet.
 from __future__ import annotations
 
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -184,9 +185,37 @@ def _camera_locations() -> dict[str, tuple[float, float]] | None:
     return result or None
 
 
+def _execution_progress(progress, *, started_at, used_before, used_after, executions,
+                        windows, status, stop_reason=None):
+    """记下这一轮执行的耗时与停止原因；耗时按任务累计，不随重新执行清零。"""
+    payload = dict(progress)
+    payload['schema'] = 'b8-run-progress/1'
+    payload['research_seconds_used'] = round(max(0.0, float(used_after)), 3)
+    payload['executions'] = int(executions)
+    payload['last_execution'] = {
+        'startedAt': started_at.isoformat(),
+        'finishedAt': _utcnow().isoformat(),
+        'addedSeconds': round(max(0.0, float(used_after) - float(used_before)), 3),
+        'cumulativeSeconds': round(max(0.0, float(used_after)), 3),
+        'windows': int(windows),
+        'status': status,
+    }
+    if stop_reason:
+        payload['stop_reason'] = stop_reason
+        payload['last_execution']['stopReason'] = stop_reason
+    return payload
+
+
+def _is_strong_candidate(candidate: dict) -> bool:
+    """只有第 1 名且分数/间距都过线才算“需要人工确认”；弱候选继续查下一台。"""
+    return (int(candidate.get('rank') or 1) == 1
+            and candidate.get('state') == 'candidate')
+
+
 def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
-                storage_root: Path | None = None) -> TrackingRun:
-    """Run or resume one tracking run; idempotent per planned window."""
+                storage_root: Path | None = None, clock=None) -> TrackingRun:
+    """Run or resume one tracking run; auto-advance until budget or review pause."""
+    clock = clock or time.monotonic
     run = db.get(TrackingRun, run_id)
     if run is None:
         raise TrackingRunError('tracking_run_not_found')
@@ -194,21 +223,37 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
         return run
     if run.status not in IN_PROGRESS_STATUSES:
         return run
-    run.status, run.started_at, run.attempt = 'running', _utcnow(), run.attempt + 1
+    started_at = _utcnow()
+    run.status, run.started_at, run.attempt = 'running', started_at, run.attempt + 1
     run.error_code = run.error_message = None
     db.commit()
 
     progress = dict(run.progress_json or {})
     done = set(progress.get('analyzed_windows') or [])
     frames_used = int(progress.get('frames_used') or 0)
-    budget = int((run.scope_json or {}).get('budget_frames') or 3000)
+    scope = run.scope_json or {}
+    budget = int(scope.get('budget_frames') or 3000)
+    research_budget = float(scope.get('research_seconds') or 120.0)
+    used_seconds = float(progress.get('research_seconds_used') or 0.0)
+    used_before = used_seconds
+    executions = int(progress.get('executions') or 0) + 1
+    first_started = progress.get('first_started_at') or started_at.isoformat()
+    progress = {**progress, 'first_started_at': first_started,
+                'executions': executions}
+    stop_reason = None
+    paused_for_review = False
     root = Path(storage_root or settings.storage_root) / 'tracking_runs' / run.id
 
     try:
         clips = _case_clips(db, run.case_id)
         if not clips:
             run.status = 'unresolved'
-            run.progress_json = {**progress, 'reason': 'no_case_recordings'}
+            progress = _execution_progress(
+                progress, started_at=started_at, used_before=used_before,
+                used_after=used_seconds, executions=executions, windows=len(done),
+                status='unresolved', stop_reason='no_case_recordings')
+            progress['reason'] = 'no_case_recordings'
+            run.progress_json = progress
             run.finished_at = _utcnow()
             db.commit()
             return run
@@ -216,11 +261,23 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             analyzer = RecordingAnalyzer(run, fps=fps)
         hint = _latest_spatial_hint(db, run.case_id)
         locations = _camera_locations() if hint else None
-        plans = plan_windows(run, clips, done, spatial_hint=hint, camera_locations=locations)
-        for plan in plans:
+        while True:
             if frames_used >= budget:
+                stop_reason = 'frames_budget_exhausted'
                 run.status = 'budget_exhausted'
                 break
+            research_budget = float((run.scope_json or {}).get('research_seconds')
+                                    or research_budget)
+            if used_seconds >= research_budget:
+                stop_reason = 'research_budget_exhausted'
+                run.status = 'budget_exhausted'
+                break
+            plans = plan_windows(run, clips, done, spatial_hint=hint,
+                                 camera_locations=locations)
+            if not plans:
+                stop_reason = 'no_pending_window'
+                break
+            plan = plans[0]
             out_dir = root / ('w_' + plan['key'].replace('@', '_').replace('.', 'p'))
             if out_dir.exists():
                 shutil.rmtree(out_dir)
@@ -232,7 +289,11 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             }}
             run.progress_json = progress
             db.commit()
-            result = analyzer.analyze(plan, out_dir)
+            window_started = clock()
+            try:
+                result = analyzer.analyze(plan, out_dir)
+            finally:
+                used_seconds += max(0.0, clock() - window_started)
             frames = int((result.get('cost') or {}).get('frames_saved') or 0)
             window = TrackingWindow(
                 id=str(uuid4()), run_id=run.id, camera_label=plan['camera_label'],
@@ -244,6 +305,7 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
             tracks = result.get('tracks') or []
             scored = analyzer.score(result) if tracks else []
             refs = list(result.get('evidence_refs') or [])
+            strong = False
             if tracks and scored:
                 top_k = (int(getattr(settings, 'm6_candidate_review_top_k', 3) or 1)
                          if (isinstance(analyzer, RecordingAnalyzer)
@@ -253,30 +315,60 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
                     row = _store_candidate(db, run, plan, candidate, refs,
                                      'top1=%s margin=%s' % (candidate.get('retrieval_score'),
                                                               candidate.get('margin_top1_top2')))
-                    if row is not None and top_k > 1:
-                        _store_visual_review(db, run, plan, row, candidate, result)
+                    if row is not None:
+                        if _is_strong_candidate(candidate):
+                            strong = True
+                        if top_k > 1:
+                            _store_visual_review(db, run, plan, row, candidate, result)
             done.add(plan['key'])
             frames_used += frames
-            progress = {'schema': 'b8-run-progress/1', 'analyzed_windows': sorted(done),
-                        'active': None,
-                        'windows_done': len(done), 'frames_used': frames_used,
-                        'last_camera': plan['camera_label'],
-                        'last_window': [plan['start_seconds'], plan['end_seconds']]}
+            progress = _execution_progress(
+                {**progress, 'active': None,
+                 'analyzed_windows': sorted(done),
+                 'windows_done': len(done), 'frames_used': frames_used,
+                 'last_camera': plan['camera_label'],
+                 'last_window': [plan['start_seconds'], plan['end_seconds']]},
+                started_at=started_at, used_before=used_before,
+                used_after=used_seconds, executions=executions,
+                windows=len(done), status='running')
             run.progress_json = progress
             run.status = 'running'
             db.commit()
+            if strong:
+                paused_for_review = True
+                stop_reason = 'candidate_requires_review'
+                break
 
         if run.status == 'running':
             has_candidates = db.scalar(select(TrackingCandidate.id).where(
                 TrackingCandidate.run_id == run.id).limit(1)) is not None
-            run.status = 'awaiting_review' if has_candidates else 'unresolved'
-            run.finished_at = _utcnow()
-            db.commit()
+            if paused_for_review:
+                run.status = 'awaiting_review'
+            elif stop_reason in ('frames_budget_exhausted', 'research_budget_exhausted'):
+                run.status = 'budget_exhausted'
+            elif has_candidates:
+                run.status = 'awaiting_review'
+            else:
+                run.status = 'unresolved'
+        progress = _execution_progress(
+            dict(run.progress_json or {}), started_at=started_at,
+            used_before=used_before, used_after=used_seconds,
+            executions=executions, windows=len(done), status=run.status,
+            stop_reason=stop_reason)
+        run.progress_json = progress
+        run.finished_at = _utcnow()
+        db.commit()
     except AnalyzerUnavailable as exc:
         db.rollback()
         run = db.get(TrackingRun, run_id)
         run.status, run.finished_at = 'failed', _utcnow()
         run.error_code, run.error_message = exc.code, '模型不可用，任务未产生结论'
+        progress = _execution_progress(
+            progress, started_at=started_at, used_before=used_before,
+            used_after=used_seconds, executions=executions, windows=len(done),
+            status='failed', stop_reason='error')
+        progress['last_execution']['errorCode'] = exc.code
+        run.progress_json = progress
         db.commit()
     except RecordingFrameError as exc:
         db.rollback()
@@ -284,17 +376,27 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
         run.status, run.finished_at = 'failed', _utcnow()
         run.error_code = exc.code
         run.error_message = str(exc)[:500]
+        progress = _execution_progress(
+            progress, started_at=started_at, used_before=used_before,
+            used_after=used_seconds, executions=executions, windows=len(done),
+            status='failed', stop_reason='error')
+        progress['last_execution']['errorCode'] = exc.code
+        run.progress_json = progress
         db.commit()
     except Exception as exc:  # noqa: BLE001 - worker must persist failure, not crash the loop
         db.rollback()
         run = db.get(TrackingRun, run_id)
         run.status, run.finished_at = 'failed', _utcnow()
         run.error_code, run.error_message = 'tracking_run_failed', str(exc)[:500]
+        progress = _execution_progress(
+            progress, started_at=started_at, used_before=used_before,
+            used_after=used_seconds, executions=executions, windows=len(done),
+            status='failed', stop_reason='error')
+        progress['last_execution']['errorCode'] = 'tracking_run_failed'
+        run.progress_json = progress
         db.commit()
     db.refresh(run)
     return run
-
-
 
 class RecordingAnalyzer:
     """Real analyzer: decode registered clips, run window analysis, score with OSNet."""

@@ -78,6 +78,26 @@ class FakeAnalyzer:
                 {'track_id': 'a:2', 'retrieval_score': self.scores[1]}]
 
 
+def _add_clip(Session, seed, *, camera, relpath, start='2026-10-23 15:00:00', duration=60.0):
+    """给同一案件再加一段已匹配录像，用于验证多镜头连续调度。"""
+    clip_id = str(uuid4())
+    with Session() as db:
+        source = db.query(RecordingSource).filter_by(case_id=seed['case_id']).one()
+        folder = settings.recordings_root / ('recordings/' + seed['case_id'])
+        folder.mkdir(parents=True, exist_ok=True)
+        video = folder / relpath
+        video.write_bytes(b'not-a-real-video')
+        st = video.stat()
+        db.add(RecordingClip(id=clip_id, source_id=source.id,
+                             relpath='recordings/' + seed['case_id'] + '/' + relpath,
+                             file_name=relpath, size_bytes=st.st_size, mtime_ns=st.st_mtime_ns,
+                             duration_seconds=duration, start_local=start,
+                             start_source='overlay', camera_name=camera,
+                             match_status='matched', ocr_status='ok'))
+        db.commit()
+    return clip_id
+
+
 def _create(client, seed, **overrides):
     body = {'observation_id': seed['observation_id'], 'clip_id': seed['clip_id'],
             'offset_seconds': 1.5, 'segment_seconds': 6.0, 'max_windows': 2}
@@ -308,13 +328,101 @@ def test_photo_without_recording_time_is_explicit(env):
 def test_direction_and_research_window_can_be_extended(env):
     client, Session, tmp = env
     seed = _seed(Session, tmp)
-    run = _create(client, seed, direction='backward', research_seconds=60).json()
-    assert run['direction'] == 'backward'
+    run = _create(client, seed, direction='forward', research_seconds=60).json()
+    assert run['direction'] == 'forward'
     assert run['research_seconds'] == 60
     extended = client.post('/api/v1/cases/%s/tracking-runs/%s/extend'
                            % (seed['case_id'], run['id']), json={'seconds': 60})
     assert extended.status_code == 200
-    assert extended.json()['research_seconds'] == 120
+    body = extended.json()
+    assert body['research_seconds'] == 120
+    assert body['research_budget_mode'] == 'cumulative_analysis_seconds'
+    dispatch = body['dispatch']
+    assert dispatch['status'] == 'budget_updated'
+    assert dispatch['previousBudgetSeconds'] == 60
+    assert dispatch['budgetSeconds'] == 120
+    assert dispatch['addedSeconds'] == 60
+    assert dispatch['nextWindowAvailable'] is True
+    assert dispatch['queuedForWorker'] is True
+    assert dispatch['runStatus'] == 'queued'
+
+
+def test_extend_on_awaiting_review_does_not_bypass_review(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    run = _create(client, seed).json()
+    with Session() as db:
+        row = db.get(TrackingRun, run['id'])
+        row.status = 'awaiting_review'
+        db.commit()
+    extended = client.post('/api/v1/cases/%s/tracking-runs/%s/extend'
+                           % (seed['case_id'], run['id']), json={'seconds': 60})
+    assert extended.status_code == 200
+    body = extended.json()
+    assert body['dispatch']['status'] == 'awaiting_review'
+    assert body['dispatch']['queuedForWorker'] is False
+    assert body['status'] == 'awaiting_review'
+
+
+def test_strong_candidate_pauses_before_next_camera(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    _add_clip(Session, seed, camera='2-3', relpath='cam2.mp4')
+    _add_clip(Session, seed, camera='2-4', relpath='cam3.mp4')
+    run = _create(client, seed, max_windows=3, research_seconds=600).json()
+    analyzer = FakeAnalyzer(scores=(0.9, 0.6))
+    with Session() as db:
+        result = m6_run_worker.execute_run(db, run['id'], analyzer=analyzer,
+                                           storage_root=tmp, clock=lambda: 0.0)
+    assert len(analyzer.calls) == 1
+    assert result.status == 'awaiting_review'
+    assert result.progress_json['stop_reason'] == 'candidate_requires_review'
+
+
+def test_weak_candidates_auto_continue_to_next_camera(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    _add_clip(Session, seed, camera='2-3', relpath='cam2.mp4')
+    _add_clip(Session, seed, camera='2-4', relpath='cam3.mp4')
+    run = _create(client, seed, max_windows=3, research_seconds=600).json()
+    analyzer = FakeAnalyzer()
+    with Session() as db:
+        result = m6_run_worker.execute_run(db, run['id'], analyzer=analyzer,
+                                           storage_root=tmp, clock=lambda: 0.0)
+    assert len(analyzer.calls) == 3
+    assert result.status == 'awaiting_review'
+    assert result.progress_json['stop_reason'] == 'no_pending_window'
+
+
+def test_cumulative_research_seconds_survive_restart_and_extend(env):
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    _add_clip(Session, seed, camera='2-3', relpath='cam2.mp4')
+    _add_clip(Session, seed, camera='2-4', relpath='cam3.mp4')
+    run = _create(client, seed, max_windows=3, research_seconds=15).json()
+    ticks = iter([0.0, 10.0, 10.0, 20.0])
+    with Session() as db:
+        first = m6_run_worker.execute_run(db, run['id'], analyzer=FakeAnalyzer(),
+                                          storage_root=tmp, clock=lambda: next(ticks))
+    assert first.status == 'budget_exhausted'
+    assert first.progress_json['research_seconds_used'] == 20.0
+    assert first.progress_json['executions'] == 1
+    assert first.progress_json['first_started_at']
+
+    extended = client.post('/api/v1/cases/%s/tracking-runs/%s/extend'
+                           % (seed['case_id'], run['id']), json={'seconds': 30}).json()
+    assert extended['dispatch']['status'] == 'budget_updated'
+    assert extended['dispatch']['researchSecondsUsed'] == 20.0
+    assert extended['dispatch']['remainingSeconds'] == 25.0
+
+    ticks2 = iter([20.0, 30.0])
+    with Session() as db:
+        second = m6_run_worker.execute_run(db, run['id'], analyzer=FakeAnalyzer(),
+                                           storage_root=tmp, clock=lambda: next(ticks2))
+    # 第二轮 started_at 会更新，但累计耗时从 20s 接着算到 30s，不重置为 10s
+    assert second.progress_json['research_seconds_used'] == 30.0
+    assert second.progress_json['executions'] == 2
+    assert second.progress_json['first_started_at'] == first.progress_json['first_started_at']
 
 
 def test_tracking_cameras_only_lists_verified_recordings(env):

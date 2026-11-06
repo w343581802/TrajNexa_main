@@ -9,7 +9,7 @@ Rules:
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -267,20 +267,71 @@ def add_review(db: Session, case_id: str, run_id: str, payload: dict) -> Trackin
     return event
 
 
-def extend_research(db: Session, case_id: str, run_id: str, payload: dict) -> TrackingRun:
-    """用户手动延长研判时间窗口；只加不减。"""
+EXTENDABLE_STATUSES = ('queued', 'running', 'awaiting_review', 'budget_exhausted', 'unresolved')
+
+
+def _pending_window_exists(db: Session, run: TrackingRun) -> bool:
+    """只看真实录像与已分析窗口；没有下一窗口就不假装重新排队。"""
+    from app import m6_run_worker
+    clips = m6_run_worker._case_clips(db, run.case_id)
+    if not clips:
+        return False
+    done = set((run.progress_json or {}).get('analyzed_windows') or [])
+    return bool(m6_run_worker.plan_windows(run, clips, done))
+
+
+def extend_research(db: Session, case_id: str, run_id: str, payload: dict) -> dict:
+    """用户手动延长研判执行预算；只加不减，并按真实可执行窗口决定是否重新排队。"""
     run = get_run(db, case_id, run_id)
-    if run.status not in ('queued', 'running'):
-        raise TrackingRunError('run_not_running')
+    if run.status in ('cancelled', 'failed', 'completed'):
+        raise TrackingRunError('run_not_extendable', '任务已结束，不能再延长研判预算。')
+    if run.status not in EXTENDABLE_STATUSES:
+        raise TrackingRunError('run_not_running', '当前任务状态不允许延长研判预算。')
     extra = _number(payload.get('seconds'), default=60.0, low=15, high=1800,
                     code='invalid_extend_seconds')
     scope = dict(run.scope_json or {})
-    scope['research_seconds'] = min(3600, int(scope.get('research_seconds') or 120) + int(extra))
+    before = int(scope.get('research_seconds') or 120)
+    after = min(3600, before + int(extra))
+    applied = after - before
+    scope['research_seconds'] = after
     run.scope_json = scope
+    used = round(float((run.progress_json or {}).get('research_seconds_used') or 0.0), 1)
+    pending = None
+    if run.status == 'awaiting_review':
+        dispatch_status = 'awaiting_review'
+        message = '预算已增加，但任务在等待人工审核，未继续分析。'
+    elif run.status == 'running':
+        dispatch_status = 'running'
+        message = 'Worker 正在处理该任务，新预算已记录。'
+    else:
+        pending = _pending_window_exists(db, run)
+        if not pending:
+            dispatch_status = 'no_pending_work'
+            message = '预算已增加，但当前没有可执行窗口；需要扩大录像检索范围。'
+        else:
+            dispatch_status = 'budget_updated'
+            message = '预算已增加，等待 Worker 调度。'
+            if run.status != 'queued':
+                run.status = 'queued'
+                run.finished_at = None
     db.commit()
     db.refresh(run)
-    return run
-
+    return {
+        'run': run,
+        'dispatch': {
+            'status': dispatch_status,
+            'message': message,
+            'runStatus': run.status,
+            'previousBudgetSeconds': before,
+            'budgetSeconds': after,
+            'addedSeconds': applied,
+            'requestedSeconds': int(extra),
+            'researchSecondsUsed': used,
+            'remainingSeconds': round(max(0.0, after - used), 1),
+            'nextWindowAvailable': pending,
+            'queuedForWorker': run.status in ('queued', 'running'),
+        },
+    }
 
 def cancel_run(db: Session, case_id: str, run_id: str) -> TrackingRun:
     run = get_run(db, case_id, run_id)
@@ -323,10 +374,16 @@ def run_detail(db: Session, run: TrackingRun) -> dict:
         'note': '候选不等于确认；只有人工审核事件能改变 identity_status。',
         'direction': (run.scope_json or {}).get('direction', 'forward'),
         'research_seconds': (run.scope_json or {}).get('research_seconds'),
-        'research_started_at': run.started_at,
-        'research_deadline': ((run.started_at + timedelta(
-            seconds=int((run.scope_json or {}).get('research_seconds') or 120)))
-            if run.started_at else None),
+        'research_seconds_used': round(float(
+            (run.progress_json or {}).get('research_seconds_used') or 0.0), 1),
+        'research_seconds_remaining': round(max(0.0,
+            float((run.scope_json or {}).get('research_seconds') or 120)
+            - float((run.progress_json or {}).get('research_seconds_used') or 0.0)), 1),
+        'research_budget_mode': 'cumulative_analysis_seconds',
+        'research_started_at': ((run.progress_json or {}).get('first_started_at')
+                                or run.started_at),
+        # 预算是“累计分析耗时”，不是墙钟截止时间；没有可对外承诺的 deadline。
+        'research_deadline': None,
         'active': ((run.progress_json or {}).get('active')
                    if run.status in ('queued', 'running') else None),
     }

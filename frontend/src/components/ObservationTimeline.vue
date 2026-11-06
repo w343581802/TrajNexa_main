@@ -6,6 +6,7 @@ import {
   actions,
   activeTrackingRun,
   currentTimelineTargetId,
+  lastExtendDispatch,
   selectedTimelineCard,
   timelineAnchorLinked,
   timelineCards,
@@ -85,9 +86,13 @@ onBeforeUnmount(() => {
 
 const active = computed(() => activeTrackingRun.value?.active ?? null);
 const activeElapsed = computed(() => {
+  const run = activeTrackingRun.value;
+  if (!run) return 0;
+  // research_seconds_used 是跨执行轮次的累计值；正在分析的窗口再叠加当前已过秒数
+  const base = run.research_seconds_used ?? run.progress?.research_seconds_used ?? 0;
   const started = active.value?.started_at;
-  if (!started) return 0;
-  return Math.max(0, Math.floor((nowMs.value - new Date(started).getTime()) / 1000));
+  const live = started ? Math.max(0, (nowMs.value - new Date(started).getTime()) / 1000) : 0;
+  return Math.floor(base + live);
 });
 const researchLimit = computed(() => activeTrackingRun.value?.research_seconds ?? 120);
 const overLimit = computed(() => activeElapsed.value > researchLimit.value);
@@ -137,6 +142,20 @@ const presentationCounts = computed<Record<TimelineCard["presentation"], number>
 
 const anchorCard = computed(() => timelineCards.value.find((card) => card.kind === "anchor") ?? null);
 const selectedCard = computed(() => selectedTimelineCard());
+
+/** 只显示当前选中区域卡所属 run 的回执，避免 A 区域显示 B 区域的预算结果 */
+const regionDispatch = computed(() => {
+  const region = selectedCard.value?.region;
+  const last = lastExtendDispatch.value;
+  if (!region || !last || last.runId !== region.runId) return null;
+  return last.dispatch;
+});
+const regionDispatchTone = computed(() => {
+  const status = regionDispatch.value?.status;
+  if (status === 'budget_updated') return 'ok';
+  if (status === 'running') return 'info';
+  return 'warn';
+});
 
 const REGION_STATUS_TEXT: Record<string, string> = {
   planned: "区域待规划",
@@ -501,11 +520,15 @@ const emptyText = computed(() => {
             </p>
             <div class="region-budget">
               <span class="dim num">
-                预算 {{ selectedCard.region.researchBudgetSeconds ?? '未设置' }}s · 已执行 {{ selectedCard.region.elapsedAnalysisSeconds ?? '—' }}s · 窗口 {{ selectedCard.region.completedWindows }}/{{ selectedCard.region.plannedWindows }}
+                预算 {{ selectedCard.region.researchBudgetSeconds ?? '未设置' }}s · 累计已执行 {{ selectedCard.region.researchSecondsUsed ?? selectedCard.region.elapsedAnalysisSeconds ?? '—' }}s · 窗口 {{ selectedCard.region.completedWindows }}/{{ selectedCard.region.plannedWindows }}<template v-if="selectedCard.region.executionCount"> · 执行 {{ selectedCard.region.executionCount }} 轮</template><template v-if="selectedCard.region.stopReason"> · 上次停止：{{ selectedCard.region.stopReason }}</template>
               </span>
-              <button class="btn btn--sm btn--outline" @click="actions.extendTracking(60)">继续研判 +60s</button>
+              <button class="btn btn--sm btn--outline" @click="actions.extendTracking(60, selectedCard.region.runId)">继续研判 +60s（该区域）</button>
               <button class="btn btn--sm btn--ghost" disabled title="尚未实现：需要新增扩大录像检索范围的接口">扩大录像检索（未实现）</button>
             </div>
+            <p v-if="regionDispatch" class="card-detail-line" :data-tone="regionDispatchTone">
+              <span class="dim">调度回执：</span>{{ regionDispatch.message }}
+              <span class="dim num">预算 {{ regionDispatch.previousBudgetSeconds }}→{{ regionDispatch.budgetSeconds }}s（+{{ regionDispatch.addedSeconds }}）· 剩余 {{ regionDispatch.remainingSeconds }}s</span>
+            </p>
             <p class="card-detail-line dim">
               +60s 只增加系统执行预算，不扩大录像检索范围；区域卡不代表目标已经到达该区域。
             </p>
