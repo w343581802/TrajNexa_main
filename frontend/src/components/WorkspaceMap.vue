@@ -468,20 +468,84 @@ const evidenceVideo = ref<HTMLVideoElement | null>(null);
 const ambiguousProbe = ref(false);
 
 const evidenceTime = ref(0);
+const evidencePlaying = ref(false);
+const evidenceDuration = ref(0);
+const evidenceCurrent = ref(0);
+const evidenceLoading = ref(false);
+const evidenceError = ref("");
 const evidenceNearOffset = computed(() => {
   const target = evidenceView.value;
   // 代理片段从 start 开始，播放位置加上 start 才是片段内偏移。
   return !!target && Math.abs(evidenceTime.value + target.start - target.offset) <= 1.5;
 });
 
+function formatEvidenceClock(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const whole = Math.floor(seconds);
+  const mm = Math.floor(whole / 60);
+  const ss = whole % 60;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
+}
 function trackEvidenceTime() {
   const element = evidenceVideo.value;
-  if (element) evidenceTime.value = element.currentTime;
+  if (!element) return;
+  evidenceTime.value = element.currentTime;
+  evidenceCurrent.value = element.currentTime;
 }
 function seekEvidenceVideo() {
   const element = evidenceVideo.value;
   if (!element || !evidenceView.value) return;
-  element.currentTime = Math.max(0, evidenceView.value.offset - evidenceView.value.start - 0.5);
+  evidenceDuration.value = Number.isFinite(element.duration) ? element.duration : 0;
+  evidenceLoading.value = false;
+  const wanted = Math.max(0, evidenceView.value.offset - evidenceView.value.start - 0.5);
+  element.currentTime = Math.min(wanted, Math.max(0, (element.duration || wanted) - 0.1));
+  evidenceCurrent.value = element.currentTime;
+  evidenceTime.value = element.currentTime;
+}
+function onEvidenceSeek(event: Event) {
+  const element = evidenceVideo.value;
+  const value = Number((event.target as HTMLInputElement).value);
+  if (!element || !Number.isFinite(value)) return;
+  element.currentTime = value;
+  evidenceCurrent.value = value;
+  evidenceTime.value = value;
+}
+async function toggleEvidencePlay() {
+  const element = evidenceVideo.value;
+  if (!element) return;
+  evidenceError.value = "";
+  if (!element.paused) {
+    element.pause();
+    return;
+  }
+  evidenceLoading.value = element.readyState < 3;
+  try {
+    await element.play();
+  } catch (error) {
+    evidencePlaying.value = false;
+    evidenceLoading.value = false;
+    evidenceError.value = error instanceof Error ? `无法播放：${error.message}` : "无法播放该代理片段";
+  }
+}
+function onEvidencePlaying() {
+  evidencePlaying.value = true;
+  evidenceLoading.value = false;
+  evidenceError.value = "";
+}
+function onEvidencePause() {
+  evidencePlaying.value = false;
+}
+function onEvidenceWaiting() {
+  if (evidencePlaying.value) evidenceLoading.value = true;
+}
+function onEvidenceError() {
+  const element = evidenceVideo.value;
+  const code = element?.error?.code;
+  evidencePlaying.value = false;
+  evidenceLoading.value = false;
+  evidenceError.value = code === 4
+    ? "浏览器无法解码该代理片段（MEDIA_ERR_SRC_NOT_SUPPORTED）"
+    : "代理片段加载失败，请重试或检查录像资源";
 }
 const evidenceBoxStyle = computed(() => {
   const box = evidenceView.value?.box ?? [0, 0, 0, 0];
@@ -521,6 +585,11 @@ function openEvidence(point: TargetTrackPoint, trackId: string) {
   // 源片是 HEVC，浏览器不能解码；代理片段从 offset 前 2s 起取 20s，覆盖该帧前后。
   const start = Math.max(0, offset - 2);
   const videoUrl = proxyVideoUrl(caseId, clipId, start, 20);
+  evidencePlaying.value = false;
+  evidenceDuration.value = 0;
+  evidenceCurrent.value = 0;
+  evidenceLoading.value = true;
+  evidenceError.value = "";
   evidenceView.value = {
     url: keyframeUrl(caseId, clipId, offset),
     videoUrl,
@@ -901,16 +970,51 @@ function focusAnchor() {
           <div class="evidence-box" :style="evidenceBoxStyle"></div>
         </div>
         <div class="evidence-video-wrap">
-        <video
-          ref="evidenceVideo"
-          class="evidence-video"
-          :src="evidenceView.videoUrl"
-          controls
-          preload="metadata"
-          @loadedmetadata="seekEvidenceVideo"
-          @timeupdate="trackEvidenceTime"
-        ></video>
+          <video
+            ref="evidenceVideo"
+            :key="evidenceView.videoUrl"
+            class="evidence-video"
+            :src="evidenceView.videoUrl"
+            :poster="evidenceView.url"
+            preload="auto"
+            playsinline
+            @click="toggleEvidencePlay"
+            @loadedmetadata="seekEvidenceVideo"
+            @timeupdate="trackEvidenceTime"
+            @play="onEvidencePlaying"
+            @pause="onEvidencePause"
+            @waiting="onEvidenceWaiting"
+            @playing="onEvidencePlaying"
+            @error="onEvidenceError"
+          ></video>
+          <button
+            v-if="!evidencePlaying"
+            type="button"
+            class="evidence-play-overlay"
+            :disabled="evidenceLoading"
+            @click.stop="toggleEvidencePlay"
+          >
+            <span class="evidence-play-glyph" aria-hidden="true"></span>
+            <span>{{ evidenceLoading ? "代理片段加载中…" : "播放片段" }}</span>
+          </button>
+          <div v-if="evidenceError" class="evidence-video-status is-error">{{ evidenceError }}</div>
           <div v-show="evidenceNearOffset" class="evidence-box" :style="evidenceBoxStyle"></div>
+        </div>
+        <div class="evidence-transport">
+          <button type="button" class="evidence-transport-play" @click="toggleEvidencePlay">
+            {{ evidencePlaying ? "暂停" : "播放" }}
+          </button>
+          <input
+            class="evidence-range"
+            type="range"
+            min="0"
+            :max="evidenceDuration || 0"
+            step="0.05"
+            :value="evidenceCurrent"
+            aria-label="片段播放进度"
+            @input="onEvidenceSeek"
+          />
+          <span class="evidence-clock">{{ formatEvidenceClock(evidenceCurrent) }} / {{ formatEvidenceClock(evidenceDuration) }}</span>
         </div>
         <p class="evidence-meta">{{ evidenceView.meta }}</p>
         <p class="evidence-note">视频为 H.264 代理片段（重编码、非原片），保留目标帧前后画面；关键帧按请求偏移解码，PTS 均未与 OSD 独立核验。身份结论与空间质量相互独立。</p>
@@ -1501,15 +1605,25 @@ function focusAnchor() {
 .sw--experimental { border: 2px dashed #b98cff; background: transparent; border-radius: 50%; }
 .map-track-chip { top: 136px; color: #b5f5ee; border-color: #234b47; }
 .sw--track { border: 2px solid #4fd1c5; background: #4fd1c5; border-radius: 50%; }
-.evidence-panel { position: absolute; right: 12px; bottom: 12px; z-index: 900; }
-.evidence-card { width: 420px; background: rgba(9, 13, 20, 0.96); border: 1px solid #164e63; border-radius: 8px; padding: 10px; color: #d7e3ee; }
+.evidence-panel { position: absolute; right: 12px; bottom: 12px; z-index: 900; display: flex; flex-direction: column; max-height: calc(100% - 24px); }
+.evidence-card { width: 420px; min-height: 0; max-height: 100%; overflow-y: auto; background: rgba(9, 13, 20, 0.96); border: 1px solid #164e63; border-radius: 8px; padding: 10px; color: #d7e3ee; }
 .evidence-card header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #a5f3fc; margin-bottom: 8px; }
 .evidence-card header button { background: transparent; border: 1px solid #2b3a4a; color: #9aa8b8; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
 .evidence-frame { position: relative; width: 100%; }
 .evidence-frame img { width: 100%; display: block; border-radius: 4px; }
 .evidence-box { position: absolute; border: 2px solid #22d3ee; box-shadow: 0 0 0 9999px rgba(0,0,0,0.18) inset; pointer-events: none; }
 .evidence-video-wrap { position: relative; margin-top: 8px; }
-.evidence-video { width: 100%; display: block; }
+.evidence-video { width: 100%; display: block; background: #000; border-radius: 4px; cursor: pointer; }
+.evidence-play-overlay { position: absolute; inset: 0; margin: auto; width: max-content; height: max-content; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(8, 47, 73, 0.9); border: 1px solid #22d3ee; color: #e0f2fe; font-size: 12px; cursor: pointer; }
+.evidence-play-overlay:disabled { opacity: 0.72; cursor: wait; }
+.evidence-play-glyph { width: 0; height: 0; border-left: 10px solid #67e8f9; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+.evidence-video-status { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: 92%; padding: 3px 8px; border-radius: 4px; background: rgba(8, 47, 73, 0.9); border: 1px solid #164e63; color: #a5f3fc; font-size: 11px; }
+.evidence-video-status.is-error { top: 8px; bottom: auto; background: rgba(69, 10, 10, 0.92); border-color: #b91c1c; color: #fecaca; }
+.evidence-transport { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.evidence-transport-play { flex: none; padding: 4px 10px; border-radius: 4px; border: 1px solid #164e63; background: #0b2532; color: #a5f3fc; font-size: 11.5px; cursor: pointer; }
+.evidence-transport-play:hover { border-color: #22d3ee; color: #ecfeff; }
+.evidence-range { flex: 1; min-width: 0; accent-color: #22d3ee; }
+.evidence-clock { flex: none; min-width: 76px; text-align: right; font-size: 11px; color: #93c5fd; font-variant-numeric: tabular-nums; }
 .evidence-meta { font-size: 11.5px; color: #b6c6d6; margin: 8px 0 4px; }
 .evidence-note { font-size: 10.5px; color: #7b8b9c; margin: 0; }
 .map-target-chip { top: 172px; color: #a5f3fc; border-color: #164e63; }

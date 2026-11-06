@@ -43,6 +43,31 @@ const drawerWidth = ref(loadDrawerWidth());
 const drawerTop = ref(94);
 const evidencePreview = ref<PendingGroup[]>([]);
 
+const MODAL_WIDTH_KEY = "trajnexa.regionDetail.width";
+const MODAL_MIN = 560;
+const MODAL_MAX = 1180;
+
+function loadModalWidth(): number {
+  try {
+    const raw = localStorage.getItem(MODAL_WIDTH_KEY);
+    if (raw !== null && raw.trim() !== "") {
+      const saved = Number(raw);
+      if (Number.isFinite(saved)) return Math.min(MODAL_MAX, Math.max(MODAL_MIN, saved));
+    }
+  } catch { /* 隐私模式下不可用 */ }
+  return 720;
+}
+const modalWidth = ref(loadModalWidth());
+const modalExpanded = ref(false);
+const modalWidthBeforeExpand = ref(modalWidth.value);
+/** 拖动右边缘时鼠标会跑到遮罩上，pointerup 后的 click 不能当成“点遮罩关闭”。 */
+let modalResizedAt = 0;
+
+type RegionTab = "all" | "done" | "running" | "pending";
+const regionTab = ref<RegionTab>("all");
+
+const frameDims = ref<Record<string, { w: number; h: number }>>({});
+
 const view = computed(() => timelineView.value);
 
 /** 仅开发环境、且该目标没有真实已确认轨迹时，追加明确标注的演示卡。 */
@@ -374,6 +399,150 @@ const regionCameraCounts = computed(() => {
   return counts;
 });
 
+const REGION_TABS: { id: RegionTab; label: string; icon: "layers" | "check" | "refresh" | "help" }[] = [
+  { id: "all", label: "全部", icon: "layers" },
+  { id: "done", label: "分析完成", icon: "check" },
+  { id: "running", label: "分析中", icon: "refresh" },
+  { id: "pending", label: "待核查", icon: "help" },
+];
+
+function regionTabCount(id: RegionTab): number {
+  if (id === "all") return regionCameraRows.value.length;
+  return regionCameraRows.value.filter((camera) => cameraState(camera) === id).length;
+}
+
+const regionFilteredCameras = computed(() => {
+  if (regionTab.value === "all") return regionCameraRows.value;
+  return regionCameraRows.value.filter((camera) => cameraState(camera) === regionTab.value);
+});
+
+/** 详情头部的时间跨度；只看已执行窗口的起止，不把不连续窗口说成连续录像。 */
+const regionDurationText = computed(() => {
+  const win = detailCard.value?.region?.plannedObservationWindow;
+  if (!win || win.startSeconds === null || win.endSeconds === null) return "";
+  const minutes = Math.max(1, Math.round((win.endSeconds - win.startSeconds) / 60));
+  // 头部 clockRange 已经标注“不连续”，这里只给跨度，避免重复。
+  return minutes + " 分钟";
+});
+
+function cameraPrimaryWindow(camera: CameraRow): CameraWindow | null {
+  return camera.windows[0] ?? null;
+}
+
+function cameraRangeText(camera: CameraRow): string {
+  const first = cameraPrimaryWindow(camera);
+  if (!first) return "窗口未记录";
+  const extra = camera.windows.length > 1 ? " +" + (camera.windows.length - 1) : "";
+  return cameraWindowText(first) + extra;
+}
+
+function cameraStartText(camera: CameraRow): string {
+  const first = cameraPrimaryWindow(camera);
+  if (!first) return "未记录";
+  return first.startAt ? timeLabel(first.startAt) : daySecondsClock(first.start);
+}
+
+function cameraEndText(camera: CameraRow): string {
+  const first = cameraPrimaryWindow(camera);
+  if (!first) return "未记录";
+  return first.endAt ? timeLabel(first.endAt) : daySecondsClock(first.end);
+}
+
+function cameraTabState(camera: CameraRow): "done" | "running" | "pending" {
+  return cameraState(camera);
+}
+
+function cameraStateIcon(camera: CameraRow): "check" | "refresh" | "help" {
+  const state = cameraState(camera);
+  if (state === "done") return "check";
+  if (state === "running") return "refresh";
+  return "help";
+}
+
+function groupBbox(group: PendingGroup): number[] | null {
+  const evidence = (group.card.evidence ?? {}) as Record<string, unknown>;
+  const raw = evidence.bboxPixels;
+  if (!Array.isArray(raw) || raw.length !== 4) return null;
+  const values = raw.map(Number);
+  return values.every(Number.isFinite) ? values : null;
+}
+
+function onFrameLoad(group: PendingGroup, event: Event): void {
+  const img = event.target as HTMLImageElement | null;
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  frameDims.value = { ...frameDims.value, [group.key]: { w: img.naturalWidth, h: img.naturalHeight } };
+}
+
+/** 用证据帧的自然尺寸把 bbox 换算成百分比，窗口变宽时框仍贴合目标。 */
+function bboxStyle(group: PendingGroup): Record<string, string> | null {
+  const bbox = groupBbox(group);
+  const dims = frameDims.value[group.key];
+  if (!bbox || !dims || !dims.w || !dims.h) return null;
+  const [left, top, right, bottom] = bbox;
+  const x = Math.max(0, Math.min(100, (left / dims.w) * 100));
+  const y = Math.max(0, Math.min(100, (top / dims.h) * 100));
+  const w = Math.max(0.5, Math.min(100 - x, ((right - left) / dims.w) * 100));
+  const h = Math.max(0.5, Math.min(100 - y, ((bottom - top) / dims.h) * 100));
+  return { left: x + "%", top: y + "%", width: w + "%", height: h + "%" };
+}
+
+function clampModalWidth(value: number): number {
+  return Math.min(MODAL_MAX, Math.max(MODAL_MIN, Math.round(value)));
+}
+
+function saveModalWidth(): void {
+  try { localStorage.setItem(MODAL_WIDTH_KEY, String(modalWidth.value)); } catch { /* 忽略不可写存储 */ }
+}
+
+function setModalWidth(value: number): void {
+  modalWidth.value = clampModalWidth(value);
+}
+
+function beginModalResize(event: PointerEvent): void {
+  const startX = event.clientX;
+  const startWidth = modalWidth.value;
+  modalExpanded.value = false;
+  const move = (next: PointerEvent) => setModalWidth(startWidth + (next.clientX - startX));
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    document.body.style.userSelect = "";
+    modalResizedAt = Date.now();
+    saveModalWidth();
+  };
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+}
+
+function nudgeModalWidth(delta: number): void {
+  setModalWidth(modalWidth.value + delta);
+  saveModalWidth();
+}
+
+function resetModalWidth(): void {
+  modalExpanded.value = false;
+  setModalWidth(720);
+  saveModalWidth();
+}
+
+function onModalBackdropClick(): void {
+  // 拖宽结束时 pointerup 可能落在遮罩上；刚拖过就忽略这次 click。
+  if (Date.now() - modalResizedAt < 300) return;
+  closeDetail();
+}
+
+function toggleModalExpand(): void {
+  if (modalExpanded.value) {
+    modalWidth.value = modalWidthBeforeExpand.value;
+    modalExpanded.value = false;
+    return;
+  }
+  modalWidthBeforeExpand.value = modalWidth.value;
+  modalWidth.value = Math.min(MODAL_MAX, Math.max(MODAL_MIN, window.innerWidth - 32));
+  modalExpanded.value = true;
+}
+
 function cameraStateText(camera: CameraRow): string {
   const state = cameraState(camera);
   if (state === "pending") return "待核查" + (camera.pendingGroups.length ? " " + camera.pendingGroups.length : "");
@@ -382,8 +551,19 @@ function cameraStateText(camera: CameraRow): string {
 }
 
 function cameraShotUrl(camera: CameraRow): string | null {
-  if (!wb.caseId || !camera.clipId || camera.offsetSeconds === null) return null;
-  return keyframeUrl(wb.caseId, camera.clipId, camera.offsetSeconds);
+  if (!wb.caseId || !camera.clipId) return null;
+  // 取检索窗口中点的关键帧：窗口起点常是解码脏帧/空镜（实测 2s 处整帧发灰），
+  // 中点更能代表这台设备在本窗口实际看到的画面。
+  const win = cameraPrimaryWindow(camera);
+  // window 的 start/end 是当天秒数，关键帧 offset 是片段内秒数：
+  // 以任务记录的片段起点为基准，再前进半个窗口。
+  const offset = camera.offsetSeconds === null
+    ? null
+    : win && Number.isFinite(win.start) && Number.isFinite(win.end)
+      ? camera.offsetSeconds + Math.max(0, (win.end - win.start) / 2)
+      : camera.offsetSeconds;
+  if (offset === null) return null;
+  return keyframeUrl(wb.caseId, camera.clipId, offset);
 }
 
 function openEvidencePreview(groups: PendingGroup[]): void {
@@ -471,6 +651,18 @@ function regionWindowText(region: TimelineViewRegion): string {
   return first.startSeconds.toFixed(0) + "–" + last.endSeconds.toFixed(0) + "s";
 }
 
+function regionStartText(region: TimelineViewRegion): string {
+  const first = region.windowRanges[0];
+  if (!first) return "未记录";
+  return first.startAt ? timeLabel(first.startAt) : daySecondsClock(first.startSeconds);
+}
+
+function regionEndText(region: TimelineViewRegion): string {
+  const last = region.windowRanges[region.windowRanges.length - 1];
+  if (!last) return "未记录";
+  return last.endAt ? timeLabel(last.endAt) : daySecondsClock(last.endSeconds);
+}
+
 function regionHasGap(region: TimelineViewRegion): boolean {
   return region.hasWindowGap || region.windowRanges.some((range) => !range.contiguousToPrev);
 }
@@ -555,6 +747,9 @@ function selectViewCard(card: TimelineViewCard): void {
   evidencePreview.value = [];
   playbackCardId.value = null;
   playbackUrl.value = null;
+  frameDims.value = {};
+  modalExpanded.value = false;
+  regionTab.value = "all";
   focusedCandidateId.value = card.detailCardIds[0] ?? null;
   if (isDemoCard(card)) {
     // 演示卡没有对应的真实技术卡，不进入地图选中流程。
@@ -597,6 +792,8 @@ function closeDetail(): void {
   evidencePreview.value = [];
   playbackCardId.value = null;
   playbackUrl.value = null;
+  frameDims.value = {};
+  modalExpanded.value = false;
 }
 
 function focusCandidate(card: TimelineCard): void {
@@ -798,8 +995,177 @@ watch(() => view.value?.targetId, () => closeDetail());
     </div>
 
     <Teleport to="body">
+      <div
+        v-if="detailCard && detailCard.kind === 'region_investigation'"
+        class="rd-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="区域排查详情"
+        @click.self="onModalBackdropClick"
+      >
+        <section
+          class="rd-modal"
+          :style="{ width: modalWidth + 'px' }"
+        >
+          <button
+            class="rd-resize"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="拖动调整详情宽度，双击恢复默认"
+            tabindex="0"
+            title="拖动调整宽度，双击恢复默认"
+            @pointerdown.prevent="beginModalResize"
+            @dblclick="resetModalWidth"
+            @keydown.left.prevent="nudgeModalWidth(-24)"
+            @keydown.right.prevent="nudgeModalWidth(24)"
+          />
+
+          <header class="rd-head">
+            <div class="rd-head-main">
+              <span class="rd-head-icon"><AppIcon name="camera" :size="19" /></span>
+              <div class="rd-head-text">
+                <p class="rd-kicker">查看详情 <span>·</span> 区域排查</p>
+                <h2>{{ detailCard.place }}</h2>
+                <div class="rd-sub">
+                  <span><AppIcon name="clock" :size="12" />{{ clockRange(detailCard) }}</span>
+                  <span v-if="regionDurationText" class="rd-duration">（{{ regionDurationText }}）</span>
+                  <span><AppIcon name="camera" :size="12" />{{ detailCard.region?.deviceCount ?? 0 }} 台摄像头 · {{ detailCard.region?.plannedWindows ?? 0 }} 个检索窗口</span>
+                </div>
+              </div>
+            </div>
+            <div class="rd-head-actions">
+              <button class="rd-icon-btn" :title="modalExpanded ? '恢复原宽度' : '展开到窗口宽度'" @click="toggleModalExpand">
+                <AppIcon name="scan" :size="15" />
+              </button>
+              <button class="rd-icon-btn" aria-label="关闭详情" @click="closeDetail">
+                <AppIcon name="close" :size="15" />
+              </button>
+            </div>
+          </header>
+
+          <div class="rd-body">
+            <div class="rd-tabs" role="tablist" aria-label="摄像头分析状态筛选">
+              <button
+                v-for="tab in REGION_TABS"
+                :key="tab.id"
+                class="rd-tab"
+                :class="{ 'is-active': regionTab === tab.id }"
+                :data-tab="tab.id"
+                role="tab"
+                :aria-selected="regionTab === tab.id"
+                @click="regionTab = tab.id"
+              >
+                <AppIcon :name="tab.icon" :size="14" />
+                <span>{{ tab.label }}</span>
+                <b>{{ regionTabCount(tab.id) }}</b>
+              </button>
+            </div>
+
+            <div class="rd-adjust">
+              <span class="rd-adjust-label">调整检索时间：</span>
+              <label class="rd-time rd-time--wide">
+                <input :value="detailCard.region ? regionStartText(detailCard.region) : ''" readonly />
+              </label>
+              <span class="rd-dash">–</span>
+              <label class="rd-time rd-time--wide">
+                <input :value="detailCard.region ? regionEndText(detailCard.region) : ''" readonly />
+              </label>
+              <button class="rd-step" disabled title="检索窗口调整尚未接入">− 5 分钟</button>
+              <button class="rd-step" disabled title="检索窗口调整尚未接入">+ 5 分钟</button>
+              <button class="rd-confirm" disabled title="检索窗口调整尚未接入">确认</button>
+            </div>
+            <p class="rd-note">检索时间调整需要重新调度分析，当前为只读；下方是已执行的检索窗口。</p>
+
+            <div v-if="regionFilteredCameras.length" class="rd-cams">
+              <article
+                v-for="camera in regionFilteredCameras"
+                :key="camera.key"
+                class="rd-cam"
+                :data-state="cameraTabState(camera)"
+              >
+                <div class="rd-cam-media">
+                  <img
+                    v-if="cameraShotUrl(camera)"
+                    :src="cameraShotUrl(camera) || ''"
+                    :alt="camera.label + ' 摄像头截图'"
+                    loading="lazy"
+                  />
+                  <span v-else class="rd-cam-empty"><AppIcon name="camera" :size="20" /></span>
+                  <span class="rd-cam-range">{{ cameraRangeText(camera) }}</span>
+                  <span class="rd-cam-play"><AppIcon name="play" :size="11" /></span>
+                </div>
+
+                <div class="rd-cam-main">
+                  <div class="rd-cam-headline">
+                    <h3>{{ camera.label }}</h3>
+                    <span class="rd-state" :data-state="cameraTabState(camera)">
+                      <AppIcon :name="cameraStateIcon(camera)" :size="12" />
+                      {{ cameraStateText(camera) }}
+                    </span>
+                  </div>
+                  <div class="rd-cam-times">
+                    <label class="rd-time">
+                      <span>起始时间</span>
+                      <input :value="cameraStartText(camera)" readonly />
+                    </label>
+                    <span class="rd-dash">–</span>
+                    <label class="rd-time">
+                      <span>结束时间</span>
+                      <input :value="cameraEndText(camera)" readonly />
+                    </label>
+                    <button class="rd-ok" disabled title="检索窗口调整尚未接入">确定</button>
+                  </div>
+                </div>
+
+                <div v-if="cameraTabState(camera) === 'pending'" class="rd-pending">
+                  <h4 class="rd-pending-title">候选目标（{{ camera.pendingGroups.length || camera.pendingCount }}）</h4>
+                  <div
+                    v-if="camera.pendingGroups.length && camera.pendingGroups.length < 5"
+                    class="rd-cands"
+                  >
+                    <button
+                      v-for="group in camera.pendingGroups"
+                      :key="group.key"
+                      class="rd-cand"
+                      :title="'打开证据大图：' + group.identity"
+                      @click="openEvidencePreview([group])"
+                    >
+                      <span class="rd-cand-frame">
+                        <img
+                          v-if="group.fullUrl"
+                          :src="group.fullUrl"
+                          :alt="group.cameraLabel + ' 候选证据帧'"
+                          loading="lazy"
+                          @load="onFrameLoad(group, $event)"
+                        />
+                        <span v-if="bboxStyle(group)" class="rd-bbox" :style="bboxStyle(group) || undefined" />
+                        <span class="rd-cand-time">{{ timeLabel(group.card.observedAt) }}</span>
+                      </span>
+                      <span class="rd-cand-name">{{ group.identity }}</span>
+                    </button>
+                  </div>
+                  <button
+                    v-else-if="camera.pendingGroups.length >= 5"
+                    class="rd-more"
+                    @click="openEvidencePreview(camera.pendingGroups)"
+                  >
+                    <span>查看 {{ camera.pendingGroups.length }} 组待核查大图</span>
+                    <small>目标截取大图 + 完整大图 · 点击放大核对</small>
+                  </button>
+                  <p v-else class="rd-hint">该设备有 {{ camera.pendingCount }} 条待核查候选，但当前详情没有可展开的目标卡。</p>
+                  <p class="rd-hint rd-hint--identity">候选目标｜身份未确认；图片只用于核对，不构成身份确认，也不升级为正式 L2。</p>
+                </div>
+              </article>
+            </div>
+            <p v-else class="rd-empty">当前筛选下没有摄像头。</p>
+
+            <p class="rd-foot">区域卡只表示检查过这些设备，不代表目标到达；轨迹与空间位置仍需独立证据。</p>
+          </div>
+        </section>
+      </div>
+
       <section
-        v-if="detailCard"
+        v-else-if="detailCard"
         class="tm-drawer"
         aria-label="卡片详情"
         :style="{ width: drawerWidth + 'px', top: drawerTop + 'px' }"
@@ -848,103 +1214,7 @@ watch(() => view.value?.targetId, () => closeDetail());
           </template>
         </template>
 
-        <template v-if="detailCard.kind === 'region_investigation' && detailCard.region">
-          <div class="tm-region-counts" aria-label="区域摄像头状态计数">
-            <span class="tm-count tm-count--done">分析完成 <b>{{ regionCameraCounts.done }}</b></span>
-            <span class="tm-count tm-count--running">分析中 <b>{{ regionCameraCounts.running }}</b></span>
-            <span class="tm-count tm-count--pending">待核查 <b>{{ regionCameraCounts.pending }}</b></span>
-          </div>
-          <p class="tm-kv"><span>区域状态</span>{{ regionStatusText(detailCard.region.status) }}</p>
-          <p class="tm-kv"><span>计划录像范围</span>{{ regionWindowText(detailCard.region) }} · 时间可信度 {{ detailCard.region.timeQuality }}</p>
-          <p class="tm-kv"><span>窗口统计</span>完成 {{ detailCard.region.phaseCounts.completed }} · 排队 {{ detailCard.region.phaseCounts.queued }} · 分析中 {{ detailCard.region.phaseCounts.running }} · 失败 {{ detailCard.region.phaseCounts.failed }}</p>
-          <p class="tm-kv"><span>区域结果</span>{{ detailCard.region.candidateCount ? detailCard.region.candidateCount + ' 条候选，' + detailCard.region.pendingCandidates + ' 条待核查；候选不等于已确认轨迹' : '已检查，暂无可靠候选（不代表目标没有经过）' }}</p>
-
-          <h4 class="tm-section-title">摄像头与检索窗口</h4>
-          <ul class="tm-drawer-cams">
-            <li
-              v-for="camera in regionCameraRows"
-              :key="camera.key"
-              class="tm-drawer-cam"
-              :data-state="cameraState(camera)"
-            >
-              <div class="tm-drawer-cam-head">
-                <strong>{{ camera.label }}</strong>
-                <span class="tm-pill" :data-state="cameraState(camera)">{{ cameraStateText(camera) }}</span>
-              </div>
-              <p class="tm-drawer-meta">
-                {{ camera.uuid ? '相机 ' + camera.uuid.slice(0, 8) + '…' : '未关联地图相机' }} ·
-                {{ camera.windowCount }} 次检索 · 覆盖 {{ camera.windows.length }} 段 ·
-                {{ camera.candidateCount ? camera.candidateCount + ' 条候选' : '暂无候选' }}
-              </p>
-              <p class="tm-drawer-meta">
-                {{ camera.windows.map(cameraWindowText).join('、') }}
-                <span v-if="cameraState(camera) === 'running'" class="tm-analysis-plus">分析时长 +5 分钟</span>
-              </p>
-
-              <figure v-if="cameraState(camera) !== 'pending' && cameraShotUrl(camera)" class="tm-cam-shot">
-                <img :src="cameraShotUrl(camera) || ''" :alt="camera.label + ' 摄像头截图'" loading="lazy" />
-                <figcaption>摄像头截图 · 片段内偏移 {{ camera.offsetSeconds?.toFixed(1) }}s · 容器 PTS 未核对</figcaption>
-              </figure>
-              <p v-else-if="cameraState(camera) === 'running'" class="tm-hint">窗口片段偏移尚未解析，暂不能取摄像头截图。</p>
-
-              <div v-if="cameraState(camera) === 'pending'" class="tm-pending">
-                <p class="tm-pending-title">
-                  待核查 {{ camera.pendingGroups.length || camera.pendingCount }} 组
-                </p>
-                <button
-                  v-if="camera.pendingGroups.length >= 5"
-                  class="tm-pending-entry"
-                  @click="openEvidencePreview(camera.pendingGroups)"
-                >
-                  <span>查看 {{ camera.pendingGroups.length }} 组待核查大图</span>
-                  <span class="tm-pending-entry-sub">目标截取大图 + 完整大图 · 点击放大核对</span>
-                </button>
-                <div v-else-if="camera.pendingGroups.length" class="tm-pending-grid">
-                  <button
-                    v-for="(group, index) in camera.pendingGroups"
-                    :key="group.key"
-                    class="tm-pending-group"
-                    @click="openEvidencePreview([group])"
-                  >
-                    <span class="tm-pending-label">疑似 {{ index + 1 }} · {{ group.identity }}</span>
-                    <span class="tm-pending-pair">
-                      <img v-if="group.hasBbox && group.targetUrl" :src="group.targetUrl" :alt="'疑似 ' + (index + 1) + ' 目标裁剪'" loading="lazy" />
-                      <img v-if="group.fullUrl" :src="group.fullUrl" :alt="'疑似 ' + (index + 1) + ' 完整帧'" loading="lazy" />
-                    </span>
-                    <span class="tm-pending-note">{{ group.hasBbox ? '目标裁剪 + 完整帧' : '无目标框，仅完整帧' }}</span>
-                  </button>
-                </div>
-                <p v-else class="tm-hint">该设备有 {{ camera.pendingCount }} 条待核查候选，但当前详情没有可展开的目标卡。</p>
-                <p class="tm-hint">候选目标｜身份未确认；图片只用于核对，不构成身份确认，也不升级为正式 L2。</p>
-              </div>
-            </li>
-          </ul>
-
-          <h4 class="tm-section-title">分析预算</h4>
-          <p class="tm-kv">
-            <span>预算 / 已用</span>
-            {{ detailCard.region.researchBudgetSeconds === null ? '未设置' : detailCard.region.researchBudgetSeconds + 's' }}
-            /
-            {{ detailCard.region.researchSecondsUsed === null ? '未记录' : detailCard.region.researchSecondsUsed + 's' }}
-            · 执行 {{ detailCard.region.executionCount }} 轮
-          </p>
-          <button
-            class="tm-action"
-            :disabled="!detailCard.region.primaryRunId"
-            @click="actions.extendTracking(60, detailCard.region.primaryRunId ?? undefined)"
-          >增加执行预算 +60s</button>
-          <p class="tm-hint">+60s 只增加系统执行预算，不扩大录像检索范围。</p>
-
-          <h4 class="tm-section-title">录像检索范围</h4>
-          <p class="tm-kv"><span>当前</span>{{ regionWindowText(detailCard.region) }}</p>
-          <div class="tm-actions-row">
-            <button class="tm-action" disabled title="R2-B 接口尚未实现">向前扩大 2 分钟（待实现）</button>
-            <button class="tm-action" disabled title="R2-B 接口尚未实现">向后扩大 2 分钟（待实现）</button>
-          </div>
-          <p class="tm-hint">区域卡只表示正在检查这些设备，不代表目标到达该区域。</p>
-        </template>
-
-        <template v-else>
+        <template>
           <div v-if="candidateCards.length > 1" class="tm-candidate-tabs">
             <button
               v-for="(card, index) in candidateCards"
@@ -1825,4 +2095,303 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-video-wrap { margin: 8px 0; }
 .tm-video { width: 100%; max-height: 220px; border-radius: 6px; background: #000; }
 .tm-empty-text { color: var(--text-3); font-size: 11.5px; }
+
+/* 区域排查详情：居中窗口，宽度可拖动并记住上次位置。 */
+.rd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(3, 7, 12, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.rd-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 720px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  min-height: 380px;
+  overflow: hidden;
+  border: 1px solid var(--line-3);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #0e1620, #0a1017 36%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62);
+}
+
+.rd-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 8px;
+  cursor: ew-resize;
+}
+.rd-resize:hover,
+.rd-resize:focus-visible {
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  outline: none;
+}
+
+.rd-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 4%, #0c141d);
+}
+.rd-head-main { display: flex; flex: 1; gap: 11px; min-width: 0; }
+.rd-head-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 20%, #0d141c);
+  color: var(--accent-hi);
+}
+.rd-head-text { min-width: 0; }
+.rd-kicker { margin: 0; color: var(--text-3); font-size: 10.5px; letter-spacing: 0.04em; }
+.rd-kicker span { margin: 0 3px; color: var(--line-3); }
+.rd-head h2 { margin: 3px 0 5px; color: var(--text-0); font-size: 18px; line-height: 1.25; }
+.rd-sub { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--text-2); font-size: 11.5px; }
+.rd-sub span { display: inline-flex; align-items: center; gap: 4px; }
+.rd-duration { color: var(--text-3); }
+.rd-head-actions { display: flex; gap: 3px; }
+.rd-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+}
+.rd-icon-btn:hover { border-color: var(--line-2); background: #111a24; color: var(--text-0); }
+
+.rd-body { overflow-y: auto; padding: 12px 18px 16px; }
+
+.rd-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 11px; }
+.rd-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d141c;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.rd-tab b { color: var(--text-0); font-size: 12.5px; }
+.rd-tab[data-tab="done"] svg { color: var(--ok); }
+.rd-tab[data-tab="running"] svg { color: var(--accent-hi); }
+.rd-tab[data-tab="pending"] svg { color: var(--warn); }
+.rd-tab.is-active {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--accent) 84%, #0d141c);
+  color: #fff;
+}
+.rd-tab.is-active b,
+.rd-tab.is-active svg { color: #fff; }
+
+.rd-adjust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0c121a;
+}
+.rd-adjust-label { color: var(--text-2); font-size: 11.5px; white-space: nowrap; }
+.rd-time { display: flex; flex-direction: column; gap: 2px; color: var(--text-3); font-size: 9.5px; }
+.rd-time span { line-height: 1; }
+.rd-time input {
+  width: 88px;
+  padding: 4px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: #080e14;
+  color: var(--text-1);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.rd-time--wide input { width: 104px; }
+.rd-dash { color: var(--text-3); font-size: 11px; }
+.rd-step,
+.rd-confirm,
+.rd-ok {
+  padding: 5px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: #111a24;
+  color: var(--text-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rd-confirm {
+  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--accent) 32%, #0d141c);
+  color: #dceaff;
+}
+.rd-step:disabled,
+.rd-confirm:disabled,
+.rd-ok:disabled { cursor: not-allowed; opacity: 0.45; }
+.rd-note { margin: 6px 0 12px; color: var(--text-3); font-size: 10px; line-height: 1.5; }
+
+.rd-cams { display: grid; gap: 10px; }
+.rd-cam {
+  display: grid;
+  grid-template-columns: clamp(170px, 29%, 300px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c121a;
+}
+.rd-cam[data-state="pending"] { border-color: color-mix(in srgb, var(--warn) 28%, var(--line)); }
+
+.rd-cam-media {
+  position: relative;
+  align-self: start;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 190px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: #05090d;
+}
+.rd-cam-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rd-cam-empty { display: grid; place-items: center; height: 100%; color: var(--text-3); }
+.rd-cam-range {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #d7e3ef;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.rd-cam-play {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+.rd-cam-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rd-cam-headline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.rd-cam-headline h3 { margin: 0; color: var(--text-0); font-size: 13px; line-height: 1.35; }
+.rd-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.rd-state[data-state="done"] { border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); }
+.rd-state[data-state="running"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent-hi); }
+.rd-state[data-state="pending"] { border-color: color-mix(in srgb, var(--warn) 45%, transparent); color: var(--warn); }
+.rd-cam-times { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+
+.rd-pending { grid-column: 1 / -1; padding-top: 9px; border-top: 1px solid var(--line); }
+.rd-pending-title { margin: 0 0 8px; color: var(--warn); font-size: 12px; font-weight: 600; }
+.rd-cands { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.rd-cand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+}
+.rd-cand-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: #000;
+}
+.rd-cand-frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.rd-bbox {
+  position: absolute;
+  border: 2px solid #7ee787;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.rd-cand-time {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #e6eef7;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.rd-cand-name { overflow: hidden; color: var(--text-3); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.rd-cand:hover .rd-cand-frame { border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+.rd-more {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+  color: var(--text-1);
+  text-align: left;
+  font-size: 11.5px;
+}
+.rd-more small { color: var(--text-3); font-size: 9.5px; }
+.rd-hint { margin: 5px 0 0; color: var(--text-3); font-size: 10px; line-height: 1.5; }
+.rd-hint--identity { color: color-mix(in srgb, var(--warn) 70%, var(--text-3)); }
+.rd-empty { padding: 24px; color: var(--text-3); font-size: 12px; text-align: center; }
+.rd-foot { margin: 14px 0 0; padding-top: 10px; border-top: 1px dashed var(--line-2); color: var(--text-3); font-size: 10px; line-height: 1.5; }
+
+@media (max-width: 700px) {
+  .rd-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rd-cam { grid-template-columns: 1fr; }
+  .rd-cam-media { max-width: 280px; }
+}
 </style>
