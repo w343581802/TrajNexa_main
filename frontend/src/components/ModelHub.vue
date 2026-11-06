@@ -25,26 +25,27 @@ const editing = ref<M5ImageModel | M5VisionModel | null>(null);
 let latest = 0;
 
 const isSmall = computed(() => props.kind === "small");
+const readySmall = computed(() => smallModels.value.filter(m => m.status !== "unavailable"));
 const filteredSmall = computed(() => smallModels.value.filter(m =>
   !engineFilter.value || m.engine === engineFilter.value));
 const engines = computed(() => [...new Set(smallModels.value.map(m => m.engine))]);
 /*** Rebucca 的「引擎可用性」条：按推理引擎汇总已加载模型数 */
 const engineChips = computed(() => engines.value.map(name => ({
   name,
-  count: smallModels.value.filter(m => m.engine === name).length,
-  ok: enabled.value,
+  count: smallModels.value.filter(m => m.engine === name && m.status !== "unavailable").length,
+  ok: readySmall.value.some(m => m.engine === name),
 })));
 const rowsCount = computed(() => isSmall.value ? filteredSmall.value.length : visionModels.value.length);
 const totalPages = computed(() => Math.max(1, Math.ceil(rowsCount.value / PAGE_SIZE)));
 const selectedSmallIds = computed(() => modelChoices.smallModelIds);
 
 const ALGO_LABEL: Record<string, string> = {
-  dfine: "D-FINE", yolo5: "YOLOv5", yolo8: "YOLOv8", yolo11: "YOLOv11",
+  dfine: "D-FINE", rfdetr: "RF-DETR", yolo5: "YOLOv5", yolo8: "YOLOv8", yolo11: "YOLOv11",
   yolo26: "YOLO26", yolov5: "YOLOv5", yolov8: "YOLOv8",
 };
 const ENGINE_LABEL: Record<string, string> = {
   onnxruntime: "OnnxRuntime", openvino: "OpenVINO", pytorch: "PyTorch",
-  yolo_pytorch: "Yolo-PyTorch", torch: "PyTorch",
+  yolo_pytorch: "Yolo-PyTorch", rfdetr_pytorch: "RF-DETR PyTorch", torch: "PyTorch",
 };
 function algoLabel(value?: string) {
   const key = (value || "detect").toLowerCase();
@@ -85,9 +86,9 @@ const weights = ref<string[]>([]);
 const editSha = ref("");
 
 /** 服务端返回的目录直接覆盖本地状态，省一次往返 */
-function applyCatalog(catalog: { enabled: boolean; models: M5ImageModel[] }) {
+function applyCatalog(catalog: { enabled: boolean; models: M5ImageModel[]; unavailable_models?: M5ImageModel[] }) {
   enabled.value = catalog.enabled;
-  smallModels.value = catalog.models;
+  smallModels.value = [...catalog.models, ...(catalog.unavailable_models || [])];
 }
 function openEdit(model: M5ImageModel | M5VisionModel) {
   editing.value = model;
@@ -193,7 +194,7 @@ async function loadModels() {
       const catalog = await mainApi.listM5ImageModels();
       if (ticket !== latest) return;
       enabled.value = catalog.enabled;
-      smallModels.value = catalog.models;
+      smallModels.value = [...catalog.models, ...(catalog.unavailable_models || [])];
       const allowed = new Set(catalog.models.map(model => model.id));
       const kept = modelChoices.smallModelIds.filter(id => allowed.has(id));
       if (catalog.enabled) setSmallModelIds(kept.length ? kept :
@@ -222,6 +223,18 @@ async function loadModels() {
     if (ticket === latest) busy.value = false;
   }
 }
+watch(() => form.value.algorithm_type, value => {
+  if (!creating.value) return;
+  if (value === "rfdetr") {
+    form.value.engine = "rfdetr_pytorch";
+    form.value.task_type = "detect";
+    form.value.input_width = 512;
+    form.value.input_height = 512;
+    form.value.labels_file = "config/labels/coco80_zh.txt";
+  } else if (form.value.engine === "rfdetr_pytorch") {
+    form.value.engine = "onnxruntime";
+  }
+});
 watch(() => props.kind, () => { page.value = 1; engineFilter.value = ""; void loadModels(); },
   { immediate: true });
 watch(rowsCount, () => { if (page.value > totalPages.value) page.value = totalPages.value; });
@@ -299,9 +312,9 @@ async function resetPrompt() {
         <template v-if="error">目录读取失败：{{ error }}</template>
         <template v-else-if="!isSmall">全部就绪 · 共 {{ visionModels.length }} 个已注册模型，已启用
           {{ enabledVisionCount }} 个</template>
-        <template v-else-if="enabled">全部就绪 · 共 {{ smallModels.length }} 个检测器
-          {{ busy ? "（检查中）" : "：" + smallModels.length + " 个成功，失败 0 个" }}</template>
-        <template v-else>未找到检测器配置：检查 backend/config/detectors.json</template>
+        <template v-else-if="isSmall">检测器配置 {{ smallModels.length }} 个 · 已就绪 {{ readySmall.length }} 个
+          · 未就绪 {{ smallModels.length - readySmall.length }} 个
+          <span v-if="busy">（检查中）</span></template>
       </span>
     </div>
 
@@ -347,7 +360,7 @@ async function resetPrompt() {
           </tr>
         </thead>
         <tbody v-if="isSmall">
-          <tr v-for="model in smallModels.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)"
+          <tr v-for="model in filteredSmall.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)"
             :key="model.id">
             <td class="c-id">{{ model.id }}</td>
             <td class="c-name">{{ model.name }}</td>
@@ -358,14 +371,15 @@ async function resetPrompt() {
             <td class="c-pair"><b>{{ (model.input_size || []).join("×") || "—" }}</b><br />
               <span>conf {{ (model.conf_threshold ?? 0.4).toFixed(2) }}</span></td>
             <td class="c-state">
-              <span class="rb-pill on">{{ enabled ? "启用" : "未就绪" }}</span>
+              <span :class="['rb-pill', model.status === 'unavailable' ? 'off' : 'on']"
+                 :title="model.error_code || ''">{{ model.status === "unavailable" ? "未就绪" : "启用" }}</span>
               <span v-if="selectedSmallIds[0] === model.id" class="rb-pill def">默认</span>
             </td>
             <td class="c-act">
-              <button type="button" class="rb-link" @click="openEdit(model)">编辑</button>
-              <button type="button" class="rb-link" :disabled="selectedSmallIds[0] === model.id"
+              <button type="button" class="rb-link" :disabled="model.status === 'unavailable'" @click="openEdit(model)">编辑</button>
+              <button type="button" class="rb-link" :disabled="model.status === 'unavailable' || selectedSmallIds[0] === model.id"
                 @click="makeDefault(model.id)">设默认</button>
-              <button type="button" class="rb-link test" @click="runTest(model.id)">测试</button>
+              <button type="button" class="rb-link test" :disabled="model.status === 'unavailable'" @click="runTest(model.id)">测试</button>
               <button type="button" class="rb-link" :disabled="!isSmall" :title="isSmall ? '从 detectors.json 移除，权重保留' : '大模型由服务端配置'" @click="removeModel(model)">删除</button>
             </td>
           </tr>
@@ -395,6 +409,7 @@ async function resetPrompt() {
         </tbody>
       </table>
 
+      <p v-if="isSmall && smallModels.some(m => m.status === 'unavailable')" class="rb-hint" style="padding: 0 16px">未就绪模型仍显示在目录中，但不能设为实验默认或运行；请安装对应权重和推理依赖，再点击“重载配置”。</p>
       <div v-if="!rowsCount" class="rb-empty">
         {{ busy ? "正在读取模型目录…" : (isSmall
           ? "暂无可选模型：点右上「+ 新增小模型」注册一个检测器。"
@@ -540,6 +555,7 @@ async function resetPrompt() {
             <div class="rb-field"><label>模型类型</label>
               <select v-model="form.algorithm_type" class="rb-input">
                 <option value="dfine">D-FINE</option>
+                <option value="rfdetr">RF-DETR Small</option>
                 <option value="yolo5">YOLOv5</option>
                 <option value="yolo8">YOLOv8</option>
                 <option value="yolo11">YOLOv11</option>
@@ -557,6 +573,7 @@ async function resetPrompt() {
                 <option value="onnxruntime">OnnxRuntime</option>
                 <option value="openvino">OpenVINO</option>
                 <option value="pytorch">PyTorch</option>
+                <option value="rfdetr_pytorch">RF-DETR PyTorch</option>
               </select></div>
             <div class="rb-field"><label>推理设备</label>
               <select v-model="form.device" class="rb-input">
@@ -569,7 +586,7 @@ async function resetPrompt() {
               <option value="">（models/ 下没有可用权重）</option>
               <option v-for="file in weights" :key="file" :value="file">{{ file }}</option>
             </select>
-            <p class="rb-hint">把 .onnx/.pt 放进 backend/models/ 后刷新列表即可选；也可用 POST /ai/image-models/upload 上传。</p></div>
+            <p class="rb-hint">RF-DETR Small 需官方 .pth（512×512）及可选依赖 rfdetr；模型未就绪时不能测试。其他模型可使用 .onnx/.pt。</p></div>
           <div class="rb-field"><label>支持类别</label>
             <textarea v-model="form.labels" class="rb-input rb-textarea" rows="3"
               placeholder="人,自行车,汽车,摩托车,公共汽车,卡车"></textarea>

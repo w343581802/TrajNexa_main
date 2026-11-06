@@ -1,0 +1,11 @@
+# Optional overlay: docker compose -f compose.yaml -f compose.rfdetr.yaml up --build -d
+# Only API/worker need the RF-DETR inference dependency, no change to DB volumes.
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.rfdetr
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.rfdetr

@@ -247,3 +247,26 @@ def test_engine_returning_empty_is_not_a_failure(cfg, monkeypatch):
     out = detectors.detect_flat(np.zeros((64, 64, 3), np.uint8), ["m1"], 0.3)
     assert out["candidates"] == []
     assert out["model_runs"][0]["candidate_count"] == 0
+
+
+def test_unready_rfdetr_visible_to_manager_but_not_selectable(cfg):
+    """未安装权重时显示未就绪，不影响已加载 D-FINE/YOLO 的推理目录。"""
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    data["detectors"].append({
+        "id": "rfdetr-s", "name": "RF-DETR Small",
+        "engine": "rfdetr_pytorch", "algorithm_type": "rfdetr",
+        "task_type": "detect", "device": "cpu",
+        "model_file": str(cfg.parent / "missing-small.pth"),
+        "labels_file": str(cfg.parent / "labels.txt"),
+        "input_width": 512, "input_height": 512,
+    })
+    cfg.write_text(json.dumps(data), encoding="utf-8")
+    detectors.reload()
+    assert [m["id"] for m in detectors.list_models()] == ["m1"]
+    unready = detectors.unavailable_models()
+    assert [m["id"] for m in unready] == ["rfdetr-s"]
+    assert unready[0]["status"] == "unavailable"
+    assert unready[0]["error_code"] == "detector_weight_missing:rfdetr-s"
+    assert "model_file" not in unready[0]
+    with pytest.raises(detectors.DetectorError, match="invalid_model_selection"):
+        detectors.detect(np.zeros((32, 32, 3), dtype=np.uint8), ["rfdetr-s"], 0.35)

@@ -38,7 +38,7 @@ def test_packaged_detector_models_have_consistent_weight_paths_and_labels():
             assert spec.get("labels_file") == "config/labels/coco80_zh.txt"
             assert "labels" not in spec, "Do not shrink/misorder COCO class indexes"
     # YOLO26s 用端到端（NMS-free）解码契约，与 YOLO8 原头张量不同，必须单独登记
-    assert {x["id"] for x in specs} == {"dfine-n", "yolo11n", "yolo26s"}
+    assert {x["id"] for x in specs} == {"dfine-n", "rfdetr-s", "yolo11n", "yolo26s"}
 
     end2end = [x for x in specs if x["algorithm_type"] == "yolo_end2end"]
     assert [x["id"] for x in end2end] == ["yolo26s"]
@@ -47,3 +47,17 @@ def test_packaged_detector_models_have_consistent_weight_paths_and_labels():
     assert spec.get("labels_file") == "config/labels/coco80_zh.txt"
     assert "labels" not in spec, "Do not shrink/misorder COCO class indexes"
     assert 0.2 <= float(spec["conf_threshold"]) <= 0.5
+
+
+def test_rfdetr_small_is_separate_from_dfine_onnx_contract():
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    rows = {row["id"]: row for row in config["detectors"]}
+    dfine = rows["dfine-n"]
+    rfdetr = rows["rfdetr-s"]
+    assert dfine["algorithm_type"] == "dfine"
+    assert dfine["engine"] == "onnxruntime"
+    assert rfdetr["algorithm_type"] == "rfdetr"
+    assert rfdetr["engine"] == "rfdetr_pytorch"
+    assert (rfdetr["input_width"], rfdetr["input_height"]) == (512, 512)
+    assert rfdetr["model_file"].endswith(".pth")
+    assert rfdetr["labels_file"] == "config/labels/coco80_zh.txt"
