@@ -15,6 +15,20 @@
       "labels_file": "config/labels/coco80_zh.txt"
     },
     {
+      "id": "rfdetr-s",
+      "name": "RF-DETR Small (COCO)",
+      "engine": "rfdetr_pytorch",
+      "algorithm_type": "rfdetr",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/rfdetr/rf-detr-small.pth",
+      "input_width": 512,
+      "input_height": 512,
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "labels_file": "config/labels/coco80_zh.txt"
+    },
+    {
       "id": "yolo11n",
       "name": "Rebucca YOLO11n",
       "engine": "onnxruntime",
