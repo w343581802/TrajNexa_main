@@ -1,9 +1,11 @@
 """M4c API integration: case-owned clip, no mutation and no fake tracklet."""
+import threading
+
 import numpy as np
 import pytest
 from uuid import uuid4
 
-from app import m4_video, detectors
+from app import m4_video, m4_video_api, detectors
 from app.config import settings
 from app.models import RecordingClip, RecordingSource
 
@@ -86,6 +88,27 @@ def test_preview_image_returns_bounded_jpeg(sample_clip,monkeypatch):
     assert response.content[:3]==b'\xff\xd8\xff'
     assert response.headers['cache-control']=='private, no-store'
     assert response.headers['x-frame-time-semantics']=='requested-seek-offset-not-verified-pts'
+
+
+def test_image_waits_briefly_for_the_single_decoder(sample_clip, monkeypatch):
+    client,_,case_id,clip_id,_=sample_clip
+    monkeypatch.setattr(m4_video.overlay_identity,'grab_evidence_frame',
+                        lambda path,offsets:np.full((120,240,3),127,np.uint8))
+    monkeypatch.setattr(m4_video_api,'IMAGE_GATE_TIMEOUT_SECONDS',2.0)
+    # Hold the decoder, then release it while the HTTP request is waiting.
+    # The image endpoint must queue instead of returning 429 and leaving the
+    # timeline with broken thumbnails.
+    assert m4_video_api._gate.acquire(blocking=False)
+    timer=threading.Timer(0.2, m4_video_api._gate.release)
+    timer.start()
+    try:
+        response=client.get(
+            f'/api/v1/cases/{case_id}/recordings/clips/{clip_id}/keyframes/image',
+            params={'authorized':'true','offset_seconds':2})
+    finally:
+        timer.cancel()
+    assert response.status_code==200,response.text
+    assert response.content[:3]==b'\xff\xd8\xff'
 
 
 def test_changed_clip_requires_rescan(sample_clip):

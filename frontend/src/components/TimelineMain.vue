@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
+import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
 import {
   actions,
   timelineCards,
@@ -25,6 +26,25 @@ const reviewBusy = ref(false);
 
 const view = computed(() => timelineView.value);
 
+/** 仅开发环境、且该目标没有真实已确认轨迹时，追加明确标注的演示卡。 */
+const demoData = computed(() => {
+  const payload = view.value;
+  if (!payload || payload.counts.confirmed > 0) return { cards: [], techCards: [], active: false };
+  return demoConfirmedCards(payload.caseId, payload.targetId);
+});
+const demoCards = computed(() => demoData.value.cards);
+const allViewCards = computed(() => {
+  const rows = [...(view.value?.cards ?? []), ...demoCards.value];
+  return rows
+    .map((card, index) => ({ card, index, time: card.observedAt ? Date.parse(card.observedAt) : Number.NaN }))
+    .sort((a, b) => {
+      const at = Number.isFinite(a.time) ? a.time : Number.POSITIVE_INFINITY;
+      const bt = Number.isFinite(b.time) ? b.time : Number.POSITIVE_INFINITY;
+      return at === bt ? a.index - b.index : at - bt;
+    })
+    .map((row) => row.card);
+});
+
 const FILTERS: { id: ViewFilter; label: string }[] = [
   { id: "all", label: "全部" },
   { id: "confirmed", label: "已确认轨迹" },
@@ -44,26 +64,38 @@ const FILTER_KIND: Record<Exclude<ViewFilter, "all">, TimelineViewCard["kind"]> 
 
 /** 主视图暂不展示“待核查线索”卡；候选信息收进区域摄像头行与详情。 */
 const cards = computed(() => {
-  const rows = (view.value?.cards ?? []).filter((card) => card.kind !== "candidate_clue");
+  const rows = allViewCards.value.filter((card) => card.kind !== "candidate_clue");
   if (filter.value === "all") return rows;
   const kind = FILTER_KIND[filter.value];
   return rows.filter((card) => card.kind === kind);
 });
 
 const viewCounts = computed(() => {
-  const rows = view.value?.cards ?? [];
+  const rows = allViewCards.value;
   const confirmed = rows.filter((card) => card.kind === "confirmed_track").length;
   const region = rows.filter((card) => card.kind === "region_investigation").length;
   return { confirmed, region, total: confirmed + region };
 });
 
-const detailCard = computed(() => (view.value?.cards ?? []).find((card) => card.cardId === detailId.value) ?? null);
+const detailCard = computed(() => allViewCards.value.find((card) => card.cardId === detailId.value) ?? null);
 
 function techCardsFor(card: TimelineViewCard | null): TimelineCard[] {
   if (!card) return [];
-  return card.detailCardIds
+  const rows = card.detailCardIds
     .map((id) => timelineCards.value.find((item) => item.cardId === id))
     .filter((item): item is TimelineCard => Boolean(item));
+  if (rows.length) return rows;
+  return card.detailCardIds
+    .map((id) => demoData.value.techCards.find((item) => item.cardId === id))
+    .filter((item): item is TimelineCard => Boolean(item));
+}
+
+function isDemoCard(card: TimelineViewCard | null): boolean {
+  return Boolean(card?.labels?.includes(DEMO_LABEL));
+}
+
+function isDemoCandidate(card: TimelineCard | null): boolean {
+  return Boolean(card?.cardId.startsWith("demo-segment-"));
 }
 
 const detailTechCards = computed<TimelineCard[]>(() => techCardsFor(detailCard.value));
@@ -88,6 +120,29 @@ function confirmedThumbs(card: TimelineViewCard): CardThumb[] {
     rows.push({ key, url: keyframeUrl(wb.caseId, clipId, at), alt: card.place + " 录像关键帧" });
   }
   return rows;
+}
+
+function confirmedFrameTotal(card: TimelineViewCard | null): number {
+  return techCardsFor(card).reduce((total, item) => {
+    const frames = Number(item.segment?.frames ?? item.evidence?.frames ?? 0);
+    return total + (Number.isFinite(frames) ? frames : 0);
+  }, 0);
+}
+
+function segmentFrameText(card: TimelineCard): string {
+  const frames = card.segment?.frames ?? card.evidence?.frames;
+  const breakReason = card.segment?.breakReason;
+  const framesText = frames === null || frames === undefined ? "帧数未记录" : `${frames} 帧`;
+  return breakReason ? `${framesText} · 断点：${String(breakReason)}` : framesText;
+}
+
+function segmentWindowText(card: TimelineCard): string {
+  const window = card.segment?.window;
+  if (!Array.isArray(window) || window.length < 2) return "窗口未记录";
+  const start = Number(window[0]);
+  const end = Number(window[1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "窗口未记录";
+  return `${daySecondsClock(start)}–${daySecondsClock(end)}`;
 }
 
 const candidateCards = computed(() => detailTechCards.value.filter((card) => card.kind === "track_segment"));
@@ -335,6 +390,10 @@ function selectViewCard(card: TimelineViewCard): void {
   playbackCardId.value = null;
   playbackUrl.value = null;
   focusedCandidateId.value = card.detailCardIds[0] ?? null;
+  if (isDemoCard(card)) {
+    // 演示卡没有对应的真实技术卡，不进入地图选中流程。
+    return;
+  }
   if (card.kind === "region_investigation") {
     const oldRegion = timelineCards.value.find((item) =>
       item.kind === "region_investigation" && item.region?.runId && card.region?.runIds.includes(item.region.runId));
@@ -430,6 +489,11 @@ watch(() => view.value?.targetId, () => closeDetail());
 
       <p class="tm-rule">按目标事件时间从早到晚排列；相邻卡片不代表存在连续轨迹。</p>
 
+      <div v-if="demoCards.length" class="tm-demo-banner">
+        <AppIcon name="info" :size="13" />
+        <span>演示：{{ demoCards.length }} 张“已确认轨迹”为界面样例，使用真实录像关键帧，但身份未经真实审核，不能作为证据。</span>
+      </div>
+
       <div class="tm-nav tm-nav--earlier">
         <div class="tm-nav-head">
           <span class="tm-nav-title">↑ 向前追踪（更早时间）</span>
@@ -464,6 +528,7 @@ watch(() => view.value?.targetId, () => closeDetail());
                     <AppIcon :name="kindIcon(card)" :size="11" />
                     {{ KIND_LABEL[card.kind] }}
                   </span>
+                  <span v-if="isDemoCard(card)" class="tm-demo-tag">{{ DEMO_LABEL }}</span>
                 </header>
 
                 <h3 class="tm-place">
@@ -556,6 +621,28 @@ watch(() => view.value?.targetId, () => closeDetail());
       </header>
 
       <div class="tm-drawer-body">
+        <template v-if="detailCard.kind === 'confirmed_track'">
+          <p v-if="isDemoCard(detailCard)" class="tm-demo-note">
+            演示样本：这张卡只用于验收卡片与详情结构，身份未经真实审核，轨迹与空间位置都不能作为证据。
+          </p>
+          <p class="tm-kv"><span>轨迹段</span>{{ detailTechCards.length }} 段 · {{ confirmedFrameTotal(detailCard) }} 帧</p>
+          <p class="tm-kv"><span>身份</span>身份已确认（审核结论）；空间位置仍需单独 L2 审核</p>
+          <template v-if="confirmedThumbs(detailCard).length">
+            <h4 class="tm-section-title">轨迹关键帧</h4>
+            <div class="tm-drawer-thumbs">
+              <img
+                v-for="thumb in confirmedThumbs(detailCard)"
+                :key="thumb.key"
+                class="tm-drawer-thumb"
+                :src="thumb.url"
+                :alt="thumb.alt"
+                loading="lazy"
+              />
+            </div>
+            <p class="tm-hint">关键帧按片段内偏移请求，容器 PTS 尚未与画面 OSD 核对。</p>
+          </template>
+        </template>
+
         <template v-if="detailCard.kind === 'region_investigation' && detailCard.region">
           <p class="tm-kv"><span>区域状态</span>{{ regionStatusText(detailCard.region.status) }}</p>
           <p class="tm-kv"><span>计划录像范围</span>{{ regionWindowText(detailCard.region) }} · 时间可信度 {{ detailCard.region.timeQuality }}</p>
@@ -612,11 +699,11 @@ watch(() => view.value?.targetId, () => closeDetail());
               class="tm-candidate-tab"
               :class="{ 'is-active': focusedCandidate?.cardId === card.cardId }"
               @click="focusCandidate(card)"
-            >候选 {{ index + 1 }}</button>
+            >{{ detailCard.kind === "confirmed_track" ? "轨迹段" : "候选" }} {{ index + 1 }}</button>
           </div>
 
           <template v-if="focusedCandidate">
-            <p class="tm-kv"><span>身份</span>{{ techIdentityText(focusedCandidate) }}</p>
+            <p v-if="detailCard.kind !== 'confirmed_track'" class="tm-kv"><span>身份</span>{{ techIdentityText(focusedCandidate) }}</p>
             <p class="tm-kv"><span>摄像头 / 时间</span>{{ focusedCandidate.cameraLabel || '未标注' }} · {{ timeLabel(focusedCandidate.observedAt) }}</p>
             <p class="tm-kv"><span>追踪 ID</span>{{ candidateTrackId(focusedCandidate) }}</p>
             <p class="tm-kv"><span>相似度</span>{{ candidateScore(focusedCandidate) }}</p>
@@ -638,16 +725,18 @@ watch(() => view.value?.targetId, () => closeDetail());
               <p class="tm-hint">H.264 代理片段，容器时间戳未与画面 OSD 核对，只能算大致位置。</p>
             </div>
 
-            <h4 class="tm-section-title">候选审核</h4>
-            <p class="tm-hint">审核只改变身份状态，不会把实验空间位置升级为正式 L2。</p>
-            <div class="tm-actions-row">
-              <button class="tm-action tm-action--ok" :disabled="reviewBusy" @click="review('approve')">确认目标</button>
-              <button class="tm-action tm-action--danger" :disabled="reviewBusy" @click="review('reject')">排除</button>
-              <button v-if="techIdentityText(focusedCandidate) === '身份已确认'" class="tm-action" :disabled="reviewBusy" @click="review('revoke')">撤销确认</button>
-            </div>
-            <p class="tm-hint">确认身份不等于空间标定通过；地图位置仍需单独审核。</p>
+            <template v-if="detailCard.kind !== 'confirmed_track'">
+              <h4 class="tm-section-title">候选审核</h4>
+              <p class="tm-hint">审核只改变身份状态，不会把实验空间位置升级为正式 L2。</p>
+              <div class="tm-actions-row">
+                <button class="tm-action tm-action--ok" :disabled="reviewBusy" @click="review('approve')">确认目标</button>
+                <button class="tm-action tm-action--danger" :disabled="reviewBusy" @click="review('reject')">排除</button>
+                <button v-if="techIdentityText(focusedCandidate) === '身份已确认'" class="tm-action" :disabled="reviewBusy" @click="review('revoke')">撤销确认</button>
+              </div>
+              <p class="tm-hint">确认身份不等于空间标定通过；地图位置仍需单独审核。</p>
+            </template>
           </template>
-          <p v-else class="tm-empty-text">这张卡没有可展开的候选明细。</p>
+          <p v-else class="tm-empty-text">{{ detailCard.kind === "confirmed_track" ? "这张卡没有可展开的轨迹明细。" : "这张卡没有可展开的候选明细。" }}</p>
 
           <p class="tm-kv"><span>技术卡</span>{{ detailTechCards.length }} 张（任务、窗口与候选证据已收进详情）</p>
         </template>
@@ -732,6 +821,32 @@ watch(() => view.value?.targetId, () => closeDetail());
   color: var(--text-3);
   font-size: 11.5px;
   line-height: 1.5;
+}
+
+.tm-demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 8px 0;
+  padding: 8px 9px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 42%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.tm-demo-banner svg { flex: none; margin-top: 1px; }
+
+.tm-demo-tag {
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 50%, transparent);
+  border-radius: 4px;
+  color: var(--warn);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
 }
 
 .tm-nav {
@@ -1169,6 +1284,33 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-drawer-head h2 { margin: 4px 0 2px; color: var(--text-0); font-size: 15px; }
 .tm-drawer-sub { margin: 0; color: var(--text-3); font-size: 11px; }
 .tm-close { width: 26px; height: 26px; border: 0; background: transparent; color: var(--text-2); }
+
+.tm-drawer-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 2px 0 6px;
+}
+
+.tm-drawer-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: #0a1017;
+}
+
+.tm-demo-note {
+  margin: 0 0 8px;
+  padding: 8px 9px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 42%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
 
 .tm-drawer-body {
   flex: 1;

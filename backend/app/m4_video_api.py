@@ -17,6 +17,10 @@ from app.recording_api import fail
 
 router = APIRouter(prefix='/api/v1')
 _gate = BoundedSemaphore(1)
+# Thumbnail requests arrive in bursts (a few frames per card, several cards).
+# Waiting briefly for the single decoder is friendlier than answering 429 and
+# leaving broken images in the timeline; the preview POST still fails fast.
+IMAGE_GATE_TIMEOUT_SECONDS = 20.0
 
 
 class ClipSampleRequest(BaseModel):
@@ -86,7 +90,7 @@ def get_clip_keyframe_image(case_id: str, clip_id: str, authorized: bool = False
     enabled()
     if not authorized:
         fail(422, 'm4c-authorization-required', '请确认已获授权使用该案件录像。')
-    if not _gate.acquire(blocking=False):
+    if not _gate.acquire(timeout=IMAGE_GATE_TIMEOUT_SECONDS):
         fail(429, 'm4c-preview-busy', '已有录像采样任务，请稍后重试。')
     try:
         clip, path = m4_video.resolve_case_clip(db, case_id=case_id, clip_id=clip_id)
