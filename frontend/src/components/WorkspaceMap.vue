@@ -8,7 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
-import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, clipVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
+import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
@@ -462,14 +462,15 @@ const targetTrackMeta = ref<{ identity_status: string; playback: Record<string, 
 const targetTrackSummary = ref<{ segments: number; projected: number; degraded: number } | null>(null);
 const targetTrackError = ref("");
 const targetFrameSize = ref<{ w: number; h: number } | null>(null);
-const evidenceView = ref<{ url: string; videoUrl: string; offset: number; box: number[]; label: string; meta: string } | null>(null);
+const evidenceView = ref<{ url: string; videoUrl: string; offset: number; start: number; box: number[]; label: string; meta: string } | null>(null);
 const evidenceVideo = ref<HTMLVideoElement | null>(null);
 const ambiguousProbe = ref(false);
 
 const evidenceTime = ref(0);
 const evidenceNearOffset = computed(() => {
   const target = evidenceView.value;
-  return !!target && Math.abs(evidenceTime.value - target.offset) <= 1.5;
+  // 代理片段从 start 开始，播放位置加上 start 才是片段内偏移。
+  return !!target && Math.abs(evidenceTime.value + target.start - target.offset) <= 1.5;
 });
 
 function trackEvidenceTime() {
@@ -479,7 +480,7 @@ function trackEvidenceTime() {
 function seekEvidenceVideo() {
   const element = evidenceVideo.value;
   if (!element || !evidenceView.value) return;
-  element.currentTime = Math.max(0, evidenceView.value.offset - 0.5);
+  element.currentTime = Math.max(0, evidenceView.value.offset - evidenceView.value.start - 0.5);
 }
 const evidenceBoxStyle = computed(() => {
   const box = evidenceView.value?.box ?? [0, 0, 0, 0];
@@ -516,11 +517,14 @@ function openEvidence(point: TargetTrackPoint, trackId: string) {
     targetTrackError.value = "evidence_missing_time_basis";
     return;
   }
-  const videoUrl = clipVideoUrl(caseId, clipId);
+  // 源片是 HEVC，浏览器不能解码；代理片段从 offset 前 2s 起取 20s，覆盖该帧前后。
+  const start = Math.max(0, offset - 2);
+  const videoUrl = proxyVideoUrl(caseId, clipId, start, 20);
   evidenceView.value = {
     url: keyframeUrl(caseId, clipId, offset),
     videoUrl,
     offset,
+    start,
     box: (point.box as number[]) ?? [0, 0, 0, 0],
     label: `${trackId} · t=${point.t ?? "?"}s · frame ${point.frame ?? "?"}`,
     meta: `身份：候选未确认 · 空间：实验估计 · 接触点 ${point.contact_quality ?? "?"} · 偏移 ${offset.toFixed(2)}s · 时间源 ${String(targetTrackMeta.value?.playback?.time_quality ?? "unknown")}`,
@@ -813,7 +817,7 @@ function focusAnchor() {
           <div v-show="evidenceNearOffset" class="evidence-box" :style="evidenceBoxStyle"></div>
         </div>
         <p class="evidence-meta">{{ evidenceView.meta }}</p>
-        <p class="evidence-note">关键帧按请求偏移解码（PTS 未独立核验）；身份结论与空间质量相互独立。</p>
+        <p class="evidence-note">视频为 H.264 代理片段（重编码、非原片），保留目标帧前后画面；关键帧按请求偏移解码，PTS 均未与 OSD 独立核验。身份结论与空间质量相互独立。</p>
       </div>
     </div>
       <div v-if="spatialObservations.length" class="map-spatial-chip popover">

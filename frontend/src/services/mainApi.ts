@@ -1101,3 +1101,8 @@ export function keyframeUrl(caseId: string, clipId: string, offsetSeconds: numbe
 export function clipVideoUrl(caseId: string, clipId: string): string {
   return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/video`;
 }
+
+/** TB4：源片段可能是 HEVC，浏览器无法解码；播放改用 H.264 代理片段（重编码副本）。 */
+export function proxyVideoUrl(caseId: string, clipId: string, start: number, duration: number): string {
+  return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/proxy-video?start=${start.toFixed(2)}&duration=${duration.toFixed(2)}`;
+}
