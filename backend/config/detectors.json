@@ -26,7 +26,38 @@
       "input_height": 512,
       "conf_threshold": 0.35,
       "iou_threshold": 0.5,
-      "labels_file": "config/labels/coco80_zh.txt"
+      "labels_file": "config/labels/coco80_zh.txt",
+      "model_variant": "small"
+    },
+    {
+      "id": "rfdetr-m",
+      "name": "RF-DETR Medium (COCO)",
+      "engine": "rfdetr_pytorch",
+      "algorithm_type": "rfdetr",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/rfdetr/rf-detr-medium.pth",
+      "input_width": 576,
+      "input_height": 576,
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "labels_file": "config/labels/coco80_zh.txt",
+      "model_variant": "medium"
+    },
+    {
+      "id": "rfdetr-l",
+      "name": "RF-DETR Large (COCO)",
+      "engine": "rfdetr_pytorch",
+      "algorithm_type": "rfdetr",
+      "task_type": "detect",
+      "device": "cpu",
+      "model_file": "models/rfdetr/rf-detr-large-2026.pth",
+      "input_width": 704,
+      "input_height": 704,
+      "conf_threshold": 0.35,
+      "iou_threshold": 0.5,
+      "labels_file": "config/labels/coco80_zh.txt",
+      "model_variant": "large"
     },
     {
       "id": "yolo11n",
