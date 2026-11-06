@@ -1,4 +1,4 @@
-"""RF-DETR Small 适配器：复用 TrajNexa 的 BGR → 检测框统一契约。
+"""RF-DETR Small / Medium / Large 适配器：复用 TrajNexa BGR → 检测框统一契约。
 
 仅加载部署者放在本地的 .pth 文件；不允许管理 API 在推理时联网下载权重。
 RF-DETR 的 ONNX 导出与 D-FINE 的双输入 ONNX 契约不同，不能复用 DfineEngine。
@@ -14,13 +14,17 @@ from app.engines.base import BaseEngine, DetectionResult, EngineInferenceError
 logger = logging.getLogger("app.engines.rfdetr")
 
 
+RFDETR_RESOLUTIONS = {"small": 512, "medium": 576, "large": 704}
+
+
 class RfdetrEngine(BaseEngine):
-    """RF-DETR Small PyTorch 检测引擎（首批接入 Small / COCO 80 类）。"""
+    """RF-DETR 三种官方 COCO 检测变体，使用各自模型类及原生输入尺寸。"""
 
     ENGINE_NAME = "rfdetr_pytorch"
 
-    def __init__(self, **kwargs):
+    def __init__(self, model_variant="small", **kwargs):
         super().__init__(**kwargs)
+        self.model_variant = str(model_variant or "small").lower()
         self._model = None
 
     @staticmethod
@@ -42,27 +46,32 @@ class RfdetrEngine(BaseEngine):
         if not path.is_file() or path.suffix.lower() != ".pth":
             logger.warning("RF-DETR: 未找到本地 .pth 权重文件")
             return False
-        # 官方 Small 权重的输入为 512x512；使用其他变体须单独注册相应适配器，
-        # 不能仅修改尺寸就把 Small 权重当 Medium/Large 加载。
-        if tuple(self.input_size) != (512, 512) or self.task_type != "detect":
-            logger.warning("RF-DETR Small 仅支持 detect / 512x512")
+        resolution = RFDETR_RESOLUTIONS.get(self.model_variant)
+        if resolution is None or tuple(self.input_size) != (resolution, resolution) or self.task_type != "detect":
+            logger.warning("RF-DETR 变体、输入分辨率或任务类型不匹配")
             return False
         if not self.labels or len(self.labels) != 80:
-            logger.warning("RF-DETR Small COCO 预训练权重必须携带按 COCO 顺序的 80 类标签")
+            logger.warning("RF-DETR COCO 预训练权重必须携带按 COCO 顺序的 80 类标签")
             return False
         if not self.is_available():
             logger.warning("RF-DETR: 未安装可选依赖 rfdetr")
             return False
         try:
-            from rfdetr import RFDETRSmall
-            # 明确设备，不因为检测到 GPU 就悄悄更换用户选择。
+            from rfdetr import RFDETRSmall, RFDETRMedium, RFDETRLarge
+            variants = {
+                "small": RFDETRSmall,
+                "medium": RFDETRMedium,
+                "large": RFDETRLarge,
+            }
+            # 选定变体对应的官方模型类；绝不通过调整尺寸来伪装权重变体。
             device = "cuda" if self.device in ("gpu", "cuda") else "cpu"
-            # 使用官方安全加载默认值（trust_checkpoint=False）；仅从本地权重读取。
-            self._model = RFDETRSmall(pretrain_weights=str(path.resolve()), device=device)
+            # 显式绝对路径：仅从本地权重读取，不触发官方裸文件名自动下载。
+            self._model = variants[self.model_variant](
+                pretrain_weights=str(path.resolve()), device=device)
             self._loaded = True
             return True
         except Exception as exc:
-            logger.warning("RF-DETR Small 加载失败: %s", type(exc).__name__)
+            logger.warning("RF-DETR %s 加载失败: %s", self.model_variant, type(exc).__name__)
             self._model = None
             return False
 
@@ -92,5 +101,5 @@ class RfdetrEngine(BaseEngine):
                 ))
             return out
         except Exception as exc:
-            logger.warning("RF-DETR Small 推理失败: %s", type(exc).__name__)
+            logger.warning("RF-DETR %s 推理失败: %s", self.model_variant, type(exc).__name__)
             raise EngineInferenceError("rfdetr_inference_failed") from exc
