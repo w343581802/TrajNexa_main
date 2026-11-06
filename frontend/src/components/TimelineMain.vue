@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
@@ -24,23 +24,6 @@ const playbackSeek = ref(0);
 const playbackVideo = ref<HTMLVideoElement | null>(null);
 const reviewBusy = ref(false);
 
-const DRAWER_WIDTH_KEY = "trajnexa.timeline.drawerWidth";
-const DRAWER_MIN = 360;
-const DRAWER_MAX = 760;
-
-function loadDrawerWidth(): number {
-  try {
-    const raw = localStorage.getItem(DRAWER_WIDTH_KEY);
-    // 未保存时 getItem 返回 null，Number(null) 是 0，不能当成有效宽度。
-    if (raw !== null && raw.trim() !== "") {
-      const saved = Number(raw);
-      if (Number.isFinite(saved)) return Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, saved));
-    }
-  } catch { /* 隐私模式下不可用，使用默认值 */ }
-  return 420;
-}
-const drawerWidth = ref(loadDrawerWidth());
-const drawerTop = ref(94);
 const evidencePreview = ref<PendingGroup[]>([]);
 
 const MODAL_WIDTH_KEY = "trajnexa.regionDetail.width";
@@ -634,55 +617,13 @@ function closeEvidencePreview(): void {
   evidencePreview.value = [];
 }
 
-function saveDrawerWidth(): void {
-  try { localStorage.setItem(DRAWER_WIDTH_KEY, String(drawerWidth.value)); } catch { /* 忽略不可写存储 */ }
-}
-
-function setDrawerWidth(value: number): void {
-  drawerWidth.value = Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, Math.round(value)));
-}
-
-function beginDrawerResize(event: PointerEvent): void {
-  const startX = event.clientX;
-  const startWidth = drawerWidth.value;
-  const move = (next: PointerEvent) => setDrawerWidth(startWidth + (startX - next.clientX));
-  const stop = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", stop);
-    document.body.style.userSelect = "";
-    saveDrawerWidth();
-  };
-  document.body.style.userSelect = "none";
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", stop);
-}
-
-function nudgeDrawer(delta: number): void {
-  setDrawerWidth(drawerWidth.value + delta);
-  saveDrawerWidth();
-}
-
-function resetDrawerWidth(): void {
-  setDrawerWidth(420);
-  saveDrawerWidth();
-}
-
-/** 抽屉 teleport 到 body 后要自己对齐时间线内容区顶部，避免盖住栏头。 */
-function syncDrawerTop(): void {
-  const host = document.querySelector(".tm");
-  if (!host) return;
-  drawerTop.value = Math.max(0, Math.round(host.getBoundingClientRect().top));
-}
-
-/** 抽屉/大图打开时通知栏级拖拽把手让位，避免在弹层里误拉时间线宽度。 */
+/** 详情浮层/大图打开时通知栏级拖拽把手让位，避免在弹层里误拉时间线宽度。 */
 watch(detailCard, (card) => {
   document.body.classList.toggle("tm-drawer-open", Boolean(card));
   if (card) {
-    syncDrawerTop();
-    if (card.kind === "region_investigation") {
-      modalPos.value = null;
-      modalDragging.value = false;
-    }
+    modalPos.value = null;
+    modalDragging.value = false;
+    modalExpanded.value = false;
   }
 }, { immediate: true });
 
@@ -690,9 +631,7 @@ watch(evidencePreview, (groups) => {
   document.body.classList.toggle("tm-preview-open", groups.length > 0);
 }, { immediate: true });
 
-onMounted(() => window.addEventListener("resize", syncDrawerTop));
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", syncDrawerTop);
   stopModalDrag?.();
   document.body.classList.remove("tm-drawer-open", "tm-preview-open");
 });
@@ -1065,7 +1004,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 
     <Teleport to="body">
       <div
-        v-if="detailCard && detailCard.kind === 'region_investigation'"
+        v-if="detailCard"
         class="rd-layer"
       >
         <section
@@ -1074,7 +1013,7 @@ watch(() => view.value?.targetId, () => closeDetail());
           :class="{ 'is-dragging': modalDragging, 'is-docked': !modalPos }"
           :style="modalStyle"
           role="dialog"
-          aria-label="区域排查详情"
+          aria-label="卡片详情"
         >
           <button
             class="rd-resize"
@@ -1091,14 +1030,21 @@ watch(() => view.value?.targetId, () => closeDetail());
 
           <header class="rd-head" @pointerdown="beginModalDrag">
             <div class="rd-head-main">
-              <span class="rd-head-icon"><AppIcon name="camera" :size="19" /></span>
+              <span class="rd-head-icon">
+                <AppIcon :name="detailCard.kind === 'region_investigation' ? 'camera' : kindIcon(detailCard)" :size="19" />
+              </span>
               <div class="rd-head-text">
-                <p class="rd-kicker">查看详情 <span>·</span> 区域排查</p>
+                <p class="rd-kicker">查看详情 <span>·</span> {{ detailCard.kind === 'region_investigation' ? '区域排查' : KIND_LABEL[detailCard.kind] }}</p>
                 <h2>{{ detailCard.place }}</h2>
-                <div class="rd-sub">
+                <div v-if="detailCard.kind === 'region_investigation'" class="rd-sub">
                   <span><AppIcon name="clock" :size="12" />{{ clockRange(detailCard) }}</span>
                   <span v-if="regionDurationText" class="rd-duration">（{{ regionDurationText }}）</span>
-                  <span><AppIcon name="camera" :size="12" />{{ detailCard.region?.deviceCount ?? 0 }} 台摄像头 · {{ detailCard.region?.plannedWindows ?? 0 }} 个检索窗口</span>
+                  <span><AppIcon name="camera" :size="12" />{{ detailCard.region?.deviceCount ?? 0 }} 台摄像头 · {{ detailCard.region?.plannedWindows ?? 0 }} 个分析窗口</span>
+                </div>
+                <div v-else class="rd-sub">
+                  <span><AppIcon name="clock" :size="12" />{{ clockRange(detailCard) }}</span>
+                  <span>{{ detailIdentityText(detailCard) }}</span>
+                  <span>{{ detailSpatialText(detailCard) }}</span>
                 </div>
               </div>
             </div>
@@ -1116,7 +1062,7 @@ watch(() => view.value?.targetId, () => closeDetail());
             </div>
           </header>
 
-          <div class="rd-body">
+          <div v-if="detailCard.kind === 'region_investigation'" class="rd-body">
             <div class="rd-tabs" role="tablist" aria-label="摄像头分析状态筛选">
               <button
                 v-for="tab in REGION_TABS"
@@ -1234,110 +1180,84 @@ watch(() => view.value?.targetId, () => closeDetail());
 
             <p class="rd-foot">区域卡只表示检查过这些设备，不代表目标到达；轨迹与空间位置仍需独立证据。</p>
           </div>
+
+          <div v-else class="rd-body rd-detail-body">
+          <template v-if="detailCard.kind === 'confirmed_track'">
+            <p v-if="isDemoCard(detailCard)" class="tm-demo-note">
+              演示样本：这张卡只用于验收卡片与详情结构，轨迹段与帧数为示意；身份未经真实审核，轨迹与空间位置都不能作为证据。
+            </p>
+            <p class="tm-kv"><span>轨迹段</span>{{ detailTechCards.length }} 段 · {{ confirmedFrameTotal(detailCard) }} 帧</p>
+            <p class="tm-kv"><span>身份</span>身份已确认（审核结论）；空间位置仍需单独 L2 审核</p>
+            <template v-if="confirmedThumbs(detailCard).length">
+              <h4 class="tm-section-title">轨迹关键帧</h4>
+              <div class="tm-drawer-thumbs">
+                <img
+                  v-for="thumb in confirmedThumbs(detailCard)"
+                  :key="thumb.key"
+                  class="tm-drawer-thumb"
+                  :src="thumb.url"
+                  :alt="thumb.alt"
+                  loading="lazy"
+                />
+              </div>
+              <p class="tm-hint">关键帧按片段内偏移请求，容器 PTS 尚未与画面 OSD 核对。</p>
+            </template>
+          </template>
+
+          <template>
+            <div v-if="candidateCards.length > 1" class="tm-candidate-tabs">
+              <button
+                v-for="(card, index) in candidateCards"
+                :key="card.cardId"
+                class="tm-candidate-tab"
+                :class="{ 'is-active': focusedCandidate?.cardId === card.cardId }"
+                @click="focusCandidate(card)"
+              >{{ detailCard.kind === "confirmed_track" ? "轨迹段" : "候选" }} {{ index + 1 }}</button>
+            </div>
+
+            <template v-if="focusedCandidate">
+              <p v-if="detailCard.kind !== 'confirmed_track'" class="tm-kv"><span>身份</span>{{ techIdentityText(focusedCandidate) }}</p>
+              <p class="tm-kv"><span>摄像头 / 时间</span>{{ focusedCandidate.cameraLabel || '未标注' }} · {{ timeLabel(focusedCandidate.observedAt) }}</p>
+              <p class="tm-kv"><span>追踪 ID</span>{{ candidateTrackId(focusedCandidate) }}</p>
+              <p class="tm-kv"><span>相似度</span>{{ candidateScore(focusedCandidate) }}</p>
+              <p class="tm-kv"><span>空间位置</span>{{ focusedCandidate.position ? focusedCandidate.position.lat + ', ' + focusedCandidate.position.lon : '无地图坐标；空间位置仍需单独审核' }}</p>
+              <p v-if="focusedCandidate.degradeReason" class="tm-kv tm-warn"><span>降级原因</span>{{ focusedCandidate.degradeReason }}</p>
+
+              <div v-if="evidenceRefs(focusedCandidate).length" class="tm-evidence">
+                <span class="tm-evidence-title">证据帧</span>
+                <code v-for="ref in evidenceRefs(focusedCandidate)" :key="ref">{{ ref }}</code>
+              </div>
+
+              <div class="tm-actions-row">
+                <button v-if="canPlay(focusedCandidate)" class="tm-action" @click="openPlayback(focusedCandidate)">查看录像附近片段</button>
+                <button v-else class="tm-action" disabled title="该候选卡没有可用的片段内偏移">无片段位置可回看</button>
+              </div>
+
+              <div v-if="playbackCardId === focusedCandidate.cardId && playbackUrl" class="tm-video-wrap">
+                <video ref="playbackVideo" class="tm-video" :src="playbackUrl" controls preload="metadata" @loadedmetadata="seekPlayback" />
+                <p class="tm-hint">H.264 代理片段，容器时间戳未与画面 OSD 核对，只能算大致位置。</p>
+              </div>
+
+              <template v-if="detailCard.kind !== 'confirmed_track'">
+                <h4 class="tm-section-title">候选审核</h4>
+                <p class="tm-hint">审核只改变身份状态，不会把实验空间位置升级为正式 L2。</p>
+                <div class="tm-actions-row">
+                  <button class="tm-action tm-action--ok" :disabled="reviewBusy" @click="review('approve')">确认目标</button>
+                  <button class="tm-action tm-action--danger" :disabled="reviewBusy" @click="review('reject')">排除</button>
+                  <button v-if="techIdentityText(focusedCandidate) === '身份已确认'" class="tm-action" :disabled="reviewBusy" @click="review('revoke')">撤销确认</button>
+                </div>
+                <p class="tm-hint">确认身份不等于空间标定通过；地图位置仍需单独审核。</p>
+              </template>
+            </template>
+            <p v-else class="tm-empty-text">{{ detailCard.kind === "confirmed_track" ? "这张卡没有可展开的轨迹明细。" : "这张卡没有可展开的候选明细。" }}</p>
+
+            <p class="tm-kv"><span>技术卡</span>{{ detailTechCards.length }} 张（任务、窗口与候选证据已收进详情）</p>
+          </template>
+          </div>
         </section>
       </div>
 
-      <section
-        v-else-if="detailCard"
-        class="tm-drawer"
-        aria-label="卡片详情"
-        :style="{ width: drawerWidth + 'px', top: drawerTop + 'px' }"
-      >
-      <div
-        class="tm-drawer-resize"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="拖动调整详情宽度，双击恢复默认"
-        tabindex="0"
-        title="拖动调整宽度，双击恢复默认"
-        @pointerdown.prevent="beginDrawerResize"
-        @dblclick="resetDrawerWidth"
-        @keydown.left.prevent="nudgeDrawer(-24)"
-        @keydown.right.prevent="nudgeDrawer(24)"
-      />
-      <header class="tm-drawer-head">
-        <div>
-          <span class="tm-badge" :data-tone="kindTone(detailCard)">{{ KIND_LABEL[detailCard.kind] }}</span>
-          <h2>{{ detailCard.place }}</h2>
-          <p class="tm-drawer-sub">{{ clockRange(detailCard) }} · {{ detailIdentityText(detailCard) }} · {{ detailSpatialText(detailCard) }}</p>
-        </div>
-        <button class="tm-close" aria-label="关闭详情" @click="closeDetail"><AppIcon name="close" :size="14" /></button>
-      </header>
 
-      <div class="tm-drawer-body">
-        <template v-if="detailCard.kind === 'confirmed_track'">
-          <p v-if="isDemoCard(detailCard)" class="tm-demo-note">
-            演示样本：这张卡只用于验收卡片与详情结构，轨迹段与帧数为示意；身份未经真实审核，轨迹与空间位置都不能作为证据。
-          </p>
-          <p class="tm-kv"><span>轨迹段</span>{{ detailTechCards.length }} 段 · {{ confirmedFrameTotal(detailCard) }} 帧</p>
-          <p class="tm-kv"><span>身份</span>身份已确认（审核结论）；空间位置仍需单独 L2 审核</p>
-          <template v-if="confirmedThumbs(detailCard).length">
-            <h4 class="tm-section-title">轨迹关键帧</h4>
-            <div class="tm-drawer-thumbs">
-              <img
-                v-for="thumb in confirmedThumbs(detailCard)"
-                :key="thumb.key"
-                class="tm-drawer-thumb"
-                :src="thumb.url"
-                :alt="thumb.alt"
-                loading="lazy"
-              />
-            </div>
-            <p class="tm-hint">关键帧按片段内偏移请求，容器 PTS 尚未与画面 OSD 核对。</p>
-          </template>
-        </template>
-
-        <template>
-          <div v-if="candidateCards.length > 1" class="tm-candidate-tabs">
-            <button
-              v-for="(card, index) in candidateCards"
-              :key="card.cardId"
-              class="tm-candidate-tab"
-              :class="{ 'is-active': focusedCandidate?.cardId === card.cardId }"
-              @click="focusCandidate(card)"
-            >{{ detailCard.kind === "confirmed_track" ? "轨迹段" : "候选" }} {{ index + 1 }}</button>
-          </div>
-
-          <template v-if="focusedCandidate">
-            <p v-if="detailCard.kind !== 'confirmed_track'" class="tm-kv"><span>身份</span>{{ techIdentityText(focusedCandidate) }}</p>
-            <p class="tm-kv"><span>摄像头 / 时间</span>{{ focusedCandidate.cameraLabel || '未标注' }} · {{ timeLabel(focusedCandidate.observedAt) }}</p>
-            <p class="tm-kv"><span>追踪 ID</span>{{ candidateTrackId(focusedCandidate) }}</p>
-            <p class="tm-kv"><span>相似度</span>{{ candidateScore(focusedCandidate) }}</p>
-            <p class="tm-kv"><span>空间位置</span>{{ focusedCandidate.position ? focusedCandidate.position.lat + ', ' + focusedCandidate.position.lon : '无地图坐标；空间位置仍需单独审核' }}</p>
-            <p v-if="focusedCandidate.degradeReason" class="tm-kv tm-warn"><span>降级原因</span>{{ focusedCandidate.degradeReason }}</p>
-
-            <div v-if="evidenceRefs(focusedCandidate).length" class="tm-evidence">
-              <span class="tm-evidence-title">证据帧</span>
-              <code v-for="ref in evidenceRefs(focusedCandidate)" :key="ref">{{ ref }}</code>
-            </div>
-
-            <div class="tm-actions-row">
-              <button v-if="canPlay(focusedCandidate)" class="tm-action" @click="openPlayback(focusedCandidate)">查看录像附近片段</button>
-              <button v-else class="tm-action" disabled title="该候选卡没有可用的片段内偏移">无片段位置可回看</button>
-            </div>
-
-            <div v-if="playbackCardId === focusedCandidate.cardId && playbackUrl" class="tm-video-wrap">
-              <video ref="playbackVideo" class="tm-video" :src="playbackUrl" controls preload="metadata" @loadedmetadata="seekPlayback" />
-              <p class="tm-hint">H.264 代理片段，容器时间戳未与画面 OSD 核对，只能算大致位置。</p>
-            </div>
-
-            <template v-if="detailCard.kind !== 'confirmed_track'">
-              <h4 class="tm-section-title">候选审核</h4>
-              <p class="tm-hint">审核只改变身份状态，不会把实验空间位置升级为正式 L2。</p>
-              <div class="tm-actions-row">
-                <button class="tm-action tm-action--ok" :disabled="reviewBusy" @click="review('approve')">确认目标</button>
-                <button class="tm-action tm-action--danger" :disabled="reviewBusy" @click="review('reject')">排除</button>
-                <button v-if="techIdentityText(focusedCandidate) === '身份已确认'" class="tm-action" :disabled="reviewBusy" @click="review('revoke')">撤销确认</button>
-              </div>
-              <p class="tm-hint">确认身份不等于空间标定通过；地图位置仍需单独审核。</p>
-            </template>
-          </template>
-          <p v-else class="tm-empty-text">{{ detailCard.kind === "confirmed_track" ? "这张卡没有可展开的轨迹明细。" : "这张卡没有可展开的候选明细。" }}</p>
-
-          <p class="tm-kv"><span>技术卡</span>{{ detailTechCards.length }} 张（任务、窗口与候选证据已收进详情）</p>
-        </template>
-      </div>
-      </section>
     </Teleport>
 
     <Teleport to="body">
@@ -1895,37 +1815,8 @@ watch(() => view.value?.targetId, () => closeDetail());
   font-size: 11.5px;
 }
 
-.tm-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: auto;
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  max-width: calc(100vw - 24px);
-  border-left: 1px solid var(--line-3);
-  background: #0a1017;
-  box-shadow: -12px 0 28px rgba(0, 0, 0, 0.38);
-}
-
-/* 抽屉打开时，栏级拖拽把手不再接收指针，避免误拉时间线宽度。 */
+/* 详情浮层打开时，栏级拖拽把手不再接收指针，避免误拉时间线宽度。 */
 :global(body.tm-drawer-open .rail-resizer) { pointer-events: none; }
-/* 大图打开时，抽屉自己的宽度把手也让位。 */
-:global(body.tm-preview-open .tm-drawer-resize) { pointer-events: none; }
-
-.tm-drawer-resize {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -3px;
-  z-index: 2;
-  width: 7px;
-  cursor: col-resize;
-}
-.tm-drawer-resize:hover,
-.tm-drawer-resize:focus-visible { background: color-mix(in srgb, var(--accent) 45%, transparent); outline: none; }
 
 .tm-region-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 9px; }
 .tm-count { padding: 2px 7px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: 10.5px; }
@@ -2039,17 +1930,6 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-preview-groups:not(.is-single) .tm-preview-grid img { max-height: 32vh; }
 .tm-preview-grid figcaption { margin-top: 3px; color: var(--text-3); font-size: 10px; }
 
-.tm-drawer-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 11px;
-  border-bottom: 1px solid var(--line);
-}
-
-.tm-drawer-head > div { flex: 1; min-width: 0; }
-.tm-drawer-head h2 { margin: 4px 0 2px; color: var(--text-0); font-size: 15px; }
-.tm-drawer-sub { margin: 0; color: var(--text-3); font-size: 11px; }
 .tm-close { width: 26px; height: 26px; border: 0; background: transparent; color: var(--text-2); }
 
 .tm-drawer-thumbs {
@@ -2079,13 +1959,6 @@ watch(() => view.value?.targetId, () => closeDetail());
   line-height: 1.55;
 }
 
-.tm-drawer-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 10px 11px 18px;
-}
-
 .tm-kv {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);
@@ -2107,25 +1980,7 @@ watch(() => view.value?.targetId, () => closeDetail());
   font-size: 12px;
 }
 
-.tm-drawer-cams {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tm-drawer-cam {
-  padding: 6px 7px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #0c121a;
-}
-
-.tm-drawer-cam-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.tm-drawer-cam-head strong { color: var(--text-1); font-size: 11.5px; }
 .tm-pill { padding: 1px 5px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-3); font-size: 10px; }
-.tm-drawer-meta { margin: 3px 0 0; color: var(--text-3); font-size: 10.5px; }
 
 .tm-action {
   padding: 5px 9px;
@@ -2274,6 +2129,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .rd-icon-btn:hover { border-color: var(--line-2); background: #111a24; color: var(--text-0); }
 
 .rd-body { overflow-y: auto; padding: 12px 18px 16px; }
+.rd-detail-body { flex: 1; min-height: 0; padding: 14px 18px 18px; }
 
 .rd-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 11px; }
 .rd-tab {
