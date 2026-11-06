@@ -18,8 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.camera_catalog import canonical_name
-from app.models import (TargetObservation, TargetSpatialObservation, TrackingCandidate,
-                        TrackingReviewEvent, TrackingRun, TrackingWindow)
+from app import m6_recording_source
+from app.models import (RecordingClip, TargetObservation, TargetSpatialObservation,
+                        TrackingCandidate, TrackingCandidateReview, TrackingReviewEvent,
+                        TrackingRun, TrackingWindow)
 
 CARD_KINDS = ("anchor", "region_investigation", "camera_task", "track_segment",
               "gap", "spatial_observation")
@@ -170,8 +172,13 @@ def _gap_card(run: TrackingRun, window: TrackingWindow) -> dict:
 
 
 def _segment_card(run: TrackingRun, candidate: TrackingCandidate,
-                  anchor: dict) -> dict:
+                  anchor: dict, review: dict | None = None) -> dict:
     details = candidate.details_json or {}
+    review = review or {}
+    frame_no = details.get("frame_no")
+    if frame_no is None:
+        frame_no = review.get("frame_no")
+    bbox = details.get("bbox_pixels") or review.get("bbox_pixels")
     observed = _window_iso(anchor, candidate.window_start)
     return {
         "cardId": f"segment:{candidate.id}",
@@ -197,7 +204,9 @@ def _segment_card(run: TrackingRun, candidate: TrackingCandidate,
                      "retrievalScore": candidate.retrieval_score,
                      "marginTop1Top2": candidate.margin_top1_top2,
                      "evidenceRefs": candidate.evidence_refs or [],
-                     "mapCameraId": candidate.map_camera_id},
+                     "mapCameraId": candidate.map_camera_id,
+                     "candidateId": candidate.id, "runId": run.id,
+                     "frameNo": frame_no, "bboxPixels": bbox},
         "segment": {"segmentId": candidate.id, "trackId": candidate.track_id,
                     "window": [candidate.window_start, candidate.window_end],
                     "frames": details.get("frames"), "breakReason": details.get("break_reason")},
@@ -287,7 +296,8 @@ def _region_status(run: TrackingRun, windows: list[TrackingWindow],
 
 def _region_card(run: TrackingRun, windows: list[TrackingWindow],
                  candidates: list[TrackingCandidate], anchor: dict,
-                 directory: dict[str, str] | None = None) -> dict:
+                 directory: dict[str, str] | None = None,
+                 clip_offsets: dict[str, float] | None = None) -> dict:
     """区域研判大卡：聚合该 run 的多台设备/窗口。只表示正在检查，不代表目标到达。"""
     ordered = sorted(windows, key=lambda item: (item.window_start or 0.0))
     tasks: list[dict] = []
@@ -297,12 +307,15 @@ def _region_card(run: TrackingRun, windows: list[TrackingWindow],
         phase = _window_phase(window.status)
         counts[phase] = counts.get(phase, 0) + 1
         camera_uuid, camera_basis = _camera_binding(window, candidates, directory)
+        clip_offset = (clip_offsets or {}).get(window.clip_id)
         tasks.append({
             "windowId": window.id,
             "cameraLabel": window.camera_label,
             "cameraUuid": camera_uuid,
             "cameraUuidSource": camera_basis,
             "clipId": window.clip_id,
+            "offsetSeconds": (round(window.window_start - clip_offset, 3)
+                              if clip_offset is not None else None),
             "plannedStartAt": _window_iso(anchor, window.window_start),
             "plannedEndAt": _window_iso(anchor, window.window_end),
             "windowSeconds": [window.window_start, window.window_end],
@@ -433,6 +446,20 @@ def build_timeline(db: Session, case_id: str, target_id: str,
                          .where(TargetSpatialObservation.case_id == case_id,
                                 TargetSpatialObservation.observation_id == target_id)
                          .order_by(TargetSpatialObservation.created_at)).all()
+    clip_ids = {window.clip_id for window in windows if window.clip_id}
+    clip_offsets: dict[str, float] = {}
+    if clip_ids:
+        for clip in db.scalars(select(RecordingClip)
+                               .where(RecordingClip.id.in_(clip_ids))).all():
+            offset = m6_recording_source.seconds_of_day(clip.start_local)
+            if offset is not None:
+                clip_offsets[clip.id] = offset
+    reviews = db.scalars(select(TrackingCandidateReview)
+                         .where(TrackingCandidateReview.run_id.in_(run_ids))
+                         .order_by(TrackingCandidateReview.created_at)).all() if run_ids else []
+    latest_review: dict[str, dict] = {}
+    for review in reviews:
+        latest_review[review.candidate_id] = review.review_json or {}
 
     latest_anchor = (runs[-1].anchor_json or {}) if runs else {}
     cards: list[dict] = [_anchor_card(obs, latest_anchor)]
@@ -440,7 +467,7 @@ def build_timeline(db: Session, case_id: str, target_id: str,
         run_windows = [w for w in windows if w.run_id == run.id]
         run_candidates = [c for c in candidates if c.run_id == run.id]
         cards.append(_region_card(run, run_windows, run_candidates, run.anchor_json or {},
-                                  camera_directory))
+                                  camera_directory, clip_offsets))
         cards.append(_task_card(run, run_windows))
         for window in run_windows:
             gap = _gap_card(run, window)
@@ -449,7 +476,8 @@ def build_timeline(db: Session, case_id: str, target_id: str,
     for candidate in candidates:
         run = next((r for r in runs if r.id == candidate.run_id), None)
         if run is not None:
-            cards.append(_segment_card(run, candidate, run.anchor_json or {}))
+            cards.append(_segment_card(run, candidate, run.anchor_json or {},
+                                      latest_review.get(candidate.id)))
     for row in spatial:
         cards.append(_spatial_card(obs, row))
 

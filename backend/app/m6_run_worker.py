@@ -150,7 +150,9 @@ def _store_candidate(db: Session, run: TrackingRun, plan: dict, candidate: dict,
         details_json={'supports': candidate.get('supports', []),
                       'conflicts': candidate.get('conflicts', []),
                       'unknown': candidate.get('unknown', []),
-                      'note': note})
+                      'note': note,
+                      'frame_no': candidate.get('frame_no'),
+                      'bbox_pixels': candidate.get('bbox_pixels')})
     db.add(row)
     return row
 
@@ -463,8 +465,9 @@ class RecordingAnalyzer:
                           'seek_drift_seconds': extraction['seek_drift_seconds']}
         result['note'] = 'requested_seek_not_verified_pts'
         result['frames_dir'] = str(out_dir)
-        result['evidence_refs'] = ['tracking_runs/%s/%s' % (self.run.id, p.name)
-                                    for p in sorted(out_dir.glob('*.jpg'))[:2]]
+        result['evidence_refs'] = ['tracking_runs/%s/%s/%s' % (
+            self.run.id, out_dir.name, p.name)
+            for p in sorted(out_dir.glob('*.jpg'))[:2]]
         return result
 
     def score(self, result: dict) -> list[dict]:

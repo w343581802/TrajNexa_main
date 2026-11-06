@@ -1088,6 +1088,8 @@ export type TimelineRegionTask = {
   /** candidate_explicit=候选显式绑定；catalog_name_exact=Map 台账完全同名；null=未解析 */
   cameraUuidSource?: "candidate_explicit" | "catalog_name_exact" | null;
   clipId: string;
+  /** 窗口起点在片段内的偏移；null 表示没有可核对的片段起点。 */
+  offsetSeconds?: number | null;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   windowSeconds: [number, number];
@@ -1380,6 +1382,16 @@ export async function getTargetTrackSample(variant?: string): Promise<{
 }
 export function keyframeUrl(caseId: string, clipId: string, offsetSeconds: number): string {
   return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/keyframes/image?authorized=true&offset_seconds=${offsetSeconds}`;
+}
+
+/** 候选证据帧：full=完整帧，crop=按已保存目标框裁剪；没有框时后端明确拒绝。 */
+export function candidateEvidenceUrl(
+  caseId: string,
+  runId: string,
+  candidateId: string,
+  kind: "full" | "crop",
+): string {
+  return `${BASE}/cases/${caseId}/tracking-runs/${runId}/candidates/${candidateId}/evidence/image?authorized=true&kind=${kind}`;
 }
 
 /** TB4：受案件约束的片段读取（HTTP Range），用于播放器按偏移跳转。 */

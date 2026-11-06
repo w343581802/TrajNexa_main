@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
-import { keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
+import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
 import {
   actions,
@@ -23,6 +23,24 @@ const playbackUrl = ref<string | null>(null);
 const playbackSeek = ref(0);
 const playbackVideo = ref<HTMLVideoElement | null>(null);
 const reviewBusy = ref(false);
+
+const DRAWER_WIDTH_KEY = "trajnexa.timeline.drawerWidth";
+const DRAWER_MIN = 360;
+const DRAWER_MAX = 760;
+
+function loadDrawerWidth(): number {
+  try {
+    const raw = localStorage.getItem(DRAWER_WIDTH_KEY);
+    // 未保存时 getItem 返回 null，Number(null) 是 0，不能当成有效宽度。
+    if (raw !== null && raw.trim() !== "") {
+      const saved = Number(raw);
+      if (Number.isFinite(saved)) return Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, saved));
+    }
+  } catch { /* 隐私模式下不可用，使用默认值 */ }
+  return 420;
+}
+const drawerWidth = ref(loadDrawerWidth());
+const evidencePreview = ref<PendingGroup[]>([]);
 
 const view = computed(() => timelineView.value);
 
@@ -233,6 +251,16 @@ function windowPhaseText(phase: string): string {
 
 type CameraWindow = { start: number; end: number; startAt: string | null; endAt: string | null };
 
+type PendingGroup = {
+  key: string;
+  card: TimelineCard;
+  cameraLabel: string;
+  identity: string;
+  targetUrl: string | null;
+  fullUrl: string | null;
+  hasBbox: boolean;
+};
+
 type CameraRow = {
   key: string;
   label: string;
@@ -243,6 +271,9 @@ type CameraRow = {
   candidateCount: number;
   pendingCount: number;
   phase: string;
+  clipId: string | null;
+  offsetSeconds: number | null;
+  pendingGroups: PendingGroup[];
 };
 
 function regionCameras(region: TimelineViewRegion): CameraRow[] {
@@ -261,6 +292,9 @@ function regionCameras(region: TimelineViewRegion): CameraRow[] {
         candidateCount: 0,
         pendingCount: 0,
         phase: task.phase,
+        clipId: task.clipId ?? null,
+        offsetSeconds: task.offsetSeconds ?? null,
+        pendingGroups: [],
       };
       rows.set(key, row);
     }
@@ -278,10 +312,118 @@ function regionCameras(region: TimelineViewRegion): CameraRow[] {
     row.runCount = Math.max(row.runCount, task.runIds?.length ?? (task.runId ? 1 : 0));
     row.candidateCount = Math.max(row.candidateCount, task.candidateCount ?? 0);
     row.pendingCount = Math.max(row.pendingCount, task.pendingCandidateCount ?? 0);
+    if (task.clipId) row.clipId = task.clipId;
+    if (task.offsetSeconds !== null && task.offsetSeconds !== undefined) row.offsetSeconds = task.offsetSeconds;
     if (task.phase === "running") row.phase = "running";
     else if (task.phase === "failed" && row.phase !== "running") row.phase = "failed";
   }
-  return [...rows.values()];
+  const result = [...rows.values()];
+  for (const row of result) row.pendingGroups = pendingGroupsFor(row);
+  return result;
+}
+
+function pendingGroupsFor(camera: CameraRow): PendingGroup[] {
+  const groups = new Map<string, PendingGroup>();
+  for (const card of candidateCards.value) {
+    if (card.cameraLabel !== camera.label) continue;
+    const identity = card.identityStatus ?? "";
+    if (identity === "confirmed" || identity === "human_confirmed" || identity === "rejected") continue;
+    const evidence = (card.evidence ?? {}) as Record<string, unknown>;
+    const runId = runIdFor(card) ?? (typeof evidence.runId === "string" ? evidence.runId : null);
+    const candidateId = candidateIdFor(card);
+    const bbox = Array.isArray(evidence.bboxPixels) && evidence.bboxPixels.length === 4;
+    // 同一轨迹会被多轮检索重复产出；按 trackId 归并，避免把重复检索当成多组目标。
+    const dedupe = (typeof evidence.trackId === "string" && evidence.trackId) ? evidence.trackId : (candidateId ?? card.cardId);
+    if (groups.has(dedupe)) continue;
+    const fullUrl = runId && candidateId && wb.caseId
+      ? candidateEvidenceUrl(wb.caseId, runId, candidateId, "full")
+      : null;
+    const targetUrl = runId && candidateId && wb.caseId
+      ? candidateEvidenceUrl(wb.caseId, runId, candidateId, bbox ? "crop" : "full")
+      : null;
+    groups.set(dedupe, {
+      key: card.cardId,
+      card,
+      cameraLabel: camera.label,
+      identity: techIdentityText(card),
+      targetUrl,
+      fullUrl,
+      hasBbox: bbox,
+    });
+  }
+  return [...groups.values()];
+}
+
+type CameraState = "pending" | "running" | "done";
+
+function cameraState(camera: CameraRow): CameraState {
+  if (camera.pendingGroups.length || camera.pendingCount > 0) return "pending";
+  if (camera.phase === "running" || camera.phase === "queued") return "running";
+  return "done";
+}
+
+const regionCameraRows = computed<CameraRow[]>(() => {
+  const region = detailCard.value?.region;
+  return region ? regionCameras(region) : [];
+});
+
+const regionCameraCounts = computed(() => {
+  const counts = { done: 0, running: 0, pending: 0 };
+  for (const camera of regionCameraRows.value) counts[cameraState(camera)] += 1;
+  return counts;
+});
+
+function cameraStateText(camera: CameraRow): string {
+  const state = cameraState(camera);
+  if (state === "pending") return "待核查" + (camera.pendingGroups.length ? " " + camera.pendingGroups.length : "");
+  if (state === "running") return "分析中";
+  return "分析完成";
+}
+
+function cameraShotUrl(camera: CameraRow): string | null {
+  if (!wb.caseId || !camera.clipId || camera.offsetSeconds === null) return null;
+  return keyframeUrl(wb.caseId, camera.clipId, camera.offsetSeconds);
+}
+
+function openEvidencePreview(groups: PendingGroup[]): void {
+  evidencePreview.value = groups;
+}
+
+function closeEvidencePreview(): void {
+  evidencePreview.value = [];
+}
+
+function saveDrawerWidth(): void {
+  try { localStorage.setItem(DRAWER_WIDTH_KEY, String(drawerWidth.value)); } catch { /* 忽略不可写存储 */ }
+}
+
+function setDrawerWidth(value: number): void {
+  drawerWidth.value = Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, Math.round(value)));
+}
+
+function beginDrawerResize(event: PointerEvent): void {
+  const startX = event.clientX;
+  const startWidth = drawerWidth.value;
+  const move = (next: PointerEvent) => setDrawerWidth(startWidth + (startX - next.clientX));
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    document.body.style.userSelect = "";
+    saveDrawerWidth();
+  };
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+}
+
+function nudgeDrawer(delta: number): void {
+  setDrawerWidth(drawerWidth.value + delta);
+  saveDrawerWidth();
+}
+
+function resetDrawerWidth(): void {
+  setDrawerWidth(420);
+  saveDrawerWidth();
 }
 
 function daySecondsClock(seconds: number): string {
@@ -331,11 +473,6 @@ function regionPending(region: TimelineViewRegion): number {
   return region.phaseCounts.queued + region.phaseCounts.running;
 }
 
-function regionProgress(region: TimelineViewRegion): number {
-  if (!region.plannedWindows) return 0;
-  return Math.min(100, Math.round((region.completedWindows / region.plannedWindows) * 100));
-}
-
 function cameraIcon(camera: CameraRow): "check" | "refresh" | "clock" | "warning" {
   // 有未核查候选时，用“待核查线索”的同款警示图标标出这台设备需要人工核查。
   if (camera.pendingCount > 0) return "warning";
@@ -374,6 +511,8 @@ function evidenceRefs(card: TimelineCard): string[] {
 }
 
 function runIdFor(card: TimelineCard): string | null {
+  const evidence = (card.evidence ?? {}) as Record<string, unknown>;
+  if (typeof evidence.runId === "string" && evidence.runId) return evidence.runId;
   for (const ref of evidenceRefs(card)) {
     const match = /tracking_runs[\/]([^\/]+)/.exec(ref);
     if (match) return match[1];
@@ -382,11 +521,14 @@ function runIdFor(card: TimelineCard): string | null {
 }
 
 function candidateIdFor(card: TimelineCard): string | null {
+  const evidence = (card.evidence ?? {}) as Record<string, unknown>;
+  if (typeof evidence.candidateId === "string" && evidence.candidateId) return evidence.candidateId;
   return card.cardId.startsWith("segment:") ? card.cardId.slice("segment:".length) : null;
 }
 
 function selectViewCard(card: TimelineViewCard): void {
   detailId.value = card.cardId;
+  evidencePreview.value = [];
   playbackCardId.value = null;
   playbackUrl.value = null;
   focusedCandidateId.value = card.detailCardIds[0] ?? null;
@@ -404,8 +546,31 @@ function selectViewCard(card: TimelineViewCard): void {
   }
 }
 
+function selectUnderlyingCard(card: TimelineViewCard): string | null {
+  if (isDemoCard(card)) return null;
+  if (card.kind === "region_investigation") {
+    const oldRegion = timelineCards.value.find((item) =>
+      item.kind === "region_investigation" && item.region?.runId && card.region?.runIds.includes(item.region.runId));
+    return oldRegion?.cardId ?? card.detailCardIds[0] ?? null;
+  }
+  const tech = techCardsFor(card);
+  return (tech.find((item) => item.kind === "track_segment") ?? tech[0])?.cardId ?? card.detailCardIds[0] ?? null;
+}
+
+function locateViewCard(card: TimelineViewCard): void {
+  const cardId = selectUnderlyingCard(card);
+  if (!cardId) {
+    toast("演示样本没有可定位的真实地图要素", "info");
+    return;
+  }
+  // 清空后重新选中，确保重复点击“定位”也会触发地图缩放。
+  actions.selectTimelineCard(null);
+  window.setTimeout(() => actions.selectTimelineCard(cardId), 0);
+}
+
 function closeDetail(): void {
   detailId.value = null;
+  evidencePreview.value = [];
   playbackCardId.value = null;
   playbackUrl.value = null;
 }
@@ -520,11 +685,11 @@ watch(() => view.value?.targetId, () => closeDetail());
         <li v-for="card in cards" :key="card.cardId" class="tm-row" :data-kind="card.kind">
           <span class="tm-dot" :data-tone="kindTone(card)" />
           <article class="tm-card" :data-kind="card.kind" :class="{ 'is-open': detailId === card.cardId }">
-            <div class="tm-card-layout">
+            <div class="tm-card-layout" :class="{ 'has-thumbs': confirmedThumbs(card).length > 0 }">
               <div class="tm-card-content">
                 <header class="tm-card-head">
                   <span class="tm-time num">{{ clockRange(card) }}</span>
-                  <span class="tm-badge" :data-tone="kindTone(card)">
+                  <span v-if="card.kind !== 'confirmed_track'" class="tm-badge" :data-tone="kindTone(card)">
                     <AppIcon :name="kindIcon(card)" :size="11" />
                     {{ KIND_LABEL[card.kind] }}
                   </span>
@@ -543,10 +708,6 @@ watch(() => view.value?.targetId, () => closeDetail());
                     <span>{{ card.region.deviceCount }} 台摄像头 · {{ card.region.plannedWindows }} 次检索</span>
                     <span class="tm-region-count">已完成 {{ card.region.completedWindows }} · 待处理 {{ regionPending(card.region) }}</span>
                   </div>
-                  <div class="tm-progress" role="progressbar" :aria-valuenow="regionProgress(card.region)" aria-valuemin="0" aria-valuemax="100">
-                    <i :style="{ width: regionProgress(card.region) + '%' }" />
-                  </div>
-
                   <ul class="tm-cam-list">
                     <li v-for="camera in regionCameras(card.region)" :key="camera.key" class="tm-cam-item">
                       <button type="button" class="tm-cam" @click="selectViewCard(card)">
@@ -570,16 +731,19 @@ watch(() => view.value?.targetId, () => closeDetail());
 
                 <footer class="tm-card-foot">
                   <button class="tm-detail-btn" @click="selectViewCard(card)">
-                    <AppIcon v-if="card.kind === 'confirmed_track'" name="video" :size="12" />
-                    {{ card.kind === "confirmed_track" ? "查看录像" : "查看详情" }}
+                    查看详情
                     <AppIcon name="chevron-right" :size="12" />
+                  </button>
+                  <button class="tm-locate-btn" @click="locateViewCard(card)">
+                    <AppIcon name="target" :size="12" />
+                    定位
                   </button>
                 </footer>
                 <p v-if="!card.observedAt" class="tm-time-hint">{{ cardTimeHint(card) }}</p>
               </div>
 
               <div
-                v-if="confirmedThumbs(card).length"
+                v-if="card.kind === 'confirmed_track' && confirmedThumbs(card).length"
                 class="tm-thumbs"
                 :title="'录像关键帧 ' + confirmedThumbs(card).length + ' 张（请求偏移，未校验 PTS）'"
               >
@@ -589,7 +753,6 @@ watch(() => view.value?.targetId, () => closeDetail());
                   class="tm-thumb"
                   :src="thumb.url"
                   :alt="thumb.alt"
-                  loading="lazy"
                   :style="{ '--i': index, zIndex: 6 - index }"
                 />
                 <span v-if="confirmedThumbs(card).length > 1" class="tm-thumb-count num">{{ confirmedThumbs(card).length }}</span>
@@ -610,7 +773,24 @@ watch(() => view.value?.targetId, () => closeDetail());
       <p class="tm-foot-note">{{ view?.note }}</p>
     </div>
 
-    <section v-if="detailCard" class="tm-drawer" aria-label="卡片详情">
+    <section
+      v-if="detailCard"
+      class="tm-drawer"
+      aria-label="卡片详情"
+      :style="{ width: drawerWidth + 'px' }"
+    >
+      <div
+        class="tm-drawer-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖动调整详情宽度，双击恢复默认"
+        tabindex="0"
+        title="拖动调整宽度，双击恢复默认"
+        @pointerdown.prevent="beginDrawerResize"
+        @dblclick="resetDrawerWidth"
+        @keydown.left.prevent="nudgeDrawer(-24)"
+        @keydown.right.prevent="nudgeDrawer(24)"
+      />
       <header class="tm-drawer-head">
         <div>
           <span class="tm-badge" :data-tone="kindTone(detailCard)">{{ KIND_LABEL[detailCard.kind] }}</span>
@@ -644,6 +824,11 @@ watch(() => view.value?.targetId, () => closeDetail());
         </template>
 
         <template v-if="detailCard.kind === 'region_investigation' && detailCard.region">
+          <div class="tm-region-counts" aria-label="区域摄像头状态计数">
+            <span class="tm-count tm-count--done">分析完成 <b>{{ regionCameraCounts.done }}</b></span>
+            <span class="tm-count tm-count--running">分析中 <b>{{ regionCameraCounts.running }}</b></span>
+            <span class="tm-count tm-count--pending">待核查 <b>{{ regionCameraCounts.pending }}</b></span>
+          </div>
           <p class="tm-kv"><span>区域状态</span>{{ regionStatusText(detailCard.region.status) }}</p>
           <p class="tm-kv"><span>计划录像范围</span>{{ regionWindowText(detailCard.region) }} · 时间可信度 {{ detailCard.region.timeQuality }}</p>
           <p class="tm-kv"><span>窗口统计</span>完成 {{ detailCard.region.phaseCounts.completed }} · 排队 {{ detailCard.region.phaseCounts.queued }} · 分析中 {{ detailCard.region.phaseCounts.running }} · 失败 {{ detailCard.region.phaseCounts.failed }}</p>
@@ -651,10 +836,15 @@ watch(() => view.value?.targetId, () => closeDetail());
 
           <h4 class="tm-section-title">摄像头与检索窗口</h4>
           <ul class="tm-drawer-cams">
-            <li v-for="camera in regionCameras(detailCard.region)" :key="camera.key" class="tm-drawer-cam">
+            <li
+              v-for="camera in regionCameraRows"
+              :key="camera.key"
+              class="tm-drawer-cam"
+              :data-state="cameraState(camera)"
+            >
               <div class="tm-drawer-cam-head">
                 <strong>{{ camera.label }}</strong>
-                <span class="tm-pill">{{ windowPhaseText(camera.phase) }}</span>
+                <span class="tm-pill" :data-state="cameraState(camera)">{{ cameraStateText(camera) }}</span>
               </div>
               <p class="tm-drawer-meta">
                 {{ camera.uuid ? '相机 ' + camera.uuid.slice(0, 8) + '…' : '未关联地图相机' }} ·
@@ -663,7 +853,45 @@ watch(() => view.value?.targetId, () => closeDetail());
               </p>
               <p class="tm-drawer-meta">
                 {{ camera.windows.map(cameraWindowText).join('、') }}
+                <span v-if="cameraState(camera) === 'running'" class="tm-analysis-plus">分析时长 +5 分钟</span>
               </p>
+
+              <figure v-if="cameraState(camera) !== 'pending' && cameraShotUrl(camera)" class="tm-cam-shot">
+                <img :src="cameraShotUrl(camera) || ''" :alt="camera.label + ' 摄像头截图'" loading="lazy" />
+                <figcaption>摄像头截图 · 片段内偏移 {{ camera.offsetSeconds?.toFixed(1) }}s · 容器 PTS 未核对</figcaption>
+              </figure>
+              <p v-else-if="cameraState(camera) === 'running'" class="tm-hint">窗口片段偏移尚未解析，暂不能取摄像头截图。</p>
+
+              <div v-if="cameraState(camera) === 'pending'" class="tm-pending">
+                <p class="tm-pending-title">
+                  待核查 {{ camera.pendingGroups.length || camera.pendingCount }} 组
+                </p>
+                <button
+                  v-if="camera.pendingGroups.length >= 5"
+                  class="tm-pending-entry"
+                  @click="openEvidencePreview(camera.pendingGroups)"
+                >
+                  <span>查看 {{ camera.pendingGroups.length }} 组待核查大图</span>
+                  <span class="tm-pending-entry-sub">目标截取大图 + 完整大图 · 点击放大核对</span>
+                </button>
+                <div v-else-if="camera.pendingGroups.length" class="tm-pending-grid">
+                  <button
+                    v-for="(group, index) in camera.pendingGroups"
+                    :key="group.key"
+                    class="tm-pending-group"
+                    @click="openEvidencePreview([group])"
+                  >
+                    <span class="tm-pending-label">疑似 {{ index + 1 }} · {{ group.identity }}</span>
+                    <span class="tm-pending-pair">
+                      <img v-if="group.hasBbox && group.targetUrl" :src="group.targetUrl" :alt="'疑似 ' + (index + 1) + ' 目标裁剪'" loading="lazy" />
+                      <img v-if="group.fullUrl" :src="group.fullUrl" :alt="'疑似 ' + (index + 1) + ' 完整帧'" loading="lazy" />
+                    </span>
+                    <span class="tm-pending-note">{{ group.hasBbox ? '目标裁剪 + 完整帧' : '无目标框，仅完整帧' }}</span>
+                  </button>
+                </div>
+                <p v-else class="tm-hint">该设备有 {{ camera.pendingCount }} 条待核查候选，但当前详情没有可展开的目标卡。</p>
+                <p class="tm-hint">候选目标｜身份未确认；图片只用于核对，不构成身份确认，也不升级为正式 L2。</p>
+              </div>
             </li>
           </ul>
 
@@ -742,6 +970,43 @@ watch(() => view.value?.targetId, () => closeDetail());
         </template>
       </div>
     </section>
+
+    <div
+      v-if="evidencePreview.length"
+      class="tm-preview-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="待核查证据大图"
+      @click.self="closeEvidencePreview"
+    >
+      <div class="tm-preview">
+        <header class="tm-preview-head">
+          <div>
+            <h3>{{ evidencePreview[0].cameraLabel }} · 待核查目标</h3>
+            <p>共 {{ evidencePreview.length }} 组 · 目标裁剪与完整帧来自各自的候选记录</p>
+          </div>
+          <button class="tm-close" aria-label="关闭大图" @click="closeEvidencePreview"><AppIcon name="close" :size="14" /></button>
+        </header>
+        <div class="tm-preview-groups" :class="{ 'is-single': evidencePreview.length === 1 }">
+          <article v-for="(group, index) in evidencePreview" :key="group.key" class="tm-preview-group">
+            <p class="tm-preview-group-title">疑似 {{ index + 1 }} · {{ group.identity }}<span v-if="!group.hasBbox"> · 无目标框</span></p>
+            <div class="tm-preview-grid">
+              <figure v-if="group.hasBbox && group.targetUrl">
+                <img :src="group.targetUrl" alt="目标截取大图" />
+                <figcaption>目标截取大图（按已保存框裁剪，外扩 8%）</figcaption>
+              </figure>
+              <figure v-if="group.fullUrl">
+                <img :src="group.fullUrl" alt="完整大图" />
+                <figcaption>完整摄像头大图</figcaption>
+              </figure>
+            </div>
+          </article>
+        </div>
+        <p class="tm-hint">
+          候选目标｜身份未确认｜空间位置为实验估计 · 非正式 L2。图片只用于人工核查来源，不改变身份或空间等级。
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -751,7 +1016,8 @@ watch(() => view.value?.targetId, () => closeDetail());
   display: flex;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  /* 详情抽屉可以越过右栏覆盖地图，不能被右栏裁掉。 */
+  overflow: visible;
 }
 
 .tm-scroll {
@@ -762,28 +1028,25 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 .tm-summary {
-  display: flex;
-  gap: 5px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px 0 4px;
 }
-
-.tm-summary::-webkit-scrollbar { display: none; }
 
 .tm-filter {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 8px 7px;
+  min-height: 27px;
+  padding: 4px 6px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 6px;
   background: #0d141c;
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -805,11 +1068,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-filter.is-active b { color: #fff; }
 
 .tm-filter-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-3);
+  display: none;
 }
 
 .tm-filter[data-tone="ok"] .tm-filter-dot { background: var(--ok); }
@@ -965,10 +1224,15 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-card.is-open { border-color: var(--accent-line); }
 
 .tm-card-layout {
-  display: flex;
-  align-items: flex-start;
+  display: block;
   gap: 10px;
   min-width: 0;
+}
+
+.tm-card-layout.has-thumbs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 34%);
+  align-items: stretch;
 }
 
 .tm-card-content {
@@ -980,18 +1244,18 @@ watch(() => view.value?.targetId, () => closeDetail());
 
 .tm-thumbs {
   position: relative;
-  flex: 0 0 64px;
-  width: 64px;
-  height: 48px;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
   margin-top: 1px;
 }
 
 .tm-thumb {
   position: absolute;
-  top: calc(var(--i, 0) * 3px);
-  right: calc(var(--i, 0) * 3px);
-  width: 58px;
-  height: 41px;
+  top: calc(var(--i, 0) * 4px);
+  right: calc(var(--i, 0) * 4px);
+  width: calc(100% - var(--i, 0) * 4px);
+  height: calc(100% - var(--i, 0) * 4px);
   border: 1px solid #2a3745;
   border-radius: 5px;
   background: #0a1017;
@@ -1092,21 +1356,6 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 .tm-region-count { flex: none; color: var(--text-3); white-space: nowrap; }
-
-.tm-progress {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-3) 20%, transparent);
-}
-
-.tm-progress > i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 0.25s ease;
-}
 
 .tm-cam-list {
   display: grid;
@@ -1209,7 +1458,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-card-foot {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 2px;
   padding-top: 8px;
@@ -1231,6 +1480,21 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 .tm-detail-btn:hover { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+.tm-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--ok) 42%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+  color: var(--ok);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tm-locate-btn:hover { border-color: color-mix(in srgb, var(--ok) 72%, transparent); background: color-mix(in srgb, var(--ok) 15%, transparent); }
 
 .tm-time-hint { margin: -2px 0 0; color: var(--text-3); font-size: 10px; }
 
@@ -1266,11 +1530,135 @@ watch(() => view.value?.targetId, () => closeDetail());
   z-index: 15;
   display: flex;
   flex-direction: column;
-  width: min(100%, 420px);
+  max-width: calc(100vw - 24px);
   border-left: 1px solid var(--line-3);
   background: #0a1017;
   box-shadow: -12px 0 28px rgba(0, 0, 0, 0.38);
 }
+
+.tm-drawer-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  z-index: 2;
+  width: 7px;
+  cursor: col-resize;
+}
+.tm-drawer-resize:hover,
+.tm-drawer-resize:focus-visible { background: color-mix(in srgb, var(--accent) 45%, transparent); outline: none; }
+
+.tm-region-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 9px; }
+.tm-count { padding: 2px 7px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: 10.5px; }
+.tm-count b { margin-left: 2px; color: var(--text-0); }
+.tm-count--done { border-color: color-mix(in srgb, var(--ok) 42%, transparent); color: var(--ok); }
+.tm-count--running { border-color: color-mix(in srgb, var(--accent) 42%, transparent); color: var(--accent); }
+.tm-count--pending { border-color: color-mix(in srgb, var(--warn) 45%, transparent); color: var(--warn); }
+
+.tm-pill[data-state="pending"] { border-color: color-mix(in srgb, var(--warn) 45%, transparent); color: var(--warn); }
+.tm-pill[data-state="running"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+.tm-pill[data-state="done"] { border-color: color-mix(in srgb, var(--ok) 38%, transparent); color: var(--ok); }
+
+.tm-analysis-plus {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 9.5px;
+}
+
+.tm-cam-shot { margin: 6px 0 0; }
+.tm-cam-shot img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: #000;
+}
+.tm-cam-shot figcaption { margin-top: 3px; color: var(--text-3); font-size: 9.5px; line-height: 1.4; }
+
+.tm-pending { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line-2); }
+.tm-pending-title { margin: 0 0 5px; color: var(--warn); font-size: 10.5px; }
+.tm-pending-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+  color: var(--text-1);
+  text-align: left;
+  font-size: 11px;
+}
+.tm-pending-entry-sub { color: var(--text-3); font-size: 9.5px; }
+.tm-pending-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.tm-pending-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: #0a1017;
+  color: var(--text-2);
+  text-align: left;
+}
+.tm-pending-group:hover { border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.tm-pending-label { overflow: hidden; color: var(--warn); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.tm-pending-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.tm-pending-pair img { width: 100%; height: 62px; object-fit: contain; border-radius: 3px; background: #000; }
+.tm-pending-note { color: var(--text-3); font-size: 9px; }
+
+.tm-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(3, 7, 12, 0.78);
+}
+.tm-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(1100px, 94vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--line-3);
+  border-radius: 9px;
+  background: #0a1017;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
+}
+.tm-preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tm-preview-head h3 { margin: 0; color: var(--text-0); font-size: 14px; }
+.tm-preview-head p { margin: 3px 0 0; color: var(--text-3); font-size: 10.5px; }
+.tm-preview-groups { display: grid; gap: 12px; }
+.tm-preview-group { display: grid; gap: 5px; }
+.tm-preview-group + .tm-preview-group { padding-top: 11px; border-top: 1px dashed var(--line-2); }
+.tm-preview-group-title { margin: 0; color: var(--warn); font-size: 10.5px; }
+.tm-preview-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.8fr); gap: 8px; }
+.tm-preview-grid figure { margin: 0; }
+.tm-preview-grid img {
+  display: block;
+  width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: #000;
+}
+.tm-preview-groups:not(.is-single) .tm-preview-grid img { max-height: 32vh; }
+.tm-preview-grid figcaption { margin-top: 3px; color: var(--text-3); font-size: 10px; }
 
 .tm-drawer-head {
   display: flex;

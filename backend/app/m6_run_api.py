@@ -5,14 +5,19 @@ worker loop. No request field can set a candidate to confirmed.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from pathlib import Path
+
+import cv2
+import numpy as np
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app import m6_run_service as service
 from app.m6_run_service import TrackingRunError
-from app.models import TrackingCandidateReview
+from app.models import TrackingCandidate, TrackingCandidateReview
 from app.recording_api import fail
 
 router = APIRouter(prefix='/api/v1')
@@ -74,6 +79,55 @@ def _review_out(row) -> dict:
     }
 
 
+def _inside_storage(path: Path) -> bool:
+    root = Path(settings.storage_root).resolve()
+    try:
+        path.resolve().relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _first_frame(run_dir: Path, refs: list, frame_no) -> Path | None:
+    """Resolve old and new evidence refs without inventing a frame.
+
+    New runs store tracking_runs/<run>/w_<camera>_<start>/0001.jpg.
+    Older rows lost the w_... component, so a unique basename match inside
+    the run directory is the only safe fallback.
+    """
+    root = Path(settings.storage_root)
+    if frame_no is not None:
+        try:
+            number = int(frame_no)
+        except (TypeError, ValueError):
+            number = None
+        if number is not None:
+            for name in ('%04d.jpg' % (number + 1), '%04d.jpg' % number,
+                         '%04d.jpeg' % (number + 1), '%04d.png' % (number + 1)):
+                matches = [p for p in run_dir.rglob(name) if p.is_file()] if run_dir.is_dir() else []
+                if len(matches) == 1:
+                    return matches[0]
+    for ref in refs:
+        raw = str(ref or '').replace('\\', '/').lstrip('/')
+        if not raw:
+            continue
+        direct = root / raw
+        if _inside_storage(direct) and direct.is_file():
+            return direct
+        base = Path(raw).name
+        matches = [p for p in run_dir.rglob(base) if p.is_file()] if run_dir.is_dir() else []
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
+
+def _bbox_from(*values) -> list[int] | None:
+    for value in values:
+        if (isinstance(value, list) and len(value) == 4
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value)):
+            return [int(round(float(v))) for v in value]
+    return None
+
 @router.get('/cases/{case_id}/tracking-cameras')
 def list_tracking_cameras(case_id: str, db: Session = Depends(get_db)):
     return _guard(service.list_tracking_cameras, db, case_id)
@@ -109,6 +163,74 @@ def list_tracking_candidates(case_id: str, run_id: str, db: Session = Depends(ge
     return [{**_candidate_out(r),
              'visual_review': (_visual_review_out(reviews[r.id]) if r.id in reviews else None)}
             for r in rows]
+
+
+@router.get('/cases/{case_id}/tracking-runs/{run_id}/candidates/{candidate_id}/evidence/image')
+def get_candidate_evidence_image(case_id: str, run_id: str, candidate_id: str,
+                                 authorized: bool = False,
+                                 kind: str = Query('full', pattern='^(full|crop)$'),
+                                 db: Session = Depends(get_db)):
+    """Serve one saved candidate frame, optionally cropped by the reviewed box.
+
+    This is a read-only evidence view inside the case. It never creates an
+    observation or changes identity_status; a crop is only returned when a
+    reproducible bbox exists in details_json or the latest visual review.
+    """
+    if not authorized:
+        fail(422, 'evidence-authorization-required', '请确认已获授权使用该案件证据画面。')
+    run = _guard(service.get_run, db, case_id, run_id)
+    candidate = db.get(TrackingCandidate, candidate_id)
+    if candidate is None or candidate.run_id != run.id:
+        fail(404, 'candidate_not_found', '该追踪任务下没有这个候选。')
+    details = candidate.details_json or {}
+    review = db.scalars(select(TrackingCandidateReview)
+                        .where(TrackingCandidateReview.candidate_id == candidate.id)
+                        .order_by(TrackingCandidateReview.created_at.desc())).first()
+    review_json = (review.review_json or {}) if review is not None else {}
+    frame_no = details.get('frame_no')
+    if frame_no is None:
+        frame_no = review_json.get('frame_no')
+    refs = list(candidate.evidence_refs or [])
+    if details.get('evidence_ref'):
+        refs.append(details['evidence_ref'])
+    run_dir = Path(settings.storage_root) / 'tracking_runs' / run.id
+    path = _first_frame(run_dir, refs, frame_no)
+    if path is None:
+        fail(404, 'candidate-evidence-missing', '该候选没有可读取的证据帧。')
+    if kind == 'full':
+        suffix = path.suffix.lower()
+        media = 'image/png' if suffix == '.png' else 'image/jpeg'
+        headers = {'Cache-Control': 'private, max-age=60',
+                   'X-Evidence-Kind': 'full'}
+        if frame_no is not None:
+            headers['X-Evidence-Frame'] = str(frame_no)
+        return Response(path.read_bytes(), media_type=media, headers=headers)
+
+    bbox = _bbox_from(details.get('bbox_pixels'), details.get('bbox'),
+                      review_json.get('bbox_pixels'), review_json.get('target_bbox_pixels'))
+    if bbox is None:
+        fail(409, 'candidate-crop-bbox-missing',
+             '该候选没有可复现的目标框，无法裁剪；请查看完整帧。')
+    frame = cv2.imdecode(np.frombuffer(path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+    if frame is None:
+        fail(409, 'candidate-evidence-decode-failed', '证据帧无法解码。')
+    height, width = frame.shape[:2]
+    x1, y1, x2, y2 = bbox
+    pad = max(4, int(max(x2 - x1, y2 - y1) * 0.08))
+    x1, y1 = max(0, min(x1, x2) - pad), max(0, min(y1, y2) - pad)
+    x2, y2 = min(width, max(bbox[0], bbox[2]) + pad), min(height, max(bbox[1], bbox[3]) + pad)
+    if x2 <= x1 or y2 <= y1:
+        fail(409, 'candidate-crop-outside-frame', '目标框不在证据帧范围内。')
+    crop = frame[y1:y2, x1:x2]
+    ok, encoded = cv2.imencode('.jpg', crop, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+    if not ok:
+        fail(409, 'candidate-crop-encode-failed', '目标裁剪图生成失败。')
+    headers = {'Cache-Control': 'private, max-age=60',
+               'X-Evidence-Kind': 'crop',
+               'X-Evidence-Bbox': '%d,%d,%d,%d' % (x1, y1, x2, y2)}
+    if frame_no is not None:
+        headers['X-Evidence-Frame'] = str(frame_no)
+    return Response(encoded.tobytes(), media_type='image/jpeg', headers=headers)
 
 
 @router.get('/cases/{case_id}/tracking-runs/{run_id}/windows')
