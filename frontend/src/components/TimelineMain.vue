@@ -491,7 +491,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 
       <div v-if="demoCards.length" class="tm-demo-banner">
         <AppIcon name="info" :size="13" />
-        <span>演示：{{ demoCards.length }} 张“已确认轨迹”为界面样例，使用真实录像关键帧，但身份未经真实审核，不能作为证据。</span>
+        <span>演示：{{ demoCards.length }} 张“已确认轨迹”为界面样例（轨迹段与帧数为示意），使用真实录像关键帧；身份未经真实审核，不能作为证据。</span>
       </div>
 
       <div class="tm-nav tm-nav--earlier">
@@ -623,7 +623,7 @@ watch(() => view.value?.targetId, () => closeDetail());
       <div class="tm-drawer-body">
         <template v-if="detailCard.kind === 'confirmed_track'">
           <p v-if="isDemoCard(detailCard)" class="tm-demo-note">
-            演示样本：这张卡只用于验收卡片与详情结构，身份未经真实审核，轨迹与空间位置都不能作为证据。
+            演示样本：这张卡只用于验收卡片与详情结构，轨迹段与帧数为示意；身份未经真实审核，轨迹与空间位置都不能作为证据。
           </p>
           <p class="tm-kv"><span>轨迹段</span>{{ detailTechCards.length }} 段 · {{ confirmedFrameTotal(detailCard) }} 帧</p>
           <p class="tm-kv"><span>身份</span>身份已确认（审核结论）；空间位置仍需单独 L2 审核</p>
