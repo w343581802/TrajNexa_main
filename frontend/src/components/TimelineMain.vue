@@ -60,8 +60,22 @@ function loadModalWidth(): number {
 const modalWidth = ref(loadModalWidth());
 const modalExpanded = ref(false);
 const modalWidthBeforeExpand = ref(modalWidth.value);
-/** 拖动右边缘时鼠标会跑到遮罩上，pointerup 后的 click 不能当成“点遮罩关闭”。 */
-let modalResizedAt = 0;
+type ModalPos = { left: number; top: number };
+/** null = 靠右边缘停靠；有值时是用户拖动后的自由位置。 */
+const modalPos = ref<ModalPos | null>(null);
+const modalDragging = ref(false);
+const modalEl = ref<HTMLElement | null>(null);
+let stopModalDrag: (() => void) | null = null;
+
+const modalStyle = computed(() => {
+  if (!modalPos.value) return { width: modalWidth.value + "px" };
+  return {
+    width: modalWidth.value + "px",
+    left: modalPos.value.left + "px",
+    top: modalPos.value.top + "px",
+    right: "auto",
+  };
+});
 
 type RegionTab = "all" | "done" | "running" | "pending";
 const regionTab = ref<RegionTab>("all");
@@ -501,18 +515,68 @@ function setModalWidth(value: number): void {
 function beginModalResize(event: PointerEvent): void {
   const startX = event.clientX;
   const startWidth = modalWidth.value;
+  const startLeft = modalPos.value?.left ?? null;
   modalExpanded.value = false;
-  const move = (next: PointerEvent) => setModalWidth(startWidth + (next.clientX - startX));
+  const move = (next: PointerEvent) => {
+    // 左缘拖动：右缘保持不动，宽度增加时自由面板的 left 相应左移。
+    setModalWidth(startWidth - (next.clientX - startX));
+    if (startLeft !== null) {
+      modalPos.value = { left: startLeft + (startWidth - modalWidth.value), top: modalPos.value?.top ?? 0 };
+    }
+  };
   const stop = () => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", stop);
     document.body.style.userSelect = "";
-    modalResizedAt = Date.now();
     saveModalWidth();
   };
   document.body.style.userSelect = "none";
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", stop);
+}
+
+function beginModalDrag(event: PointerEvent): void {
+  if (event.button !== 0) return;
+  if ((event.target as HTMLElement).closest("button, a, input")) return;
+  const el = modalEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  let moved = false;
+  const headerH = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--header-h")) || 52;
+  const move = (next: PointerEvent) => {
+    if (!moved && Math.hypot(next.clientX - startX, next.clientY - startY) < 4) return;
+    moved = true;
+    modalDragging.value = true;
+    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxTop = Math.max(headerH + 8, window.innerHeight - 64);
+    modalPos.value = {
+      left: Math.min(maxLeft, Math.max(8, rect.left + next.clientX - startX)),
+      top: Math.min(maxTop, Math.max(headerH + 8, rect.top + next.clientY - startY)),
+    };
+  };
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    document.body.style.userSelect = "";
+    modalDragging.value = false;
+    stopModalDrag = null;
+    // 拖动后不要误触标题栏里的单击操作。
+    if (moved) event.preventDefault();
+  };
+  stopModalDrag?.();
+  stopModalDrag = stop;
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+}
+
+function restoreModalDock(): void {
+  modalPos.value = null;
+  modalExpanded.value = false;
+  setModalWidth(720);
+  saveModalWidth();
 }
 
 function nudgeModalWidth(delta: number): void {
@@ -526,12 +590,6 @@ function resetModalWidth(): void {
   saveModalWidth();
 }
 
-function onModalBackdropClick(): void {
-  // 拖宽结束时 pointerup 可能落在遮罩上；刚拖过就忽略这次 click。
-  if (Date.now() - modalResizedAt < 300) return;
-  closeDetail();
-}
-
 function toggleModalExpand(): void {
   if (modalExpanded.value) {
     modalWidth.value = modalWidthBeforeExpand.value;
@@ -539,7 +597,9 @@ function toggleModalExpand(): void {
     return;
   }
   modalWidthBeforeExpand.value = modalWidth.value;
-  modalWidth.value = Math.min(MODAL_MAX, Math.max(MODAL_MIN, window.innerWidth - 32));
+  const rail = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rail-w")) || 460;
+  modalPos.value = null;
+  modalWidth.value = Math.min(MODAL_MAX, Math.max(MODAL_MIN, window.innerWidth - rail - 28));
   modalExpanded.value = true;
 }
 
@@ -617,7 +677,13 @@ function syncDrawerTop(): void {
 /** 抽屉/大图打开时通知栏级拖拽把手让位，避免在弹层里误拉时间线宽度。 */
 watch(detailCard, (card) => {
   document.body.classList.toggle("tm-drawer-open", Boolean(card));
-  if (card) syncDrawerTop();
+  if (card) {
+    syncDrawerTop();
+    if (card.kind === "region_investigation") {
+      modalPos.value = null;
+      modalDragging.value = false;
+    }
+  }
 }, { immediate: true });
 
 watch(evidencePreview, (groups) => {
@@ -627,6 +693,7 @@ watch(evidencePreview, (groups) => {
 onMounted(() => window.addEventListener("resize", syncDrawerTop));
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncDrawerTop);
+  stopModalDrag?.();
   document.body.classList.remove("tm-drawer-open", "tm-preview-open");
 });
 
@@ -794,6 +861,8 @@ function closeDetail(): void {
   playbackUrl.value = null;
   frameDims.value = {};
   modalExpanded.value = false;
+  modalPos.value = null;
+  modalDragging.value = false;
 }
 
 function focusCandidate(card: TimelineCard): void {
@@ -997,15 +1066,15 @@ watch(() => view.value?.targetId, () => closeDetail());
     <Teleport to="body">
       <div
         v-if="detailCard && detailCard.kind === 'region_investigation'"
-        class="rd-backdrop"
-        role="dialog"
-        aria-modal="true"
-        aria-label="区域排查详情"
-        @click.self="onModalBackdropClick"
+        class="rd-layer"
       >
         <section
+          ref="modalEl"
           class="rd-modal"
-          :style="{ width: modalWidth + 'px' }"
+          :class="{ 'is-dragging': modalDragging, 'is-docked': !modalPos }"
+          :style="modalStyle"
+          role="dialog"
+          aria-label="区域排查详情"
         >
           <button
             class="rd-resize"
@@ -1020,7 +1089,7 @@ watch(() => view.value?.targetId, () => closeDetail());
             @keydown.right.prevent="nudgeModalWidth(24)"
           />
 
-          <header class="rd-head">
+          <header class="rd-head" @pointerdown="beginModalDrag">
             <div class="rd-head-main">
               <span class="rd-head-icon"><AppIcon name="camera" :size="19" /></span>
               <div class="rd-head-text">
@@ -1034,7 +1103,11 @@ watch(() => view.value?.targetId, () => closeDetail());
               </div>
             </div>
             <div class="rd-head-actions">
-              <button class="rd-icon-btn" :title="modalExpanded ? '恢复原宽度' : '展开到窗口宽度'" @click="toggleModalExpand">
+              <button class="rd-restore" title="复原到右侧默认停靠位置" @click="restoreModalDock">
+                <AppIcon name="refresh" :size="13" />
+                <span>复原</span>
+              </button>
+              <button class="rd-icon-btn" :title="modalExpanded ? '恢复原宽度' : '展开到地图宽度'" @click="toggleModalExpand">
                 <AppIcon name="scan" :size="15" />
               </button>
               <button class="rd-icon-btn" aria-label="关闭详情" @click="closeDetail">
@@ -2096,39 +2169,37 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-video { width: 100%; max-height: 220px; border-radius: 6px; background: #000; }
 .tm-empty-text { color: var(--text-3); font-size: 11.5px; }
 
-/* 区域排查详情：居中窗口，宽度可拖动并记住上次位置。 */
-.rd-backdrop {
+/* 区域排查详情：默认贴靠地图右缘；标题栏可整体拖动，左缘可调宽。 */
+.rd-layer {
   position: fixed;
   inset: 0;
   z-index: 950;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(3, 7, 12, 0.72);
-  backdrop-filter: blur(2px);
+  pointer-events: none;
 }
 
 .rd-modal {
-  position: relative;
+  position: fixed;
+  top: calc(var(--header-h) + 32px);
+  right: calc(var(--rail-w) + 12px);
   display: flex;
   flex-direction: column;
   width: 720px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-width: calc(100vw - var(--rail-w) - 28px);
+  max-height: calc(100vh - var(--header-h) - 44px);
   min-height: 380px;
   overflow: hidden;
   border: 1px solid var(--line-3);
   border-radius: 14px;
   background: linear-gradient(180deg, #0e1620, #0a1017 36%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
 }
 
 .rd-resize {
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
+  left: 0;
   z-index: 5;
   width: 8px;
   cursor: ew-resize;
@@ -2146,7 +2217,12 @@ watch(() => view.value?.targetId, () => closeDetail());
   padding: 15px 18px 12px;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--accent) 4%, #0c141d);
+  cursor: grab;
+  user-select: none;
 }
+.rd-modal.is-dragging .rd-head { cursor: grabbing; }
+.rd-head-actions,
+.rd-head button { cursor: pointer; }
 .rd-head-main { display: flex; flex: 1; gap: 11px; min-width: 0; }
 .rd-head-icon {
   display: grid;
@@ -2166,7 +2242,25 @@ watch(() => view.value?.targetId, () => closeDetail());
 .rd-sub { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--text-2); font-size: 11.5px; }
 .rd-sub span { display: inline-flex; align-items: center; gap: 4px; }
 .rd-duration { color: var(--text-3); }
-.rd-head-actions { display: flex; gap: 3px; }
+.rd-head-actions { display: flex; align-items: center; gap: 3px; }
+.rd-restore {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: #111a24;
+  color: var(--text-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rd-restore:hover {
+  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--accent) 16%, #111a24);
+  color: var(--text-0);
+}
 .rd-icon-btn {
   display: grid;
   place-items: center;
