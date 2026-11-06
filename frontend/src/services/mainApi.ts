@@ -42,8 +42,11 @@ export type M5ImageModel = {
   conf_threshold?: number | null; iou_threshold?: number | null;
   /** 支持类别（检测器标签表）；界面编辑时按英文逗号拼接 */
   labels?: string[];
+  status?: "unavailable";
+  error_code?: string;
 };
-export type M5ImageModels = { enabled: boolean; models: M5ImageModel[] };
+export type M5ImageModels = { enabled: boolean; models: M5ImageModel[];
+  unavailable_models?: M5ImageModel[] };
 export type M5VisionModel = {
   id: string; name: string; provider: string; location?: "local" | "remote";
   model_id: string; enabled: boolean; default_for_roi: boolean;
