@@ -8,7 +8,7 @@ import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
-import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
+import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, clipVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
@@ -462,7 +462,25 @@ const targetTrackMeta = ref<{ identity_status: string; playback: Record<string, 
 const targetTrackSummary = ref<{ segments: number; projected: number; degraded: number } | null>(null);
 const targetTrackError = ref("");
 const targetFrameSize = ref<{ w: number; h: number } | null>(null);
-const evidenceView = ref<{ url: string; box: number[]; label: string; meta: string } | null>(null);
+const evidenceView = ref<{ url: string; videoUrl: string; offset: number; box: number[]; label: string; meta: string } | null>(null);
+const evidenceVideo = ref<HTMLVideoElement | null>(null);
+const ambiguousProbe = ref(false);
+
+const evidenceTime = ref(0);
+const evidenceNearOffset = computed(() => {
+  const target = evidenceView.value;
+  return !!target && Math.abs(evidenceTime.value - target.offset) <= 1.5;
+});
+
+function trackEvidenceTime() {
+  const element = evidenceVideo.value;
+  if (element) evidenceTime.value = element.currentTime;
+}
+function seekEvidenceVideo() {
+  const element = evidenceVideo.value;
+  if (!element || !evidenceView.value) return;
+  element.currentTime = Math.max(0, evidenceView.value.offset - 0.5);
+}
 const evidenceBoxStyle = computed(() => {
   const box = evidenceView.value?.box ?? [0, 0, 0, 0];
   const size = targetFrameSize.value;
@@ -479,7 +497,7 @@ async function loadTargetTrack() {
   evidenceView.value = null;
   if (!layers.targetTrack) return;
   try {
-    const report = await getTargetTrackSample();
+    const report = await getTargetTrackSample(ambiguousProbe.value ? "ambiguity-probe" : undefined);
     if (!layers.targetTrack) return;
     targetTrack.value = report.segments;
     targetTrackSummary.value = report.summary;
@@ -498,8 +516,11 @@ function openEvidence(point: TargetTrackPoint, trackId: string) {
     targetTrackError.value = "evidence_missing_time_basis";
     return;
   }
+  const videoUrl = clipVideoUrl(caseId, clipId);
   evidenceView.value = {
     url: keyframeUrl(caseId, clipId, offset),
+    videoUrl,
+    offset,
     box: (point.box as number[]) ?? [0, 0, 0, 0],
     label: `${trackId} · t=${point.t ?? "?"}s · frame ${point.frame ?? "?"}`,
     meta: `身份：候选未确认 · 空间：实验估计 · 接触点 ${point.contact_quality ?? "?"} · 偏移 ${offset.toFixed(2)}s · 时间源 ${String(targetTrackMeta.value?.playback?.time_quality ?? "unknown")}`,
@@ -765,6 +786,8 @@ function focusAnchor() {
       <span>目标轨迹：{{ targetTrackSummary?.projected ?? 0 }} 点 · {{ targetTrackSummary?.segments ?? 0 }} 段 · 身份 {{ targetTrackMeta?.identity_status ?? "-" }}</span>
       <em v-if="targetTrackError">{{ targetTrackError }}</em>
       <em>候选目标｜身份未确认｜空间为实验估计 · 非正式 L2</em>
+      <em v-if="targetTrackMeta?.identity_status === 'ambiguous'">身份歧义：存在接近的竞争轨迹，不自动确认目标分支</em>
+      <em v-if="ambiguousProbe">当前为歧义演示探针（synthetic，不得用于结论）</em>
     </div>
 
     <div v-if="evidenceView" class="evidence-panel">
@@ -776,6 +799,18 @@ function focusAnchor() {
         <div class="evidence-frame">
           <img :src="evidenceView.url" alt="录像关键帧" />
           <div class="evidence-box" :style="evidenceBoxStyle"></div>
+        </div>
+        <div class="evidence-video-wrap">
+        <video
+          ref="evidenceVideo"
+          class="evidence-video"
+          :src="evidenceView.videoUrl"
+          controls
+          preload="metadata"
+          @loadedmetadata="seekEvidenceVideo"
+          @timeupdate="trackEvidenceTime"
+        ></video>
+          <div v-show="evidenceNearOffset" class="evidence-box" :style="evidenceBoxStyle"></div>
         </div>
         <p class="evidence-meta">{{ evidenceView.meta }}</p>
         <p class="evidence-note">关键帧按请求偏移解码（PTS 未独立核验）；身份结论与空间质量相互独立。</p>
@@ -862,6 +897,7 @@ function focusAnchor() {
         <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
         <label class="legend-toggle"><input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em></label>
         <label class="legend-toggle"><input v-model="layers.targetTrack" type="checkbox" /><span>目标轨迹（实验估计）</span><em>{{ targetTrack.reduce((n, s) => n + s.points.length, 0) }}</em></label>
+        <label class="legend-toggle"><input v-model="ambiguousProbe" type="checkbox" /><span>歧义演示探针</span></label>
       </label>
       <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
     </div>
@@ -1372,6 +1408,8 @@ function focusAnchor() {
 .evidence-frame { position: relative; width: 100%; }
 .evidence-frame img { width: 100%; display: block; border-radius: 4px; }
 .evidence-box { position: absolute; border: 2px solid #22d3ee; box-shadow: 0 0 0 9999px rgba(0,0,0,0.18) inset; pointer-events: none; }
+.evidence-video-wrap { position: relative; margin-top: 8px; }
+.evidence-video { width: 100%; display: block; }
 .evidence-meta { font-size: 11.5px; color: #b6c6d6; margin: 8px 0 4px; }
 .evidence-note { font-size: 10.5px; color: #7b8b9c; margin: 0; }
 .map-target-chip { top: 172px; color: #a5f3fc; border-color: #164e63; }

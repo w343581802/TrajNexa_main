@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app import m6_target_binding
 
@@ -12,11 +12,21 @@ SAMPLE_PATH = Path(__file__).resolve().parent.parent / "data" / "tb_samples" / "
 
 
 @router.get("/target-track/sample")
-def target_track_sample() -> dict:
+def target_track_sample(variant: str = Query("bound")) -> dict:
     """从定向追踪候选片段里，按 anchor 绑定一条目标轨迹并投影为实验估计点。"""
     if not SAMPLE_PATH.exists():
         raise HTTPException(status_code=404, detail="target_sample_unavailable")
     payload = json.loads(SAMPLE_PATH.read_text(encoding="utf-8"))
+    synthetic = False
+    if variant == "ambiguity-probe":
+        # 只为演示歧义呈现：把同一条轨迹复制一份并微移 1px，IoU 几乎相同。
+        # 这不是真实候选，响应里标 synthetic=true，不得用于任何结论。
+        probe = json.loads(json.dumps(payload["tracklets"][0]))
+        probe["track_id"] = probe["track_id"] + "-probe"
+        for frame in probe["frames"]:
+            frame["box"] = [v + 1.0 for v in frame["box"]]
+        payload["tracklets"] = payload["tracklets"] + [probe]
+        synthetic = True
     report = m6_target_binding.build_track(
         payload["anchor"], payload["tracklets"], payload["camera"], kind="person",
         evidence={"clip": payload["clip"], "fps": payload["fps"],
@@ -32,4 +42,6 @@ def target_track_sample() -> dict:
                         ("clip", "fps", "width", "height", "window_start", "window_end", "method",
                          "clip_id", "case_id", "clip_start_local")}
     report["anchor"] = payload["anchor"]
+    report["synthetic"] = synthetic
+    report["variant"] = variant
     return report

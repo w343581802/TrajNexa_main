@@ -1079,17 +1079,25 @@ export interface TargetTrackPoint extends ExperimentalProjectionRow {
 export interface TargetTrackSegment {
   track_id: string; continuity_status: string; break_reason: string; points: TargetTrackPoint[];
 }
-export async function getTargetTrackSample(): Promise<{
+export async function getTargetTrackSample(variant?: string): Promise<{
   identity_status: string; persisted: boolean; segments: TargetTrackSegment[];
   bind_evidence: Record<string, unknown> | null;
+  synthetic?: boolean;
+  variant?: string;
   playback: { clip_id?: string; case_id?: string; start_of_day_seconds?: number; time_quality?: string; time_note?: string };
   sample: Record<string, unknown>;
   summary: { segments: number; projected: number; degraded: number };
 }> {
-  const response = await fetch(`${BASE}/target-track/sample`);
+  const suffix = variant ? `?variant=${encodeURIComponent(variant)}` : "";
+  const response = await fetch(`${BASE}/target-track/sample${suffix}`);
   if (!response.ok) throw new Error(`target_track_sample_${response.status}`);
   return await response.json();
 }
 export function keyframeUrl(caseId: string, clipId: string, offsetSeconds: number): string {
   return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/keyframes/image?authorized=true&offset_seconds=${offsetSeconds}`;
+}
+
+/** TB4：受案件约束的片段读取（HTTP Range），用于播放器按偏移跳转。 */
+export function clipVideoUrl(caseId: string, clipId: string): string {
+  return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/video`;
 }
