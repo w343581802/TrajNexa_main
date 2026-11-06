@@ -227,6 +227,20 @@ def reload() -> None:
     _load_all(force=True)
 
 
+def warmup() -> None:
+    """后台预热全部检测器：首次打开模型页不必等 torch 逐个加载。
+
+    RF-DETR 的权重加载在 CPU 上要几十秒，而 `/ai/image-models` 打开模型管理页就会调用；
+    不预热时第一次请求会被阻塞一分多钟，看起来像页面卡死。预热失败不影响启动，
+    下一次请求仍会自己加载（错误照旧走 unavailable_models）。
+    """
+    try:
+        loaded = _load_all()
+        logger.info("detector warmup done: %s", ", ".join(sorted(loaded)) or "(none)")
+    except Exception:  # noqa: BLE001 - 预热只是提速，不能影响服务启动
+        logger.warning("detector warmup failed", exc_info=True)
+
+
 def enabled() -> bool:
     return config_path().is_file()
 

@@ -1,0 +1,11 @@
+# 本机附加覆盖：让 Worker 同时具备 OCR 与 RF-DETR 依赖。
+# 用法：
+#   docker compose -f compose.yaml -f compose.override.yaml \
+#     -f compose.rfdetr.yaml -f compose.worker-rfdetr.yaml up -d --build
+# 注意文件顺序：compose.rfdetr.yaml 会把 worker 指向 Dockerfile.rfdetr（丢掉 OCR），
+# 本文件必须写在它后面才能把 worker 指回 OCR+RF-DETR 组合镜像。
+services:
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ocr-rfdetr

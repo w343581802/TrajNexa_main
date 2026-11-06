@@ -102,6 +102,7 @@
 | [42_检测引擎移植.md](42_检测引擎移植.md) | 当前检测器引擎移植、配置和已知限制；已替代旧 HTTP sidecar 方案 |
 | [43_M6目标特征库_ReID_属性时空匹配与动态更新验证方案.md](43_M6目标特征库_ReID_属性时空匹配与动态更新验证方案.md) | **实施基线**：TargetProfile + ReID + 属性匹配 + 时空约束 + 动态特征更新的 P0–P3 验证方案、验收与可回滚机制 |
 | [44_M6小模型能力需求与目标追踪实施规划_V2.0.md](44_M6小模型能力需求与目标追踪实施规划_V2.0.md) | **当前执行计划**：C01–C10 能力需求 + YOLO26s/D-FINE + ByteTrack + OSNet 选型；T0–T2 脚本先行、Commit A–E、G1/G2 门；附录含 T0 真值进度与实测环境结论 |
+| [69_M5_RF-DETR三变体镜像构建与预热.md](69_M5_RF-DETR三变体镜像构建与预热.md) | RF-DETR Small/Medium/Large 的权重来源、CPU torch 与 `.dockerignore` 两个构建前提、OCR 组合 worker 镜像、启动预热与实测推理数据 |
 
 ## 说明
 

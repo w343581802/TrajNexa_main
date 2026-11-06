@@ -3,6 +3,9 @@ FROM python:3.12-slim
 WORKDIR /srv
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libglib2.0-0 libgl1 && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt requirements-track.txt requirements-rfdetr.txt ./
+# 检测器统一跑 CPU（detectors.json 里 device=cpu）。不预装 CPU 版 torch 的话，
+# pip 会按默认索引拉 CUDA 版 torch + cuda-toolkit + nvidia-* 运行时，多出数 GB。
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch torchvision
 RUN pip install --no-cache-dir -r requirements-rfdetr.txt \
     && pip install --no-cache-dir -r requirements-track.txt
 COPY . .

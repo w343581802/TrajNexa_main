@@ -2,7 +2,9 @@
 from hashlib import sha256
 from datetime import datetime
 from uuid import uuid4
+import logging
 import os
+import threading
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
@@ -13,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import Case, MediaAsset, AnalysisJob, InspectionReport, CameraBindingDecision, CameraViewReference, ViewComparisonRecord
 from app import case_service
+from app import detectors
 from app import recording_api
 from app import m4_api
 from app import m5_test_api
@@ -31,9 +34,27 @@ from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
 from app import map_db_spatial
 from app import map_db_gis
+from contextlib import asynccontextmanager
+
 from app.view_match import media_path, _decode_image, check_reference_view, ViewInputError
 
-app = FastAPI(title='TrajNexa Demo M0', version='0.1.0')
+# 应用内日志默认被 uvicorn 的 root WARNING 压掉；放开 app.* 的 INFO 才能看到
+# 检测器预热、模型加载这类一次性事件（第三方库仍保持 WARNING，避免刷屏）。
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("app").setLevel(logging.INFO)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # 后台预热检测器：RF-DETR 权重在 CPU 上加载要几十秒，而打开模型页就会请求
+    # /ai/image-models；不预热时首次请求会被阻塞一分多钟，看起来像页面卡死。
+    # 预热只是提速，失败不影响启动（真正的错误仍由 unavailable_models 报出）。
+    if os.environ.get('TRAJNEXA_DETECTOR_WARMUP', '1') != '0':
+        threading.Thread(target=detectors.warmup, name='detector-warmup', daemon=True).start()
+    yield
+
+
+app = FastAPI(title='TrajNexa Demo M0', version='0.1.0', lifespan=lifespan)
 # 录像资源：只读目录浏览 + 目录登记 + 扫描结果（见 app/recording_api.py）
 app.include_router(recording_api.router)
 app.include_router(m4_api.router)

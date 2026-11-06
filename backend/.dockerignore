@@ -1,0 +1,9 @@
+# 权重与运行期数据由 volume 挂进容器（compose.yaml: ./backend/models:/srv/models），
+# 不进镜像：否则每次构建都要传近 1GB，且镜像会被本地权重撑大。
+models/
+data/
+.pytest_cache/
+**/__pycache__/
+**/*.pyc
+.venv/
+storage/
