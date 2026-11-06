@@ -19,6 +19,7 @@ from app.engines.onnx_engine import OnnxEngine
 from app.engines.openvino_engine import OpenVinoEngine
 from app.engines.reid_onnx_engine import ReidOnnxEngine
 from app.engines.dfine_engine import DfineEngine
+from app.engines.rfdetr_engine import RfdetrEngine
 
 logger = logging.getLogger("analysis.engines.factory")
 
@@ -29,6 +30,7 @@ _ENGINE_REGISTRY = {
     "onnxruntime": OnnxEngine,
     "onnx": OnnxEngine,
     "openvino": OpenVinoEngine,
+    "rfdetr_pytorch": RfdetrEngine,
 }
 
 # 设备选项按引擎分组（供前端动态下拉使用）
@@ -44,6 +46,10 @@ _DEVICE_OPTIONS = {
     "openvino": [
         {"value": "cpu", "label": "CPU"},
         {"value": "gpu", "label": "GPU (Intel iGPU/dGPU)"},
+    ],
+    "rfdetr_pytorch": [
+        {"value": "cpu", "label": "CPU"},
+        {"value": "gpu", "label": "CUDA (GPU)"},
     ],
 }
 
@@ -89,6 +95,15 @@ class EngineFactory(object):
     def create(engine_name, **kwargs):
         task_type = (kwargs.get("task_type") or "detect").lower()
         algo_type = (kwargs.get("algorithm_type") or "yolo8").lower()
+        # RF-DETR Small：必须走官方 PyTorch 推理契约，不是 D-FINE 的 ONNX 输出格式。
+        if algo_type == "rfdetr":
+            if (engine_name or "").lower() != "rfdetr_pytorch" or task_type != "detect":
+                raise EngineNotAvailableError("RF-DETR 仅支持 rfdetr_pytorch / detect")
+            if not RfdetrEngine.is_available():
+                raise EngineNotAvailableError("rfdetr optional dependency not installed")
+            return RfdetrEngine(**kwargs)
+        if (engine_name or "").lower() == "rfdetr_pytorch":
+            raise EngineNotAvailableError("rfdetr_pytorch requires algorithm_type=rfdetr")
         # D-FINE：复用 onnxruntime / openvino 两个 Python 推理引擎名，按算法类型路由到专用引擎
         if algo_type == "dfine":
             eng = (engine_name or "").lower()
