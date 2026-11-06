@@ -64,7 +64,7 @@ function openFromQuery<T extends { id: string }>(models: T[]) {
 }
 
 type ImageForm = {
-  id: string; name: string; algorithm_type: string; task_type: string;
+  id: string; name: string; algorithm_type: string; model_variant: "small" | "medium" | "large"; task_type: string;
   engine: string; device: string; model_file: string; labels_file: string;
   /** 支持类别：英文逗号分隔，中文原样 */
   labels: string;
@@ -72,7 +72,7 @@ type ImageForm = {
   conf_threshold: number; iou_threshold: number;
 };
 function blankForm(): ImageForm {
-  return { id: "", name: "", algorithm_type: "yolo8", task_type: "detect",
+  return { id: "", name: "", algorithm_type: "yolo8", model_variant: "small", task_type: "detect",
     engine: "onnxruntime", device: "cpu", model_file: "",
     labels_file: "config/labels/coco80_zh.txt", labels: "",
     input_width: 640, input_height: 640,
@@ -97,6 +97,7 @@ function openEdit(model: M5ImageModel | M5VisionModel) {
   const row = model as M5ImageModel;
   form.value = { id: row.id, name: row.name,
     algorithm_type: row.algorithm_type || "yolo8",
+    model_variant: row.model_variant || "small",
     task_type: row.task_type || "detect", engine: row.engine,
     device: row.device || "cpu", model_file: "", labels_file: "",
     labels: (row.labels || []).join(","),
@@ -146,6 +147,7 @@ async function saveCreate() {
     const payload: Record<string, unknown> = {
       id: form.value.id, name: form.value.name,
       algorithm_type: form.value.algorithm_type, task_type: form.value.task_type,
+      ...(form.value.algorithm_type === "rfdetr" ? { model_variant: form.value.model_variant } : {}),
       engine: form.value.engine, device: form.value.device,
       model_file: form.value.model_file,
       input_width: Number(form.value.input_width),
@@ -228,12 +230,22 @@ watch(() => form.value.algorithm_type, value => {
   if (value === "rfdetr") {
     form.value.engine = "rfdetr_pytorch";
     form.value.task_type = "detect";
+    form.value.model_variant = "small";
     form.value.input_width = 512;
     form.value.input_height = 512;
+    form.value.model_file = weights.value.find(file => file.endsWith("/rf-detr-small.pth")) || "";
     form.value.labels_file = "config/labels/coco80_zh.txt";
   } else if (form.value.engine === "rfdetr_pytorch") {
     form.value.engine = "onnxruntime";
   }
+});
+watch(() => form.value.model_variant, value => {
+  if (!creating.value || form.value.algorithm_type !== "rfdetr") return;
+  const sizes = { small: 512, medium: 576, large: 704 };
+  form.value.input_width = sizes[value];
+  form.value.input_height = sizes[value];
+  const filename = value === "large" ? "rf-detr-large-2026.pth" : `rf-detr-${value}.pth`;
+  form.value.model_file = weights.value.find(file => file.endsWith("/" + filename)) || "";
 });
 watch(() => props.kind, () => { page.value = 1; engineFilter.value = ""; void loadModels(); },
   { immediate: true });
@@ -555,7 +567,7 @@ async function resetPrompt() {
             <div class="rb-field"><label>模型类型</label>
               <select v-model="form.algorithm_type" class="rb-input">
                 <option value="dfine">D-FINE</option>
-                <option value="rfdetr">RF-DETR Small</option>
+                <option value="rfdetr">RF-DETR (Small / Medium / Large)</option>
                 <option value="yolo5">YOLOv5</option>
                 <option value="yolo8">YOLOv8</option>
                 <option value="yolo11">YOLOv11</option>
@@ -566,6 +578,15 @@ async function resetPrompt() {
                 <option value="detect">detect</option>
                 <option value="segment">segment</option>
               </select></div>
+          </div>
+          <div v-if="form.algorithm_type === 'rfdetr'" class="rb-field">
+            <label>RF-DETR 模型规模</label>
+            <select v-model="form.model_variant" class="rb-input">
+              <option value="small">Small（512×512）</option>
+              <option value="medium">Medium（576×576）</option>
+              <option value="large">Large（704×704）</option>
+            </select>
+            <p class="rb-hint">每个版本必须匹配对应官方 COCO 权重；模型类别为固定 80 类。</p>
           </div>
           <div class="rb-row2">
             <div class="rb-field"><label>推理引擎</label>
@@ -586,7 +607,7 @@ async function resetPrompt() {
               <option value="">（models/ 下没有可用权重）</option>
               <option v-for="file in weights" :key="file" :value="file">{{ file }}</option>
             </select>
-            <p class="rb-hint">RF-DETR Small 需官方 .pth（512×512）及可选依赖 rfdetr；模型未就绪时不能测试。其他模型可使用 .onnx/.pt。</p></div>
+            <p class="rb-hint">RF-DETR Small / Medium / Large 分别使用 .pth 和 512 / 576 / 704 输入；需安装可选依赖 rfdetr，未就绪时不能测试。其他模型可使用 .onnx/.pt。</p></div>
           <div class="rb-field"><label>支持类别</label>
             <textarea v-model="form.labels" class="rb-input rb-textarea" rows="3"
               placeholder="人,自行车,汽车,摩托车,公共汽车,卡车"></textarea>
@@ -597,9 +618,9 @@ async function resetPrompt() {
               placeholder="config/labels/coco80_zh.txt" /></div>
           <div class="rb-row2">
             <div class="rb-field"><label>输入宽度</label>
-              <input v-model.number="form.input_width" type="number" min="32" max="4096" class="rb-input" /></div>
+              <input v-model.number="form.input_width" type="number" min="32" max="4096" class="rb-input" :readonly="form.algorithm_type === 'rfdetr'" /></div>
             <div class="rb-field"><label>输入高度</label>
-              <input v-model.number="form.input_height" type="number" min="32" max="4096" class="rb-input" /></div>
+              <input v-model.number="form.input_height" type="number" min="32" max="4096" class="rb-input" :readonly="form.algorithm_type === 'rfdetr'" /></div>
           </div>
           <div class="rb-row2">
             <div class="rb-field"><label>置信度阈值</label>

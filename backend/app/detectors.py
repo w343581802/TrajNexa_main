@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.engines.factory import EngineFactory, list_engines
+from app.engines.rfdetr_engine import RFDETR_RESOLUTIONS
 
 logger = logging.getLogger("app.detectors")
 
@@ -83,9 +84,19 @@ def _build(spec: dict) -> dict:
     labels = _labels(spec)
     algorithm_type = str(spec.get("algorithm_type") or "yolo8")
     if algorithm_type in ("dfine", "rfdetr") and not labels:
-        raise DetectorError("detector_dfine_requires_labels")
+        raise DetectorError("detector_requires_labels")
     input_w = int(spec.get("input_width", 640))
     input_h = int(spec.get("input_height", 640))
+    variant = str(spec.get("model_variant") or "small").lower() if algorithm_type == "rfdetr" else None
+    if algorithm_type == "rfdetr":
+        res = RFDETR_RESOLUTIONS.get(variant)
+        if (res is None or (input_w, input_h) != (res, res)
+                or model_file.suffix.lower() != ".pth"
+                or str(spec.get("engine")) != "rfdetr_pytorch"
+                or str(spec.get("task_type") or "detect") != "detect"
+                or len(labels) != 80):
+            raise DetectorError("detector_rfdetr_contract_invalid:" + model_id)
+    engine_options = {"model_variant": variant} if algorithm_type == "rfdetr" else {}
     try:
         engine = EngineFactory.create(
             str(spec.get("engine") or "onnxruntime"),
@@ -97,6 +108,7 @@ def _build(spec: dict) -> dict:
             algorithm_type=algorithm_type,
             task_type=str(spec.get("task_type") or "detect"),
             device=str(spec.get("device") or "cpu"),
+            **engine_options,
         )
     except Exception as exc:  # 引擎依赖缺失等
         raise DetectorError("detector_engine_unavailable:" + model_id) from exc
@@ -107,6 +119,7 @@ def _build(spec: dict) -> dict:
         "name": str(spec.get("name") or model_id),
         "engine": str(spec.get("engine") or "onnxruntime"),
         "algorithm_type": algorithm_type,
+        "model_variant": variant,
         "task_type": str(spec.get("task_type") or "detect"),
         "device": str(spec.get("device") or "cpu"),
         "input_size": [input_w, input_h],
@@ -241,6 +254,7 @@ def unavailable_models() -> list[dict]:
             "name": str(spec.get("name") or model_id),
             "engine": str(spec.get("engine") or "onnxruntime"),
             "algorithm_type": str(spec.get("algorithm_type") or "yolo8"),
+            "model_variant": str(spec.get("model_variant") or "small") if spec.get("algorithm_type") == "rfdetr" else None,
             "task_type": str(spec.get("task_type") or "detect"),
             "device": str(spec.get("device") or "cpu"),
             "input_size": [int(spec.get("input_width") or 640),
@@ -357,7 +371,7 @@ def update_spec(model_id: str, changes: dict) -> list[dict]:
     return list_models()
 
 
-CREATE_FIELDS = ("id", "name", "engine", "algorithm_type", "task_type", "device",
+CREATE_FIELDS = ("id", "name", "engine", "algorithm_type", "model_variant", "task_type", "device",
                  "model_file", "labels_file", "labels", "input_width", "input_height",
                  "conf_threshold", "iou_threshold")
 MODEL_ROOT = BACKEND_ROOT / "models"
@@ -428,11 +442,17 @@ def create_spec(spec: dict) -> list[dict]:
     weight = _resolve(str(spec.get("model_file") or ""))
     if not weight.is_file():
         raise DetectorError("detector_create_weight_missing")
-    if algorithm == "rfdetr" and (engine != "rfdetr_pytorch" or task != "detect"
-                                   or weight.suffix.lower() != ".pth" or
-                                   int(spec.get("input_width") or 640) != 512 or
-                                   int(spec.get("input_height") or 640) != 512):
-        raise DetectorError("detector_create_rfdetr_contract_invalid")
+    variant = str(spec.get("model_variant") or "small").strip().lower()
+    if algorithm == "rfdetr":
+        resolution = RFDETR_RESOLUTIONS.get(variant)
+        if (engine != "rfdetr_pytorch" or task != "detect"
+                or weight.suffix.lower() != ".pth" or resolution is None
+                or int(spec.get("input_width") or 640) != resolution
+                or int(spec.get("input_height") or 640) != resolution):
+            raise DetectorError("detector_create_rfdetr_contract_invalid")
+        entry["model_variant"] = variant
+    elif spec.get("model_variant") is not None:
+        raise DetectorError("detector_create_variant_requires_rfdetr")
     entry.update({"engine": engine, "algorithm_type": algorithm, "task_type": task,
                   "model_file": str(spec["model_file"]),
                   "input_width": int(spec.get("input_width") or 640),

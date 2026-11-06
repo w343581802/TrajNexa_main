@@ -270,3 +270,61 @@ def test_unready_rfdetr_visible_to_manager_but_not_selectable(cfg):
     assert "model_file" not in unready[0]
     with pytest.raises(detectors.DetectorError, match="invalid_model_selection"):
         detectors.detect(np.zeros((32, 32, 3), dtype=np.uint8), ["rfdetr-s"], 0.35)
+
+
+@pytest.mark.parametrize("variant,resolution", [
+    ("small", 512), ("medium", 576), ("large", 704),
+])
+def test_create_rf_detr_variant_and_expose_loaded_metadata(cfg, variant, resolution):
+    weight = cfg.parent / (variant + ".pth")
+    weight.write_bytes(b"fake-for-test")
+    labels = cfg.parent / "coco80.txt"
+    labels.write_text("\n".join("label" + str(i) for i in range(80)), encoding="utf-8")
+    created = detectors.create_spec({
+        "id": "rfdetr-" + variant, "name": "RF-DETR " + variant,
+        "engine": "rfdetr_pytorch", "algorithm_type": "rfdetr",
+        "model_variant": variant, "task_type": "detect", "device": "cpu",
+        "model_file": str(weight), "labels_file": str(labels),
+        "input_width": resolution, "input_height": resolution,
+    })
+    row = next(m for m in created if m["id"] == "rfdetr-" + variant)
+    assert row["model_variant"] == variant
+    assert row["input_size"] == [resolution, resolution]
+
+
+@pytest.mark.parametrize("variant,resolution", [
+    ("small", 576), ("medium", 512), ("large", 576),
+    ("xlarge", 704),
+])
+def test_create_rf_detr_variant_mismatch_does_not_save(cfg, variant, resolution):
+    weight = cfg.parent / "model.pth"
+    weight.write_bytes(b"fake-for-test")
+    before = cfg.read_text(encoding="utf-8")
+    with pytest.raises(detectors.DetectorError,
+                       match="detector_create_rfdetr_contract_invalid"):
+        detectors.create_spec({
+            "id": "rfdetr-new", "name": "bad",
+            "engine": "rfdetr_pytorch", "algorithm_type": "rfdetr",
+            "model_variant": variant, "task_type": "detect",
+            "model_file": str(weight),
+            "input_width": resolution, "input_height": resolution,
+        })
+    assert cfg.read_text(encoding="utf-8") == before
+
+
+def test_unavailable_medium_and_large_stay_out_of_inference_catalog(cfg):
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    for variant, resolution in [("medium", 576), ("large", 704)]:
+        data["detectors"].append({
+            "id": "rfdetr-" + variant, "name": "RF-DETR " + variant,
+            "engine": "rfdetr_pytorch", "algorithm_type": "rfdetr",
+            "model_variant": variant, "task_type": "detect",
+            "model_file": str(cfg.parent / (variant + ".pth")),
+            "input_width": resolution, "input_height": resolution,
+        })
+    cfg.write_text(json.dumps(data), encoding="utf-8")
+    detectors.reload()
+    assert [item["id"] for item in detectors.list_models()] == ["m1"]
+    unavailable = detectors.unavailable_models()
+    assert {item["model_variant"] for item in unavailable} == {"medium", "large"}
+    assert all(item["status"] == "unavailable" for item in unavailable)

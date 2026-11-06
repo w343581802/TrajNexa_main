@@ -39,15 +39,25 @@ $env:OLLAMA_MODELS='G:\tools\ollama\models'
 > 接口会返回 `m4d-model-thinking-only`，请使用 `*-instruct` 变体。
 
 
-## RF-DETR Small（小模型管理中的 `rfdetr-s`）
+## RF-DETR Small / Medium / Large（小模型管理）
 
-RF-DETR 采用**独立 PyTorch 推理适配器**，不复用 D-FINE 的 ONNX 双输入/三输出契约。
-此仓库预配置了 `rfdetr-s`，但没有提交任何权重：缺少依赖或权重时，
-模型管理页会显示“未就绪”，不会阻止已安装的 D-FINE/YOLO 工作。
+TrajNexa 的 RF-DETR 使用**独立 PyTorch 推理适配器**，不复用 D-FINE 的 ONNX 双输入协议。
+三个变体作为**独立检测器**注册，可以在模型管理页和模型测试页随时切换，也可一次选多个进行同图对比。
+权重不入库，未安装对应权重或依赖时显示“未就绪”，不会阻止其他检测器运行。
 
-### 准备本地权重
+| 模型 | 注册 ID | PyTorch 类 | 原生输入尺寸 | 配置中的权重相对路径 |
+|---|---|---|---|---|
+| Small | `rfdetr-s` | `RFDETRSmall` | 512×512 | `models/rfdetr/rf-detr-small.pth` |
+| Medium | `rfdetr-m` | `RFDETRMedium` | 576×576 | `models/rfdetr/rf-detr-medium.pth` |
+| Large | `rfdetr-l` | `RFDETRLarge` | 704×704 | `models/rfdetr/rf-detr-large-2026.pth` |
 
-在**可信任、有网络的开发机器**上执行（权重可能较大）：
+> 注意：RF-DETR 官方文档当前 Large 权重版本使用 `rf-detr-large-2026.pth`。
+> 旧版 `rf-detr-large.pth` 可能属于不同架构版本，**不能**直接改名冒充。
+> 实际使用权重时须保证模型类、软件包版本和权重来源相匹配。
+
+### 安装与准备本地权重
+
+在可信任的联网机器上执行：
 
 ```bash
 cd backend
@@ -55,41 +65,47 @@ python -m pip install -r requirements-rfdetr.txt
 python - <<'PY'
 import os
 from pathlib import Path
-from rfdetr import RFDETRSmall
+from rfdetr import RFDETRSmall, RFDETRMedium, RFDETRLarge
 
+# 官方默认缓存地址为 ~/.roboflow/models，RF_HOME 可以覆盖。
 folder = Path("models/rfdetr").resolve()
 folder.mkdir(parents=True, exist_ok=True)
 os.environ["RF_HOME"] = str(folder)
-RFDETRSmall(device="cpu")  # 仅准备权重；首次运行需要联网获取官方预训练权重
-print("已缓存的权重：", [str(p) for p in folder.rglob("*.pth")])
+
+for cls in (RFDETRSmall, RFDETRMedium, RFDETRLarge):
+    print("准备", cls.__name__)
+    cls()  # 第一次构造时，官方库自动下载相应预训练权重
+
+print("本地缓存的权重：")
+for p in folder.rglob("*.pth"):
+    print(p)
 PY
 ```
 
-将找到的**官方 RF-DETR Small COCO 权重**放在
-`backend/models/rfdetr/rf-detr-small.pth`（不能拿 Medium/Large 权重冒充 Small）。
-若官方缓存文件不在该路径，复制文件至该路径，或核对
-`backend/config/detectors.json` 中 `rfdetr-s.model_file` 的路径。
-本地仅接受 `.pth`；无需也不会从 API 自动联网下载。
+检查上面列出的实际文件名，确保与 `backend/config/detectors.json` 一致。
+如果官方发布的权重文件名称变更，应该校验其模型版本后**修改配置路径**，而不是直接重命名不匹配的旧权重。
+API/Worker 推理加载使用**本地绝对文件路径**，运行期间不负责自动下载。
 
-### 使用
+### Docker 与切换
 
-- 默认 Docker 镜像继续使用 D-FINE，**不会额外安装 PyTorch/RF-DETR**。
-  若需在容器中启用 RF-DETR，回到仓库根目录运行：
-  `docker compose -f compose.yaml -f compose.rfdetr.yaml up --build -d`
-  （不清空数据卷）。`backend/models` 会按已有配置挂载到 API/Worker。
-- “小模型管理” → “重载配置”：确认 `rfdetr-s` 已就绪；然后可点击“设默认”
-  或“测试”切到 RF-DETR，也能随时切回 `dfine-n`。
-- “模型测试”页面可选 D-FINE 和 RF-DETR 对同一张图作并列比较，输出仍是待核实候选框。
-- 这里的“设默认”是**浏览器中的测试偏好**，不会自动更改主系统任务的默认检测器。
-  主系统默认仍由 `backend/config/model_capabilities.json`
-  （及部署配置）控制，目前仍是 `dfine-n`。
+默认镜像继续使用 D-FINE/ONNX，不默认安装 RF-DETR/PyTorch。
+要启用 RF-DETR 推理，请在仓库根目录执行：
 
-### 使用范围与注意事项
+```bash
+docker compose -f compose.yaml -f compose.rfdetr.yaml up --build -d
+```
 
-- 仅适配 `RFDETRSmall` + 512×512 + COCO 80 类检测；
-  其他变体、分割任务、微调类数变更需独立验证，不应直接改配置尺寸。
-- PyTorch CPU 推理可能较慢；GPU/CUDA 需要使用与设备驱动兼容的 PyTorch 环境。
-- 权重和模型许可证应分别核验；RF-DETR Small 官方预训练系列为 Apache 2.0，
-  具体条件以其发布版本的 LICENSE 为准。
-- 工作台正常业务默认不变，模型输出不得自动等同于人员身份确认。
-- 通过 `cd backend && pytest -q` 回归；真实权重推理需要在实际设备另行验收。
+- 在“小模型管理”中点“重载配置”，确认对应模型显示“启用”，随后点击“测试”或“设默认”。
+- “模型测试”支持 D-FINE 和 RF-DETR 三个变体的同图对比（最多同时选择 5 个小模型）。
+- 点击“设默认”只改变浏览器实验偏好，不会修改正式研判任务的检测器；主系统服务端默认仍为 `dfine-n`。
+- 如果某型号显示“未就绪”，检查本地文件路径、PyTorch/RF-DETR 依赖、模型变体和设备是否匹配。
+
+### 契约与限制
+
+- `model_variant` 是独立参数：`small`、`medium`、`large`，对应固定原生输入尺寸；
+  新建检测器时会校验型号、分辨率、`.pth`、引擎和任务类型，防止误用 Small 解析 Medium/Large。
+- 三个预置模型都是 COCO 80 类的普通目标检测模型；暂不包含分割、自定义类别检测。
+- 输出的框和类别仍只是待核实候选，不产生身份确认。
+- GPU/CUDA 需要安装匹配驱动的 PyTorch 构建；CPU 大模型推理可能较慢。
+- 代码和模型权重许可证需分别核验，当前官方将 RF-DETR Small/Medium/Large 检测权重归入 Apache 2.0。
+- 回归可执行 `cd backend && pytest -q`；真实模型正确率和吞吐量必须在部署设备和合法测试集上另行验证。

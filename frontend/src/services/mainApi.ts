@@ -38,7 +38,8 @@ export type M4DetectionPreview = {
 export type M4DetectEngine = "local" | "dfine" | "qwen3vl" | "qwen3vl4b" | "vlm" | "auto";
 export type M5ImageModel = {
   id: string; name: string; engine: string; model_sha256: string;
-  algorithm_type?: string; task_type?: string; device?: string; input_size?: number[];
+  algorithm_type?: string; model_variant?: "small" | "medium" | "large" | null;
+  task_type?: string; device?: string; input_size?: number[];
   conf_threshold?: number | null; iou_threshold?: number | null;
   /** 支持类别（检测器标签表）；界面编辑时按英文逗号拼接 */
   labels?: string[];

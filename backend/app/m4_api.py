@@ -293,6 +293,7 @@ class ImageModelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     engine: str = Field(default='onnxruntime', pattern='^[a-z0-9_]{2,32}$')
     algorithm_type: str = Field(default='yolo8', max_length=16)
+    model_variant: str | None = Field(default=None, pattern=r'^(small|medium|large)$')
     task_type: str = Field(default='detect', max_length=16)
     device: str = Field(default='cpu', pattern='^(cpu|gpu)$')
     model_file: str = Field(min_length=1, max_length=240)
