@@ -1037,10 +1037,60 @@ export async function listTargetSpatialObservations(
 /** B8 V1.1：时间轴卡片（后端聚合读模型，不新增事实表）。 */
 export type TimelineCardKind =
   | "anchor"
+  | "region_investigation"
   | "camera_task"
   | "track_segment"
   | "gap"
   | "spatial_observation";
+
+/** V1.2：一级筛选是研判视角（已确认轨迹/待核查轨迹/正在研判区域），不是时间顺序。 */
+export type TimelinePresentation =
+  | "confirmed_track"
+  | "review_track"
+  | "investigating_region";
+
+export type TimelineRegionTask = {
+  windowId: string;
+  cameraLabel: string;
+  cameraUuid: string | null;
+  /** candidate_explicit=候选显式绑定；catalog_name_exact=Map 台账完全同名；null=未解析 */
+  cameraUuidSource?: "candidate_explicit" | "catalog_name_exact" | null;
+  clipId: string;
+  plannedStartAt: string | null;
+  plannedEndAt: string | null;
+  windowSeconds: [number, number];
+  phase: string;
+  status: string;
+  tracks: number;
+  errorCode: string | null;
+  note: string | null;
+};
+
+export type TimelineRegion = {
+  status: string;
+  timeBasis: string;
+  timeQuality: string;
+  regionGeometryRef: string | null;
+  regionSource: string;
+  plannedObservationWindow: {
+    startSeconds: number | null;
+    endSeconds: number | null;
+    startAt: string | null;
+    endAt: string | null;
+  } | null;
+  cameraTasks: TimelineRegionTask[];
+  completedWindows: number;
+  plannedWindows: number;
+  deviceCount: number;
+  phaseCounts: { queued: number; running: number; completed: number; failed: number; no_recording: number; unknown: number };
+  candidateCount: number;
+  pendingCandidates: number;
+  researchBudgetSeconds: number | null;
+  elapsedAnalysisSeconds: number | null;
+  lastUpdatedAt: string | null;
+  derivedCardIds: string[];
+  note: string;
+};
 
 export type TimelinePlayback = {
   clipId: string | null;
@@ -1067,6 +1117,8 @@ export type TimelineCard = {
   playback: TimelinePlayback | null;
   evidence: Record<string, unknown> | null;
   segment: Record<string, unknown> | null;
+  presentation: TimelinePresentation;
+  region?: TimelineRegion | null;
 };
 
 export type TimelinePayload = {
@@ -1077,6 +1129,8 @@ export type TimelinePayload = {
   note: string;
   phase: string;
   counts: Record<string, number>;
+  /** 起始目标是否已关联到研判任务；关联后卡片收进轨迹详情。 */
+  anchorLinked?: boolean;
   cards: TimelineCard[];
 };
 

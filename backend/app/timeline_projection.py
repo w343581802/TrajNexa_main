@@ -12,16 +12,33 @@ tracking_candidates / tracking_review_events / target_spatial_observations
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.camera_catalog import canonical_name
 from app.models import (TargetObservation, TargetSpatialObservation, TrackingCandidate,
                         TrackingReviewEvent, TrackingRun, TrackingWindow)
 
-CARD_KINDS = ("anchor", "camera_task", "track_segment", "gap", "spatial_observation",
-              "spatial_observation")
+CARD_KINDS = ("anchor", "region_investigation", "camera_task", "track_segment",
+              "gap", "spatial_observation")
+
+# V1.2：一级筛选是研判视角，不是时间顺序；presentation 由证据决定，不由 kind 硬映射。
+PRESENTATION_CONFIRMED = "confirmed_track"
+PRESENTATION_REVIEW = "review_track"
+PRESENTATION_REGION = "investigating_region"
+
+CONFIRMED_IDENTITY = ("confirmed", "human_confirmed")
+
+REGION_WINDOW_PHASES = {
+    "ok": "completed", "completed": "completed", "done": "completed",
+    "no_track": "completed",
+    "failed": "failed", "error": "failed",
+    "no_recording": "no_recording", "clip_missing": "no_recording",
+    "queued": "queued", "pending": "queued", "planned": "queued",
+    "running": "running",
+}
 
 PHASES = {
     "queued": "queued",
@@ -171,12 +188,14 @@ def _segment_card(run: TrackingRun, candidate: TrackingCandidate) -> dict:
                      "offsetSeconds": candidate.window_start,
                      "timeQuality": "uncalibrated"},
         "evidence": {"trackId": candidate.track_id, "state": candidate.state,
+                     "frames": details.get("frames"), "points": details.get("points"),
                      "retrievalScore": candidate.retrieval_score,
                      "marginTop1Top2": candidate.margin_top1_top2,
                      "evidenceRefs": candidate.evidence_refs or [],
                      "mapCameraId": candidate.map_camera_id},
         "segment": {"segmentId": candidate.id, "trackId": candidate.track_id,
-                    "window": [candidate.window_start, candidate.window_end]},
+                    "window": [candidate.window_start, candidate.window_end],
+                    "frames": details.get("frames"), "breakReason": details.get("break_reason")},
     }
 
 
@@ -205,12 +224,179 @@ def _spatial_card(obs: TargetObservation, row: TargetSpatialObservation) -> dict
     }
 
 
+def _window_phase(status: str) -> str:
+    return REGION_WINDOW_PHASES.get(status or "", "unknown")
+
+
+def _window_iso(anchor: dict, seconds: float | None) -> str | None:
+    """把录像当天秒数换算成墙钟时间；基准不完整就返回 None，不猜。"""
+    if seconds is None:
+        return None
+    start_local = anchor.get("clip_start_local")
+    start_day = anchor.get("start_of_day_seconds")
+    if not start_local or start_day is None:
+        return None
+    try:
+        base = datetime.fromisoformat(str(start_local))
+        delta = float(seconds) - float(start_day)
+    except (TypeError, ValueError):
+        return None
+    return (base + timedelta(seconds=delta)).isoformat()
+
+
+def _camera_binding(window: TrackingWindow, candidates: list[TrackingCandidate],
+                    directory: dict[str, str] | None = None) -> tuple[str | None, str | None]:
+    """返回 (camera_uuid, 依据)。候选显式 map_camera_id 优先，其次台账完全同名。
+
+    同名匹配只说明计划检查的设备与台账同名，不是设备身份确认。
+    """
+    for candidate in candidates:
+        if candidate.camera_label == window.camera_label and candidate.map_camera_id:
+            return candidate.map_camera_id, "candidate_explicit"
+    if directory and window.camera_label:
+        uuid = directory.get(canonical_name(window.camera_label))
+        if uuid:
+            return uuid, "catalog_name_exact"
+    return None, None
+
+
+def _region_status(run: TrackingRun, windows: list[TrackingWindow],
+                   candidates: list[TrackingCandidate]) -> str:
+    if not windows:
+        return "planned"
+    phases = [_window_phase(window.status) for window in windows]
+    if run.status == "cancelled":
+        return "cancelled"
+    if run.error_code:
+        return "failed"
+    if run.status == "running" or "running" in phases:
+        return "running"
+    if all(phase == "queued" for phase in phases):
+        return "queued"
+    if run.status in ("awaiting_review", "unresolved"):
+        return "awaiting_review"
+    if run.status == "budget_exhausted":
+        return "budget_exhausted"
+    return "completed_with_evidence" if candidates else "completed_no_match"
+
+
+def _region_card(run: TrackingRun, windows: list[TrackingWindow],
+                 candidates: list[TrackingCandidate], anchor: dict,
+                 directory: dict[str, str] | None = None) -> dict:
+    """区域研判大卡：聚合该 run 的多台设备/窗口。只表示正在检查，不代表目标到达。"""
+    ordered = sorted(windows, key=lambda item: (item.window_start or 0.0))
+    tasks: list[dict] = []
+    counts = {"queued": 0, "running": 0, "completed": 0, "failed": 0,
+              "no_recording": 0, "unknown": 0}
+    for window in ordered:
+        phase = _window_phase(window.status)
+        counts[phase] = counts.get(phase, 0) + 1
+        camera_uuid, camera_basis = _camera_binding(window, candidates, directory)
+        tasks.append({
+            "windowId": window.id,
+            "cameraLabel": window.camera_label,
+            "cameraUuid": camera_uuid,
+            "cameraUuidSource": camera_basis,
+            "clipId": window.clip_id,
+            "plannedStartAt": _window_iso(anchor, window.window_start),
+            "plannedEndAt": _window_iso(anchor, window.window_end),
+            "windowSeconds": [window.window_start, window.window_end],
+            "phase": phase,
+            "status": window.status,
+            "tracks": window.tracks,
+            "errorCode": None if phase == "completed" else (window.status or "unknown"),
+            "note": window.note or None,
+        })
+    observed = [task["plannedStartAt"] for task in tasks if task["plannedStartAt"]]
+    devices = sorted({window.camera_label for window in ordered if window.camera_label})
+    status = _region_status(run, ordered, candidates)
+    stage_key = "windows" if ordered else "planned"
+    elapsed = None
+    if run.started_at is not None and run.finished_at is not None:
+        elapsed = round((run.finished_at - run.started_at).total_seconds(), 1)
+    stamps = [value for value in (run.created_at, run.started_at, run.finished_at) if value]
+    stamps += [window.created_at for window in ordered if window.created_at]
+    stamps += [candidate.created_at for candidate in candidates if candidate.created_at]
+    last_updated = max(stamps) if stamps else None
+    derived = [f"task:{run.id}"]
+    derived += [f"gap:{window.id}" for window in ordered
+                 if window.status not in ("ok", "completed", "done") or window.tracks == 0]
+    derived += [f"segment:{candidate.id}" for candidate in candidates]
+    planned_window = None
+    if ordered:
+        planned_window = {
+            "startSeconds": ordered[0].window_start,
+            "endSeconds": ordered[-1].window_end,
+            "startAt": _window_iso(anchor, ordered[0].window_start),
+            "endAt": _window_iso(anchor, ordered[-1].window_end),
+        }
+    return {
+        "cardId": f"region:{run.id}:{run.attempt}:{stage_key}",
+        "kind": "region_investigation",
+        "title": "正在研判区域",
+        "subtitle": (f"{len(devices)} 台设备 · {len(ordered)} 个窗口 · 完成 {counts['completed']}"
+                     f" · {status}"),
+        "observedAt": min(observed) if observed else None,
+        "analysisAt": _iso(run.started_at or run.created_at),
+        "targetId": run.observation_id,
+        "cameraLabel": "、".join(devices) or None,
+        "identityStatus": "candidate_unverified",
+        "spatialQuality": None,
+        "degradeReason": run.error_code or (None if ordered else "plan_missing"),
+        "position": None,
+        "displayHint": "no_position",
+        "playback": None,
+        "evidence": {"runId": run.id, "attempt": run.attempt, "runStatus": run.status},
+        "segment": None,
+        "region": {
+            "status": status,
+            "timeBasis": anchor.get("time_basis") or "unknown",
+            "timeQuality": anchor.get("clock_quality") or "unverified",
+            "regionGeometryRef": None,
+            "regionSource": "planned_windows" if ordered else "none",
+            "plannedObservationWindow": planned_window,
+            "cameraTasks": tasks,
+            "completedWindows": counts["completed"],
+            "plannedWindows": len(ordered),
+            "deviceCount": len(devices),
+            "phaseCounts": dict(counts),
+            "candidateCount": len(candidates),
+            "pendingCandidates": sum(1 for candidate in candidates
+                                    if candidate.identity_status == "candidate_unverified"),
+            "researchBudgetSeconds": (run.scope_json or {}).get("research_seconds"),
+            "elapsedAnalysisSeconds": elapsed,
+            "lastUpdatedAt": _iso(last_updated),
+            "derivedCardIds": derived,
+            "note": "区域卡只表示正在检查这些设备，不代表目标到达该区域。",
+        },
+    }
+
+
+def _presentation(card: dict) -> str:
+    """展示视角：已确认轨迹 / 待核查轨迹 / 正在研判区域。"""
+    kind = card["kind"]
+    if kind == "region_investigation":
+        return PRESENTATION_REGION
+    if kind == "camera_task":
+        return PRESENTATION_REGION
+    if kind == "spatial_observation":
+        return (PRESENTATION_CONFIRMED if card.get("identityStatus") in CONFIRMED_IDENTITY
+                else PRESENTATION_REVIEW)
+    if kind == "track_segment":
+        segment = card.get("segment") or {}
+        has_frames = bool(segment.get("frames") or card.get("evidence", {}).get("frames"))
+        confirmed = card.get("identityStatus") in CONFIRMED_IDENTITY
+        return PRESENTATION_CONFIRMED if confirmed and has_frames else PRESENTATION_REVIEW
+    return PRESENTATION_REVIEW
+
+
 def _sort_key(card: dict) -> tuple:
     stamp = card.get("observedAt") or card.get("analysisAt") or ""
     return (stamp, card["cardId"])
 
 
-def build_timeline(db: Session, case_id: str, target_id: str) -> dict:
+def build_timeline(db: Session, case_id: str, target_id: str,
+                   camera_directory: dict[str, str] | None = None) -> dict:
     obs = db.get(TargetObservation, target_id)
     if obs is None or obs.case_id != case_id:
         raise TimelineError("target_not_found", "目标不在该案件内。")
@@ -232,6 +418,9 @@ def build_timeline(db: Session, case_id: str, target_id: str) -> dict:
     cards: list[dict] = [_anchor_card(obs, latest_anchor)]
     for run in runs:
         run_windows = [w for w in windows if w.run_id == run.id]
+        run_candidates = [c for c in candidates if c.run_id == run.id]
+        cards.append(_region_card(run, run_windows, run_candidates, run.anchor_json or {},
+                                  camera_directory))
         cards.append(_task_card(run, run_windows))
         for window in run_windows:
             gap = _gap_card(run, window)
@@ -244,6 +433,8 @@ def build_timeline(db: Session, case_id: str, target_id: str) -> dict:
     for row in spatial:
         cards.append(_spatial_card(obs, row))
 
+    for card in cards:
+        card["presentation"] = _presentation(card)
     cards.sort(key=_sort_key)
     counts: dict[str, int] = {"total": len(cards)}
     for kind in CARD_KINDS:
@@ -257,6 +448,7 @@ def build_timeline(db: Session, case_id: str, target_id: str) -> dict:
         "derived": True,
         "note": "时间轴由既有记录派生，不新增事实表；无坐标的卡片不参与地图绘制。",
         "phase": _phase(latest_run.status) if latest_run else "not_started",
+        "anchorLinked": bool(runs),
         "counts": counts,
         "cards": cards,
     }

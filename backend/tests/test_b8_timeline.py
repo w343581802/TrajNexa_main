@@ -154,3 +154,113 @@ def test_timeline_endpoint_and_events_endpoint(env):
     missing = client.get(f"/api/v1/cases/{ids['case_id']}/targets/nope/timeline")
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "target_not_found"
+
+def _cards(timeline: dict, kind: str) -> list[dict]:
+    return [card for card in timeline["cards"] if card["kind"] == kind]
+
+
+def test_region_card_aggregates_windows_without_position(env):
+    _, Session, _ = env
+    ids = _seed(Session)
+    with Session() as db:
+        timeline = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+    region = _cards(timeline, "region_investigation")[0]
+    assert region["presentation"] == "investigating_region"
+    assert region["position"] is None
+    assert region["displayHint"] == "no_position"
+    body = region["region"]
+    assert body["status"] == "awaiting_review"
+    assert body["plannedWindows"] == 1
+    assert body["completedWindows"] == 1  # no_track = 已执行但无轨迹，不是未开始
+    assert body["deviceCount"] == 1
+    assert body["phaseCounts"]["completed"] == 1
+    assert body["phaseCounts"]["failed"] == 0
+    assert body["candidateCount"] == 1
+    assert body["pendingCandidates"] == 1
+    assert body["regionGeometryRef"] is None
+    assert body["regionSource"] == "planned_windows"
+    assert body["timeQuality"] == "uncalibrated"
+    task = body["cameraTasks"][0]
+    assert task["windowId"] == ids["window_id"]
+    assert task["phase"] == "completed"  # no_track 视为已执行完成
+    assert task["status"] == "no_track"
+    assert task["plannedStartAt"] is None  # 没有 clip_start_local 就不猜墙钟时间
+    assert f"segment:{ids['candidate_id']}" in body["derivedCardIds"]
+    assert timeline["anchorLinked"] is True
+
+
+def test_run_without_windows_is_planned_and_invents_no_cameras(env):
+    _, Session, _ = env
+    ids = _seed(Session)
+    run_id = str(uuid4())
+    with Session() as db:
+        db.add(TrackingRun(id=run_id, case_id=ids["case_id"], observation_id=ids["observation_id"],
+                           status="queued", attempt=0, anchor_json={}, scope_json={},
+                           progress_json={}, created_at=NOW + timedelta(seconds=10)))
+        db.commit()
+        timeline = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+    planned = [card for card in _cards(timeline, "region_investigation")
+               if card["cardId"] == f"region:{run_id}:0:planned"]
+    assert len(planned) == 1
+    body = planned[0]["region"]
+    assert body["status"] == "planned"
+    assert body["regionSource"] == "none"
+    assert body["cameraTasks"] == []
+    assert body["plannedObservationWindow"] is None
+    assert planned[0]["degradeReason"] == "plan_missing"
+
+
+def test_confirmed_track_requires_identity_and_frames(env):
+    _, Session, _ = env
+    ids = _seed(Session)
+    with Session() as db:
+        db.get(TrackingCandidate, ids["candidate_id"]).identity_status = "human_confirmed"
+        db.commit()
+        without_frames = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+        segment = _cards(without_frames, "track_segment")[0]
+        assert segment["presentation"] == "review_track"
+        candidate = db.get(TrackingCandidate, ids["candidate_id"])
+        candidate.details_json = {"clip_id": "clip-1", "frames": 31}
+        db.commit()
+        with_frames = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+        promoted = _cards(with_frames, "track_segment")[0]
+    assert promoted["presentation"] == "confirmed_track"
+
+
+def test_anchor_only_timeline_marks_anchor_unlinked(env):
+    _, Session, _ = env
+    ids = _seed(Session, with_run=False)
+    with Session() as db:
+        timeline = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+    assert timeline["anchorLinked"] is False
+    assert timeline["cards"][0]["presentation"] == "review_track"
+
+
+def test_region_card_resolves_camera_uuid_only_by_exact_catalog_name(env):
+    _, Session, _ = env
+    ids = _seed(Session)
+    directory = {projection.canonical_name("1-LT-桂康路松山巷"): "79cec34c-009d-4d6d-befd-6fb64337ee0a"}
+    with Session() as db:
+        resolved = projection.build_timeline(db, ids["case_id"], ids["observation_id"],
+                                             camera_directory=directory)
+        unresolved = projection.build_timeline(db, ids["case_id"], ids["observation_id"])
+    task = _cards(resolved, "region_investigation")[0]["region"]["cameraTasks"][0]
+    assert task["cameraUuid"] == "79cec34c-009d-4d6d-befd-6fb64337ee0a"
+    assert task["cameraUuidSource"] == "catalog_name_exact"
+    plain = _cards(unresolved, "region_investigation")[0]["region"]["cameraTasks"][0]
+    assert plain["cameraUuid"] is None
+    assert plain["cameraUuidSource"] is None
+
+
+def test_explicit_map_camera_id_wins_over_name_match(env):
+    _, Session, _ = env
+    ids = _seed(Session)
+    with Session() as db:
+        db.get(TrackingCandidate, ids["candidate_id"]).map_camera_id = "explicit-camera"
+        db.commit()
+        timeline = projection.build_timeline(db, ids["case_id"], ids["observation_id"],
+                                             camera_directory={projection.canonical_name("1-LT-桂康路松山巷"): "name-camera"})
+    task = _cards(timeline, "region_investigation")[0]["region"]["cameraTasks"][0]
+    assert task["cameraUuid"] == "explicit-camera"
+    assert task["cameraUuidSource"] == "candidate_explicit"
+

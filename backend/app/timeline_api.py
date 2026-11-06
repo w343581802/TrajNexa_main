@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import timeline_projection as projection
 from app.db import get_db
+from app.timeline_camera_directory import camera_directory
 from app.recording_api import fail
 
 router = APIRouter(prefix="/api/v1", tags=["b8-timeline"])
@@ -22,7 +23,8 @@ def _guard(fn, *args, **kwargs):
 @router.get("/cases/{case_id}/targets/{target_id}/timeline")
 def target_timeline(case_id: str, target_id: str, db: Session = Depends(get_db)):
     """目标时间轴：anchor / camera_task / track_segment / gap / spatial_observation。"""
-    return _guard(projection.build_timeline, db, case_id, target_id)
+    # 区域卡设备映射：Map 台账完全同名才给 uuid；目录不可用时为空，不猜设备。
+    return _guard(projection.build_timeline, db, case_id, target_id, camera_directory())
 
 
 @router.get("/cases/{case_id}/tracking-runs/{run_id}/events")

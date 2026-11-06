@@ -204,6 +204,7 @@ export const trackingError = ref<string | null>(null);
 
 /* 时间轴读模型：卡片由后端按既有记录派生，前端只做呈现与选中，不拼事实。 */
 export const timelineCards = ref<TimelineCard[]>([]);
+export const timelineAnchorLinked = ref(false);
 export const timelineCardCounts = ref<Record<string, number>>({});
 export const timelinePhase = ref<string>("not_started");
 export const timelineNote = ref<string>("");
@@ -1063,6 +1064,7 @@ export function currentTimelineTargetId(): string | null {
 
 export function clearTimeline(): void {
   timelineCards.value = [];
+  timelineAnchorLinked.value = false;
   timelineCardCounts.value = {};
   timelinePhase.value = "not_started";
   timelineNote.value = "";
@@ -1097,6 +1099,7 @@ export async function loadTimeline(keepSelection = false): Promise<void> {
     const payload = await mainApi.getTargetTimeline(caseId, targetId);
     if (wb.caseId !== caseId) return; // 已切到别的案件，丢弃旧结果
     timelineCards.value = payload.cards ?? [];
+    timelineAnchorLinked.value = Boolean(payload.anchorLinked);
     timelineCardCounts.value = payload.counts ?? {};
     timelinePhase.value = payload.phase ?? "not_started";
     timelineNote.value = payload.note ?? "";

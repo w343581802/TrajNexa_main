@@ -7,6 +7,7 @@ import {
   activeTrackingRun,
   currentTimelineTargetId,
   selectedTimelineCard,
+  timelineAnchorLinked,
   timelineCards,
   timelineError,
   timelineEvents,
@@ -95,30 +96,117 @@ const hhmm = (seconds: number) =>
   String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
 const expandedId = ref<string | null>(null);
 
-/* ---------------- B8 V1.1 时间轴：真实卡片（后端派生，前端只呈现） ---------------- */
+/* ---------------- B8 V1.2 时间轴：目标追踪进展视角 ---------------- */
 
-const CARD_KINDS: { id: "all" | TimelineCard["kind"]; label: string }[] = [
-  { id: "all", label: "全部卡片" },
-  { id: "anchor", label: "起始锚点" },
-  { id: "camera_task", label: "研判任务" },
-  { id: "track_segment", label: "候选轨迹" },
-  { id: "gap", label: "证据缺口" },
-  { id: "spatial_observation", label: "空间观测" },
+type PresentationFilter = "all" | TimelineCard["presentation"];
+
+const PRESENTATION_TABS: { id: TimelineCard["presentation"]; label: string }[] = [
+  { id: "review_track", label: "待核查轨迹" },
+  { id: "confirmed_track", label: "已确认轨迹" },
+  { id: "investigating_region", label: "正在研判区域" },
 ];
 
-const cardKindFilter = ref<"all" | TimelineCard["kind"]>("all");
+const KIND_LABEL: Record<TimelineCard["kind"], string> = {
+  anchor: "起始目标证据",
+  region_investigation: "区域研判",
+  camera_task: "任务执行",
+  track_segment: "候选线索",
+  gap: "轨迹中断",
+  spatial_observation: "空间观测",
+};
+
+const viewFilter = ref<PresentationFilter>("all");
+
+/** 起始目标一旦关联到研判任务，就收进轨迹详情，不再单占一张主卡 */
+const visibleForCounts = computed(() =>
+  timelineCards.value.filter((card) => !(card.kind === "anchor" && timelineAnchorLinked.value)),
+);
 
 const cards = computed(() => {
-  const rows = timelineCards.value.filter(
-    (card) => cardKindFilter.value === "all" || card.kind === cardKindFilter.value,
+  const rows = visibleForCounts.value.filter(
+    (card) => viewFilter.value === "all" || card.presentation === viewFilter.value,
   );
   return order.value === "asc" ? rows : [...rows].reverse();
 });
 
+const presentationCounts = computed<Record<TimelineCard["presentation"], number>>(() => {
+  const counts = { confirmed_track: 0, review_track: 0, investigating_region: 0 };
+  for (const card of visibleForCounts.value) counts[card.presentation] += 1;
+  return counts;
+});
+
+const anchorCard = computed(() => timelineCards.value.find((card) => card.kind === "anchor") ?? null);
 const selectedCard = computed(() => selectedTimelineCard());
 
-const kindLabel = (kind: TimelineCard["kind"]) =>
-  CARD_KINDS.find((item) => item.id === kind)?.label ?? kind;
+const REGION_STATUS_TEXT: Record<string, string> = {
+  planned: "区域待规划",
+  queued: "排队中",
+  running: "研判中",
+  awaiting_review: "区域研判待审核",
+  completed_with_evidence: "已产出候选",
+  completed_no_match: "已检查，无可靠候选",
+  failed: "分析失败",
+  cancelled: "已取消",
+  budget_exhausted: "预算用尽",
+};
+
+const WINDOW_PHASE_TEXT: Record<string, string> = {
+  completed: "已完成",
+  running: "分析中",
+  queued: "排队中",
+  no_recording: "无可用录像",
+  failed: "失败",
+  unknown: "状态未知",
+};
+
+const regionStatusText = (card: TimelineCard) =>
+  REGION_STATUS_TEXT[card.region?.status ?? ""] ?? card.region?.status ?? "状态未知";
+
+const windowPhaseText = (phase: string) => WINDOW_PHASE_TEXT[phase] ?? phase;
+
+const regionPhaseSummary = (card: TimelineCard) => {
+  const counts = card.region?.phaseCounts;
+  if (!counts) return "窗口统计不可用";
+  return `完成 ${counts.completed} · 排队 ${counts.queued} · 分析中 ${counts.running} · 失败 ${counts.failed} · 无录像 ${counts.no_recording}`;
+};
+
+/** 结果级文案：只报候选与待核查数量，绝不写“目标没有经过”这类结论 */
+const regionResultText = (card: TimelineCard) => {
+  const region = card.region;
+  if (!region) return "无结果信息";
+  if (!region.plannedWindows) return "尚未排出设备窗口";
+  if (!region.candidateCount) return "窗口已检查，未产出候选线索（不代表目标没有经过）";
+  return `候选线索 ${region.candidateCount} 条 · 待核查 ${region.pendingCandidates} 条；候选不等于已确认轨迹`;
+};
+
+const regionUpdatedText = (card: TimelineCard) => {
+  const stamp = card.region?.lastUpdatedAt;
+  return stamp ? stamp.slice(0, 19).replace("T", " ") : "未知";
+};
+
+/** 设备映射依据：同名匹配只是台账同名，不是设备身份确认 */
+const CAMERA_SOURCE_TEXT: Record<string, string> = {
+  candidate_explicit: "候选显式绑定",
+  catalog_name_exact: "台账完全同名",
+};
+const cameraSourceText = (task: { cameraUuidSource?: string | null }) =>
+  task.cameraUuidSource ? (CAMERA_SOURCE_TEXT[task.cameraUuidSource] ?? task.cameraUuidSource) : "未解析";
+
+/** 计划录像范围：没有起始墙钟时间就只报片段内秒数，不换算成具体时刻 */
+function regionRangeText(card: TimelineCard): string {
+  const win = card.region?.plannedObservationWindow;
+  if (!win || win.startSeconds === null) return "计划未确定（不按距离猜设备）";
+  const seconds = win.startSeconds.toFixed(1) + "–" + (win.endSeconds?.toFixed(1) ?? "?") + "s";
+  if (!win.startAt) return "片段内 " + seconds + " · 缺少起始墙钟时间，无法换算";
+  return win.startAt.slice(11, 19) + "–" + (win.endAt ?? "").slice(11, 19) +
+    " · 时间可信度 " + (card.region?.timeQuality ?? "未核验");
+}
+
+function bboxText(card: TimelineCard): string {
+  const bbox = (card.evidence as { bboxPixels?: number[] } | null)?.bboxPixels;
+  if (!Array.isArray(bbox) || bbox.length !== 4) return "没有框选坐标";
+  return "框选 " + bbox.map((value) => Math.round(value)).join(", ");
+}
 
 const PHASE_TEXT: Record<string, string> = {
   not_started: "未开始研判",
@@ -146,6 +234,7 @@ function cardTime(card: TimelineCard) {
 function cardTone(card: TimelineCard): "anchor" | "ok" | "warn" | "info" | "muted" {
   if (card.kind === "anchor") return "anchor";
   if (card.kind === "gap") return "warn";
+  if (card.kind === "region_investigation") return "info";
   if (card.degradeReason) return "warn";
   if (card.kind === "track_segment") return "info";
   if (card.kind === "spatial_observation") return card.position ? "ok" : "muted";
@@ -277,15 +366,32 @@ const emptyText = computed(() => {
       </button>
     </header>
 
-    <div v-if="timelineCards.length" class="rail-filters rail-filters--cards">
-      <select v-model="cardKindFilter" class="select select--sm" aria-label="按卡片类型筛选">
-        <option v-for="option in CARD_KINDS" :key="option.id" :value="option.id">{{ option.label }}</option>
-      </select>
-      <select v-model="order" class="select select--sm" aria-label="排序">
-        <option value="asc">时间正序</option>
-        <option value="desc">时间倒序</option>
-      </select>
-      <span class="rail-phase num" :title="timelinePhase">{{ phaseText }}</span>
+    <div v-if="timelineCards.length" class="rail-filters rail-filters--views">
+      <div class="view-tabs" role="tablist" aria-label="按研判视角筛选">
+        <button
+          class="view-tab"
+          :class="{ 'is-active': viewFilter === 'all' }"
+          role="tab"
+          :aria-selected="viewFilter === 'all'"
+          @click="viewFilter = 'all'"
+        >全部</button>
+        <button
+          v-for="tab in PRESENTATION_TABS"
+          :key="tab.id"
+          class="view-tab"
+          :class="{ 'is-active': viewFilter === tab.id }"
+          role="tab"
+          :aria-selected="viewFilter === tab.id"
+          @click="viewFilter = tab.id"
+        >{{ tab.label }}<span class="num">{{ presentationCounts[tab.id] }}</span></button>
+      </div>
+      <div class="view-meta">
+        <select v-model="order" class="select select--sm" aria-label="排序">
+          <option value="asc">时间正序</option>
+          <option value="desc">时间倒序</option>
+        </select>
+        <span class="rail-phase num" :title="timelinePhase">{{ phaseText }}</span>
+      </div>
     </div>
 
     <div v-else class="rail-filters rail-filters--empty">
@@ -340,8 +446,8 @@ const emptyText = computed(() => {
             <button class="tl-card" @click="actions.selectTimelineCard(card.cardId)">
               <div class="tl-top">
                 <span class="tl-time num">{{ cardTime(card) }}</span>
-                <span class="tl-cam">{{ card.cameraLabel || kindLabel(card.kind) }}</span>
-                <span class="tl-round num">{{ kindLabel(card.kind) }}</span>
+                <span class="tl-cam">{{ card.cameraLabel || KIND_LABEL[card.kind] }}</span>
+                <span class="tl-round num">{{ KIND_LABEL[card.kind] }}</span>
               </div>
               <div class="tl-mid">
                 <span class="tl-status" :data-tone="cardTone(card)">{{ card.title }}</span>
@@ -362,6 +468,54 @@ const emptyText = computed(() => {
             <strong>{{ selectedCard.title }}</strong>
             <span class="num dim">{{ selectedCard.cardId }}</span>
           </div>
+          <div v-if="selectedCard.kind === 'region_investigation' && selectedCard.region" class="region-block">
+            <p class="card-detail-line">
+              <span class="dim">区域状态：</span>{{ regionStatusText(selectedCard) }}
+              <span class="dim"> · 设备 {{ selectedCard.region.deviceCount }} 台</span>
+            </p>
+            <p class="card-detail-line">
+              <span class="dim">计划录像范围：</span>{{ regionRangeText(selectedCard) }}
+            </p>
+            <p class="card-detail-line">
+              <span class="dim">窗口：</span>{{ regionPhaseSummary(selectedCard) }}
+              <span class="dim"> · 最近真实更新 </span>{{ regionUpdatedText(selectedCard) }}
+            </p>
+            <p class="card-detail-line">
+              <span class="dim">结果：</span>{{ regionResultText(selectedCard) }}
+            </p>
+            <ul class="region-tasks">
+              <li v-for="task in selectedCard.region.cameraTasks" :key="task.windowId" class="region-task">
+                <div class="region-task-head">
+                  <strong>{{ task.cameraLabel }}</strong>
+                  <span class="tl-badge">{{ windowPhaseText(task.phase) }}</span>
+                  <span v-if="task.errorCode" class="tl-badge" data-tone="warn">降级：{{ task.errorCode }}</span>
+                </div>
+                <span class="dim num region-task-meta">
+                  {{ task.cameraUuid ? '相机 ' + task.cameraUuid.slice(0, 8) + '…' : '未关联地图相机' }}（{{ cameraSourceText(task) }}） ·
+                  片段 {{ task.clipId.slice(0, 8) }}… · {{ task.windowSeconds[0] }}–{{ task.windowSeconds[1] }}s · 轨迹 {{ task.tracks }}
+                </span>
+              </li>
+            </ul>
+            <p v-if="!selectedCard.region.cameraTasks.length" class="card-detail-line dim">
+              还没有排进具体设备；不按距离或名称补造排队摄像头。
+            </p>
+            <div class="region-budget">
+              <span class="dim num">
+                预算 {{ selectedCard.region.researchBudgetSeconds ?? '未设置' }}s · 已执行 {{ selectedCard.region.elapsedAnalysisSeconds ?? '—' }}s · 窗口 {{ selectedCard.region.completedWindows }}/{{ selectedCard.region.plannedWindows }}
+              </span>
+              <button class="btn btn--sm btn--outline" @click="actions.extendTracking(60)">继续研判 +60s</button>
+              <button class="btn btn--sm btn--ghost" disabled title="尚未实现：需要新增扩大录像检索范围的接口">扩大录像检索（未实现）</button>
+            </div>
+            <p class="card-detail-line dim">
+              +60s 只增加系统执行预算，不扩大录像检索范围；区域卡不代表目标已经到达该区域。
+            </p>
+          </div>
+          <p v-else-if="selectedCard.kind === 'anchor'" class="card-detail-line">
+            起始目标证据 · {{ bboxText(selectedCard) }} · 尚未关联到研判任务
+          </p>
+          <p v-if="anchorCard && timelineAnchorLinked && selectedCard.kind !== 'anchor'" class="card-detail-line dim">
+            起始目标证据已关联本次研判：{{ bboxText(anchorCard) }}
+          </p>
           <p v-if="playbackText" class="card-detail-line"><span class="dim">回看：</span>{{ playbackText }}</p>
           <p v-else class="card-detail-line dim">这张卡没有可回看的片段位置。</p>
           <div v-if="selectedCard.playback?.clipId" class="card-play">
@@ -409,7 +563,7 @@ const emptyText = computed(() => {
       </template>
     </div>
 
-    <details v-if="timelineEvents.length || timelineCards.length" class="log-block" open>
+    <details v-if="timelineEvents.length || timelineCards.length" class="log-block">
       <summary class="log-head">
         <span>研判日志</span>
         <span class="dim num">{{ timelineEvents.length }} 条</span>
@@ -821,4 +975,17 @@ const emptyText = computed(() => {
 .track-thumb--lg { flex: none; width: 100%; height: 120px; margin: 8px 0 4px; }
 .track-info { display: flex; flex-direction: column; gap: 1px; font-size: 12px; min-width: 0; }
 .track-detail { font-size: 11px; }
+
+/* B8 V1.2：一级筛选是研判视角，不是卡片类型；区域卡只高亮设备，不画目标线 */
+.rail-filters--views { display: flex; flex-direction: column; gap: 6px; }
+.view-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.view-tab { display: flex; align-items: center; justify-content: center; gap: 3px; padding: 5px 2px; border: 1px solid var(--line-3); border-radius: 6px; background: transparent; color: var(--text-3); font-size: 11px; line-height: 1.2; }
+.view-tab.is-active { border-color: var(--accent-line); color: var(--text-0); background: rgba(77, 141, 255, 0.12); }
+.view-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.region-block { display: flex; flex-direction: column; gap: 5px; padding: 7px; border: 1px solid var(--line-2); border-radius: 6px; background: rgba(59, 130, 246, 0.05); }
+.region-tasks { margin: 2px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
+.region-task { display: flex; flex-direction: column; gap: 2px; padding: 5px 6px; border: 1px dashed var(--line-2); border-radius: 5px; }
+.region-task-head { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-1); }
+.region-task-meta { font-size: 10.5px; line-height: 1.45; }
+.region-budget { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 10.5px; }
 </style>

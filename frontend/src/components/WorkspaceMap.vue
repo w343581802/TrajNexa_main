@@ -48,6 +48,7 @@ const lSpatial = L.layerGroup();
 const lExperimental = L.layerGroup();
 const lTrackExp = L.layerGroup();
 const lTargetTrack = L.layerGroup();
+const lRegion = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
 const FOV_COLORS: Record<string, string> = {
@@ -114,7 +115,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -547,6 +548,38 @@ function selectCardForTrack(trackId: string) {
   if (card) actions.selectTimelineCard(card.cardId);
 }
 
+/* R1-5：选中「正在研判区域」只高亮被检查的设备与检索范围，不画任何目标点或轨迹线。 */
+const regionCameraIds = computed<string[]>(() => {
+  const card = selectedTimelineCard();
+  if (!card || card.kind !== "region_investigation") return [];
+  const tasks = card.region?.cameraTasks ?? [];
+  return Array.from(new Set(tasks.map((task) => task.cameraUuid).filter((uuid): uuid is string => Boolean(uuid))));
+});
+
+const regionNameMatched = computed<Set<string>>(() => {
+  const card = selectedTimelineCard();
+  const tasks = card?.kind === "region_investigation" ? card.region?.cameraTasks ?? [] : [];
+  return new Set(
+    tasks
+      .filter((task) => task.cameraUuidSource === "catalog_name_exact" && task.cameraUuid)
+      .map((task) => task.cameraUuid as string),
+  );
+});
+
+const regionCameras = computed<SnapshotCamera[]>(() => {
+  const ids = new Set(regionCameraIds.value);
+  if (!ids.size) return [];
+  return (snapshot.value?.cameras ?? []).filter((camera) => camera.camera_uuid && ids.has(camera.camera_uuid));
+});
+
+watch([regionCameras, () => wb.selectedCardId], () => {
+  if (!map) return;
+  if (regionCameras.value.length) {
+    const bounds = L.latLngBounds(regionCameras.value.map((camera) => [camera.lat, camera.lon] as [number, number]));
+    map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 });
+  }
+  render();
+});
 watch(highlightTrackId, (trackId) => {
   if (!trackId || !map) return;
   const segment = targetTrack.value.find((row) => row.track_id === trackId);
@@ -558,7 +591,7 @@ watch(highlightTrackId, (trackId) => {
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -755,11 +788,31 @@ function render() {
     }
   }
 
+  /* R1-5：区域研判设备高亮。仅设备位置与检索范围，区域卡不代表目标到达。 */
+  for (const camera of regionCameras.value) {
+    L.circleMarker([camera.lat, camera.lon], {
+      radius: 14,
+      color: "#f0a63c",
+      weight: 2,
+      opacity: 0.95,
+      dashArray: "5 4",
+      fillColor: "#f0a63c",
+      fillOpacity: 0.12,
+    })
+      .addTo(lRegion)
+      .bindTooltip(
+        `区域研判设备 · ${cameraLabel(camera)}<br/>` +
+          (regionNameMatched.value.has(camera.camera_uuid ?? "") ? "设备按台账完全同名匹配，未做身份确认<br/>" : "") +
+          "只表示正在检查该设备，不代表目标到达该区域",
+        { direction: "top", offset: [0, -8], className: "map-tip" },
+      );
+  }
+
 }
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, timelineCards, () => wb.selectedCardId],
   () => render(),
   { deep: true },
 );
