@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
-import { type TimelineCard } from "../services/mainApi";
+import { proxyVideoUrl, type TimelineCard } from "../services/mainApi";
 import {
   actions,
   activeTrackingRun,
@@ -193,6 +193,47 @@ const playbackText = computed(() => {
   return `${playback.clipId.slice(0, 8)}… · ${at} · ${playback.timeQuality ?? playback.timeBasis ?? "时间未核验"}`;
 });
 
+/* B2-3 卡片回看：起播 = 卡片偏移前 30s，一次取 60s 代理片段（H.264 重编码） */
+const playbackOpen = ref(false);
+const playbackUrl = ref<string | null>(null);
+const playbackSeek = ref(0);
+const playbackNote = ref<string | null>(null);
+const playbackVideo = ref<HTMLVideoElement | null>(null);
+
+function closePlayback() {
+  playbackOpen.value = false;
+  playbackUrl.value = null;
+  playbackNote.value = null;
+}
+
+function openPlayback(card: TimelineCard) {
+  const clipId = card.playback?.clipId;
+  const offset = card.playback?.offsetSeconds ?? null;
+  if (!clipId || offset === null || offset === undefined) {
+    playbackNote.value = "这张卡没有片段内位置，不能跳转播放。";
+    return;
+  }
+  if (!wb.caseId) {
+    playbackNote.value = "没有选中案件，无法校验片段归属。";
+    return;
+  }
+  const start = Math.max(0, offset - 30);
+  playbackUrl.value = proxyVideoUrl(wb.caseId, clipId, start, 60);
+  playbackSeek.value = Math.max(0, offset - start);
+  playbackNote.value = null;
+  playbackOpen.value = true;
+}
+
+function seekPlaybackVideo() {
+  const video = playbackVideo.value;
+  if (!video) return;
+  const target = Math.min(playbackSeek.value, video.duration || playbackSeek.value);
+  video.currentTime = target;
+  void video.play().catch(() => { /* 自动播放可能被浏览器拒绝，用户可手动点播放 */ });
+}
+
+watch(selectedCard, () => closePlayback());
+
 /* 空态按真实原因给下一步，不用示例数据填充 */
 const hasTarget = computed(() => currentTimelineTargetId() !== null);
 
@@ -323,6 +364,27 @@ const emptyText = computed(() => {
           </div>
           <p v-if="playbackText" class="card-detail-line"><span class="dim">回看：</span>{{ playbackText }}</p>
           <p v-else class="card-detail-line dim">这张卡没有可回看的片段位置。</p>
+          <div v-if="selectedCard.playback?.clipId" class="card-play">
+            <button v-if="!playbackOpen" class="btn btn--sm btn--outline" @click="openPlayback(selectedCard)">
+              <AppIcon name="play" :size="12" />回看片段（从偏移前 30s 起）
+            </button>
+            <button v-else class="btn btn--sm btn--ghost" @click="closePlayback">
+              <AppIcon name="close" :size="12" />收起回看
+            </button>
+            <p v-if="playbackNote" class="card-detail-line dim">{{ playbackNote }}</p>
+            <video
+              v-if="playbackOpen && playbackUrl"
+              ref="playbackVideo"
+              class="card-play-video"
+              :src="playbackUrl"
+              controls
+              preload="metadata"
+              @loadedmetadata="seekPlaybackVideo"
+            />
+            <p v-if="playbackOpen" class="card-detail-line dim">
+              这是 H.264 代理片段（重编码）；容器时间戳尚未与画面 OSD 核对，只能算“大致位置”。
+            </p>
+          </div>
           <p class="card-detail-line dim">身份只由审核事件改变；空间质量只描述几何，两者不互相升级。</p>
         </div>
       </template>
@@ -364,7 +426,7 @@ const emptyText = computed(() => {
 
     <footer class="rail-foot">
       <span class="dim">按真实观测时间排序 · 不构成身份结论</span>
-      <span class="dim num">{{ timelineCards.length || list.length }} 条</span>
+      <span class="dim num">{{ timelineCards.length }} 条</span>
     </footer>
   </aside>
 </template>
@@ -732,6 +794,8 @@ const emptyText = computed(() => {
 .card-detail { margin: 8px 0 4px; padding: 8px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--bg-1); display: flex; flex-direction: column; gap: 4px; }
 .card-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-size: 12px; }
 .card-detail-line { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--text-2); word-break: break-all; }
+.card-play { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 2px; }
+.card-play-video { width: 100%; max-height: 220px; border-radius: 6px; background: #000; }
 .log-block { flex: none; max-height: 180px; display: flex; flex-direction: column; border-top: 1px solid var(--line-2); padding: 6px 10px 8px; }
 .log-head { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--text-2); cursor: pointer; list-style: none; }
 .log-head::-webkit-details-marker { display: none; }

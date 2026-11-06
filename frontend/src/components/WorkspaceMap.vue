@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, timeWindow, trackingWindows, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
@@ -531,6 +531,31 @@ function openEvidence(point: TargetTrackPoint, trackId: string) {
   };
 }
 
+/* B2-4：时间轴选中的轨迹段 → 地图高亮；地图点点击 → 反向选中卡片 */
+const highlightTrackId = computed<string | null>(() => {
+  const card = selectedTimelineCard();
+  if (!card || card.kind !== "track_segment") return null;
+  const trackId = (card.segment as { trackId?: string } | null)?.trackId ?? null;
+  if (!trackId) return null;
+  return targetTrack.value.some((segment) => segment.track_id === trackId) ? trackId : null;
+});
+
+function selectCardForTrack(trackId: string) {
+  const card = timelineCards.value.find(
+    (row) => row.kind === "track_segment" && (row.segment as { trackId?: string } | null)?.trackId === trackId,
+  );
+  if (card) actions.selectTimelineCard(card.cardId);
+}
+
+watch(highlightTrackId, (trackId) => {
+  if (!trackId || !map) return;
+  const segment = targetTrack.value.find((row) => row.track_id === trackId);
+  const points = (segment?.points ?? []).filter((point) => point.spatial_level === "L2-candidate" && point.ground_point);
+  if (!points.length) return;
+  const bounds = L.latLngBounds(points.map((point) => [point.ground_point!.y, point.ground_point!.x] as [number, number]));
+  map.fitBounds(bounds, { padding: [60, 60], maxZoom: 19 });
+});
+
 function render() {
   if (!map) return;
   [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack].forEach((group) => group.clearLayers());
@@ -689,12 +714,20 @@ function render() {
   }
 
   /* TB4：目标绑定轨迹。每个 segment 单独成线；遇到无有效地面点的帧就断开，绝不跨接。 */
+  const focusTrackId = highlightTrackId.value;
   if (layers.targetTrack) {
     for (const segment of targetTrack.value) {
+      const focused = focusTrackId !== null && segment.track_id === focusTrackId;
+      const dimmed = focusTrackId !== null && !focused;
       let path: Array<[number, number]> = [];
       const flush = () => {
         if (path.length > 1) {
-          L.polyline(path, { color: "#22d3ee", weight: 2, opacity: 0.9, dashArray: "6 4" }).addTo(lTargetTrack);
+          L.polyline(path, {
+            color: focused ? "#67e8f9" : "#22d3ee",
+            weight: focused ? 4 : 2,
+            opacity: dimmed ? 0.25 : 0.95,
+            dashArray: focused ? undefined : "6 4",
+          }).addTo(lTargetTrack);
         }
         path = [];
       };
@@ -703,9 +736,19 @@ function render() {
         const lat = point.ground_point.y;
         const lon = point.ground_point.x;
         path.push([lat, lon]);
-        L.circleMarker([lat, lon], { radius: 4, color: "#22d3ee", weight: 2, fillOpacity: 0.9, fillColor: "#0e7490" })
+        L.circleMarker([lat, lon], {
+          radius: focused ? 5 : 4,
+          color: focused ? "#67e8f9" : "#22d3ee",
+          weight: 2,
+          opacity: dimmed ? 0.35 : 0.95,
+          fillOpacity: dimmed ? 0.3 : 0.9,
+          fillColor: "#0e7490",
+        })
           .addTo(lTargetTrack)
-          .on("click", () => openEvidence(point, segment.track_id))
+          .on("click", () => {
+            selectCardForTrack(segment.track_id);
+            openEvidence(point, segment.track_id);
+          })
           .bindTooltip(`${segment.track_id} · t=${point.t ?? "?"}s · frame ${point.frame ?? "?"}<br/>接触点 ${point.contact_quality ?? "?"} · 点击回看录像帧`, { direction: "top" });
       }
       flush();
