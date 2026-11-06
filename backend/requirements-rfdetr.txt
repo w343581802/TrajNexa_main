@@ -1,0 +1,3 @@
+# RF-DETR Small is opt-in to keep the default D-FINE/ONNX image lightweight.
+-r requirements.txt
+rfdetr>=1.11,<2
