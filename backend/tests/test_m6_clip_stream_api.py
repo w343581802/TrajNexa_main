@@ -40,3 +40,10 @@ def test_video_stream_rejects_unsatisfiable_range(client):
     response = client.get("/api/v1/cases/c1/recordings/clips/clip-1/video",
                           headers={"Range": "bytes=99-120"})
     assert response.status_code == 416
+
+
+def test_open_ended_range_is_capped(client):
+    response = client.get("/api/v1/cases/c1/recordings/clips/clip-1/video",
+                          headers={"Range": "bytes=0-"})
+    assert response.status_code == 206
+    assert response.headers["content-range"] == "bytes 0-15/16"

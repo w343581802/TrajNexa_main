@@ -13,6 +13,7 @@ from app.m4_video_api import enabled, fail
 router = APIRouter(prefix="/api/v1", tags=["tb4-clip-stream"])
 
 CHUNK = 1024 * 256
+MAX_OPEN_RANGE = 4 * 1024 * 1024  # 无上限的 Range 只发一段，浏览器会继续请求，避免单次 600MB 卡住
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 
@@ -43,7 +44,10 @@ def stream_clip_video(case_id: str, clip_id: str, request: Request,
         })
     start_raw, end_raw = match.group(1), match.group(2)
     start = int(start_raw) if start_raw else 0
-    end = int(end_raw) if end_raw else size - 1
+    if end_raw:
+        end = int(end_raw)
+    else:
+        end = min(start + MAX_OPEN_RANGE - 1, size - 1)
     end = min(end, size - 1)
     if start > end:
         return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
