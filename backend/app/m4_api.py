@@ -235,13 +235,14 @@ def available_vision_models():
 def available_image_models():
     """本机检测器目录（backend/config/detectors.json）；不返回路径或凭据。"""
     if not detectors.enabled():
-        return {'enabled': False, 'models': []}
+        return {'enabled': False, 'models': [], 'unavailable_models': []}
     try:
         models = detectors.list_models()
     except detectors.DetectorError as exc:
         fail(503, str(exc.code).replace('_', '-'),
              '检测器配置有误；其他识别引擎和人工框选仍可使用。')
-    return {'enabled': bool(models), 'models': models}
+    return {'enabled': bool(models), 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
 
 
 def _run_local(db: Session, media_id: str, body: DetectInput, started: float) -> dict:
@@ -339,7 +340,8 @@ def create_image_model(body: ImageModelCreate) -> dict:
     except detectors.DetectorError as exc:
         code = str(exc.code).replace('_', '-').replace(':', '-')
         fail(422, code, '新增失败：请检查权重、标签与引擎是否可用。')
-    return {'enabled': True, 'models': models}
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
 
 
 @router.delete('/ai/image-models/{model_id}')
@@ -350,7 +352,8 @@ def delete_image_model(model_id: str) -> dict:
     except detectors.DetectorError as exc:
         code = str(exc.code).replace('_', '-').replace(':', '-')
         fail(404 if code == 'detector-not-found' else 422, code, '删除失败。')
-    return {'enabled': True, 'models': models}
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
 
 
 @router.put('/ai/image-models/{model_id}')
@@ -365,7 +368,8 @@ def update_image_model(model_id: str, body: ImageModelUpdate) -> dict:
         code = str(exc.code).replace('_', '-').replace(':', '-')
         status = 404 if code == 'detector-not-found' else 422
         fail(status, code, '保存失败，检测器配置保持原样。')
-    return {'enabled': True, 'models': models}
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
 
 
 @router.post('/ai/image-models/reload')
@@ -377,7 +381,8 @@ def reload_image_models() -> dict:
     except detectors.DetectorError as exc:
         fail(422, str(exc.code).replace('_', '-'),
              '检测器配置有误，已保留上一次的加载结果。')
-    return {'enabled': bool(models), 'models': models}
+    return {'enabled': bool(models), 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
 
 @router.post('/media/{media_id}/detect')
 def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
