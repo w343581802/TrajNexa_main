@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
@@ -40,6 +40,7 @@ function loadDrawerWidth(): number {
   return 420;
 }
 const drawerWidth = ref(loadDrawerWidth());
+const drawerTop = ref(94);
 const evidencePreview = ref<PendingGroup[]>([]);
 
 const view = computed(() => timelineView.value);
@@ -426,6 +427,29 @@ function resetDrawerWidth(): void {
   saveDrawerWidth();
 }
 
+/** 抽屉 teleport 到 body 后要自己对齐时间线内容区顶部，避免盖住栏头。 */
+function syncDrawerTop(): void {
+  const host = document.querySelector(".tm");
+  if (!host) return;
+  drawerTop.value = Math.max(0, Math.round(host.getBoundingClientRect().top));
+}
+
+/** 抽屉/大图打开时通知栏级拖拽把手让位，避免在弹层里误拉时间线宽度。 */
+watch(detailCard, (card) => {
+  document.body.classList.toggle("tm-drawer-open", Boolean(card));
+  if (card) syncDrawerTop();
+}, { immediate: true });
+
+watch(evidencePreview, (groups) => {
+  document.body.classList.toggle("tm-preview-open", groups.length > 0);
+}, { immediate: true });
+
+onMounted(() => window.addEventListener("resize", syncDrawerTop));
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", syncDrawerTop);
+  document.body.classList.remove("tm-drawer-open", "tm-preview-open");
+});
+
 function daySecondsClock(seconds: number): string {
   const total = Math.round(seconds);
   const hh = String(Math.floor(total / 3600) % 24).padStart(2, "0");
@@ -773,12 +797,13 @@ watch(() => view.value?.targetId, () => closeDetail());
       <p class="tm-foot-note">{{ view?.note }}</p>
     </div>
 
-    <section
-      v-if="detailCard"
-      class="tm-drawer"
-      aria-label="卡片详情"
-      :style="{ width: drawerWidth + 'px' }"
-    >
+    <Teleport to="body">
+      <section
+        v-if="detailCard"
+        class="tm-drawer"
+        aria-label="卡片详情"
+        :style="{ width: drawerWidth + 'px', top: drawerTop + 'px' }"
+      >
       <div
         class="tm-drawer-resize"
         role="separator"
@@ -969,9 +994,11 @@ watch(() => view.value?.targetId, () => closeDetail());
           <p class="tm-kv"><span>技术卡</span>{{ detailTechCards.length }} 张（任务、窗口与候选证据已收进详情）</p>
         </template>
       </div>
-    </section>
+      </section>
+    </Teleport>
 
-    <div
+    <Teleport to="body">
+      <div
       v-if="evidencePreview.length"
       class="tm-preview-backdrop"
       role="dialog"
@@ -1006,7 +1033,8 @@ watch(() => view.value?.targetId, () => closeDetail());
           候选目标｜身份未确认｜空间位置为实验估计 · 非正式 L2。图片只用于人工核查来源，不改变身份或空间等级。
         </p>
       </div>
-    </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1525,9 +1553,12 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 .tm-drawer {
-  position: absolute;
-  inset: 0 0 0 auto;
-  z-index: 15;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  z-index: 900;
   display: flex;
   flex-direction: column;
   max-width: calc(100vw - 24px);
@@ -1535,6 +1566,11 @@ watch(() => view.value?.targetId, () => closeDetail());
   background: #0a1017;
   box-shadow: -12px 0 28px rgba(0, 0, 0, 0.38);
 }
+
+/* 抽屉打开时，栏级拖拽把手不再接收指针，避免误拉时间线宽度。 */
+:global(body.tm-drawer-open .rail-resizer) { pointer-events: none; }
+/* 大图打开时，抽屉自己的宽度把手也让位。 */
+:global(body.tm-preview-open .tm-drawer-resize) { pointer-events: none; }
 
 .tm-drawer-resize {
   position: absolute;
@@ -1619,7 +1655,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-preview-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: 1200;
   display: flex;
   align-items: center;
   justify-content: center;
