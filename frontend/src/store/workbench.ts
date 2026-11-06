@@ -21,6 +21,8 @@ import {
   type TrackingReviewRow,
   type TrackingRunDetail,
   type TrackingWindowRow,
+  type TimelineCard,
+  type TimelineEvent,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -49,6 +51,8 @@ export const wb = reactive({
   selectedAnchorId: null as string | null,
   selectedFeatureId: null as string | null,
   selectedObservationId: null as string | null,
+  /** 时间轴卡片的唯一选中真源：地图高亮也只认它，不再各存一份 */
+  selectedCardId: null as string | null,
   selectedJobId: null as string | null,
   selectedIntervalId: null as string | null,
 
@@ -197,6 +201,16 @@ export const trackingWindows = ref<TrackingWindowRow[]>([]);
 export const trackingReviews = ref<TrackingReviewRow[]>([]);
 export const trackingLoading = ref(false);
 export const trackingError = ref<string | null>(null);
+
+/* 时间轴读模型：卡片由后端按既有记录派生，前端只做呈现与选中，不拼事实。 */
+export const timelineCards = ref<TimelineCard[]>([]);
+export const timelineCardCounts = ref<Record<string, number>>({});
+export const timelinePhase = ref<string>("not_started");
+export const timelineNote = ref<string>("");
+export const timelineTargetId = ref<string | null>(null);
+export const timelineEvents = ref<TimelineEvent[]>([]);
+export const timelineLoading = ref(false);
+export const timelineError = ref<string | null>(null);
 
 export function trackingStatusText(run: TrackingRunDetail | null): string {
   if (!run) return "未启动";
@@ -1040,6 +1054,103 @@ export async function refreshTrackingRun(runId: string): Promise<void> {
   }
 }
 
+/* ---------------------- 时间轴：读取 / 选中 / 事件增量 ---------------------- */
+
+/** 时间轴的目标取当前追踪任务指向的目标观测；没有任务就没有可派生的卡片。 */
+export function currentTimelineTargetId(): string | null {
+  return activeTrackingRun.value?.observation_id ?? trackingRuns.value[0]?.observation_id ?? null;
+}
+
+export function clearTimeline(): void {
+  timelineCards.value = [];
+  timelineCardCounts.value = {};
+  timelinePhase.value = "not_started";
+  timelineNote.value = "";
+  timelineTargetId.value = null;
+  timelineEvents.value = [];
+  timelineError.value = null;
+  wb.selectedCardId = null;
+  // 不清本地记住的卡片：切回同一个案件时仍恢复到上次位置
+}
+
+export function selectedTimelineCard(): TimelineCard | null {
+  return timelineCards.value.find((card) => card.cardId === wb.selectedCardId) ?? null;
+}
+
+/**
+ * 读目标时间轴。keepSelection=true 用于手动刷新：同一张卡还在就保持选中，
+ * 卡片消失（例如任务被取消）才回落到第一张，避免刷新时选中跳走。
+ */
+export async function loadTimeline(keepSelection = false): Promise<void> {
+  const caseId = wb.caseId;
+  if (!caseId) {
+    clearTimeline();
+    return;
+  }
+  const targetId = currentTimelineTargetId();
+  if (!targetId) {
+    clearTimeline();
+    return;
+  }
+  timelineLoading.value = true;
+  try {
+    const payload = await mainApi.getTargetTimeline(caseId, targetId);
+    if (wb.caseId !== caseId) return; // 已切到别的案件，丢弃旧结果
+    timelineCards.value = payload.cards ?? [];
+    timelineCardCounts.value = payload.counts ?? {};
+    timelinePhase.value = payload.phase ?? "not_started";
+    timelineNote.value = payload.note ?? "";
+    timelineTargetId.value = payload.targetId;
+    timelineError.value = null;
+    const desired = keepSelection ? wb.selectedCardId : readStoredCard(caseId) ?? wb.selectedCardId;
+    const stillThere = timelineCards.value.some((card) => card.cardId === desired);
+    applyCardSelection(stillThere ? desired : timelineCards.value[0]?.cardId ?? null);
+    await loadTimelineEvents(caseId);
+  } catch (error) {
+    timelineError.value = trackingErrorMessage(error);
+  } finally {
+    timelineLoading.value = false;
+  }
+}
+
+export async function loadTimelineEvents(caseId = wb.caseId): Promise<void> {
+  const runId = activeTrackingRun.value?.id ?? trackingRuns.value[0]?.id ?? null;
+  if (!caseId || !runId) {
+    timelineEvents.value = [];
+    return;
+  }
+  try {
+    const payload = await mainApi.listRunEvents(caseId, runId, 0);
+    if (wb.caseId !== caseId) return;
+    timelineEvents.value = payload.events ?? [];
+  } catch (error) {
+    timelineError.value = trackingErrorMessage(error);
+  }
+}
+
+/** 选中卡片按案件记住：刷新后还能停在原来那张，切案件不串味 */
+function cardStorageKey(caseId: string | null): string {
+  return `trajnexa.selectedCard.${caseId ?? "none"}`;
+}
+
+function readStoredCard(caseId: string | null): string | null {
+  try {
+    return window.localStorage.getItem(cardStorageKey(caseId)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function applyCardSelection(cardId: string | null): void {
+  wb.selectedCardId = cardId;
+  try {
+    if (cardId) window.localStorage.setItem(cardStorageKey(wb.caseId), cardId);
+    else window.localStorage.removeItem(cardStorageKey(wb.caseId));
+  } catch {
+    /* 隐私模式下忽略 */
+  }
+}
+
 export const actions = {
   openCases() {
     ui.caseManageOpen = true;
@@ -1053,8 +1164,21 @@ export const actions = {
     wb.caseId = caseId;
     storeCaseId(caseId);
     applyWorkspace(caseWorkspaces.get(caseId) ?? emptyWorkspace());
+    clearTimeline();
     void loadRecordings(caseId);
+    void (async () => {
+      await loadTrackingRuns();
+      await loadTimeline();
+    })();
     if (announce) toast(`已切换到案件「${target.name}」`, "info");
+  },
+  /** 时间轴刷新：卡片与事件都重读，保留当前卡片选中 */
+  async refreshTimeline() {
+    await loadTimeline(true);
+  },
+  /** 点卡片：唯一真源是 wb.selectedCardId，地图后续只读它 */
+  selectTimelineCard(cardId: string | null) {
+    applyCardSelection(cardId);
   },
   openTracking() {
     ui.trackingOpen = true;
@@ -1063,6 +1187,7 @@ export const actions = {
       await loadTrackingRuns();
       const target = activeTrackingRun.value ?? trackingRuns.value[0];
       if (target) await refreshTrackingRun(target.id);
+      await loadTimeline();
     })();
   },
   async openTrackingRefresh(runId?: string) {

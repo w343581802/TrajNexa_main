@@ -58,5 +58,10 @@ class Settings(BaseSettings):
     media_input_root: Path | None = None
     media_input_roots: str = ''
     media_input_path_map: str = ''
+    # B8-S V1.2 §9.6 治理开关。实验图层在演示阶段默认开启（现有试点演示依赖它），
+    # 生产部署必须显式置 false；自动标定任务与自动地理发布永远默认关。
+    b8_experimental_geo_display: bool = True
+    b8_auto_calibration_enabled: bool = False
+    b8_auto_geo_publish_enabled: bool = False
 
 settings = Settings()

@@ -25,6 +25,7 @@ from app import m6_experimental_api
 from app import m6_track_spatial_api
 from app import m6_target_track_api
 from app import m6_clip_stream_api
+from app import timeline_api
 from app.media import detect_signature, safe_basename
 from app.config import settings
 from app.camera_catalog import load_catalog, CatalogError, catalog_status
@@ -46,6 +47,7 @@ app.include_router(m6_experimental_api.router)
 app.include_router(m6_track_spatial_api.router)
 app.include_router(m6_target_track_api.router)
 app.include_router(m6_clip_stream_api.router)
+app.include_router(timeline_api.router)
 
 class MediaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

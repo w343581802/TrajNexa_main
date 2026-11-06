@@ -2,11 +2,13 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import m6_target_binding
+from app.b8_gates import require_experimental_geo_display
 
-router = APIRouter(prefix="/api/v1", tags=["tb4-target-track"])
+router = APIRouter(prefix="/api/v1", tags=["tb4-target-track"],
+                   dependencies=[Depends(require_experimental_geo_display)])
 
 SAMPLE_PATH = Path(__file__).resolve().parent.parent / "data" / "tb_samples" / "pilot_tb4_target.json"
 

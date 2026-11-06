@@ -856,6 +856,11 @@ export const mainApi = {
       `/recordings/sources/${encodeURIComponent(sourceId)}/rematch`,
       { method: "POST" },
     ),
+
+  /* ------------------------------ B8 V1.1 时间轴 ------------------------------ */
+
+  getTargetTimeline,
+  listRunEvents,
 };
 
 /** 轮询预检作业直到结束；成功返回报告，失败抛错 */
@@ -1028,6 +1033,88 @@ export async function listTargetSpatialObservations(
   return data.items ?? [];
 }
 
+
+/** B8 V1.1：时间轴卡片（后端聚合读模型，不新增事实表）。 */
+export type TimelineCardKind =
+  | "anchor"
+  | "camera_task"
+  | "track_segment"
+  | "gap"
+  | "spatial_observation";
+
+export type TimelinePlayback = {
+  clipId: string | null;
+  offsetSeconds: number | null;
+  timeBasis: string | null;
+  timeQuality: string | null;
+};
+
+export type TimelineCard = {
+  cardId: string;
+  kind: TimelineCardKind;
+  title: string;
+  subtitle: string | null;
+  observedAt: string | null;
+  analysisAt: string | null;
+  targetId: string | null;
+  cameraLabel: string | null;
+  identityStatus: string | null;
+  spatialQuality: string | null;
+  degradeReason: string | null;
+  /** 只有后端确认 L2 且确有地面点时才非空；其余一律 null，前端不得补造坐标。 */
+  position: { lat: number; lon: number } | null;
+  displayHint: "no_position" | "device_point";
+  playback: TimelinePlayback | null;
+  evidence: Record<string, unknown> | null;
+  segment: Record<string, unknown> | null;
+};
+
+export type TimelinePayload = {
+  schema: string;
+  caseId: string;
+  targetId: string;
+  derived: boolean;
+  note: string;
+  phase: string;
+  counts: Record<string, number>;
+  cards: TimelineCard[];
+};
+
+export type TimelineEvent = {
+  seq: number;
+  eventId: string;
+  type: string;
+  at: string;
+  status: string | null;
+  payload: Record<string, unknown>;
+};
+
+export type TimelineEventsPayload = {
+  schema: string;
+  derived: boolean;
+  lastSeq: number;
+  afterSeq: number;
+  events: TimelineEvent[];
+};
+
+/** 读目标时间轴；后端按案件+目标做归属校验，越权返回 404。 */
+export async function getTargetTimeline(caseId: string, targetId: string): Promise<TimelinePayload> {
+  return request<TimelinePayload>(
+    `/cases/${encodeURIComponent(caseId)}/targets/${encodeURIComponent(targetId)}/timeline`,
+  );
+}
+
+/** 增量读取研判事件（after_seq 之前的由调用方自己持有）。 */
+export async function listRunEvents(
+  caseId: string,
+  runId: string,
+  afterSeq = 0,
+): Promise<TimelineEventsPayload> {
+  const seq = Math.max(0, Math.floor(afterSeq));
+  return request<TimelineEventsPayload>(
+    `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/events?after_seq=${seq}`,
+  );
+}
 
 /** B8-SA5：实验估计投影（不写库、不产生正式 L2）。 */
 export interface ExperimentalProjectionRow {

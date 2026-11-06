@@ -1,12 +1,14 @@
 """SA5：实验估计图层接口（不写正式 L2、不需要审核标定）。"""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app import m6_camera_ray_projection as ray
+from app.b8_gates import require_experimental_geo_display
 
-router = APIRouter(prefix="/api/v1", tags=["m6-experimental"])
+router = APIRouter(prefix="/api/v1", tags=["m6-experimental"],
+                   dependencies=[Depends(require_experimental_geo_display)])
 
 
 class CameraProfile(BaseModel):

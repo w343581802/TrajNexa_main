@@ -1,69 +1,23 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
-import MockFrame from "./ui/MockFrame.vue";
-import { type Observation } from "../data/mock";
-import { actions, activeTrackingRun, elementList, filteredObservations, timelineCounts, trackingWindows, wb, type TimelineFilter } from "../store/workbench";
-
-const statusOptions: { id: TimelineFilter; label: string }[] = [
-  { id: "all", label: "全部状态" },
-  { id: "anchor", label: "起始锚点" },
-  { id: "review", label: "待核查" },
-  { id: "approved", label: "已检验" },
-  { id: "excluded", label: "已排除" },
-];
+import { type TimelineCard } from "../services/mainApi";
+import {
+  actions,
+  activeTrackingRun,
+  currentTimelineTargetId,
+  selectedTimelineCard,
+  timelineCards,
+  timelineError,
+  timelineEvents,
+  timelineLoading,
+  timelineNote,
+  timelinePhase,
+  trackingWindows,
+  wb,
+} from "../store/workbench";
 
 const order = ref<"asc" | "desc">("asc");
-
-/** 时间轴主标签：优先要素里记录的摄像头名称，其次镜头 id；盲区不编造名称 */
-function camLabel(obs: Observation) {
-  const element = obs.elementId ? elementList.value.find((item) => item.id === obs.elementId) : undefined;
-  if (element?.cameraLabel) return element.cameraLabel;
-  if (obs.cameraId) return obs.cameraId;
-  return `未知盲区 ${obs.title.replace(/^未知盲区\s*·\s*/, "")}`;
-}
-
-const list = computed(() => {
-  const rows = [...filteredObservations.value];
-  return order.value === "asc" ? rows : rows.reverse();
-});
-
-const total = computed(() => timelineCounts.value);
-
-/** 日分组标签取要素里记录的实际日期，没有就显示「本日」 */
-const dayLabel = computed(() => {
-  const element = elementList.value.find((item) => /^\d{4}-\d{2}-\d{2}/.test(item.time));
-  return element ? element.time.slice(0, 10) : "本日";
-});
-
-function statusOf(obs: Observation) {
-  if (obs.kind === "anchor") return { label: "起始锚点", tone: "anchor" };
-  if (obs.kind === "gap") return { label: "盲区", tone: "muted" };
-  switch (obs.reliability) {
-    case "verified":
-      return { label: "已检验", tone: "ok" };
-    case "review":
-      return { label: "待核查", tone: "warn" };
-    case "invalid":
-      return { label: "已排除", tone: "info" };
-    default:
-      return { label: "检测候选", tone: "muted" };
-  }
-}
-
-/** 追查方向：锚点是倒查起点，其余按观测先后给出一句可执行动作 */
-function actionOf(obs: Observation) {
-  if (obs.kind === "gap") return null;
-  if (obs.kind === "anchor") return "向前倒查";
-  return obs.relation === "pending" || obs.relation === "hypothesis" ? "向后追查" : "向后追查";
-}
-
-function caption(obs: Observation) {
-  if (obs.kind === "anchor") return "";
-  return obs.sub || obs.note || "";
-}
-
-const dotTone = (obs: Observation) => statusOf(obs).tone;
 
 /* 右侧时间线可拖宽：默认 460px，最小 380，最大 720 / 视口 55% */
 const RAIL_KEY = "trajnexa.rail.width";
@@ -140,6 +94,120 @@ const hhmm = (seconds: number) =>
   String(Math.floor(seconds / 3600) % 24).padStart(2, "0") + ":" +
   String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
 const expandedId = ref<string | null>(null);
+
+/* ---------------- B8 V1.1 时间轴：真实卡片（后端派生，前端只呈现） ---------------- */
+
+const CARD_KINDS: { id: "all" | TimelineCard["kind"]; label: string }[] = [
+  { id: "all", label: "全部卡片" },
+  { id: "anchor", label: "起始锚点" },
+  { id: "camera_task", label: "研判任务" },
+  { id: "track_segment", label: "候选轨迹" },
+  { id: "gap", label: "证据缺口" },
+  { id: "spatial_observation", label: "空间观测" },
+];
+
+const cardKindFilter = ref<"all" | TimelineCard["kind"]>("all");
+
+const cards = computed(() => {
+  const rows = timelineCards.value.filter(
+    (card) => cardKindFilter.value === "all" || card.kind === cardKindFilter.value,
+  );
+  return order.value === "asc" ? rows : [...rows].reverse();
+});
+
+const selectedCard = computed(() => selectedTimelineCard());
+
+const kindLabel = (kind: TimelineCard["kind"]) =>
+  CARD_KINDS.find((item) => item.id === kind)?.label ?? kind;
+
+const PHASE_TEXT: Record<string, string> = {
+  not_started: "未开始研判",
+  queued: "排队中",
+  running: "研判中",
+  awaiting_review: "待人工审核",
+  budget_exhausted: "预算用尽",
+  unresolved: "未找到候选",
+  completed: "研判结束",
+  failed: "研判失败",
+  cancelled: "已取消",
+};
+
+const phaseText = computed(() => PHASE_TEXT[timelinePhase.value] ?? timelinePhase.value);
+
+/** 卡片时间：优先真实观测时间，其次分析时间；都没有就显示「无时间」而不是拿当前时间顶上 */
+function cardTime(card: TimelineCard) {
+  const stamp = card.observedAt || card.analysisAt;
+  if (!stamp) return "无时间";
+  const date = new Date(stamp);
+  if (Number.isNaN(date.getTime())) return stamp.slice(11, 19);
+  return date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+function cardTone(card: TimelineCard): "anchor" | "ok" | "warn" | "info" | "muted" {
+  if (card.kind === "anchor") return "anchor";
+  if (card.kind === "gap") return "warn";
+  if (card.degradeReason) return "warn";
+  if (card.kind === "track_segment") return "info";
+  if (card.kind === "spatial_observation") return card.position ? "ok" : "muted";
+  return "ok";
+}
+
+/** 身份状态与空间质量分开说：候选未确认永远不能被读成“已确认目标” */
+function identityText(card: TimelineCard) {
+  if (card.kind === "gap") return "证据缺口";
+  if (card.identityStatus === "candidate_unverified") return "候选未确认";
+  if (card.identityStatus === "ambiguous") return "身份歧义";
+  if (!card.identityStatus) return "无身份结论";
+  return card.identityStatus;
+}
+
+function positionText(card: TimelineCard) {
+  if (card.displayHint === "device_point" && card.position) {
+    return `设备点 ${card.position.lat.toFixed(5)}, ${card.position.lon.toFixed(5)}`;
+  }
+  return "无地图坐标";
+}
+
+const EVENT_TEXT: Record<string, string> = {
+  "task.queued": "任务排队",
+  "task.running": "开始研判",
+  "window.analyzed": "窗口完成",
+  "candidate.found": "发现候选",
+  "review.decided": "审核决定",
+  "task.finished": "任务结束",
+};
+
+const eventLabel = (type: string) => EVENT_TEXT[type] ?? type;
+
+function eventTime(stamp: string) {
+  const date = new Date(stamp);
+  return Number.isNaN(date.getTime()) ? stamp.slice(11, 19) : date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+const playbackText = computed(() => {
+  const card = selectedCard.value;
+  const playback = card?.playback;
+  if (!card || !playback || !playback.clipId) return null;
+  const offset = playback.offsetSeconds;
+  const at = offset === null || offset === undefined ? "位置未知" : `片段内 ${offset.toFixed(1)}s`;
+  return `${playback.clipId.slice(0, 8)}… · ${at} · ${playback.timeQuality ?? playback.timeBasis ?? "时间未核验"}`;
+});
+
+/* 空态按真实原因给下一步，不用示例数据填充 */
+const hasTarget = computed(() => currentTimelineTargetId() !== null);
+
+const emptyTitle = computed(() => {
+  if (!wb.caseId) return "还没有选择案件";
+  if (!hasTarget.value) return "该案件还没有研判任务";
+  return "时间轴为空";
+});
+
+const emptyText = computed(() => {
+  if (!wb.caseId) return "选择案件后，时间轴按真实研判记录显示锚点、任务、候选轨迹与缺口卡片。";
+  if (!hasTarget.value) return "时间轴卡片由追踪任务派生。先启动一次研判，卡片才会出现。";
+  return "这个目标目前没有可显示的卡片；没有数据时不会填充示例数据。";
+});
+
 </script>
 
 <template>
@@ -156,25 +224,31 @@ const expandedId = ref<string | null>(null);
     <header class="rail-head">
       <span class="rail-mark"><AppIcon name="target" :size="13" /></span>
       <span class="rail-title">观测时间线</span>
-      <span class="rail-count num">({{ total.all }})</span>
-      <button class="icon-btn rail-refresh" aria-label="刷新时间线" title="刷新时间线">
+      <span class="rail-count num">({{ timelineCards.length }})</span>
+      <button
+        class="icon-btn rail-refresh"
+        aria-label="刷新时间线"
+        title="刷新时间线"
+        :disabled="timelineLoading"
+        @click="actions.refreshTimeline()"
+      >
         <AppIcon name="refresh" :size="14" />
       </button>
     </header>
 
-    <div class="rail-filters">
-      <select v-model="wb.timelineRound" class="select select--sm" aria-label="按研判轮次筛选">
-        <option value="all">全部轮次</option>
-        <option value="R1">R1 · 首轮</option>
-        <option value="R2">R2 · 当前轮</option>
-      </select>
-      <select v-model="wb.timelineFilter" class="select select--sm" aria-label="按观测状态筛选">
-        <option v-for="option in statusOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+    <div v-if="timelineCards.length" class="rail-filters rail-filters--cards">
+      <select v-model="cardKindFilter" class="select select--sm" aria-label="按卡片类型筛选">
+        <option v-for="option in CARD_KINDS" :key="option.id" :value="option.id">{{ option.label }}</option>
       </select>
       <select v-model="order" class="select select--sm" aria-label="排序">
         <option value="asc">时间正序</option>
         <option value="desc">时间倒序</option>
       </select>
+      <span class="rail-phase num" :title="timelinePhase">{{ phaseText }}</span>
+    </div>
+
+    <div v-else class="rail-filters rail-filters--empty">
+      <span class="rail-phase num">暂无卡片</span>
     </div>
 
 
@@ -207,65 +281,90 @@ const expandedId = ref<string | null>(null);
       </section>
 
     <div class="rail-list scroll-y">
-      <div v-if="!list.length" class="rail-empty">
-        <span class="rail-empty-icon"><AppIcon name="clock" :size="16" /></span>
-        <p class="rail-empty-title">{{ wb.emptyMode ? "时间线为空" : "当前筛选下没有记录" }}</p>
-        <p class="rail-empty-text">
-          {{ wb.emptyMode ? "添加目标要素后，起始锚点与候选观测将按真实观测时间排序显示。" : "切换筛选条件，或等待新一轮研判产生观测。" }}
-        </p>
-        <button v-if="wb.emptyMode" class="btn btn--sm btn--outline" @click="actions.openAddElement()">
-          <AppIcon name="plus" :size="12" />添加目标要素
-        </button>
-      </div>
-
-      <template v-else>
+      <template v-if="timelineCards.length">
         <div class="day-head">
-          <button class="day-toggle" title="本日分组">
-            <AppIcon name="chevron-down" :size="12" />
-          </button>
-          <span class="day-label num">{{ dayLabel }}</span>
+          <span class="day-label">证据时间线 · {{ cards.length }} 张</span>
+          <span class="day-label num">{{ phaseText }}</span>
         </div>
-
+        <p v-if="timelineError" class="rail-error">{{ timelineError }}</p>
+        <p v-if="timelineNote" class="rail-note">{{ timelineNote }}</p>
         <div class="tl">
           <article
-            v-for="obs in list"
-            :key="obs.id"
+            v-for="card in cards"
+            :key="card.cardId"
             class="tl-row"
-            :class="{ 'is-selected': wb.selectedObservationId === obs.id }"
+            :class="{ 'is-selected': wb.selectedCardId === card.cardId }"
           >
-            <span class="tl-dot" :data-tone="dotTone(obs)" />
-            <button class="tl-card" @click="actions.selectObservation(obs.id)">
+            <span class="tl-dot" :data-tone="cardTone(card)" />
+            <button class="tl-card" @click="actions.selectTimelineCard(card.cardId)">
               <div class="tl-top">
-                <span class="tl-time num">{{ obs.timeLabel }}</span>
-                <span class="tl-cam">{{ camLabel(obs) }}</span>
-                <span v-if="obs.round" class="tl-round num">{{ obs.round }}</span>
+                <span class="tl-time num">{{ cardTime(card) }}</span>
+                <span class="tl-cam">{{ card.cameraLabel || kindLabel(card.kind) }}</span>
+                <span class="tl-round num">{{ kindLabel(card.kind) }}</span>
               </div>
               <div class="tl-mid">
-                <span class="tl-thumb">
-                  <MockFrame
-                    :chrome="false"
-                    :label="camLabel(obs)"
-                    :time="obs.timeLabel"
-                    :tone="obs.kind === 'anchor' ? 'gray' : 'color'"
-                    :quality="obs.reliability === 'invalid' ? 'low' : 'good'"
-                  />
-                </span>
-                <span class="tl-status" :data-tone="statusOf(obs).tone">{{ statusOf(obs).label }}</span>
-                <span v-if="actionOf(obs)" class="tl-act">{{ actionOf(obs) }}</span>
-                <span v-else class="tl-note">{{ obs.title.replace(/^未知盲区\s*·\s*/, "") }}</span>
+                <span class="tl-status" :data-tone="cardTone(card)">{{ card.title }}</span>
+                <span class="tl-note">{{ card.subtitle }}</span>
               </div>
-              <div v-if="caption(obs)" class="tl-sub">
-                <span class="tl-sub-label">特征：</span>{{ caption(obs) }}
+              <div class="tl-sub tl-sub--badges">
+                <span class="tl-badge">{{ identityText(card) }}</span>
+                <span class="tl-badge" :data-tone="card.position ? 'ok' : 'muted'">{{ positionText(card) }}</span>
+                <span v-if="card.spatialQuality" class="tl-badge">{{ card.spatialQuality }}</span>
+                <span v-if="card.degradeReason" class="tl-badge" data-tone="warn">降级：{{ card.degradeReason }}</span>
               </div>
             </button>
           </article>
         </div>
+        <p v-if="!cards.length" class="rail-empty-text">当前类型下没有卡片。</p>
+        <div v-if="selectedCard" class="card-detail">
+          <div class="card-detail-head">
+            <strong>{{ selectedCard.title }}</strong>
+            <span class="num dim">{{ selectedCard.cardId }}</span>
+          </div>
+          <p v-if="playbackText" class="card-detail-line"><span class="dim">回看：</span>{{ playbackText }}</p>
+          <p v-else class="card-detail-line dim">这张卡没有可回看的片段位置。</p>
+          <p class="card-detail-line dim">身份只由审核事件改变；空间质量只描述几何，两者不互相升级。</p>
+        </div>
+      </template>
+      <template v-else>
+        <div v-if="timelineLoading" class="rail-empty">
+          <span class="rail-empty-icon"><AppIcon name="clock" :size="16" /></span>
+          <p class="rail-empty-title">正在读取时间轴</p>
+          <p class="rail-empty-text">卡片由后端按既有记录派生，不在浏览器里拼事实。</p>
+        </div>
+        <div v-else class="rail-empty">
+          <span class="rail-empty-icon"><AppIcon name="clock" :size="16" /></span>
+          <p class="rail-empty-title">{{ emptyTitle }}</p>
+          <p class="rail-empty-text">{{ emptyText }}</p>
+          <button v-if="!wb.caseId" class="btn btn--sm btn--outline" @click="actions.openCases()">
+            选择案件
+          </button>
+          <button v-else-if="!hasTarget" class="btn btn--sm btn--outline" @click="actions.openTracking()">
+            <AppIcon name="target" :size="12" />去启动研判
+          </button>
+        </div>
+        <p v-if="timelineError" class="rail-error">{{ timelineError }}</p>
       </template>
     </div>
 
+    <details v-if="timelineEvents.length || timelineCards.length" class="log-block" open>
+      <summary class="log-head">
+        <span>研判日志</span>
+        <span class="dim num">{{ timelineEvents.length }} 条</span>
+      </summary>
+      <ul class="log-list">
+        <li v-for="event in timelineEvents" :key="event.eventId" class="log-row">
+          <span class="num log-time">{{ eventTime(event.at) }}</span>
+          <span class="log-type">{{ eventLabel(event.type) }}</span>
+          <span class="dim log-status">{{ event.status || "" }}</span>
+        </li>
+      </ul>
+      <p v-if="!timelineEvents.length" class="rail-empty-text">还没有任务事件。</p>
+    </details>
+
     <footer class="rail-foot">
       <span class="dim">按真实观测时间排序 · 不构成身份结论</span>
-      <span class="dim num">{{ list.length }} 条</span>
+      <span class="dim num">{{ timelineCards.length || list.length }} 条</span>
     </footer>
   </aside>
 </template>
@@ -619,6 +718,28 @@ const expandedId = ref<string | null>(null);
   line-height: 1.55;
   color: var(--text-3);
 }
+
+/* B8 V1.1 时间轴卡片：无坐标的卡明写“无地图坐标”，不靠留空让人猜 */
+.rail-filters--cards { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; }
+.rail-phase { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.rail-error { margin: 4px 0 6px; font-size: 11.5px; color: var(--danger); }
+.rail-note { margin: 4px 0 6px; font-size: 11px; line-height: 1.5; color: var(--text-4); }
+.tl-sub--badges { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; overflow: visible; }
+.tl-badge { padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line-3); font-size: 10.5px; color: var(--text-3); }
+.tl-badge[data-tone="ok"] { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.tl-badge[data-tone="warn"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.tl-badge[data-tone="muted"] { color: var(--text-4); }
+.card-detail { margin: 8px 0 4px; padding: 8px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--bg-1); display: flex; flex-direction: column; gap: 4px; }
+.card-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-size: 12px; }
+.card-detail-line { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--text-2); word-break: break-all; }
+.log-block { flex: none; max-height: 180px; display: flex; flex-direction: column; border-top: 1px solid var(--line-2); padding: 6px 10px 8px; }
+.log-head { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--text-2); cursor: pointer; list-style: none; }
+.log-head::-webkit-details-marker { display: none; }
+.log-list { margin: 6px 0 0; padding: 0; list-style: none; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 3px; }
+.log-row { display: flex; gap: 6px; font-size: 11px; color: var(--text-3); }
+.log-time { color: var(--text-4); }
+.log-type { color: var(--text-2); }
+.log-status { margin-left: auto; }
 
 /* B8 tracking cards */
 .track-block { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-2); }

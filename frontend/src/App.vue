@@ -59,8 +59,8 @@ onMounted(() => {
         <ModelTestLab v-else-if="page === 'model-test'" />
         <RecordingResources v-else-if="page === 'recordings'" />
         <HistoryPage v-else-if="page === 'history'" />
-        <template v-else>
-    <div class="workspace">
+        <!-- 研判工作台常驻：切菜单只隐藏，不销毁地图/时间线和本地状态 -->
+        <div class="workspace" :class="{ 'is-hidden': page !== 'workspace' }">
       <div class="workspace-left">
         <main class="app-main">
           <div class="stage">
@@ -99,7 +99,6 @@ onMounted(() => {
 
       <ObservationTimeline />
     </div>
-        </template>
       </div>
     </div>
 
@@ -135,6 +134,7 @@ onMounted(() => {
   min-width: 0;
 }
 .app-body {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -147,6 +147,14 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+/* 切到其它页时只把工作台移出视线，保留地图尺寸与全部本地状态 */
+.workspace.is-hidden {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .workspace-left {

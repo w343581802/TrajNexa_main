@@ -2,12 +2,14 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app import m6_track_spatial
+from app.b8_gates import require_experimental_geo_display
 
-router = APIRouter(prefix="/api/v1", tags=["tb-track-spatial"])
+router = APIRouter(prefix="/api/v1", tags=["tb-track-spatial"],
+                   dependencies=[Depends(require_experimental_geo_display)])
 
 
 class CameraIn(BaseModel):
