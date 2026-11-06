@@ -228,13 +228,19 @@ def _region_payload(group: dict) -> dict:
     candidates = group["candidates"]
     # 候选按摄像头归并，让区域详情能说清“哪台设备发现了候选”，而不是只给区域总数
     candidate_by_camera: dict[str, int] = {}
+    pending_by_camera: dict[str, int] = {}
     for card in candidates:
         label = card.get("cameraLabel")
-        if label:
-            candidate_by_camera[label] = candidate_by_camera.get(label, 0) + 1
+        if not label:
+            continue
+        candidate_by_camera[label] = candidate_by_camera.get(label, 0) + 1
+        if card.get("identityStatus") not in CONFIRMED_IDENTITY:
+            pending_by_camera[label] = pending_by_camera.get(label, 0) + 1
     tasks = _merge_camera_tasks(source_tasks)
     for task in tasks:
-        task["candidateCount"] = candidate_by_camera.get(task.get("cameraLabel"), 0)
+        label = task.get("cameraLabel")
+        task["candidateCount"] = candidate_by_camera.get(label, 0)
+        task["pendingCandidateCount"] = pending_by_camera.get(label, 0)
     ranges = _window_ranges(source_tasks)
     observed = [task.get("plannedStartAt") for task in tasks if task.get("plannedStartAt")]
     status = _region_status(tasks, len(candidates), runs)

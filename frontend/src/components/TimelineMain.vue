@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
-import { mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
+import { keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import {
   actions,
   timelineCards,
@@ -12,7 +12,7 @@ import {
   wb,
 } from "../store/workbench";
 
-type ViewFilter = "all" | "confirmed" | "review" | "region";
+type ViewFilter = "all" | "confirmed" | "region";
 
 const filter = ref<ViewFilter>("all");
 const detailId = ref<string | null>(null);
@@ -24,12 +24,10 @@ const playbackVideo = ref<HTMLVideoElement | null>(null);
 const reviewBusy = ref(false);
 
 const view = computed(() => timelineView.value);
-const counts = computed(() => view.value?.counts ?? { confirmed: 0, review: 0, region: 0, total: 0 });
 
 const FILTERS: { id: ViewFilter; label: string }[] = [
   { id: "all", label: "全部" },
   { id: "confirmed", label: "已确认轨迹" },
-  { id: "review", label: "待核查线索" },
   { id: "region", label: "区域排查" },
 ];
 
@@ -41,26 +39,56 @@ const KIND_LABEL: Record<TimelineViewCard["kind"], string> = {
 
 const FILTER_KIND: Record<Exclude<ViewFilter, "all">, TimelineViewCard["kind"]> = {
   confirmed: "confirmed_track",
-  review: "candidate_clue",
   region: "region_investigation",
 };
 
+/** 主视图暂不展示“待核查线索”卡；候选信息收进区域摄像头行与详情。 */
 const cards = computed(() => {
-  const rows = view.value?.cards ?? [];
+  const rows = (view.value?.cards ?? []).filter((card) => card.kind !== "candidate_clue");
   if (filter.value === "all") return rows;
   const kind = FILTER_KIND[filter.value];
   return rows.filter((card) => card.kind === kind);
 });
 
+const viewCounts = computed(() => {
+  const rows = view.value?.cards ?? [];
+  const confirmed = rows.filter((card) => card.kind === "confirmed_track").length;
+  const region = rows.filter((card) => card.kind === "region_investigation").length;
+  return { confirmed, region, total: confirmed + region };
+});
+
 const detailCard = computed(() => (view.value?.cards ?? []).find((card) => card.cardId === detailId.value) ?? null);
 
-const detailTechCards = computed<TimelineCard[]>(() => {
-  const card = detailCard.value;
+function techCardsFor(card: TimelineViewCard | null): TimelineCard[] {
   if (!card) return [];
   return card.detailCardIds
     .map((id) => timelineCards.value.find((item) => item.cardId === id))
     .filter((item): item is TimelineCard => Boolean(item));
-});
+}
+
+const detailTechCards = computed<TimelineCard[]>(() => techCardsFor(detailCard.value));
+
+type CardThumb = { key: string; url: string; alt: string };
+
+/** 已确认轨迹右侧缩略帧：从该段录像连续取三帧，折叠展示；不伪造证据图。 */
+function confirmedThumbs(card: TimelineViewCard): CardThumb[] {
+  if (card.kind !== "confirmed_track" || !wb.caseId) return [];
+  const tech = techCardsFor(card).find((item) => item.playback?.clipId
+    && item.playback.offsetSeconds !== null && item.playback.offsetSeconds !== undefined);
+  const clipId = tech?.playback?.clipId;
+  const offset = tech?.playback?.offsetSeconds;
+  if (!clipId || offset === null || offset === undefined) return [];
+  const seen = new Set<string>();
+  const rows: CardThumb[] = [];
+  for (const delta of [-1.5, 0, 1.5]) {
+    const at = Math.max(0, Number(offset) + delta);
+    const key = at.toFixed(1);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ key, url: keyframeUrl(wb.caseId, clipId, at), alt: card.place + " 录像关键帧" });
+  }
+  return rows;
+}
 
 const candidateCards = computed(() => detailTechCards.value.filter((card) => card.kind === "track_segment"));
 
@@ -103,6 +131,15 @@ function identityText(card: TimelineViewCard): string {
   if (card.identityStatus === "ambiguous") return "身份歧义";
   if (card.identityStatus === "rejected") return "已排除";
   return "候选目标｜身份未确认";
+}
+
+function detailIdentityText(card: TimelineViewCard): string {
+  return card.kind === "region_investigation" ? "区域排查" : identityText(card);
+}
+
+function detailSpatialText(card: TimelineViewCard): string {
+  if (card.kind === "region_investigation") return "仅设备位置，不代表目标到达";
+  return "空间：" + (card.spatialQuality || "无地图坐标");
 }
 
 function techIdentityText(card: TimelineCard): string {
@@ -149,6 +186,7 @@ type CameraRow = {
   windowCount: number;
   runCount: number;
   candidateCount: number;
+  pendingCount: number;
   phase: string;
 };
 
@@ -166,6 +204,7 @@ function regionCameras(region: TimelineViewRegion): CameraRow[] {
         windowCount: 0,
         runCount: 0,
         candidateCount: 0,
+        pendingCount: 0,
         phase: task.phase,
       };
       rows.set(key, row);
@@ -183,6 +222,7 @@ function regionCameras(region: TimelineViewRegion): CameraRow[] {
     row.windowCount = Math.max(row.windowCount, task.windowCount ?? 0);
     row.runCount = Math.max(row.runCount, task.runIds?.length ?? (task.runId ? 1 : 0));
     row.candidateCount = Math.max(row.candidateCount, task.candidateCount ?? 0);
+    row.pendingCount = Math.max(row.pendingCount, task.pendingCandidateCount ?? 0);
     if (task.phase === "running") row.phase = "running";
     else if (task.phase === "failed" && row.phase !== "running") row.phase = "failed";
   }
@@ -216,7 +256,6 @@ function regionHasGap(region: TimelineViewRegion): boolean {
 
 function filterTone(id: ViewFilter): "ok" | "warn" | "info" | "all" {
   if (id === "confirmed") return "ok";
-  if (id === "review") return "warn";
   if (id === "region") return "info";
   return "all";
 }
@@ -243,6 +282,8 @@ function regionProgress(region: TimelineViewRegion): number {
 }
 
 function cameraIcon(camera: CameraRow): "check" | "refresh" | "clock" | "warning" {
+  // 有未核查候选时，用“待核查线索”的同款警示图标标出这台设备需要人工核查。
+  if (camera.pendingCount > 0) return "warning";
   if (camera.phase === "completed") return "check";
   if (camera.phase === "running") return "refresh";
   if (camera.phase === "failed" || camera.phase === "no_recording") return "warning";
@@ -250,28 +291,13 @@ function cameraIcon(camera: CameraRow): "check" | "refresh" | "clock" | "warning
 }
 
 function cameraResult(camera: CameraRow): string {
+  if (camera.pendingCount > 0) return "待核查 " + camera.pendingCount + " 条";
   if (camera.phase === "running") return "正在分析";
   if (camera.phase === "queued") return "等待处理";
   if (camera.phase === "failed") return "分析失败";
   if (camera.phase === "no_recording") return "无可用录像";
   if (camera.phase === "unknown") return "状态未知";
   return camera.candidateCount ? "发现 " + camera.candidateCount + " 条候选" : "暂无可靠结果";
-}
-
-function clueLine(card: TimelineViewCard): string {
-  const candidate = card.candidate;
-  if (!candidate) return card.subtitle ?? "候选线索等待核查";
-  if (candidate.pending > 0) return "发现 " + candidate.count + " 条候选，" + candidate.pending + " 条待确认";
-  return "共 " + candidate.count + " 条候选，等待人工核查";
-}
-
-function cardMetaIdentity(card: TimelineViewCard): string {
-  return card.kind === "region_investigation" ? "区域排查" : identityText(card);
-}
-
-function cardMetaDetail(card: TimelineViewCard): string {
-  if (card.kind === "region_investigation") return "设备按台账匹配，不代表目标到达";
-  return "空间：" + (card.spatialQuality || "无地图坐标");
 }
 
 function candidateTrackId(card: TimelineCard): string {
@@ -398,7 +424,7 @@ watch(() => view.value?.targetId, () => closeDetail());
         >
           <span v-if="item.id !== 'all'" class="tm-filter-dot" />
           <span class="tm-filter-label">{{ item.label }}</span>
-          <b class="num">{{ item.id === "all" ? counts.total : item.id === "confirmed" ? counts.confirmed : item.id === "review" ? counts.review : counts.region }}</b>
+          <b class="num">{{ item.id === "all" ? viewCounts.total : item.id === "confirmed" ? viewCounts.confirmed : viewCounts.region }}</b>
         </button>
       </div>
 
@@ -430,64 +456,80 @@ watch(() => view.value?.targetId, () => closeDetail());
         <li v-for="card in cards" :key="card.cardId" class="tm-row" :data-kind="card.kind">
           <span class="tm-dot" :data-tone="kindTone(card)" />
           <article class="tm-card" :data-kind="card.kind" :class="{ 'is-open': detailId === card.cardId }">
-            <header class="tm-card-head">
-              <span class="tm-time num">{{ clockRange(card) }}</span>
-              <span class="tm-badge" :data-tone="kindTone(card)">
-                <AppIcon :name="kindIcon(card)" :size="11" />
-                {{ KIND_LABEL[card.kind] }}
-              </span>
-            </header>
+            <div class="tm-card-layout">
+              <div class="tm-card-content">
+                <header class="tm-card-head">
+                  <span class="tm-time num">{{ clockRange(card) }}</span>
+                  <span class="tm-badge" :data-tone="kindTone(card)">
+                    <AppIcon :name="kindIcon(card)" :size="11" />
+                    {{ KIND_LABEL[card.kind] }}
+                  </span>
+                </header>
 
-            <h3 class="tm-place">
-              <span class="tm-place-icon" :data-tone="kindTone(card)">
-                <AppIcon :name="placeIcon(card)" :size="13" />
-              </span>
-              <span class="tm-place-text">{{ card.place }}</span>
-            </h3>
+                <h3 class="tm-place">
+                  <span class="tm-place-icon" :data-tone="kindTone(card)">
+                    <AppIcon :name="placeIcon(card)" :size="13" />
+                  </span>
+                  <span class="tm-place-text">{{ card.place }}</span>
+                </h3>
 
-            <template v-if="card.kind === 'region_investigation' && card.region">
-              <div class="tm-region-sum">
-                <span>{{ card.region.deviceCount }} 台摄像头 · {{ card.region.plannedWindows }} 个检索窗口</span>
-                <span class="tm-region-count">已完成 {{ card.region.completedWindows }} · 待处理 {{ regionPending(card.region) }}</span>
-              </div>
-              <div class="tm-progress" role="progressbar" :aria-valuenow="regionProgress(card.region)" aria-valuemin="0" aria-valuemax="100">
-                <i :style="{ width: regionProgress(card.region) + '%' }" />
-              </div>
+                <template v-if="card.kind === 'region_investigation' && card.region">
+                  <div class="tm-region-sum">
+                    <span>{{ card.region.deviceCount }} 台摄像头 · {{ card.region.plannedWindows }} 次检索</span>
+                    <span class="tm-region-count">已完成 {{ card.region.completedWindows }} · 待处理 {{ regionPending(card.region) }}</span>
+                  </div>
+                  <div class="tm-progress" role="progressbar" :aria-valuenow="regionProgress(card.region)" aria-valuemin="0" aria-valuemax="100">
+                    <i :style="{ width: regionProgress(card.region) + '%' }" />
+                  </div>
 
-              <ul class="tm-cam-list">
-                <li v-for="camera in regionCameras(card.region)" :key="camera.key" class="tm-cam-item">
-                  <button type="button" class="tm-cam" @click="selectViewCard(card)">
-                    <span class="tm-cam-state" :data-phase="camera.phase">
-                      <AppIcon :name="cameraIcon(camera)" :size="11" />
-                    </span>
-                    <span class="tm-cam-name">{{ camera.label }}</span>
-                    <span class="tm-cam-result" :data-phase="camera.phase">{{ cameraResult(camera) }}</span>
-                    <span class="tm-cam-open"><AppIcon name="chevron-right" :size="12" /></span>
+                  <ul class="tm-cam-list">
+                    <li v-for="camera in regionCameras(card.region)" :key="camera.key" class="tm-cam-item">
+                      <button type="button" class="tm-cam" @click="selectViewCard(card)">
+                        <span class="tm-cam-state" :data-phase="camera.phase" :data-pending="camera.pendingCount > 0">
+                          <AppIcon :name="cameraIcon(camera)" :size="11" />
+                        </span>
+                        <span class="tm-cam-name">{{ camera.label }}</span>
+                        <span class="tm-cam-result" :data-phase="camera.phase">{{ cameraResult(camera) }}</span>
+                        <span class="tm-cam-open"><AppIcon name="chevron-right" :size="12" /></span>
+                      </button>
+                      <span v-if="camera.phase === 'running'" class="tm-cam-bar" aria-hidden="true"><i /></span>
+                    </li>
+                  </ul>
+                  <p v-if="regionHasGap(card.region)" class="tm-gap">
+                    <AppIcon name="warning" :size="11" />
+                    检索窗口不连续，不代表目标连续经过。
+                  </p>
+                </template>
+
+                <p v-else class="tm-sub">{{ card.subtitle }}</p>
+
+                <footer class="tm-card-foot">
+                  <button class="tm-detail-btn" @click="selectViewCard(card)">
+                    <AppIcon v-if="card.kind === 'confirmed_track'" name="video" :size="12" />
+                    {{ card.kind === "confirmed_track" ? "查看录像" : "查看详情" }}
+                    <AppIcon name="chevron-right" :size="12" />
                   </button>
-                  <span v-if="camera.phase === 'running'" class="tm-cam-bar" aria-hidden="true"><i /></span>
-                </li>
-              </ul>
-              <p v-if="regionHasGap(card.region)" class="tm-gap">
-                <AppIcon name="warning" :size="11" />
-                检索窗口不连续，不代表目标连续经过。
-              </p>
-            </template>
+                </footer>
+                <p v-if="!card.observedAt" class="tm-time-hint">{{ cardTimeHint(card) }}</p>
+              </div>
 
-            <p v-else-if="card.kind === 'candidate_clue'" class="tm-clue">{{ clueLine(card) }}</p>
-            <p v-else class="tm-sub">{{ card.subtitle }}</p>
-
-            <footer class="tm-card-foot">
-              <span class="tm-meta">
-                <b class="tm-meta-id" :data-kind="card.kind">{{ cardMetaIdentity(card) }}</b>
-                <span class="tm-meta-rest">· {{ cardMetaDetail(card) }}</span>
-              </span>
-              <button class="tm-detail-btn" @click="selectViewCard(card)">
-                <AppIcon v-if="card.kind === 'confirmed_track'" name="video" :size="12" />
-                {{ card.kind === "confirmed_track" ? "查看录像" : "查看详情" }}
-                <AppIcon name="chevron-right" :size="12" />
-              </button>
-            </footer>
-            <p v-if="!card.observedAt" class="tm-time-hint">{{ cardTimeHint(card) }}</p>
+              <div
+                v-if="confirmedThumbs(card).length"
+                class="tm-thumbs"
+                :title="'录像关键帧 ' + confirmedThumbs(card).length + ' 张（请求偏移，未校验 PTS）'"
+              >
+                <img
+                  v-for="(thumb, index) in confirmedThumbs(card)"
+                  :key="thumb.key"
+                  class="tm-thumb"
+                  :src="thumb.url"
+                  :alt="thumb.alt"
+                  loading="lazy"
+                  :style="{ '--i': index, zIndex: 6 - index }"
+                />
+                <span v-if="confirmedThumbs(card).length > 1" class="tm-thumb-count num">{{ confirmedThumbs(card).length }}</span>
+              </div>
+            </div>
           </article>
         </li>
       </ol>
@@ -508,7 +550,7 @@ watch(() => view.value?.targetId, () => closeDetail());
         <div>
           <span class="tm-badge" :data-tone="kindTone(detailCard)">{{ KIND_LABEL[detailCard.kind] }}</span>
           <h2>{{ detailCard.place }}</h2>
-          <p class="tm-drawer-sub">{{ clockRange(detailCard) }} · {{ identityText(detailCard) }}</p>
+          <p class="tm-drawer-sub">{{ clockRange(detailCard) }} · {{ detailIdentityText(detailCard) }} · {{ detailSpatialText(detailCard) }}</p>
         </div>
         <button class="tm-close" aria-label="关闭详情" @click="closeDetail"><AppIcon name="close" :size="14" /></button>
       </header>
@@ -807,6 +849,58 @@ watch(() => view.value?.targetId, () => closeDetail());
 
 .tm-card.is-open { border-color: var(--accent-line); }
 
+.tm-card-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tm-card-content {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tm-thumbs {
+  position: relative;
+  flex: 0 0 64px;
+  width: 64px;
+  height: 48px;
+  margin-top: 1px;
+}
+
+.tm-thumb {
+  position: absolute;
+  top: calc(var(--i, 0) * 3px);
+  right: calc(var(--i, 0) * 3px);
+  width: 58px;
+  height: 41px;
+  border: 1px solid #2a3745;
+  border-radius: 5px;
+  background: #0a1017;
+  box-shadow: 0 2px 8px #0007;
+  object-fit: cover;
+}
+
+.tm-thumb-count {
+  position: absolute;
+  right: -3px;
+  bottom: -4px;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border: 1px solid #2b3a49;
+  border-radius: 999px;
+  background: #101923;
+  color: var(--text-2);
+  font-size: 9px;
+}
+
 .tm-card-head {
   display: flex;
   align-items: center;
@@ -943,6 +1037,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-cam-state[data-phase="running"] { color: var(--accent-hi); background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .tm-cam-state[data-phase="running"] svg { animation: tm-spin 2.4s linear infinite; }
 .tm-cam-state[data-phase="failed"], .tm-cam-state[data-phase="no_recording"] { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.tm-cam-state[data-pending="true"] { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
 
 .tm-cam-name { flex: 1; min-width: 0; overflow: hidden; color: var(--text-1); text-overflow: ellipsis; white-space: nowrap; }
 
@@ -999,26 +1094,12 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-card-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 2px;
   padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
 }
-
-.tm-meta {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: 10.5px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tm-meta-id { color: var(--text-2); font-weight: 600; }
-.tm-meta-id[data-kind="confirmed_track"] { color: var(--ok); }
-.tm-meta-id[data-kind="candidate_clue"] { color: color-mix(in srgb, var(--warn) 80%, var(--text-2)); }
 
 .tm-detail-btn {
   display: inline-flex;

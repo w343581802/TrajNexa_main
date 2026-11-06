@@ -1192,6 +1192,8 @@ export type TimelineViewCameraTask = TimelineRegionTask & {
   regionCardId?: string;
   /** 同区域、同摄像头的候选条数；0 表示该设备当前没有产出候选。 */
   candidateCount?: number;
+  /** 其中身份尚未确认、仍需人工核查的候选数；>0 时区域卡用警示图标标出该设备。 */
+  pendingCandidateCount?: number;
   /** 该设备被检索的窗口覆盖范围（多次 Run 合并后的连续区间）。 */
   windowRanges?: TimelineWindowRange[];
   /** 该设备被检索的次数；同一设备可能被多个 Run 重复检索。 */

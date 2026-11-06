@@ -24,7 +24,13 @@ import {
 const order = ref<"asc" | "desc">("asc");
 /** 默认显示简洁主视图；详细列表保留为排查入口，不删除既有技术卡能力。 */
 const mode = ref<"main" | "detail">("main");
-const railCount = computed(() => timelineView.value?.counts.total ?? timelineCards.value.length);
+const railCount = computed(() => {
+  if (mode.value === "detail") return timelineCards.value.length;
+  const counts = timelineView.value?.counts;
+  // 主视图暂不展示“待核查线索”卡；标题计数只算已确认轨迹与区域排查。
+  if (!counts) return timelineCards.value.length;
+  return counts.confirmed + counts.region;
+});
 
 /* 右侧时间线可拖宽：默认 460px，最小 380，最大 720 / 视口 55% */
 const RAIL_KEY = "trajnexa.rail.width";

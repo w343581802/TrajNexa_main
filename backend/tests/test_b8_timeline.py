@@ -333,9 +333,30 @@ def test_view_groups_adjacent_cameras_and_hides_technical_cards():
     assert merged["region"]["deviceCount"] == 2
     assert merged["region"]["plannedWindows"] == 2
     assert merged["region"]["candidateCount"] == 1  # 同一 track+window 去重
+    cam = next(task for task in merged["region"]["cameraTasks"]
+               if task["cameraLabel"] == "1-LT-桂康路松山巷")
+    assert cam["candidateCount"] == 1
+    # 去重后保留的是已确认身份但无逐帧轨迹的候选，因此这台设备不再需要“待核查”标记。
+    assert cam["pendingCandidateCount"] == 0
     clue = next(card for card in view["cards"] if card["kind"] == "candidate_clue")
     assert clue["candidate"]["count"] == 1
     assert "已确认身份但无逐帧轨迹" in clue["subtitle"]
+
+
+def test_view_marks_camera_with_pending_candidates():
+    from app.timeline_view import compose_view
+    cards = [
+        _view_region("region:r1:1:windows", "r1", "cam-a", "w1",
+                     "2026-10-23T15:00:02", "2026-10-23T15:00:15"),
+        _view_segment("segment:v1", "cam-a", "t1"),
+    ]
+    view = compose_view({"caseId": "c", "targetId": "t", "cards": cards},
+                        {projection.canonical_name("cam-a"): {"lat": 25.0, "lon": 110.0}})
+    region = next(card for card in view["cards"]
+                  if card["kind"] == "region_investigation")["region"]
+    task = region["cameraTasks"][0]
+    assert task["candidateCount"] == 1
+    assert task["pendingCandidateCount"] == 1
 
 
 def test_view_merges_repeated_searches_of_one_camera():
