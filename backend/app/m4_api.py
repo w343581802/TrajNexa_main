@@ -293,6 +293,254 @@ class ImageModelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     engine: str = Field(default='onnxruntime', pattern='^[a-z0-9_]{2,32}$')
     algorithm_type: str = Field(default='yolo8', max_length=16)
+    model_variant: str | None = Field(default=None, pattern='^(small|medium|large) str = Field(default='detect', max_length=16)
+    device: str = Field(default='cpu', pattern='^(cpu|gpu)$')
+    model_file: str = Field(min_length=1, max_length=240)
+    labels_file: str | None = Field(default=None, max_length=240)
+    labels: str | None = Field(default=None, max_length=4000)
+    input_width: int = Field(default=640, ge=32, le=4096)
+    input_height: int = Field(default=640, ge=32, le=4096)
+    conf_threshold: float = Field(default=0.35, gt=0, le=1)
+    iou_threshold: float = Field(default=0.5, gt=0, le=1)
+
+
+@router.get('/ai/image-models/weights')
+def list_image_model_weights() -> dict:
+    """models/ 下已有的权重文件，供新增检测器时选择。"""
+    return {'weights': detectors.list_weight_files()}
+
+
+@router.post('/ai/image-models/upload')
+def upload_image_model_weight(file: UploadFile = File(...)) -> dict:
+    """上传权重到 models/uploads/；不覆盖同名文件，返回相对路径与哈希。"""
+    name = Path(file.filename or '').name
+    if not name or Path(name).suffix.lower() not in ('.onnx', '.pt', '.pth', '.bin'):
+        fail(422, 'detector-upload-bad-type', '只接受 .onnx / .pt / .pth / .bin 权重文件。')
+    target_dir = Path(settings.storage_root).parent / 'models' / 'uploads'
+    content = file.file.read(200 * 1024 * 1024 + 1)
+    if len(content) > 200 * 1024 * 1024:
+        fail(413, 'detector-upload-too-large', '权重超过 200MB。')
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / name
+        if target.exists():
+            fail(409, 'detector-upload-exists', '同名权重已存在，请改名后再传。')
+        target.write_bytes(content)
+    except OSError:
+        fail(500, 'detector-upload-failed', '权重写入失败；检查 models/ 是否可写。')
+    return {'path': 'models/uploads/' + name,
+            'sha256': sha256(content).hexdigest(), 'bytes': len(content)}
+
+
+@router.post('/ai/image-models')
+def create_image_model(body: ImageModelCreate) -> dict:
+    """新增检测器：写 detectors.json 并热加载，加载失败回滚。"""
+    try:
+        models = detectors.create_spec(body.model_dump())
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        fail(422, code, '新增失败：请检查权重、标签与引擎是否可用。')
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
+
+
+@router.delete('/ai/image-models/{model_id}')
+def delete_image_model(model_id: str) -> dict:
+    """删除检测器：只改配置，不删除权重文件。"""
+    try:
+        models = detectors.delete_spec(model_id)
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        fail(404 if code == 'detector-not-found' else 422, code, '删除失败。')
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
+
+
+@router.put('/ai/image-models/{model_id}')
+def update_image_model(model_id: str, body: ImageModelUpdate) -> dict:
+    """保存检测器的可编辑字段（名称/类别/阈值/设备）并热加载；失败回滚原配置。"""
+    changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not changes:
+        fail(422, 'detector-update-empty', '没有需要保存的字段。')
+    try:
+        models = detectors.update_spec(model_id, changes)
+    except detectors.DetectorError as exc:
+        code = str(exc.code).replace('_', '-').replace(':', '-')
+        status = 404 if code == 'detector-not-found' else 422
+        fail(status, code, '保存失败，检测器配置保持原样。')
+    return {'enabled': True, 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
+
+
+@router.post('/ai/image-models/reload')
+def reload_image_models() -> dict:
+    """手改 detectors.json 后热加载：不用重启容器，失败的模型只从列表消失。"""
+    try:
+        detectors.reload()
+        models = detectors.list_models()
+    except detectors.DetectorError as exc:
+        fail(422, str(exc.code).replace('_', '-'),
+             '检测器配置有误，已保留上一次的加载结果。')
+    return {'enabled': bool(models), 'models': models,
+            'unavailable_models': detectors.unavailable_models()}
+
+@router.post('/media/{media_id}/detect')
+def detect(media_id: str, body: DetectInput, db: Session = Depends(get_db)):
+    """统一识别入口：同一张截图上换引擎重跑，用来对比各个模型的效果。
+
+    只返回待核实候选框；不写库、不改原图、不确认身份。
+    """
+    ensure_enabled()
+    engine = (body.engine or '').strip().lower()
+    started = time.monotonic()
+    if engine == 'auto':
+        # 业务模式：服务端固定一个检测器，浏览器里的实验选择不会影响研判流程。
+        models = detectors.list_models() if detectors.enabled() else []
+        if models:
+            configured = settings.m5_workspace_detector_id.strip()
+            selected = configured or models[0]['id']
+            if selected not in {row['id'] for row in models}:
+                fail(503, 'local-workspace-model-missing',
+                     '工作台默认检测模型未配置，请手动框选。')
+            result = _run_local(db, media_id, DetectInput(
+                engine='local', model_ids=[selected],
+                min_confidence=body.min_confidence), started)
+            result['effective_profile'] = 'workspace_server_default'
+            return result
+        if settings.vision_enabled:
+            engine = 'qwen3vl'
+        else:
+            fail(503, 'local-workspace-model-missing',
+                 '没有可用的业务默认检测模型，可继续人工框选目标。')
+    if engine in ('local', 'rebucca'):
+        return _run_local(db, media_id, body, started)
+    if engine == 'dfine':
+        result = _run_dfine(db, media_id, body.min_confidence, with_ids=True)
+        result['elapsed_seconds'] = round(time.monotonic() - started, 2)
+        return result
+    if engine == 'vlm':
+        try:
+            chosen = resolve_vision_model(settings, body.vision_model_id or '')
+        except VisionRegistryError:
+            fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
+        label, model = chosen['name'], chosen['model_id']
+        chat_fn = chat_for(chosen)
+        vision_active = chosen['enabled']
+    elif engine in VISION_MODELS:
+        label, setting_name = VISION_MODELS[engine]
+        model = getattr(settings, setting_name)
+        chat_fn = None
+        vision_active = bool(settings.vision_enabled)
+    else:
+        fail(422, 'm4-unknown-engine',
+             '识别引擎只支持 local、qwen3vl、qwen3vl4b、vlm。')
+    if not vision_active:
+        fail(503, 'vision-disabled', '所选视觉模型服务未启用。')
+    asset, _file, image = _case_image(db, media_id)
+    try:
+        candidates = m4_vision.detect_objects(
+            image, base_url=settings.vision_base_url, model=model,
+            timeout=settings.vision_timeout_seconds, chat_fn=chat_fn)
+    except m4_vision.VisionError as exc:
+        code = str(exc)
+        status = 503 if code in ('m4d_model_unavailable', 'm4d_prompt_too_long',
+                                 'm4d_model_thinking_only') else \
+            422 if code == 'm4d_roi_too_small' else 502
+        hint = ('确认本机 ollama serve 已启动且已拉取 ' + model + '。'
+                if code != 'm4d_model_thinking_only' else
+                '当前模型只输出推理不给结论：请改用 instruct 变体（' + model + '）。')
+        fail(status, code.replace('_', '-'), '视觉模型没有给出可用候选：' + hint)
+    return {
+        'schema_version': '1.0',
+        'engine': engine,
+        'status': 'candidates_unverified',
+        'model_family': label,
+        'model_id': model,
+        'source_sha256': asset.sha256,
+        'image_size': [image.shape[1], image.shape[0]],
+        'tiling': 1,  # 视觉模型整幅推理：切片会成倍拖慢（2s → 8s），先不切
+        'candidate_count': len(candidates),
+        'candidates': candidates,
+        'media_id': asset.id,
+        'case_id': asset.case_id,
+        'elapsed_seconds': round(time.monotonic() - started, 2),
+        'note': '视觉模型候选框仅为建议；不确认身份、设备或地理位置。',
+    }
+
+
+class RoiFeatureInput(BaseModel):
+    bbox_normalized: list[float] = Field(min_length=4, max_length=4)
+    engine: str = 'qwen3vl'
+    object_class: str = 'person'  # image-selected category, not identity
+    prompt_override: str | None = Field(default=None, max_length=2400)
+    vision_model_id: str | None = None  # configured model selection for ROI review
+
+
+@router.post('/media/{media_id}/roi-features')
+def roi_features(media_id: str, body: RoiFeatureInput, db: Session = Depends(get_db)):
+    """选中框之后的关键特征：画质 / 主色（确定性）+ 外观短语（视觉模型，可降级）。"""
+    ensure_enabled()
+    asset, source, image = _case_image(db, media_id)
+    try:
+        result = analyze_image_roi(source, asset.sha256, body.bbox_normalized)
+    except FeatureInputError as exc:
+        fail(422 if str(exc) in ('m4_invalid_bbox', 'm4_roi_too_small',
+                                  'm4_image_too_large') else 409,
+             str(exc).replace('_', '-'), '无法可靠分析该区域，请核查截图与框选。')
+    engine = (body.engine or '').strip().lower()
+    if body.object_class not in ('person', 'vehicle', 'other'):
+        fail(422, 'm5-invalid-object-class', '目标类别只能选择人员、车辆或其他。')
+    result['engine'] = engine
+    if not body.vision_model_id and not settings.vision_enabled:
+        result['appearance']['semantic_status'] = 'disabled'
+        return result
+    # An explicit M5 selection wins; otherwise keep existing M4 behavior.
+    # Do not silently fall back when the user explicitly selected a model.
+    if body.vision_model_id:
+        try:
+            chosen = resolve_vision_model(settings, body.vision_model_id)
+        except VisionRegistryError:
+            fail(422, 'm5-unknown-vision-model', '请从已配置的大模型列表中选择模型。')
+        if not chosen['enabled']:
+            result['appearance']['semantic_status'] = 'disabled'
+            return result
+        models = [chosen]
+    else:
+        names = [getattr(settings, VISION_MODELS[engine][1])] if engine in VISION_MODELS \
+            else [settings.vision_feature_model, settings.vision_model]
+        models = [{'model_id': name, 'provider': 'ollama'} for name in dict.fromkeys(names)]
+    prompt_used = ai_prompts.effective(db, body.object_class, body.prompt_override)
+    prompt_scope = ('single_image_experiment' if body.prompt_override else
+                    'configured' if ai_prompts.stored(db, body.object_class) else
+                    'builtin_default')
+    last_error = 'm4d_model_unavailable'
+    for entry in models:
+        model = entry['model_id']
+        try:
+            features = m4_vision.describe_roi(
+                image, body.bbox_normalized, base_url=settings.vision_base_url,
+                model=model, timeout=min(120, settings.vision_timeout_seconds),
+                object_class=body.object_class,
+                prompt_override=prompt_used,
+                chat_fn=chat_for(entry))
+        except m4_vision.VisionError as exc:
+            last_error = str(exc)
+            if last_error == 'm4d_model_unavailable':
+                continue  # 4B 没拉就用 2B 兜底
+            break
+        result['appearance']['semantic_attributes'] = {
+            'features_unverified': features, 'semantic_model': model,
+            'object_class': body.object_class,
+            'prompt_sha256': sha256(prompt_used.encode('utf-8')).hexdigest(),
+            'prompt_scope': prompt_scope,
+        }
+        result['appearance']['semantic_status'] = 'vlm_unverified'
+        return result
+    # 关键特征里的模型部分是加分项：失败只降级，不让整次选框失败
+    result['appearance']['semantic_status'] = 'unavailable'
+    result['appearance']['semantic_error'] = last_error
+    return result
+)
     task_type: str = Field(default='detect', max_length=16)
     device: str = Field(default='cpu', pattern='^(cpu|gpu)$')
     model_file: str = Field(min_length=1, max_length=240)
