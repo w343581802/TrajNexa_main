@@ -207,7 +207,7 @@ def _execution_progress(progress, *, started_at, used_before, used_after, execut
 
 
 def _is_strong_candidate(candidate: dict) -> bool:
-    """只有第 1 名且分数/间距都过线才算“需要人工确认”；弱候选继续查下一台。"""
+    """第 1 名且仍以 candidate 状态保留时先交人审；没有候选才继续查下一台。"""
     return (int(candidate.get('rank') or 1) == 1
             and candidate.get('state') == 'candidate')
 
