@@ -1,0 +1,31 @@
+flowchart LR
+  M0["M0 素材与作业<br/>cases · media_assets · analysis_jobs"]
+  M1["M1 预检与角标<br/>inspector · overlay_ocr · overlay_identity"]
+  M4["M4 要素观测<br/>检测候选 + ROI 特征"]
+  B0["B8-B0 目标要素组<br/>主对象 + 关联对象 + 属性"]
+  M6["M6 追踪任务<br/>窗口规划 · 轨迹 · ReID · 候选"]
+  B8["B8 工作台<br/>时间轴 · 地图 · 证据"]
+
+  M3["M3 录像资源<br/>扫描 · 关键帧 · 命名"]
+  M2["M2 Map 只读空间<br/>镜头点位 · 视口"]
+  M5["M5 模型管理与评测<br/>注册表 · 模型测试"]
+  S["B8-S 空间标定<br/>实验估计（旁路）"]
+  L2["L2 空间观测<br/>target_spatial_observations"]
+
+  M0 --> M1
+  M1 --> M4
+  M4 --> B0
+  B0 --> M6
+  M6 --> B8
+  M3 --> M6
+  M2 --> M6
+  M6 --> S
+  S --> L2
+  M5 -.->|"提供引擎"| M4
+  M1 -->|"OverlayIdentity"| M3
+  M6 -->|"追踪结果"| L2
+
+  classDef core fill:#e8f0fe,stroke:#3b6fd4,color:#12305c
+  classDef side fill:#fff7e6,stroke:#c98a1a,color:#5c3d00
+  class M0,M1,M4,B0,M6,B8 core
+  class M3,M2,M5,S,L2 side

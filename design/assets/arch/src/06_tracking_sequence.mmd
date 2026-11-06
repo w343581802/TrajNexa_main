@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  actor U as 研判员
+  participant FE as 前端弹窗
+  participant API as m6_run_api
+  participant SVC as m6_run_service
+  participant WK as worker / m6_run_worker
+  participant DB as PostgreSQL
+
+  U->>FE: 框选目标 + 关联对象 + 属性
+  FE->>API: POST /cases/{cid}/target-groups
+  API-->>FE: target_group_id（主对象唯一，revision=1）
+
+  U->>FE: 发起追踪（方向 / 预算秒）
+  FE->>API: POST /cases/{cid}/tracking-runs
+  API->>SVC: 冻结 anchor（镜头 / 起始时间 / OSD 当日秒）
+  SVC-->>FE: run_id，status=queued
+
+  loop 每轮不超过 research_seconds 预算
+    WK->>SVC: claim_next_run()
+    Note over WK: ① m6_recording_source 按窗口从真实 clip 取帧<br/>② D-FINE + ByteTrack 分析窗口 → 轨迹与逐帧框<br/>③ OSNet 比较轨迹外观与 anchor ROI → 相似度
+    WK->>DB: tracking_windows / tracking_candidates（candidate_unverified）
+  end
+
+  FE->>API: GET /tracking-runs/{id}（2.5s 轮询）
+  U->>API: POST /tracking-runs/{id}/reviews（approved）
+  API->>DB: tracking_review_events（append-only）→ identity_status=human_confirmed
+  API->>SVC: 重新排队，继续下一台镜头
+  Note over DB: 身份只能由审核事件改变，模型分数不改身份

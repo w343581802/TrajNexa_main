@@ -1,0 +1,14 @@
+flowchart LR
+  U["研判员 / 演示者<br/>浏览器"] -->|"http://localhost:5173"| FE["frontend 容器<br/>Vue 3 + Vite SPA<br/>只走 /api 反代"]
+  FE -->|"HTTP /api/*"| API["api 容器<br/>FastAPI + uvicorn :8000<br/>宿主映射 127.0.0.1:8010<br/>（migrate 容器先跑 alembic）"]
+  API --> DB[("db 容器 · PostGIS 16-3.4<br/>业务表 + Map 只读视图")]
+  API -->|"写任务行：analysis_jobs<br/>tracking_runs · scan_jobs"| WK["worker 容器<br/>python -m app.worker<br/>单实例队列：媒体 → 追踪 → 录像"]
+  WK --> DB
+  API --> ST[("文件区<br/>storage 卷：originals · recording-frames<br/>tracking_runs · video-tools<br/>录像只读挂载 /data/videos")]
+  WK --> ST
+  API --> MD["模型运行时（宿主侧）<br/>ONNX Runtime：D-FINE · RF-DETR · YOLO<br/>torch：OSNet ReID<br/>Ollama :11434：Qwen3-VL 2B / 4B<br/>PaddleOCR：PP-OCRv6 角标"]
+  WK --> MD
+  API -.->|"只读 SELECT / 目录快照"| MAP[("TrajNexa_Map<br/>Django + PostGIS<br/>独立 compose 与库")]
+
+  classDef store fill:#f3f6fb,stroke:#8aa0c0,color:#243b53
+  class DB,ST,MAP store

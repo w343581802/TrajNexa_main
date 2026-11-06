@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph P1["① 请求内（api 进程）"]
+    IN["前端选文件 / 路径<br/>POST /api/v1/media"] --> MI["media_inputs.py<br/>路径与目录校验"]
+    MI --> MED["media.py<br/>文件签名校验"]
+    MED --> ORIG[("originals<br/>按 sha256 落盘")]
+    MED --> JOB[("analysis_jobs<br/>status=queued")]
+  end
+
+  subgraph P2["② worker 异步（run_media_job）"]
+    WK["worker.py"] --> INS["inspector.py<br/>时长 / 分辨率 / 解码 / 画质"]
+    WK --> OCR["overlay_ocr.py<br/>角标时间 + 摄像头名称 OCR"]
+    OCR --> OID["overlay_identity.py<br/>唯一结论 OverlayIdentity<br/>拍摄时间 + 名称 + 来源"]
+    INS --> REP[("inspection_reports<br/>metrics_json / ocr_json")]
+    OID --> REP
+  end
+
+  JOB --> WK
+  REP --> DOCK["前端任务卡 / 报告面板"]
+  REP --> CAT["camera_catalog.py<br/>Map 目录快照候选"]
+  CAT --> BIND[("camera_binding_decisions<br/>人工确认，只增不改")]
+  REP --> VIEW["view_match.py<br/>M1d 参考画面一致性"]
+  VIEW --> VR[("view_comparison_records")]
+
+  classDef store fill:#f3f6fb,stroke:#8aa0c0,color:#243b53
+  class ORIG,JOB,REP,BIND,VR store

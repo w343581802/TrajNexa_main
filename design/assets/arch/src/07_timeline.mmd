@@ -1,0 +1,17 @@
+flowchart LR
+  TECH[("tracking_runs · tracking_windows<br/>tracking_candidates · reviews<br/>target_observations")]
+  TECH --> PROJ["timeline_projection.py<br/>技术卡：anchor / camera_task<br/>track_segment / gap / spatial"]
+  PROJ --> VIEW["timeline_view.py<br/>压成主卡：区域卡 + 待核查卡"]
+  POS["timeline_camera_positions.py<br/>Map 只读坐标 + 60m 聚类"] --> VIEW
+  DIR["timeline_camera_directory.py<br/>镜头名 → camera_uuid"] --> VIEW
+  GATE["b8_gates.py<br/>实验层开关"] -.-> VIEW
+
+  VIEW --> API["GET /cases/{cid}/targets/{tid}<br/>/timeline-view<br/>navigation.earlier / later"]
+  PROJ --> API2["GET .../timeline<br/>降级为详情读模型"]
+
+  API --> TM["TimelineMain.vue<br/>三态筛选 · 区域卡 · 详情浮层"]
+  TM --> MAPV["WorkspaceMap.vue<br/>追踪层 · 区域橙圈 · 实验青线"]
+  TM --> EV["证据图<br/>candidates/{id}/evidence/image<br/>关键帧 / 代理片段"]
+
+  classDef store fill:#f3f6fb,stroke:#8aa0c0,color:#243b53
+  class TECH store

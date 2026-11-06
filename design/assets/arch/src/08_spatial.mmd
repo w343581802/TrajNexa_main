@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph EXP["实验估计（旁路，persisted=false）"]
+    BOX["目标框 + 镜头参数"] --> GC["m6_ground_contact.py<br/>接地点候选"]
+    GC --> RAY["m6_camera_ray_projection.py<br/>射线 ∩ 地面平面"]
+    CAL["m6_cv_self_calibration.py<br/>SA2 结构线 / 运动方向"] -.->|"本试点负结论"| RAY
+    GEO["m6_scene_geometry.py<br/>QWEN_CV：Qwen 只给线索"] -.->|"几何仍由 OpenCV 算"| RAY
+    RAY --> EST["experimental_estimate<br/>L2-candidate + 不确定半径"]
+    EST --> API1["POST /experimental-projection<br/>POST /track-spatial"]
+    GATE["b8_gates.py<br/>关闭时 404"] -.-> API1
+    EST -.->|"不写库"| NO[("target_spatial_observations<br/>不新增行")]
+  end
+
+  subgraph FORMAL["正式 L2（仅已审核标定）"]
+    L2A["m6_l2_observation.py<br/>单点换算"] --> L2B["m6_l2_trajectory.py<br/>局部轨迹片段"]
+    L2A --> DB2[("target_spatial_observations")]
+    L2B --> API2["GET /spatial-observations<br/>GET /spatial-trajectories"]
+  end
+
+  RAY -.->|"验收后才可能升级"| L2A
+
+  classDef store fill:#f3f6fb,stroke:#8aa0c0,color:#243b53
+  classDef exp fill:#fff7e6,stroke:#c98a1a,color:#5c3d00
+  class DB2,NO store
+  class EST,API1 exp

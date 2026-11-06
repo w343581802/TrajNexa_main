@@ -1,0 +1,20 @@
+flowchart LR
+  ROOT["录像根目录<br/>（只读挂载 /data/videos）"]
+  ROOT --> SCAN["recordings.py<br/>扫描 · 时长 · 镜头名匹配"]
+  SCAN --> RS[("recording_sources<br/>recording_scan_jobs")]
+  SCAN --> RC[("recording_clips<br/>start_local · duration")]
+  RC --> KF["m4_video.py<br/>有限抽帧 + 画质过滤"]
+  KF --> OBS[("target_observations<br/>M4c 只读候选")]
+  RC --> PLAY["m6_clip_stream_api + m6_clip_proxy<br/>H.264 代理片段 / Range 播放"]
+
+  VN["video_naming.py<br/>开头几秒 OCR → 原地改名"]
+  VN --> TB["batches / table.csv<br/>video_naming_api"]
+  VN --> OID["overlay_identity.py<br/>共用识别结论"]
+  RC -->|"clip 时间基准"| OID
+
+  API["recording_api.py<br/>root / browse / sources / scan / clips / frame / name"]
+  API --- SCAN
+  API --- RC
+
+  classDef store fill:#f3f6fb,stroke:#8aa0c0,color:#243b53
+  class RS,RC,OBS,TB store
