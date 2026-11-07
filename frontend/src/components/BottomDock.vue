@@ -25,6 +25,7 @@ let cleanup: (() => void) | null = null;
 
 function startResize(event: PointerEvent) {
   if (event.button !== 0) return;
+  if (document.body.classList.contains("tm-drawer-open") || document.body.classList.contains("tm-preview-open")) return;
   event.preventDefault();
   const startY = event.clientY;
   const startHeight = ui.dockHeight;

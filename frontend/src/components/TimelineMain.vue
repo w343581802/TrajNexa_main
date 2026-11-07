@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
@@ -59,6 +59,151 @@ const modalStyle = computed(() => {
     right: "auto",
   };
 });
+
+/** 证据大图的自由位置/宽度：只保存在本机，关闭后下次打开恢复。 */
+type PreviewBox = { left: number; top: number; width: number };
+const PREVIEW_BOX_KEY = "trajnexa.evidencePreview.box";
+const PREVIEW_MIN_W = 560;
+const PREVIEW_MAX_W = 1600;
+const PREVIEW_TOP_MIN = 8;
+
+function loadPreviewBox(): PreviewBox | null {
+  try {
+    const raw = localStorage.getItem(PREVIEW_BOX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PreviewBox>;
+    if (
+      typeof parsed.left !== "number" || !Number.isFinite(parsed.left) ||
+      typeof parsed.top !== "number" || !Number.isFinite(parsed.top) ||
+      typeof parsed.width !== "number" || !Number.isFinite(parsed.width)
+    ) return null;
+    return { left: parsed.left, top: parsed.top, width: parsed.width };
+  } catch { return null; }
+}
+
+const previewEl = ref<HTMLElement | null>(null);
+const previewBox = ref<PreviewBox | null>(loadPreviewBox());
+const previewDragging = ref(false);
+const previewResizing = ref(false);
+let stopPreviewDrag: (() => void) | null = null;
+let stopPreviewResize: (() => void) | null = null;
+
+const previewStyle = computed(() => {
+  if (!previewBox.value) return {};
+  return {
+    left: previewBox.value.left + "px",
+    top: previewBox.value.top + "px",
+    width: previewBox.value.width + "px",
+  };
+});
+
+function savePreviewBox(): void {
+  if (!previewBox.value) return;
+  try { localStorage.setItem(PREVIEW_BOX_KEY, JSON.stringify(previewBox.value)); } catch { /* 隐私模式下不可用 */ }
+}
+
+function clampPreviewBox(box: PreviewBox, height = previewEl.value?.getBoundingClientRect().height ?? 0): PreviewBox {
+  const maxWidth = Math.max(PREVIEW_MIN_W, Math.min(PREVIEW_MAX_W, window.innerWidth - 16));
+  const width = Math.min(Math.max(box.width, PREVIEW_MIN_W), maxWidth);
+  const left = Math.min(Math.max(box.left, 8), Math.max(8, window.innerWidth - width - 8));
+  const top = Math.min(Math.max(box.top, PREVIEW_TOP_MIN), Math.max(PREVIEW_TOP_MIN, window.innerHeight - height - 8));
+  return { left, top, width };
+}
+
+function beginPreviewDrag(event: PointerEvent): void {
+  if (event.button !== 0) return;
+  if ((event.target as HTMLElement).closest("button, a, input")) return;
+  const el = previewEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const width = Math.min(rect.width, Math.max(PREVIEW_MIN_W, window.innerWidth - 16));
+  const startLeft = Math.min(Math.max(rect.left, 8), Math.max(8, window.innerWidth - width - 8));
+  const startTop = rect.top;
+  const height = rect.height;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  let moved = false;
+  const move = (next: PointerEvent) => {
+    if (!moved && Math.hypot(next.clientX - startX, next.clientY - startY) < 4) return;
+    if (!moved) {
+      moved = true;
+      previewDragging.value = true;
+    }
+    const left = Math.min(Math.max(8, startLeft + next.clientX - startX), Math.max(8, window.innerWidth - width - 8));
+    const top = Math.min(Math.max(PREVIEW_TOP_MIN, startTop + next.clientY - startY), Math.max(PREVIEW_TOP_MIN, window.innerHeight - height - 8));
+    previewBox.value = { left, top, width };
+  };
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    document.body.style.userSelect = "";
+    previewDragging.value = false;
+    stopPreviewDrag = null;
+    if (moved) {
+      event.preventDefault();
+      savePreviewBox();
+    }
+  };
+  stopPreviewDrag?.();
+  stopPreviewDrag = stop;
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+}
+
+function beginPreviewResize(event: PointerEvent, side: "left" | "right"): void {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const el = previewEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const startX = event.clientX;
+  const startLeft = rect.left;
+  const startTop = rect.top;
+  const startWidth = rect.width;
+  const rightEdge = rect.left + rect.width;
+  previewResizing.value = true;
+  const move = (next: PointerEvent) => {
+    const delta = next.clientX - startX;
+    let left = startLeft;
+    let width = side === "left" ? startWidth - delta : startWidth + delta;
+    if (side === "left") left = startLeft + delta;
+    const maxWidth = Math.max(PREVIEW_MIN_W, Math.min(PREVIEW_MAX_W, window.innerWidth - 16));
+    width = Math.min(Math.max(width, PREVIEW_MIN_W), maxWidth);
+    if (side === "left") {
+      left = Math.max(8, Math.min(left, rightEdge - PREVIEW_MIN_W));
+      width = Math.min(width, rightEdge - left);
+    } else {
+      width = Math.min(width, window.innerWidth - left - 8);
+    }
+    previewBox.value = { left, top: startTop, width };
+  };
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    previewResizing.value = false;
+    stopPreviewResize = null;
+    savePreviewBox();
+  };
+  stopPreviewResize?.();
+  stopPreviewResize = stop;
+  document.body.style.userSelect = "none";
+  document.body.style.cursor = "ew-resize";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+}
+
+function resetPreviewBox(): void {
+  previewBox.value = null;
+  try { localStorage.removeItem(PREVIEW_BOX_KEY); } catch { /* 隐私模式下不可用 */ }
+}
+
+function onViewportResize(): void {
+  if (!previewBox.value) return;
+  previewBox.value = clampPreviewBox(previewBox.value);
+}
 
 type RegionTab = "all" | "done" | "running" | "pending";
 const regionTab = ref<RegionTab>("all");
@@ -532,7 +677,9 @@ function beginModalDrag(event: PointerEvent): void {
     if (!moved && Math.hypot(next.clientX - startX, next.clientY - startY) < 4) return;
     moved = true;
     modalDragging.value = true;
-    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+    const rail = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rail-w")) || 460;
+    // 只允许留在时间线左侧的地图区域，避免拖到右栏下面看起来像被遮住。
+    const maxLeft = Math.max(8, window.innerWidth - rail - rect.width - 8);
     const maxTop = Math.max(headerH + 8, window.innerHeight - 64);
     modalPos.value = {
       left: Math.min(maxLeft, Math.max(8, rect.left + next.clientX - startX)),
@@ -627,12 +774,29 @@ watch(detailCard, (card) => {
   }
 }, { immediate: true });
 
-watch(evidencePreview, (groups) => {
+watch(evidencePreview, async (groups) => {
   document.body.classList.toggle("tm-preview-open", groups.length > 0);
+  if (!groups.length) {
+    stopPreviewDrag?.();
+    stopPreviewResize?.();
+    previewDragging.value = false;
+    previewResizing.value = false;
+    return;
+  }
+  previewBox.value = loadPreviewBox();
+  await nextTick();
+  if (previewBox.value) previewBox.value = clampPreviewBox(previewBox.value);
 }, { immediate: true });
+
+onMounted(() => {
+  window.addEventListener("resize", onViewportResize);
+});
 
 onBeforeUnmount(() => {
   stopModalDrag?.();
+  stopPreviewDrag?.();
+  stopPreviewResize?.();
+  window.removeEventListener("resize", onViewportResize);
   document.body.classList.remove("tm-drawer-open", "tm-preview-open");
 });
 
@@ -1269,32 +1433,47 @@ watch(() => view.value?.targetId, () => closeDetail());
       aria-label="待核查证据大图"
       @click.self="closeEvidencePreview"
     >
-      <div class="tm-preview">
-        <header class="tm-preview-head">
+      <div
+        ref="previewEl"
+        class="tm-preview"
+        :class="{ 'is-floating': Boolean(previewBox), 'is-dragging': previewDragging, 'is-resizing': previewResizing }"
+        :style="previewStyle"
+      >
+        <span class="tm-preview-grip tm-preview-grip--left" title="拖动调整详情宽度" @pointerdown.prevent="beginPreviewResize($event, 'left')" />
+        <span class="tm-preview-grip tm-preview-grip--right" title="拖动调整详情宽度" @pointerdown.prevent="beginPreviewResize($event, 'right')" />
+        <header class="tm-preview-head" @pointerdown="beginPreviewDrag">
           <div>
             <h3>{{ evidencePreview[0].cameraLabel }} · 待核查目标</h3>
             <p>共 {{ evidencePreview.length }} 组 · 目标裁剪与完整帧来自各自的候选记录</p>
           </div>
-          <button class="tm-close" aria-label="关闭大图" @click="closeEvidencePreview"><AppIcon name="close" :size="14" /></button>
+          <div class="tm-preview-actions">
+            <button class="tm-preview-reset" title="复原默认位置和大小" @click="resetPreviewBox">
+              <AppIcon name="refresh" :size="12" />
+              <span>复原</span>
+            </button>
+            <button class="tm-close" aria-label="关闭大图" @click="closeEvidencePreview"><AppIcon name="close" :size="14" /></button>
+          </div>
         </header>
-        <div class="tm-preview-groups" :class="{ 'is-single': evidencePreview.length === 1 }">
-          <article v-for="(group, index) in evidencePreview" :key="group.key" class="tm-preview-group">
-            <p class="tm-preview-group-title">疑似 {{ index + 1 }} · {{ group.identity }}<span v-if="!group.hasBbox"> · 无目标框</span></p>
-            <div class="tm-preview-grid">
-              <figure v-if="group.hasBbox && group.targetUrl">
-                <img :src="group.targetUrl" alt="目标截取大图" />
-                <figcaption>目标截取大图（按已保存框裁剪，外扩 8%）</figcaption>
-              </figure>
-              <figure v-if="group.fullUrl">
-                <img :src="group.fullUrl" alt="完整大图" />
-                <figcaption>完整摄像头大图</figcaption>
-              </figure>
-            </div>
-          </article>
+        <div class="tm-preview-scroll">
+          <div class="tm-preview-groups" :class="{ 'is-single': evidencePreview.length === 1 }">
+            <article v-for="(group, index) in evidencePreview" :key="group.key" class="tm-preview-group">
+              <p class="tm-preview-group-title">疑似 {{ index + 1 }} · {{ group.identity }}<span v-if="!group.hasBbox"> · 无目标框</span></p>
+              <div class="tm-preview-grid">
+                <figure v-if="group.hasBbox && group.targetUrl">
+                  <img :src="group.targetUrl" alt="目标截取大图" />
+                  <figcaption>目标截取大图（按已保存框裁剪，外扩 8%）</figcaption>
+                </figure>
+                <figure v-if="group.fullUrl">
+                  <img :src="group.fullUrl" alt="完整大图" />
+                  <figcaption>完整摄像头大图</figcaption>
+                </figure>
+              </div>
+            </article>
+          </div>
+          <p class="tm-hint">
+            候选目标｜身份未确认｜空间位置为实验估计 · 非正式 L2。图片只用于人工核查来源，不改变身份或空间等级。
+          </p>
         </div>
-        <p class="tm-hint">
-          候选目标｜身份未确认｜空间位置为实验估计 · 非正式 L2。图片只用于人工核查来源，不改变身份或空间等级。
-        </p>
       </div>
       </div>
     </Teleport>
@@ -1816,7 +1995,10 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 /* 详情浮层打开时，栏级拖拽把手不再接收指针，避免误拉时间线宽度。 */
-:global(body.tm-drawer-open .rail-resizer) { pointer-events: none; }
+:global(body.tm-drawer-open .rail-resizer),
+:global(body.tm-drawer-open .dock-grip),
+:global(body.tm-preview-open .rail-resizer),
+:global(body.tm-preview-open .dock-grip) { pointer-events: none; }
 
 .tm-region-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 9px; }
 .tm-count { padding: 2px 7px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: 10.5px; }
@@ -1897,21 +2079,63 @@ watch(() => view.value?.targetId, () => closeDetail());
   background: rgba(3, 7, 12, 0.78);
 }
 .tm-preview {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: min(1100px, 94vw);
-  max-height: 92vh;
-  overflow-y: auto;
+  max-height: min(92vh, 1040px);
+  overflow: hidden;
   padding: 12px;
   border: 1px solid var(--line-3);
   border-radius: 9px;
   background: #0a1017;
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
 }
-.tm-preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+/* 用户拖过之后才转成 fixed；默认仍由 backdrop 居中并随视口缩放。 */
+.tm-preview.is-floating { position: fixed; margin: 0; }
+.tm-preview-head { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: 10px; cursor: grab; user-select: none; }
+.tm-preview.is-dragging .tm-preview-head { cursor: grabbing; }
 .tm-preview-head h3 { margin: 0; color: var(--text-0); font-size: 14px; }
 .tm-preview-head p { margin: 3px 0 0; color: var(--text-3); font-size: 10.5px; }
+.tm-preview-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.tm-preview-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: #111a24;
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+.tm-preview-reset:hover { border-color: var(--line-3); color: var(--text-0); }
+.tm-preview-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 10px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.tm-preview-grip--left { left: 0; }
+.tm-preview-grip--right { right: 0; }
+.tm-preview-grip::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+.tm-preview-grip--left::after { left: 3px; }
+.tm-preview-grip--right::after { right: 3px; }
+.tm-preview-grip:hover::after { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.tm-preview-scroll { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; padding-right: 2px; }
 .tm-preview-groups { display: grid; gap: 12px; }
 .tm-preview-group { display: grid; gap: 5px; }
 .tm-preview-group + .tm-preview-group { padding-top: 11px; border-top: 1px dashed var(--line-2); }
@@ -1921,13 +2145,13 @@ watch(() => view.value?.targetId, () => closeDetail());
 .tm-preview-grid img {
   display: block;
   width: 100%;
-  max-height: 68vh;
+  height: auto;
   object-fit: contain;
   border: 1px solid var(--line-2);
   border-radius: 6px;
   background: #000;
 }
-.tm-preview-groups:not(.is-single) .tm-preview-grid img { max-height: 32vh; }
+/* 图片宽度跟随弹窗；纵向由 .tm-preview 的最大高度 + 内部滚动兜底。 */
 .tm-preview-grid figcaption { margin-top: 3px; color: var(--text-3); font-size: 10px; }
 
 .tm-close { width: 26px; height: 26px; border: 0; background: transparent; color: var(--text-2); }
@@ -2028,7 +2252,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 .rd-layer {
   position: fixed;
   inset: 0;
-  z-index: 950;
+  z-index: 1100;
   pointer-events: none;
 }
 
