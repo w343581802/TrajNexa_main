@@ -316,11 +316,7 @@ function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatL
 
 function pickReal(camera: SnapshotCamera) {
   selectedRealId.value = camera.camera_id;
-  // 卡片只承担「看这台镜头长什么样」；没有参考截帧就不弹空卡。
-  if (!camera.snapshot) {
-    realCardOpen.value = false;
-    return;
-  }
+  // 没有参考截帧时仍显示名称卡，只是不显示图片区域。
   realCardOpen.value = true;
   anchorCardOpen.value = false;
   cardLatLng.value = L.latLng(camera.lat, camera.lon);
@@ -1390,12 +1386,12 @@ function focusAnchor() {
 
     <!-- TrajNexa_Map 镜头卡 -->
     <Transition name="slide">
-      <aside v-if="realCardOpen && selectedReal && selectedSnapshotUrl" class="cam-card cam-card--real popover" :style="camCardStyle">
+      <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="camCardStyle">
         <header class="cam-head">
           <h3 class="cam-name">{{ cameraCode(selectedReal) }}</h3>
           <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
         </header>
-        <figure class="cam-shot">
+        <figure v-if="selectedSnapshotUrl" class="cam-shot">
           <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="shotFailed = true" />
         </figure>
       </aside>
