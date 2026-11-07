@@ -232,10 +232,65 @@ function onShotError() {
   if (selectedReal.value?.snapshot && !shotFailed.value) shotFailed.value = true;
   else shotFallbackFailed.value = true;
 }
-watch(selectedRealId, () => {
+
+/* 镜头卡的两个页签：摄像头信息保持原样；目标排查先只做界面，不启动后端任务。 */
+type CameraTab = "info" | "investigate";
+type InvestigationStatus = "idle" | "running" | "paused";
+
+const cameraTab = ref<CameraTab>("info");
+const investigationStatus = ref<InvestigationStatus>("idle");
+const investigationDate = ref("");
+const investigationStart = ref("15:00:00");
+const investigationEnd = ref("15:10:00");
+
+const secondsOfTime = (value: string) => {
+  const [hours, minutes, seconds = "0"] = value.split(":");
+  return (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
+};
+const investigationValid = computed(
+  () =>
+    Boolean(investigationDate.value) &&
+    Boolean(investigationStart.value) &&
+    Boolean(investigationEnd.value) &&
+    secondsOfTime(investigationEnd.value) > secondsOfTime(investigationStart.value),
+);
+
+function defaultInvestigationDate(): string {
+  const raw = selectedRecordingClip.value?.start_local ?? "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function resetCameraPanel() {
   shotFailed.value = false;
   shotFallbackFailed.value = false;
-});
+  cameraTab.value = "info";
+  investigationStatus.value = "idle";
+  investigationDate.value = defaultInvestigationDate();
+  investigationStart.value = "15:00:00";
+  investigationEnd.value = "15:10:00";
+}
+
+function startInvestigation() {
+  if (!investigationValid.value) return;
+  investigationStatus.value = "running";
+}
+
+function toggleInvestigationPause() {
+  investigationStatus.value = investigationStatus.value === "running" ? "paused" : "running";
+}
+
+function cancelInvestigation() {
+  investigationStatus.value = "idle";
+}
+
+function closeCameraCard() {
+  realCardOpen.value = false;
+  resetCameraPanel();
+}
+
+watch(selectedRealId, resetCameraPanel);
 
 
 /* ---------------------------- 弹层 ---------------------------- */
@@ -302,7 +357,7 @@ const cardStyle = computed(() => {
 });
 
 /** 镜头卡只放名称和参考图，宽度和锚点卡分开算，避免影响锚点卡定位。 */
-const CAM_CARD = { w: 360, h: 268 };
+const CAM_CARD = { w: 360, h: 330 };
 const camCardStyle = computed(() => {
   const point = cardPoint.value;
   if (!point) return undefined;
@@ -340,6 +395,7 @@ function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatL
 
 function pickReal(camera: SnapshotCamera) {
   selectedRealId.value = camera.camera_id;
+  resetCameraPanel();
   // 没有参考截帧时仍显示名称卡，只是不显示图片区域。
   realCardOpen.value = true;
   anchorCardOpen.value = false;
@@ -401,6 +457,7 @@ watch(
       if (camera) {
         realCardOpen.value = true;
         selectedRealId.value = camera.camera_id;
+        resetCameraPanel();
         anchorCardOpen.value = false;
         cardLatLng.value = L.latLng(camera.lat, camera.lon);
         placeCard();
@@ -1413,12 +1470,39 @@ function focusAnchor() {
       <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="camCardStyle">
         <header class="cam-head">
           <h3 class="cam-name">{{ cameraCode(selectedReal) }}</h3>
-          <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
+          <button class="icon-btn" aria-label="关闭镜头卡片" @click="closeCameraCard"><AppIcon name="close" :size="13" /></button>
         </header>
-        <figure v-if="selectedSnapshotUrl" class="cam-shot">
+
+        <nav class="cam-tabs" role="tablist" aria-label="镜头卡页签">
+          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'info' }" :aria-selected="cameraTab === 'info'" @click="cameraTab = 'info'">摄像头信息</button>
+          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'investigate' }" :aria-selected="cameraTab === 'investigate'" @click="cameraTab = 'investigate'">目标排查</button>
+        </nav>
+
+        <figure v-if="cameraTab === 'info' && selectedSnapshotUrl" class="cam-shot">
           <figcaption v-if="selectedSnapshotSource" class="cam-source">{{ selectedSnapshotSource }}</figcaption>
           <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
         </figure>
+
+        <form v-else-if="cameraTab === 'investigate'" class="cam-investigate" @submit.prevent="startInvestigation">
+          <label class="ci-date">
+            <span>排查时间</span>
+            <input v-model="investigationDate" type="date" :disabled="investigationStatus !== 'idle'" required />
+          </label>
+          <div class="ci-range">
+            <input v-model="investigationStart" type="time" step="1" aria-label="开始时间" :disabled="investigationStatus !== 'idle'" required />
+            <span aria-hidden="true">—</span>
+            <input v-model="investigationEnd" type="time" step="1" aria-label="结束时间" :disabled="investigationStatus !== 'idle'" required />
+          </div>
+          <p v-if="investigationStatus === 'idle' && !investigationValid" class="ci-hint">请选择排查时间，并确保结束时间晚于开始时间。</p>
+          <div class="ci-actions">
+            <button v-if="investigationStatus === 'idle'" type="submit" class="btn btn--primary btn--sm" :disabled="!investigationValid">开始排查</button>
+            <template v-else>
+              <button type="button" class="btn btn--primary btn--sm" @click="toggleInvestigationPause">{{ investigationStatus === "running" ? "暂停" : "继续" }}</button>
+              <button type="button" class="btn btn--ghost btn--sm" @click="cancelInvestigation">取消</button>
+            </template>
+          </div>
+          <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
+        </form>
       </aside>
     </Transition>
 
@@ -2132,6 +2216,111 @@ function focusAnchor() {
   line-height: 1.35;
   color: var(--text-0);
   overflow-wrap: anywhere;
+}
+
+.cam-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cam-tab {
+  appearance: none;
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 4px;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.cam-tab:hover {
+  color: var(--text-1);
+}
+
+.cam-tab.is-on {
+  color: var(--text-0);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.cam-investigate {
+  display: grid;
+  gap: 9px;
+}
+
+.ci-date {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+
+.ci-date input,
+.ci-range input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-input);
+  color: var(--text-0);
+  font: inherit;
+  font-size: 12px;
+  color-scheme: dark;
+}
+
+.ci-date input:focus,
+.ci-range input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.ci-date input:disabled,
+.ci-range input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ci-range {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.ci-range > span {
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.ci-hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--warn);
+}
+
+.ci-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ci-note {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text-3);
 }
 
 .cam-shot {
