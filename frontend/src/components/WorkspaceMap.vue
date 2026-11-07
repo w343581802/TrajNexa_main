@@ -1347,6 +1347,16 @@ watch(
   { deep: true },
 );
 
+/* 时间轴上点「定位」= 选中该要素：把地图移到它的定位点，重复点也会重新居中。 */
+watch(() => wb.selectedAnchorId, (id) => {
+  if (!id || !map) return;
+  const element = visibleElements.value.find((item) => item.id === id);
+  if (!element) return;
+  const point = anchorPointOf(element);
+  if (!point) return;
+  map.setView(point, Math.max(map.getZoom(), 17), { animate: true });
+});
+
 onMounted(() => {
   void loadSpatialObservations();
   void loadExperimentalEstimates();

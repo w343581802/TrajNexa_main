@@ -222,40 +222,35 @@ const elementCards = computed(() => {
   const categoryText: Record<string, string> = { person: "人员", vehicle: "车辆", other: "其他" };
   return elementList.value
     .filter((element) => element.base !== "crop")
-    .map((element, index) => {
+    .map((element): TimelineViewCard => {
       const anchor = anchorByElement.value[element.id] ?? null;
-      const at = anchor?.capture_local
-        ? Date.parse(anchor.capture_local)
-        : element.time
-          ? Date.parse(element.time)
-          : Number.NaN;
-      const pending = !anchor;
+      const located = Boolean(anchor);
+      const clock = /^\d{2}:\d{2}$/.test(element.timeLabel ?? "") ? `${element.timeLabel}:00` : null;
+      const capture = anchor?.capture_local ?? (element.time && clock ? `${element.time}T${clock}` : null);
+      const level = anchor?.projection_level ?? "";
+      const levelText = level ? ELEMENT_LEVEL_TEXT[level] ?? level : "";
+      const radius = anchor?.uncertainty_radius_m ?? null;
+      const parts = ["截图 1 张"];
+      if (levelText) parts.push(levelText);
+      if (radius) parts.push(`±${Math.round(radius)} m`);
+      if (anchor?.trace_status && anchor.trace_status !== "none") parts.push("录像回填中");
       return {
-        elementId: element.id,
-        index,
-        at,
         cardId: `element:${element.id}`,
-        time: anchor?.capture_local ? anchor.capture_local.slice(11, 19) : element.timeLabel || "时间未知",
+        kind: located ? "confirmed_track" : "region_investigation",
         title: element.category ? categoryText[element.category] ?? "目标" : "目标",
-        camera: anchor?.camera_label || element.cameraLabel || "镜头未识别",
-        level: anchor?.projection_level ?? "",
-        radius: anchor?.uncertainty_radius_m ?? null,
-        traceStatus: anchor?.trace_status ?? "none",
-        pending,
-        pendingText: pending ? "待定位" : "",
+        place: anchor?.camera_label || element.cameraLabel || "区域：仅确定大致区域",
+        subtitle: located ? parts.join(" · ") : "截图里没读到可匹配的镜头，位置待人工指定",
+        observedAt: capture,
+        observedAtSource: capture ? "event_time" : "unmapped",
+        timeQuality: null,
+        identityStatus: located ? "human_confirmed" : "candidate_unverified",
+        spatialQuality: levelText || null,
+        detailCardIds: [],
+        labels: ["element"],
+        region: null,
       };
-    })
-    .sort((a, b) => {
-      const at = Number.isFinite(a.at) ? a.at : Number.POSITIVE_INFINITY;
-      const bt = Number.isFinite(b.at) ? b.at : Number.POSITIVE_INFINITY;
-      return at === bt ? a.index - b.index : at - bt;
     });
 });
-
-/** 点时间卡 = 选中同一个要素：地图时间框高亮、右侧信息同步，不额外改定位真值。 */
-function focusElementCard(elementId: string) {
-  actions.selectAnchor(elementId);
-}
 
 const ELEMENT_LEVEL_TEXT: Record<string, string> = {
   L2: "L2 已审核标定",
@@ -271,7 +266,7 @@ const demoData = computed(() => {
 });
 const demoCards = computed(() => demoData.value.cards);
 const allViewCards = computed(() => {
-  const rows = [...(view.value?.cards ?? []), ...demoCards.value];
+  const rows = [...(view.value?.cards ?? []), ...demoCards.value, ...elementCards.value];
   return rows
     .map((card, index) => ({ card, index, time: card.observedAt ? Date.parse(card.observedAt) : Number.NaN }))
     .sort((a, b) => {
@@ -335,12 +330,31 @@ function isDemoCandidate(card: TimelineCard | null): boolean {
   return Boolean(card?.cardId.startsWith("demo-segment-"));
 }
 
+/* 添加要素生成的卡：没有技术卡，详情就是「选中这个要素」。 */
+function isElementCard(card: TimelineViewCard | null): boolean {
+  return Boolean(card?.labels?.includes("element"));
+}
+
+function elementIdOf(card: TimelineViewCard): string {
+  return card.cardId.startsWith("element:") ? card.cardId.slice("element:".length) : "";
+}
+
+function badgeText(card: TimelineViewCard): string {
+  return isElementCard(card) ? "待确定" : KIND_LABEL[card.kind];
+}
+
 const detailTechCards = computed<TimelineCard[]>(() => techCardsFor(detailCard.value));
 
 type CardThumb = { key: string; url: string; alt: string };
 
 /** 已确认轨迹右侧缩略帧：从该段录像连续取三帧，折叠展示；不伪造证据图。 */
 function confirmedThumbs(card: TimelineViewCard): CardThumb[] {
+  if (isElementCard(card)) {
+    /* 添加要素的「已确认目标」卡右侧直接放这张截图本身，不伪造录像帧。 */
+    const element = elementList.value.find((item) => item.id === elementIdOf(card));
+    if (!element?.sourceMediaId) return [];
+    return [{ key: card.cardId, url: mainApi.mediaContentUrl(element.sourceMediaId), alt: card.place + " 截图" }];
+  }
   if (card.kind !== "confirmed_track" || !wb.caseId) return [];
   const tech = techCardsFor(card).find((item) => item.playback?.clipId
     && item.playback.offsetSeconds !== null && item.playback.offsetSeconds !== undefined);
@@ -964,6 +978,11 @@ function candidateIdFor(card: TimelineCard): string | null {
 }
 
 function selectViewCard(card: TimelineViewCard): void {
+  if (isElementCard(card)) {
+    /* 要素卡没有技术卡可展开：查看详情 = 选中该要素（右侧特征栏 + 地图时间框同步）。 */
+    actions.selectAnchor(elementIdOf(card));
+    return;
+  }
   detailId.value = card.cardId;
   evidencePreview.value = [];
   playbackCardId.value = null;
@@ -998,6 +1017,13 @@ function selectUnderlyingCard(card: TimelineViewCard): string | null {
 }
 
 function locateViewCard(card: TimelineViewCard): void {
+  if (isElementCard(card)) {
+    const id = elementIdOf(card);
+    // 清空后重新选中，确保重复点击「定位」也会重新缩放到该要素。
+    actions.selectAnchor(null);
+    window.setTimeout(() => actions.selectAnchor(id), 0);
+    return;
+  }
   const cardId = selectUnderlyingCard(card);
   if (!cardId) {
     toast("演示样本没有可定位的真实地图要素", "info");
@@ -1103,33 +1129,6 @@ watch(() => view.value?.targetId, () => closeDetail());
         <span>演示：{{ demoCards.length }} 张“已确认轨迹”为界面样例（轨迹段与帧数为示意），使用真实录像关键帧；身份未经真实审核，不能作为证据。</span>
       </div>
 
-      <!-- 添加要素生成的定位时间卡：与地图上的定位点 / 时间框同一真源 -->
-      <section v-if="elementCards.length" class="tm-elements">
-        <header class="tm-elements-head">
-          <span>添加要素 · 定位时间卡</span>
-          <em class="num">{{ elementCards.length }}</em>
-        </header>
-        <ul class="tm-elements-list">
-          <li
-            v-for="card in elementCards"
-            :key="card.cardId"
-            class="tm-element-card"
-            :class="{ 'is-active': wb.selectedAnchorId === card.elementId }"
-          >
-            <button type="button" class="tm-element-main" @click="focusElementCard(card.elementId)">
-              <span class="tm-element-time num">{{ card.time }}</span>
-              <span class="tm-element-title">{{ card.title }}</span>
-              <span class="tm-element-camera">{{ card.camera }}</span>
-              <span v-if="card.pending" class="tm-element-level" data-level="pending">{{ card.pendingText }}</span>
-              <span v-else class="tm-element-level" :data-level="card.level">{{ ELEMENT_LEVEL_TEXT[card.level] ?? card.level }}</span>
-              <span v-if="card.radius" class="tm-element-radius num">±{{ Math.round(card.radius) }} m</span>
-              <span v-if="card.traceStatus && card.traceStatus !== 'none'" class="tm-element-trace">{{ card.traceStatus }}</span>
-            </button>
-          </li>
-        </ul>
-        <p class="tm-elements-note">时间只是截图角标读数；位置是可追溯估计，不构成身份证据。</p>
-      </section>
-
       <div class="tm-nav tm-nav--earlier">
         <div class="tm-nav-head">
           <span class="tm-nav-title">↑ 向前追踪（更早时间）</span>
@@ -1138,12 +1137,12 @@ watch(() => view.value?.targetId, () => closeDetail());
         <span class="tm-nav-text">以最早一条有效目标观测为起点，继续搜索此前录像</span>
       </div>
 
-      <div v-if="timelineViewError" class="tm-error">{{ timelineViewError }}</div>
-      <div v-else-if="timelineViewLoading && !view" class="tm-empty">
+      <div v-if="timelineViewError && !elementCards.length" class="tm-error">{{ timelineViewError }}</div>
+      <div v-else-if="timelineViewLoading && !view && !elementCards.length" class="tm-empty">
         <AppIcon name="clock" :size="16" />
         <p>正在读取目标追踪时间线</p>
       </div>
-      <div v-else-if="!view" class="tm-empty">
+      <div v-else-if="!view && !elementCards.length" class="tm-empty">
         <AppIcon name="clock" :size="16" />
         <p>该目标还没有可用于主视图的研判记录。</p>
       </div>
@@ -1162,7 +1161,7 @@ watch(() => view.value?.targetId, () => closeDetail());
                   <span class="tm-time num">{{ clockRange(card) }}</span>
                   <span v-if="card.kind !== 'confirmed_track'" class="tm-badge" :data-tone="kindTone(card)">
                     <AppIcon :name="kindIcon(card)" :size="11" />
-                    {{ KIND_LABEL[card.kind] }}
+                    {{ badgeText(card) }}
                   </span>
                   <span v-if="isDemoCard(card)" class="tm-demo-tag">{{ DEMO_LABEL }}</span>
                 </header>
@@ -1629,74 +1628,6 @@ watch(() => view.value?.targetId, () => closeDetail());
   font-size: 11.5px;
   line-height: 1.5;
 }
-
-.tm-elements {
-  margin: 8px 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel-soft) 70%, transparent);
-  overflow: hidden;
-}
-
-.tm-elements-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--line);
-  color: var(--text-dim);
-  font-size: 10.5px;
-  letter-spacing: 0.02em;
-}
-
-.tm-elements-head em {
-  color: var(--text);
-  font-style: normal;
-  font-weight: 600;
-}
-
-.tm-elements-list { margin: 0; padding: 4px; list-style: none; }
-
-.tm-element-card + .tm-element-card { margin-top: 2px; }
-
-.tm-element-main {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 6px 7px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.tm-element-card.is-active .tm-element-main,
-.tm-element-main:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.tm-element-time { color: var(--text); font-size: 11px; font-weight: 600; }
-.tm-element-title { font-size: 11px; }
-.tm-element-camera { color: var(--text-dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tm-element-level {
-  margin-left: auto;
-  padding: 1px 5px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text-dim);
-  font-size: 9.5px;
-  white-space: nowrap;
-}
-.tm-element-level[data-level="L2"] { border-color: #ffd166; color: #b98b12; }
-.tm-element-level[data-level="L1"] { border-color: #a98bff; color: #6c4fd0; }
-.tm-element-radius { color: var(--text-dim); font-size: 9.5px; }
-.tm-element-trace { color: var(--text-dim); font-size: 9.5px; }
-.tm-elements-note { margin: 0; padding: 0 10px 8px; color: var(--text-dim); font-size: 9.5px; }
 
 .tm-demo-banner {
   display: flex;
