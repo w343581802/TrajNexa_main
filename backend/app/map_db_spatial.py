@@ -39,11 +39,11 @@ SELECT DISTINCT ON (r.map_camera_id)
        r.map_camera_id, r.id, s.id
 FROM public.cameras_snapshot AS s
 JOIN public.cameras_registry AS r ON r.id = s.camera_id
-WHERE s.source_type = 'video_frame'
+WHERE s.is_reference
   AND s.image <> ''
   AND r.deleted_at IS NULL
   AND r.map_camera_id IS NOT NULL
-ORDER BY r.map_camera_id, s.is_reference DESC, s.uploaded_at DESC, s.id
+ORDER BY r.map_camera_id, s.uploaded_at DESC, s.id
 LIMIT 3001
 """
 LEVELS = ('identification', 'recognition', 'observation')

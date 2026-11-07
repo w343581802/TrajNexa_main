@@ -64,6 +64,14 @@ def test_empty_database_is_explicit_empty_not_mock():
     assert x['status']=='available'
     assert x['counts']['map_cameras']==0 and x['cameras']==[]
 
+def test_reference_snapshot_query_accepts_manual_uploads():
+    # TrajNexa_Map 的参考图既有从录像抽的 video_frame，也有页面上传的 manual；
+    # 只要它是该镜头当前的 reference image，主系统就应只读展示，不能只认 video_frame。
+    from app.map_db_spatial import VIDEO_SQL
+    assert "source_type = 'video_frame'" not in VIDEO_SQL
+    assert 's.is_reference' in VIDEO_SQL
+    assert "s.image <> ''" in VIDEO_SQL
+
 def test_only_cameras_with_video_frame_snapshot_are_lit():
     x=build_spatial_payload([point(1),point(2,uuid='22222222-2222-4222-8222-222222222222')],[],[(1,A,IMG)])
     rows={c['map_camera_id']:c for c in x['cameras']}

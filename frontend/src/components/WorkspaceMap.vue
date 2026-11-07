@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
@@ -204,13 +204,32 @@ const selectedReal = computed(
 
 /** Map 参考截帧：只用来确认画面朝向，取图失败就安静地隐藏，不在卡片里报错。 */
 const shotFailed = ref(false);
+const shotFallbackFailed = ref(false);
+
+/** Map 没有参考图时，回退到该镜头已索引录像的首帧；不新增截图管线，也不改变点位或身份。 */
+const selectedRecordingClip = computed(() => {
+  const uuid = selectedReal.value?.camera_uuid;
+  if (!uuid) return null;
+  return [...recordingClips.value]
+    .filter((clip) => clip.camera_uuid === uuid && clip.id)
+    .sort((a, b) => String(b.start_local ?? "").localeCompare(String(a.start_local ?? "")))[0] ?? null;
+});
 const selectedSnapshotUrl = computed(() => {
   const ref = selectedReal.value?.snapshot;
-  if (!ref || shotFailed.value) return null;
-  return `/map-api/api/v1/camera-registry/${ref.camera_uuid}/snapshots/${ref.image_id}/content/`;
+  if (ref && !shotFailed.value) {
+    return `/map-api/api/v1/camera-registry/${ref.camera_uuid}/snapshots/${ref.image_id}/content/`;
+  }
+  const clip = selectedRecordingClip.value;
+  if (!clip || shotFallbackFailed.value) return null;
+  return `/api/v1/recordings/clips/${clip.id}/frame`;
 });
+function onShotError() {
+  if (selectedReal.value?.snapshot && !shotFailed.value) shotFailed.value = true;
+  else shotFallbackFailed.value = true;
+}
 watch(selectedRealId, () => {
   shotFailed.value = false;
+  shotFallbackFailed.value = false;
 });
 
 
@@ -1392,7 +1411,7 @@ function focusAnchor() {
           <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
         </header>
         <figure v-if="selectedSnapshotUrl" class="cam-shot">
-          <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="shotFailed = true" />
+          <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
         </figure>
       </aside>
     </Transition>
