@@ -27,6 +27,7 @@ from app import element_anchor_api
 from app import m6_l2_api
 from app import m6_experimental_api
 from app import m6_track_spatial_api
+from app import m6_track_geo_api
 from app import m6_target_track_api
 from app import m6_clip_stream_api
 from app import timeline_api
@@ -69,6 +70,7 @@ app.include_router(element_anchor_api.router)
 app.include_router(m6_l2_api.router)
 app.include_router(m6_experimental_api.router)
 app.include_router(m6_track_spatial_api.router)
+app.include_router(m6_track_geo_api.router)
 app.include_router(m6_target_track_api.router)
 app.include_router(m6_clip_stream_api.router)
 app.include_router(timeline_api.router)

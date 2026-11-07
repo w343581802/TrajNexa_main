@@ -25,10 +25,13 @@ from app.config import settings
 from app.m4_video import resolve_case_clip
 from app.m6_run_service import TrackingRunError
 from app.m6_target_candidate_adapter import candidates_from_scores
-from app.models import (RecordingClip, RecordingSource, TrackingCandidate, TrackingCandidateReview,
-                        TrackingRun, TrackingWindow)
+from app.models import (RecordingClip, RecordingSource, TrackSample, TrackingCandidate,
+                        TrackingCandidateReview, TrackingRun, TrackingWindow)
 
 IN_PROGRESS_STATUSES = ('queued', 'running')
+
+# 单条轨迹最多落多少帧样本：5 fps 下 600 帧 ≈ 2 分钟，够覆盖一次窗口并限制表膨胀。
+SAMPLE_LIMIT_PER_TRACK = 600
 
 
 def _utcnow() -> datetime:
@@ -155,6 +158,51 @@ def _store_candidate(db: Session, run: TrackingRun, plan: dict, candidate: dict,
                       'bbox_pixels': candidate.get('bbox_pixels')})
     db.add(row)
     return row
+
+
+def _store_track_samples(db: Session, run: TrackingRun, plan: dict, row: TrackingCandidate,
+                         result: dict, frames_refs: list[str]) -> int:
+    """把候选轨迹的逐帧框落库（B8-SA5）。
+
+    只存视频侧事实：帧号、窗口内秒数、像素框、画幅。地面坐标一律在读取时按
+    当前 Map 参数现算，所以这里不写任何 lat/lon，避免留下过期坐标。
+    """
+    track_id = str(row.track_id)
+    track = next((t for t in (result.get('tracks') or [])
+                  if str(t.get('track_id')) == track_id), None)
+    if track is None:
+        return 0
+    observations = track.get('observations') or []
+    if not observations:
+        return 0
+    exists = db.scalar(select(TrackSample.id).where(
+        TrackSample.run_id == run.id, TrackSample.track_id == track_id).limit(1))
+    if exists is not None:
+        return 0
+    size = result.get('frame_size') or [0, 0]
+    try:
+        frame_width, frame_height = int(size[0]), int(size[1])
+    except (IndexError, TypeError, ValueError):
+        frame_width, frame_height = 0, 0
+    stored = 0
+    for observation in observations[:SAMPLE_LIMIT_PER_TRACK]:
+        box = observation.get('bbox') or []
+        if len(box) != 4:
+            continue
+        try:
+            bbox = [float(v) for v in box]
+            timestamp = float(observation.get('timestamp_seconds') or 0.0)
+            frame_id = int(observation.get('frame_id') or 0)
+        except (TypeError, ValueError):
+            continue
+        db.add(TrackSample(
+            id=str(uuid4()), run_id=run.id, case_id=run.case_id, candidate_id=row.id,
+            window_id=result.get('window_id'), camera_label=plan['camera_label'],
+            track_id=track_id, frame_id=frame_id, timestamp_seconds=timestamp,
+            bbox_json=bbox, frame_width=frame_width, frame_height=frame_height,
+            person_confidence=observation.get('confidence')))
+        stored += 1
+    return stored
 
 
 def _latest_spatial_hint(db: Session, case_id: str):
@@ -318,6 +366,14 @@ def execute_run(db: Session, run_id: str, analyzer=None, fps: float = 5.0,
                                      'top1=%s margin=%s' % (candidate.get('retrieval_score'),
                                                               candidate.get('margin_top1_top2')))
                     if row is not None:
+                        # 逐帧样本与候选同时落库，供真实案件实验轨迹读取；用 savepoint 隔离，
+                        # 采样失败只能丢样本，不能回滚窗口/候选。
+                        try:
+                            with db.begin_nested():
+                                _store_track_samples(db, run, plan, row, result, refs)
+                                db.flush()
+                        except Exception:  # noqa: BLE001 - 采样失败不阻断研判
+                            pass
                         if _is_strong_candidate(candidate):
                             strong = True
                         if top_k > 1:

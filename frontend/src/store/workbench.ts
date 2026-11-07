@@ -27,6 +27,7 @@ import {
   type TimelineViewPayload,
   type ElementAnchor,
   type ElementTrace,
+  type TrackGeoEnvelope,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -83,6 +84,8 @@ export const layers = reactive({
   experimental: false,
   trackSample: false,
   targetTrack: false,
+  /** 真实案件的实验轨迹（逐帧框 + Map 参数现算）；默认开，因为它才是本案件的实际结果 */
+  geoTrack: true,
   fov: true,
   anchors: true,
   /** 目标时间框：细线 + 可拖动的时间标签，默认开 */
@@ -219,6 +222,10 @@ export const lastExtendDispatch = ref<{
 export const trackingCandidates = ref<TrackingCandidateRow[]>([]);
 export const trackingWindows = ref<TrackingWindowRow[]>([]);
 export const trackingReviews = ref<TrackingReviewRow[]>([]);
+/** 当前任务的实验空间轨迹（逐帧框 + Map 参数现算）；恒 persisted=false，只做展示。 */
+export const trackSegments = ref<TrackGeoEnvelope | null>(null);
+export const trackSegmentsLoading = ref(false);
+export const trackSegmentsError = ref<string | null>(null);
 export const trackingLoading = ref(false);
 export const trackingError = ref<string | null>(null);
 
@@ -1092,8 +1099,27 @@ export async function loadTrackingRuns(): Promise<void> {
     if (!activeTrackingRun.value && trackingRuns.value.length) {
       activeTrackingRun.value = trackingRuns.value[0];
     }
+    if (activeTrackingRun.value) void loadTrackSegments(activeTrackingRun.value.id);
   } catch (error) {
     trackingError.value = trackingErrorMessage(error);
+  }
+}
+
+/** 逐帧轨迹 → 实验空间轨迹段（读取时现算）。没有任务或没有样本时给空包，不报错。 */
+export async function loadTrackSegments(runId: string | null = null): Promise<void> {
+  const id = runId ?? activeTrackingRun.value?.id ?? trackingRuns.value[0]?.id ?? null;
+  if (!wb.caseId || !id) {
+    trackSegments.value = null;
+    return;
+  }
+  trackSegmentsLoading.value = true;
+  try {
+    trackSegments.value = await mainApi.listTrackSegments(wb.caseId, id);
+    trackSegmentsError.value = null;
+  } catch (error) {
+    trackSegmentsError.value = trackingErrorMessage(error);
+  } finally {
+    trackSegmentsLoading.value = false;
   }
 }
 
@@ -1115,6 +1141,8 @@ export async function refreshTrackingRun(runId: string): Promise<void> {
     const index = trackingRuns.value.findIndex((item) => item.id === run.id);
     if (index >= 0) trackingRuns.value[index] = run;
     else trackingRuns.value.unshift(run);
+    // 任务有新窗口/新候选后，实验轨迹要重新现算（样本已落库，投影仍是读取时算）。
+    void loadTrackSegments(run.id);
   } catch (error) {
     trackingError.value = trackingErrorMessage(error);
   }

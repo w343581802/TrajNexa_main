@@ -79,6 +79,8 @@ def extract_window_frames(video_path, start_seconds, end_seconds, fps, out_dir,
         attempted = 0
         read_failed = 0
         reads = 0
+        frame_width = 0
+        frame_height = 0
         max_reads = int((end - start + 5.0) * native_fps) + 30
         while saved < max_frames:
             ok, frame = cap.read()
@@ -101,6 +103,9 @@ def extract_window_frames(video_path, start_seconds, end_seconds, fps, out_dir,
             if frame.ndim == 3 and frame.shape[2] == 3:
                 cv2.imwrite(str(root / ('%04d.jpg' % (saved + 1))), frame,
                             [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                if saved == 0:
+                    # 抽帧按原生分辨率保存；画幅是路线 A 射线投影的必要输入，随结果返回。
+                    frame_height, frame_width = int(frame.shape[0]), int(frame.shape[1])
                 saved += 1
             attempted += 1
             next_sample += interval
@@ -113,6 +118,8 @@ def extract_window_frames(video_path, start_seconds, end_seconds, fps, out_dir,
     return {
         'status': 'ok',
         'frames': saved,
+        'frame_width': frame_width,
+        'frame_height': frame_height,
         'requested_start_seconds': start,
         'actual_first_pts_seconds': round(first_pts, 3) if first_pts is not None else None,
         'seek_drift_seconds': (round(first_pts - start, 3)

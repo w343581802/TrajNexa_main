@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, trackSegments, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
@@ -50,6 +50,8 @@ const lSpatial = L.layerGroup();
 const lExperimental = L.layerGroup();
 const lTrackExp = L.layerGroup();
 const lTargetTrack = L.layerGroup();
+/** 真实案件的实验轨迹：逐帧框 + Map 相机参数现算，不是试点样本 */
+const lGeoTrack = L.layerGroup();
 const lRegion = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
@@ -117,7 +119,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -919,6 +921,25 @@ const evidenceView = ref<{ url: string; videoUrl: string; offset: number; start:
 const evidenceVideo = ref<HTMLVideoElement | null>(null);
 const ambiguousProbe = ref(false);
 
+/** 本案件真实实验轨迹的点数与段数（图层抽屉里显示，避免和试点样本混淆）。 */
+const geoTrackStats = computed(() => {
+  const tracks = trackSegments.value?.tracks ?? [];
+  let points = 0;
+  let segments = 0;
+  let tracksWithCoords = 0;
+  for (const track of tracks) {
+    let counted = 0;
+    for (const segment of track.segments) {
+      segments += 1;
+      for (const point of segment.points) {
+        if (point.spatial_level === "L2-candidate" && point.ground_point) { points += 1; counted += 1; }
+      }
+    }
+    if (counted) tracksWithCoords += 1;
+  }
+  return { points, segments, tracks: tracks.length, withCoords: tracksWithCoords };
+});
+
 const evidenceTime = ref(0);
 const evidencePlaying = ref(false);
 const evidenceDuration = ref(0);
@@ -1112,7 +1133,7 @@ watch(highlightTrackId, (trackId) => {
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lRegion].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -1365,6 +1386,52 @@ function render() {
     }
   }
 
+  /*
+   * 真实案件的实验轨迹：worker 落库的逐帧框 → 接触点 → Map 相机参数射线。
+   * 每段单独成线，缺坐标的帧直接断线（不跨帧连线）；恒为实验估计，不写正式 L2/L3。
+   */
+  if (layers.geoTrack && trackSegments.value?.tracks?.length) {
+    for (const track of trackSegments.value.tracks) {
+      const ready = track.camera_ready;
+      for (const segment of track.segments) {
+        let path: Array<[number, number]> = [];
+        const flush = () => {
+          if (path.length > 1) {
+            L.polyline(path, {
+              color: ready ? "#f472b6" : "#94a3b8",
+              weight: 2.4,
+              opacity: 0.9,
+              dashArray: ready ? undefined : "5 5",
+            }).addTo(lGeoTrack);
+          }
+          path = [];
+        };
+        for (const point of segment.points) {
+          const ground = point.ground_point;
+          if (point.spatial_level !== "L2-candidate" || !ground) { flush(); continue; }
+          const lat = ground.lat ?? ground.y;
+          const lon = ground.lon ?? ground.x;
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) { flush(); continue; }
+          path.push([lat as number, lon as number]);
+          const radius = point.uncertainty_radius_m;
+          L.circleMarker([lat as number, lon as number], {
+            radius: 3,
+            color: "#f472b6",
+            weight: 1.4,
+            fillColor: "#f472b6",
+            fillOpacity: 0.85,
+          })
+            .addTo(lGeoTrack)
+            .bindTooltip(
+              `${escapeLabel(track.camera_label)}<br/>t=${point.t}s · frame ${point.frame}<br/>接地点 ${point.contact_quality ?? "?"}${radius ? ` · ±${Math.round(radius)} m` : ""}<br/>实验估计，未经审核`,
+              { direction: "top" },
+            );
+        }
+        flush();
+      }
+    }
+  }
+
   /* R1-5：区域研判设备高亮。仅设备位置与检索范围，区域卡不代表目标到达。 */
   for (const camera of regionCameras.value) {
     L.circleMarker([camera.lat, camera.lon], {
@@ -1389,7 +1456,7 @@ function render() {
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, wb.selectedAnchorId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, timelineCards, visibleElements, anchorByElement, traceByElement, () => wb.selectedCardId],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, trackSegments, timelineCards, visibleElements, anchorByElement, traceByElement, () => wb.selectedCardId],
   () => render(),
   { deep: true },
 );
@@ -1629,6 +1696,9 @@ function focusAnchor() {
       <label class="layer-row">
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
       </label>
+      <label class="layer-row">
+        <input v-model="layers.geoTrack" type="checkbox" /><span>本案件实验轨迹（逐帧框 · 相机参数）</span><em>{{ geoTrackStats.points }}/{{ geoTrackStats.segments }}</em>
+      </label>
       <label class="layer-row layer-row--sub">
         <input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点固定样本）</span><em>{{ experimentalPoints.length }}</em>
       </label>
@@ -1667,6 +1737,7 @@ function focusAnchor() {
       </ul>
       <p class="legend-title">目标空间状态（B8-S）</p>
       <ul class="legend">
+        <li><span class="sw sw--geo-track"></span>本案件实验轨迹（逐帧框 + 相机参数，粉；缺坐标处分段）</li>
         <li><span class="sw sw--experimental"></span>实验估计（未经审核／无独立真值）</li>
         <li><span class="sw sw--track"></span>追踪实验估计（片段样本）</li>
         <li><span class="sw sw--target"></span>目标轨迹（实验估计，点击回看）</li>
@@ -2242,6 +2313,7 @@ function focusAnchor() {
 .evidence-note { font-size: 10.5px; color: #7b8b9c; margin: 0; }
 .map-target-chip { top: 172px; color: #a5f3fc; border-color: #164e63; }
 .sw--target { border: 2px solid #22d3ee; background: #0e7490; border-radius: 50%; }
+.sw--geo-track { background: #f472b6; border-radius: 2px; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;

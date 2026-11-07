@@ -256,6 +256,35 @@ class TrackingCandidate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class TrackSample(Base):
+    """逐帧轨迹样本（B8-SA5 落地）：保留 Tracklet 的每帧框，供实验空间轨迹推导。
+
+    只存视频侧事实（帧号、窗口内时间、像素框、画幅），**不存投影坐标**：
+    地面点每次读取时按当前 Map 参数现算，所以 Map 姿态/标定更新后不会留下旧坐标。
+    身份状态不在这里，仍然只能由 candidates 的审核事件决定。
+    """
+    __tablename__ = 'track_samples'
+    __table_args__ = (
+        Index('ix_track_samples_run_track', 'run_id', 'track_id', 'timestamp_seconds'),
+        Index('ix_track_samples_candidate', 'candidate_id'),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('tracking_runs.id'), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), index=True)
+    candidate_id: Mapped[str | None] = mapped_column(
+        ForeignKey('tracking_candidates.id', ondelete='CASCADE'), nullable=True)
+    window_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    camera_label: Mapped[str] = mapped_column(String(120), default='')
+    track_id: Mapped[str] = mapped_column(String(120))
+    frame_id: Mapped[int] = mapped_column(Integer, default=0)
+    timestamp_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    bbox_json: Mapped[list] = mapped_column(JSON, default=list)
+    frame_width: Mapped[int] = mapped_column(Integer, default=0)
+    frame_height: Mapped[int] = mapped_column(Integer, default=0)
+    person_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TrackingCandidateReview(Base):
     """AI 视觉复核记录：只补充证据，不影响排名与身份状态。"""
     __tablename__ = 'tracking_candidate_reviews'

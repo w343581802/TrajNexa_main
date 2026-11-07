@@ -9,8 +9,10 @@ from uuid import uuid4
 import pytest
 
 from app.models import (AnalysisJob, Case, InspectionReport, MediaAsset, RecordingClip,
-                        RecordingSource, TargetObservation, TrackingCandidate, TrackingCandidateReview, TrackingRun)
+                        RecordingSource, TargetObservation, TrackSample, TrackingCandidate,
+                        TrackingCandidateReview, TrackingRun)
 from app import m6_run_worker, m6_candidate_visual_review
+from app import m6_track_geo_api
 from app.config import settings
 
 
@@ -64,9 +66,13 @@ class FakeAnalyzer:
             (out_dir / ('%04d.jpg' % i)).write_bytes(b'jpg')
         return {
             'status': 'ok',
+            'frame_size': [1920, 1080],
             'tracks': [
-                {'track_id': 'a:1', 'observations': [{'frame_id': 0, 'bbox': [1, 1, 9, 19]}]},
-                {'track_id': 'a:2', 'observations': [{'frame_id': 0, 'bbox': [20, 1, 30, 19]}]},
+                {'track_id': 'a:1', 'observations': [
+                    {'frame_id': 0, 'timestamp_seconds': 0.0, 'bbox': [1, 1, 9, 19]},
+                    {'frame_id': 1, 'timestamp_seconds': 0.2, 'bbox': [2, 1, 10, 19]}]},
+                {'track_id': 'a:2', 'observations': [
+                    {'frame_id': 0, 'timestamp_seconds': 0.0, 'bbox': [20, 1, 30, 19]}]},
             ],
             'cost': {'frames_saved': 2, 'frames_requested': 2},
             'evidence_refs': ['tracking_runs/w/0001.jpg'],
@@ -133,6 +139,66 @@ def test_run_persists_and_candidates_stay_unverified(env):
     assert detail['candidates'] == 1
     assert detail['windows'] == 1
     assert detail['identity_established'] is False
+
+
+def test_run_persists_per_frame_samples_for_geo_trajectory(env, monkeypatch):
+    """真实案件要能出实验轨迹：候选轨必须留下逐帧样本，读取时再按 Map 参数现算。"""
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    run = _create(client, seed).json()
+    with Session() as db:
+        m6_run_worker.execute_run(db, run['id'], analyzer=FakeAnalyzer(), storage_root=tmp)
+
+    with Session() as db:
+        rows = db.query(TrackSample).filter(TrackSample.run_id == run['id']).all()
+    assert rows, '候选轨迹没有逐帧样本，真实案件就永远画不出实验轨迹'
+    assert {row.track_id for row in rows} == {'a:1'}
+    assert [row.timestamp_seconds for row in rows] == [0.0, 0.2]
+    assert rows[0].bbox_json == [1.0, 1.0, 9.0, 19.0]
+    assert (rows[0].frame_width, rows[0].frame_height) == (1920, 1080)
+    assert rows[0].candidate_id, '样本必须挂到候选，才能按候选归并轨迹'
+
+    payload = {'spatial_revision': 'rev-test', 'cameras': [{
+        'camera_uuid': 'u-1', 'display_name': '2-2', 'map_camera_id': '900',
+        'location': {'lon': 110.2103, 'lat': 25.25}, 'bearing_deg': 355.0,
+        'tilt_deg': 25.0, 'horizontal_fov_deg': 64.0, 'mount_height_m': 4.0,
+        'ray_projection_ready': True}]}
+    monkeypatch.setattr(m6_track_geo_api.map_db_spatial, 'read_map_spatial',
+                        lambda **_: payload)
+    m6_track_geo_api._reset_cache()
+    body = client.get('/api/v1/cases/%s/tracking-runs/%s/track-segments'
+                      % (seed['case_id'], run['id'])).json()
+    assert body['persisted'] is False
+    assert body['spatial_revision'] == 'rev-test'
+    track = body['tracks'][0]
+    assert track['identity_status'] == 'candidate_unverified'
+    assert track['camera_ready'] is True
+    assert track['segments'], '两个样本应连成一段'
+    points = track['segments'][0]['points']
+    assert len(points) == 2
+    assert all(p['spatial_level'] == 'L2-candidate' for p in points)
+    assert all(p['ground_point']['lat'] > 25.25 for p in points)
+    m6_track_geo_api._reset_cache()
+
+
+def test_track_segments_degrades_when_map_parameters_missing(env, monkeypatch):
+    """Map 参数不全时不许给假坐标：只回像素轨迹与降级原因。"""
+    client, Session, tmp = env
+    seed = _seed(Session, tmp)
+    run = _create(client, seed).json()
+    with Session() as db:
+        m6_run_worker.execute_run(db, run['id'], analyzer=FakeAnalyzer(), storage_root=tmp)
+    monkeypatch.setattr(m6_track_geo_api.map_db_spatial, 'read_map_spatial',
+                        lambda **_: {'spatial_revision': 'rev-empty', 'cameras': []})
+    m6_track_geo_api._reset_cache()
+    body = client.get('/api/v1/cases/%s/tracking-runs/%s/track-segments'
+                      % (seed['case_id'], run['id'])).json()
+    track = body['tracks'][0]
+    assert track['camera_ready'] is False
+    assert track['degrade_reason'] == 'camera_not_resolved'
+    assert track['segments'][0]['quality'] == 'camera_only'
+    assert 'ground_point' not in track['segments'][0]['points'][0]
+    m6_track_geo_api._reset_cache()
 
 
 def test_review_is_append_only_and_can_confirm(env):

@@ -60,6 +60,67 @@ export type ElementTrace = {
   note?: string;
 };
 
+/**
+ * 逐帧轨迹 → 实验空间轨迹。`persisted` 恒为 false：这些点每次按当前 Map 参数现算，
+ * 不是正式 L2/L3，也不能当身份证据；`degrade_reason` 说明为什么没有坐标。
+ */
+export type TrackGeoPoint = {
+  t: number;
+  frame: number;
+  box: number[];
+  spatial_level: string;
+  quality?: string;
+  degrade_reason?: string | null;
+  pixel?: [number, number];
+  contact_quality?: string;
+  ground_point?: { x: number; y: number; lat?: number; lon?: number; crs: string };
+  uncertainty_radius_m?: number | null;
+};
+export type TrackGeoSegment = {
+  track_id: string;
+  break_reason: string;
+  start_seconds: number;
+  end_seconds: number;
+  duration_seconds: number;
+  spatial_level: string;
+  quality: "experimental_estimate" | "camera_only" | string;
+  points: TrackGeoPoint[];
+};
+export type TrackGeoTrack = {
+  candidate_key: string;
+  track_id: string;
+  camera_label: string;
+  map_camera_id: string | null;
+  identity_status: string;
+  state: string;
+  retrieval_score: number | null;
+  window_start: number | null;
+  window_end: number | null;
+  sample_count: number;
+  camera_ready: boolean;
+  degrade_reason: string | null;
+  segments: TrackGeoSegment[];
+  summary: {
+    segments: number;
+    points: number;
+    projected: number;
+    degraded: number;
+    dropped_short_segments: number;
+    degrade_reasons: Record<string, number>;
+  };
+};
+export type TrackGeoEnvelope = {
+  case_id: string;
+  run_id: string;
+  layer: "experimental_estimate" | string;
+  persisted: false;
+  spatial_revision: string | null;
+  spatial_error: string | null;
+  tracks: TrackGeoTrack[];
+  summary?: { tracks: number; samples: number; with_coordinates: number };
+  note?: string;
+};
+
 export type M4DetectionProposal = {
   proposal_index: number;
   object_class: "person" | "vehicle";
@@ -958,6 +1019,15 @@ export const mainApi = {
   listTrackingReviews: (caseId: string, runId: string) =>
     request<TrackingReviewRow[]>(
       `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/reviews`,
+    ),
+
+  /**
+   * 逐帧轨迹 → 实验空间轨迹段。读取时按当前 Map 参数现算，响应恒 persisted=false：
+   * 这条线只能当「可追溯估计」展示，不能当正式 L2/L3，也不能当身份证据。
+   */
+  listTrackSegments: (caseId: string, runId: string) =>
+    request<TrackGeoEnvelope>(
+      `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/track-segments`,
     ),
 
   reviewTrackingCandidate: (caseId: string, runId: string, body: {

@@ -51,11 +51,15 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
                 "max_missing_frames": max_missing_frames})
     active_detector = detector_id
     detector_events = []
+    frame_size = None
     for offset, path in enumerate(window):
         frame = cv2.imread(str(path))
         if frame is None:
             cost["frames_failed_decode"] += 1
             continue
+        if frame_size is None:
+            # 画幅随窗口返回：接地点投影必须用原始帧尺寸，不能假定 1920×1080。
+            frame_size = [int(frame.shape[1]), int(frame.shape[0])]
         cost["frames_read"] += 1
         cost["frames_decoded"] += 1
         timestamp = (start_index + offset) / fps
@@ -102,6 +106,7 @@ def analyze_window(frames_dir, start_index=0, end_index=None, fps=5.0,
     status = "ok" if tracks else "detection_missed"
     absolute = osd_anchor_seconds is not None
     return {"status": status, "tracks": tracks, "camera": camera, "window_id": window_id,
+            "frame_size": frame_size,
             "frames_with_person": cost["frames_with_person"],
             "frame_index_range": [start_index, end_index], "fps": fps,
             "time_status": "absolute" if absolute else "relative_only",
