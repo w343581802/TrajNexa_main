@@ -223,6 +223,11 @@ const selectedSnapshotUrl = computed(() => {
   if (!clip || shotFallbackFailed.value) return null;
   return `/api/v1/recordings/clips/${clip.id}/frame`;
 });
+const selectedSnapshotSource = computed(() => {
+  if (selectedReal.value?.snapshot && !shotFailed.value) return "来源：TrajNexaMap";
+  if (selectedRecordingClip.value && !shotFallbackFailed.value) return "来源：录像资源";
+  return null;
+});
 function onShotError() {
   if (selectedReal.value?.snapshot && !shotFailed.value) shotFailed.value = true;
   else shotFallbackFailed.value = true;
@@ -1411,6 +1416,7 @@ function focusAnchor() {
           <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
         </header>
         <figure v-if="selectedSnapshotUrl" class="cam-shot">
+          <figcaption v-if="selectedSnapshotSource" class="cam-source">{{ selectedSnapshotSource }}</figcaption>
           <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
         </figure>
       </aside>
@@ -2135,6 +2141,15 @@ function focusAnchor() {
   border-radius: 6px;
   overflow: hidden;
   background: #000;
+}
+
+.cam-source {
+  padding: 5px 8px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-3);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--line);
 }
 
 .cam-shot img {
