@@ -123,6 +123,12 @@ function initMap() {
 
   map.on("zoomend", () => {
     zoom.value = map!.getZoom();
+    /* 聚合成员随缩放变化；旧列表不再对应当前视野，直接收起。 */
+    clusterCardOpen.value = false;
+    renderRealMarkers();
+  });
+  map.on("click", () => {
+    clusterCardOpen.value = false;
   });
   map.on("move zoom resize", () => {
     placeCard();
@@ -185,6 +191,7 @@ function fitView() {
 
 async function reloadSnapshot() {
   snapshotState.value = "loading";
+  clusterCardOpen.value = false;
   try {
     snapshot.value = await loadMapSnapshot(true);
     snapshotState.value = "ready";
@@ -333,6 +340,11 @@ const windowLabel = computed(
 const anchorCardOpen = ref(false);
 const realCardOpen = ref(false);
 
+/* 镜头聚合：按当前缩放下的屏幕距离分组，避免同一路口的多个点位完全叠在一起。 */
+const CLUSTER_RADIUS_PX = 44;
+const clusterCardOpen = ref(false);
+const clusterMembers = ref<SnapshotCamera[]>([]);
+
 const cardLatLng = ref<L.LatLng | null>(null);
 const cardPoint = ref<{ x: number; y: number } | null>(null);
 
@@ -367,6 +379,17 @@ const camCardStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
 });
 
+/** 聚合卡：多行列出同一组摄像头，点击一行进入单镜头卡片。 */
+const CAM_CLUSTER_CARD = { w: 320, h: 340 };
+const camClusterStyle = computed(() => {
+  const point = cardPoint.value;
+  if (!point) return undefined;
+  const box = mapSize.value;
+  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CAM_CLUSTER_CARD.w - 8, 8));
+  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CAM_CLUSTER_CARD.h, 8));
+  return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
+});
+
 /** 目标要素绑定的 Map 镜头（cameraId 存的是 Map 的 camera_uuid） */
 const snapshotCamera = (uuid: string | null) =>
   uuid ? snapshot.value?.cameras.find((item) => item.camera_uuid === uuid) ?? null : null;
@@ -398,15 +421,144 @@ function pickReal(camera: SnapshotCamera) {
   resetCameraPanel();
   // 没有参考截帧时仍显示名称卡，只是不显示图片区域。
   realCardOpen.value = true;
+  clusterCardOpen.value = false;
   anchorCardOpen.value = false;
   cardLatLng.value = L.latLng(camera.lat, camera.lon);
   placeCard();
+}
+
+/* ---------------------------- 镜头聚合 ---------------------------- */
+
+type CameraCluster = { lat: number; lon: number; point: L.Point; members: SnapshotCamera[] };
+
+/**
+ * 按当前缩放下的屏幕距离聚合。放大后点位间距拉开，聚合自然拆开；
+ * 同一路口的点位仍然接近时就保持聚合，点击看多行列表。
+ * 已选中的镜头永不并入聚合，保证它的单镜头卡片有明确的锚点。
+ */
+function clusterCameraGroups(cameras: SnapshotCamera[]): CameraCluster[] {
+  if (!map) return [];
+  const selected = cameras.find((camera) => camera.camera_id === selectedRealId.value);
+  const rest = selected ? cameras.filter((camera) => camera !== selected) : cameras;
+  const groups: CameraCluster[] = [];
+
+  for (const camera of rest) {
+    const point = map.latLngToContainerPoint([camera.lat, camera.lon]);
+    let nearest: CameraCluster | null = null;
+    let nearestDistance = CLUSTER_RADIUS_PX;
+    for (const group of groups) {
+      const distance = group.point.distanceTo(point);
+      if (distance <= nearestDistance) {
+        nearest = group;
+        nearestDistance = distance;
+      }
+    }
+    if (nearest) {
+      const count = nearest.members.length;
+      nearest.members.push(camera);
+      nearest.lat = (nearest.lat * count + camera.lat) / (count + 1);
+      nearest.lon = (nearest.lon * count + camera.lon) / (count + 1);
+      nearest.point = map.latLngToContainerPoint([nearest.lat, nearest.lon]);
+    } else {
+      groups.push({ lat: camera.lat, lon: camera.lon, point, members: [camera] });
+    }
+  }
+
+  if (selected) {
+    groups.push({
+      lat: selected.lat,
+      lon: selected.lon,
+      point: map.latLngToContainerPoint([selected.lat, selected.lon]),
+      members: [selected],
+    });
+  }
+  return groups;
+}
+
+function drawCameraMarker(camera: SnapshotCamera) {
+  const calibrated = camera.pose_quality === "calibrated";
+  const lit = isRealLit(camera);
+  const selected = selectedRealId.value === camera.camera_id;
+  const marker = L.circleMarker([camera.lat, camera.lon], {
+    radius: selected ? 7.5 : calibrated ? 5.2 : 4.6,
+    color: selected ? "#d8f6ff" : "#060a0f",
+    weight: selected ? 2 : 1.4,
+    fillColor: !lit ? "#7b8798" : calibrated ? "#4fd1d9" : "#8b9bb0",
+    fillOpacity: 0.92,
+    bubblingMouseEvents: false,
+  }).addTo(lReal);
+  marker.bindTooltip(cameraCode(camera), {
+    direction: "top",
+    offset: [0, -6],
+    className: "map-tip",
+  });
+  marker.on("click", () => pickReal(camera));
+}
+
+function drawClusterMarker(group: CameraCluster) {
+  const count = group.members.length;
+  const size = count > 9 ? 38 : 32;
+  const marker = L.marker([group.lat, group.lon], {
+    icon: L.divIcon({
+      className: "cam-cluster",
+      html: `<span>${count}</span>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    }),
+    keyboard: false,
+    bubblingMouseEvents: false,
+    title: `${count} 个摄像头`,
+  }).addTo(lReal);
+  marker.bindTooltip(`${count} 个摄像头 · 点击查看列表`, {
+    direction: "top",
+    offset: [0, -size / 2],
+    className: "map-tip",
+  });
+  marker.on("click", () => openCluster(group.members, group.lat, group.lon));
+}
+
+function renderRealMarkers() {
+  if (!map) return;
+  lReal.clearLayers();
+  if (!realVisible.value) {
+    clusterCardOpen.value = false;
+    return;
+  }
+  const groups = clusterCameraGroups(snapshot.value?.cameras ?? []);
+  for (const group of groups) {
+    if (group.members.length === 1) drawCameraMarker(group.members[0]);
+    else drawClusterMarker(group);
+  }
+}
+
+function openCluster(members: SnapshotCamera[], lat: number, lon: number) {
+  clusterMembers.value = [...members].sort((a, b) => {
+    const litA = isRealLit(a) ? 0 : 1;
+    const litB = isRealLit(b) ? 0 : 1;
+    return litA - litB || cameraCode(a).localeCompare(cameraCode(b), "zh-Hans-CN");
+  });
+  clusterCardOpen.value = true;
+  realCardOpen.value = false;
+  anchorCardOpen.value = false;
+  selectedRealId.value = null;
+  cardLatLng.value = L.latLng(lat, lon);
+  placeCard();
+}
+
+function pickClusterCamera(camera: SnapshotCamera) {
+  clusterCardOpen.value = false;
+  pickReal(camera);
+}
+
+function closeClusterCard() {
+  clusterCardOpen.value = false;
 }
 
 function pickAnchor(elementId: string) {
   actions.selectAnchor(elementId);
   anchorCardOpen.value = true;
   realCardOpen.value = false;
+  clusterCardOpen.value = false;
   const element = visibleElements.value.find((item) => item.id === elementId);
   cardLatLng.value = (element ? anchorPointOf(element) : null) ?? anchorLatLng(element);
   placeCard();
@@ -449,6 +601,7 @@ watch(
     if (obs?.kind === "anchor" && obs.elementId) {
       anchorCardOpen.value = true;
       realCardOpen.value = false;
+      clusterCardOpen.value = false;
       const element = visibleElements.value.find((item) => item.id === obs.elementId);
       cardLatLng.value = anchorLatLng(element);
       placeCard();
@@ -459,6 +612,7 @@ watch(
         selectedRealId.value = camera.camera_id;
         resetCameraPanel();
         anchorCardOpen.value = false;
+        clusterCardOpen.value = false;
         cardLatLng.value = L.latLng(camera.lat, camera.lon);
         placeCard();
       }
@@ -837,7 +991,6 @@ function render() {
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
     for (const camera of snapshot.value?.cameras ?? []) {
-      const calibrated = camera.pose_quality === "calibrated";
       // 录像资源没识别到的镜头/视域保持灰色；扫描到名称并匹配台账后才点亮。
       const lit = isRealLit(camera);
       if (layers.fov) {
@@ -866,22 +1019,10 @@ function render() {
           }
         }
       }
-      const selected = selectedRealId.value === camera.camera_id;
-      const marker = L.circleMarker([camera.lat, camera.lon], {
-        radius: selected ? 7.5 : calibrated ? 5.2 : 4.6,
-        color: selected ? "#d8f6ff" : "#060a0f",
-        weight: selected ? 2 : 1.4,
-        fillColor: !lit ? "#7b8798" : calibrated ? "#4fd1d9" : "#8b9bb0",
-        fillOpacity: 0.92,
-      }).addTo(lReal);
-      marker.bindTooltip(cameraCode(camera), {
-        direction: "top",
-        offset: [0, -6],
-        className: "map-tip",
-      });
-      marker.on("click", () => pickReal(camera));
     }
   }
+  /* 镜头点位单独渲染：聚合只依赖当前缩放和选中态，缩放时只重画这一层。 */
+  renderRealMarkers();
 
   /* 目标要素定位点：坐标来自后端锚点（L2 已审核标定 / L1 视域中心 / L0 镜头位置）
    * 时间框单独一层：细线连到可拖动的标签，拖动只改标签位置，不改定位真值。 */
@@ -1503,6 +1644,30 @@ function focusAnchor() {
           </div>
           <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
         </form>
+      </aside>
+    </Transition>
+
+    <!-- 同一组镜头：多行列表，点击一行进入单镜头卡片 -->
+    <Transition name="slide">
+      <aside v-if="clusterCardOpen" class="cam-card cam-cluster-card popover" :style="camClusterStyle">
+        <header class="cam-head">
+          <h3 class="cam-name">附近 {{ clusterMembers.length }} 个摄像头</h3>
+          <button class="icon-btn" aria-label="关闭摄像头列表" @click="closeClusterCard"><AppIcon name="close" :size="13" /></button>
+        </header>
+        <div class="cam-cluster-list">
+          <button
+            v-for="camera in clusterMembers"
+            :key="camera.camera_id"
+            type="button"
+            class="cam-cluster-row"
+            :title="cameraCode(camera)"
+            @click="pickClusterCamera(camera)"
+          >
+            <span class="cc-name">{{ cameraCode(camera) }}</span>
+            <span class="cc-state" :class="{ 'is-lit': isRealLit(camera) }">{{ isRealLit(camera) ? "有录像" : "无录像" }}</span>
+          </button>
+        </div>
+        <p class="cam-cluster-note">按当前缩放聚合；放大后点位拉开会自动拆开。列表只用于选镜头，不代表目标或身份结论。</p>
       </aside>
     </Transition>
 
@@ -2195,6 +2360,72 @@ function focusAnchor() {
   background: rgba(11, 17, 25, 0.96);
 }
 
+.cam-cluster-card {
+  width: 320px;
+  gap: 0;
+  padding: 8px 0 0;
+}
+
+.cam-cluster-card .cam-head {
+  padding: 0 10px 8px;
+}
+
+.cam-cluster-list {
+  display: grid;
+  max-height: 236px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+
+.cam-cluster-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cam-cluster-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-0);
+}
+
+.cc-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cc-state {
+  flex: none;
+  font-size: 9px;
+  color: var(--text-4);
+}
+
+.cc-state.is-lit {
+  color: #7fe3a1;
+}
+
+.cam-cluster-note {
+  margin: 0;
+  padding: 7px 10px 8px;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
 .cam-head {
   display: flex;
   align-items: center;
@@ -2607,6 +2838,29 @@ function focusAnchor() {
   color: #1b2733;
   font-size: 10px;
   box-shadow: 0 2px 8px rgba(15, 26, 38, 0.18);
+}
+
+.map-leaflet :deep(.cam-cluster) {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #4fd1d9;
+  border-radius: 50%;
+  background: rgba(8, 17, 24, 0.94);
+  color: #d8f6ff;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 4px rgba(79, 209, 217, 0.16), 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.map-leaflet :deep(.cam-cluster:hover) {
+  border-color: #d8f6ff;
+}
+
+.map-leaflet :deep(.cam-cluster span) {
+  pointer-events: none;
 }
 
 .map-leaflet :deep(.map-tip::before) {
