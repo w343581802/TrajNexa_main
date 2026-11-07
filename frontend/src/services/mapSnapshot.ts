@@ -31,6 +31,8 @@ export type SnapshotCamera = {
   fov_deg: number | null;
   range_m: number | null;
   height_m: number | null;
+  /** 路线 A（相机参数射线投影）所需参数是否齐全；缺一项就只能退视域中心。 */
+  ray_ready: boolean;
   pose_quality: PoseQuality;
   /** Map 侧是否有录像参考帧（source_type=video_frame）；没有时主系统保持灰色。 */
   has_video: boolean;
@@ -58,6 +60,9 @@ type SpatialCamera = {
   bearing_deg: number | null;
   tilt_deg: number | null;
   horizontal_fov_deg: number | null;
+  mount_height_m?: number | null;
+  ray_projection_ready?: boolean;
+  bearing_source?: string;
   range_m: number | null;
   camera_type: string;
   pose_quality: string;
@@ -107,7 +112,8 @@ function toSnapshotCamera(camera: SpatialCamera): SnapshotCamera | null {
     bearing_deg: camera.bearing_deg,
     fov_deg: camera.horizontal_fov_deg,
     range_m: camera.range_m,
-    height_m: null,
+    height_m: camera.mount_height_m ?? null,
+    ray_ready: Boolean(camera.ray_projection_ready),
     // 只有台账标明 calibrated 才允许画视域；其余一律按未知姿态处理，不臆造扇形
     pose_quality: calibrated ? "calibrated" : "unknown",
     has_video: Boolean(camera.has_video),

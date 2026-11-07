@@ -9,7 +9,7 @@ import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, ob
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
-import { listTargetSpatialObservations, type TargetSpatialObservationRow } from "../services/mainApi";
+import { listTargetSpatialObservations, type ElementAnchor, type TargetSpatialObservationRow } from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
  * 底图为 OSM 瓦片（WGS84），进界面后被 styles/map.css 压成暗色。镜头点位直接使用 Map 发布经纬度；
@@ -474,6 +474,32 @@ function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatL
   }
   const camera = snapshotCamera(element.cameraId);
   return camera ? L.latLng(camera.lat, camera.lon) : null;
+}
+
+/** 锚点显示分类：L2 已审核标定 / 实验估计（参数射线）/ L1 视域中心 / L0 镜头位置。 */
+function anchorStyle(anchor: ElementAnchor | undefined): { color: string; text: string; experimental: boolean } {
+  if (!anchor) return { color: "#8b9bb0", text: "尚未定位", experimental: false };
+  const experimental = anchor.projection_quality === "experimental_estimate";
+  const rayError = (anchor.projection_payload as { ray_error?: string } | null)?.ray_error;
+  if (anchor.projection_level === "L2") {
+    return { color: "#ffd166", text: "L2 地面标定投影（已审核）", experimental: false };
+  }
+  if (experimental) {
+    const radius = anchor.uncertainty_radius_m;
+    return {
+      color: "#4fd1c5",
+      text: `实验估计：截图接地点 → 相机参数射线（未经审核${radius ? `，±${Math.round(radius)} m` : ""}）`,
+      experimental: true,
+    };
+  }
+  if (anchor.projection_level === "L1") {
+    return {
+      color: "#a98bff",
+      text: `L1 视域中心（不是目标接地点${rayError ? `；射线未启用：${rayError}` : ""}）`,
+      experimental: false,
+    };
+  }
+  return { color: "#8b9bb0", text: "L0 镜头位置（未做地面投影）", experimental: false };
 }
 
 /** 单镜头详情：直接点单镜头时清空聚合成员；聚合内选镜头时保留列表，不关工具窗。 */
@@ -1158,24 +1184,24 @@ function render() {
         continue;
       }
       if (layers.anchors) {
-        const level = anchor?.projection_level ?? "L0";
+        const style = anchorStyle(anchor);
         L.circleMarker(point, {
           radius: selected ? 7.5 : 5.6,
           color: "#0b0f14",
           weight: 1.6,
-          fillColor: level === "L2" ? "#ffd166" : level === "L1" ? "#a98bff" : "#8b9bb0",
+          fillColor: style.color,
           fillOpacity: 0.95,
         })
           .addTo(lAnchors)
-          .bindTooltip(`${clock} · ${anchor?.camera_label || element.cameraLabel}`, { direction: "top", offset: [0, -6], className: "map-tip" })
+          .bindTooltip(`${clock} · ${anchor?.camera_label || element.cameraLabel} · ${style.text}`, { direction: "top", offset: [0, -6], className: "map-tip" })
           .on("click", () => pickAnchor(element.id));
         if (anchor?.uncertainty_radius_m) {
           L.circle(point, {
             radius: anchor.uncertainty_radius_m,
-            color: "#a98bff",
+            color: style.color,
             weight: 1,
             dashArray: "4 6",
-            fillColor: "#a98bff",
+            fillColor: style.color,
             fillOpacity: 0.05,
             interactive: false,
           }).addTo(lAnchors);
@@ -1183,8 +1209,7 @@ function render() {
       }
       if (layers.labels && anchor) {
         const at = labelPoint(point, anchor.label_offset ?? {});
-        const level = anchor.projection_level ?? "L0";
-        const anchorColor = level === "L2" ? "#ffd166" : level === "L1" ? "#a98bff" : "#8b9bb0";
+        const anchorColor = anchorStyle(anchor).color;
         L.polyline([point, at], {
           color: anchorColor,
           weight: selected ? 2.8 : 2.2,
@@ -1586,24 +1611,37 @@ function focusAnchor() {
         <span>图层</span>
         <span class="dim">{{ snapshot ? snapshot.spatial_revision : "空间数据未就绪" }}</span>
       </header>
+      <p class="layer-group">Map 空间数据</p>
       <label class="layer-row">
         <input v-model="realVisible" type="checkbox" /><span>Map 镜头（TrajNexa_Map）</span><em>{{ snapshot?.cameras.length ?? 0 }}</em>
       </label>
       <label class="layer-row">
         <input v-model="layers.fov" type="checkbox" /><span>标定视域 FOV</span><em>{{ snapshot?.counts.with_focus ?? 0 }}</em>
       </label>
-      <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
+      <label class="layer-row">
+        <input v-model="layers.anchors" type="checkbox" /><span>目标定位点</span><em>{{ locatedAnchors.length }}</em>
+      </label>
       <label class="layer-row">
         <input v-model="layers.labels" type="checkbox" /><span>目标时间框（细线 + 截图时间）</span><em>{{ Object.keys(anchorByElement).length }}</em>
       </label>
+
+      <p class="layer-group">目标空间状态（B8-S）</p>
       <label class="layer-row">
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
-        <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
-        <label class="legend-toggle"><input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em></label>
-        <label class="legend-toggle"><input v-model="layers.targetTrack" type="checkbox" /><span>目标轨迹（实验估计）</span><em>{{ targetTrack.reduce((n, s) => n + s.points.length, 0) }}</em></label>
-        <label class="legend-toggle"><input v-model="ambiguousProbe" type="checkbox" /><span>歧义演示探针</span></label>
       </label>
-      <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。</p>
+      <label class="layer-row layer-row--sub">
+        <input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点固定样本）</span><em>{{ experimentalPoints.length }}</em>
+      </label>
+      <label class="layer-row layer-row--sub">
+        <input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em>
+      </label>
+      <label class="layer-row layer-row--sub">
+        <input v-model="layers.targetTrack" type="checkbox" /><span>目标轨迹（实验估计）</span><em>{{ targetTrack.reduce((n, s) => n + s.points.length, 0) }}</em>
+      </label>
+      <label class="layer-row layer-row--sub">
+        <input v-model="ambiguousProbe" type="checkbox" /><span>歧义演示探针</span>
+      </label>
+      <p class="panel-note">镜头与视域来自 TrajNexa_Map 只读空间数据；灰色表示「录像资源还没识别到这台镜头」，不代表离线。「实验估计」是固定试点样本，不是本案件的定位结果。</p>
     </div>
 
     <div v-if="openPanel === 'legend'" class="map-panel map-panel--legend popover" @click.stop>
@@ -1619,9 +1657,10 @@ function focusAnchor() {
       </ul>
       <p class="legend-title">目标要素</p>
       <ul class="legend">
-        <li><i class="sw sw--anchor-l2" />定位点 L2：已审核地面标定</li>
-        <li><i class="sw sw--anchor-l1" />定位点 L1：视域中心（未标定）</li>
-        <li><i class="sw sw--anchor-l0" />定位点 L0：只有镜头位置</li>
+        <li><i class="sw sw--anchor-l2" />定位点 L2：已审核地面标定（琥珀）</li>
+        <li><i class="sw sw--anchor-exp" />定位点 实验估计：截图接地点 + 相机参数射线（青，未审核）</li>
+        <li><i class="sw sw--anchor-l1" />定位点 L1：视域中心，不是目标接地点（紫）</li>
+        <li><i class="sw sw--anchor-l0" />定位点 L0：只有镜头位置（灰）</li>
         <li><i class="ln ln--timebox" />细线 + 时间框：截图时间，可拖动标签</li>
         <li><i class="sw sw--idle" />待定位区域：没有镜头也没有定位点</li>
         <li class="legend-note">定位点是可追溯估计，不代表身份；拖动只移动标签，不改坐标。</li>
@@ -2123,6 +2162,23 @@ function focusAnchor() {
   font-variant-numeric: tabular-nums;
 }
 
+.layer-group {
+  margin: 10px 4px 2px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.layer-row--sub {
+  padding-left: 22px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.layer-row--sub em {
+  font-size: 9.5px;
+}
+
 .time-row.is-on {
   color: var(--accent-hi);
   background: var(--accent-soft);
@@ -2275,6 +2331,7 @@ function focusAnchor() {
 
 /* 目标要素：定位点分级 + 时间框 */
 .sw--anchor-l2 { background: #ffd166; border-radius: 50%; }
+.sw--anchor-exp { background: #4fd1c5; border-radius: 50%; }
 .sw--anchor-l1 { background: #a98bff; border-radius: 50%; }
 .sw--anchor-l0 { background: #8b9bb0; border-radius: 50%; }
 

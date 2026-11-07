@@ -217,6 +217,17 @@ const frameDims = ref<Record<string, { w: number; h: number }>>({});
 const view = computed(() => timelineView.value);
 
 /**
+ * 定位级别文案。实验估计（截图接地点 + 相机参数射线）与 L1 视域中心都记作 L1，
+ * 必须靠 projection_quality 分开，否则会把「视域中心」误读成目标接地点。
+ */
+function elementLevelText(anchor: { projection_level?: string; projection_quality?: string } | null | undefined): string {
+  if (!anchor) return "";
+  if (anchor.projection_quality === "experimental_estimate") return "实验估计（射线投影，未审核）";
+  const level = anchor.projection_level ?? "";
+  return level ? ELEMENT_LEVEL_TEXT[level] ?? level : "";
+}
+
+/**
  * 「添加要素」的定位时间卡：以要素为准（完整截图就出卡），锚点只用来补级别与半径。
  * 定位失败时卡片仍然在，标成「待定位」并说明原因——否则用户点了保存却什么都看不到。
  */
@@ -229,8 +240,7 @@ const elementCards = computed(() => {
       const located = Boolean(anchor);
       const clock = /^\d{2}:\d{2}$/.test(element.timeLabel ?? "") ? `${element.timeLabel}:00` : null;
       const capture = anchor?.capture_local ?? (element.time && clock ? `${element.time}T${clock}` : null);
-      const level = anchor?.projection_level ?? "";
-      const levelText = level ? ELEMENT_LEVEL_TEXT[level] ?? level : "";
+      const levelText = elementLevelText(anchor);
       const radius = anchor?.uncertainty_radius_m ?? null;
       const parts = ["截图 1 张"];
       if (levelText) parts.push(levelText);

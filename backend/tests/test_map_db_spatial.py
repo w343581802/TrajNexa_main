@@ -9,9 +9,51 @@ IMG='33333333-3333-4333-8333-333333333333'
 POLY=json.dumps({'type':'Polygon','coordinates':[[[110,25],[110.001,25],
     [110.001,25.001],[110,25]]]},separators=(',',':'))
 
-def point(map_id=1,uuid=A,bearing=90,tilt=35,pose='calibrated',lat=25):
+def point(map_id=1,uuid=A,bearing=90,tilt=35,pose='calibrated',lat=25,height=4.0,
+          registry_bearing=None,registry_tilt=None):
     return (map_id,UUID(uuid) if uuid else None,'测试镜头',110.0,lat,
-            bearing,tilt,'fixed',80.0,pose,'verified',True,75.0)
+            bearing,tilt,'fixed',80.0,pose,'verified',True,75.0,height,
+            registry_bearing,registry_tilt)
+
+def test_registry_pose_wins_over_map_camera_direction():
+    # Map 原始 direction 与登记姿态可能差很多（球机 168° vs 355°），
+    # 射线投影必须用登记姿态，否则会把目标投到镜头背后。
+    cam=build_spatial_payload([point(bearing=168,registry_bearing=355,
+                                     registry_tilt=25)],[])['cameras'][0]
+    assert cam['bearing_deg']==355 and cam['tilt_deg']==25
+    assert cam['bearing_source']=='registry'
+
+def test_missing_registry_pose_falls_back_to_map_camera_angle():
+    cam=build_spatial_payload([point(bearing=168,tilt=25)],[])['cameras'][0]
+    assert cam['bearing_deg']==168 and cam['tilt_deg']==25
+    assert cam['bearing_source']=='map_camera'
+
+def test_mount_height_is_read_and_enables_ray_projection():
+    cam=build_spatial_payload([point()],[])['cameras'][0]
+    assert cam['mount_height_m']==4.0
+    assert cam['ray_projection_ready'] is True
+
+def test_missing_mount_height_disables_ray_projection_without_guessing():
+    # 缺安装高度只能退视域中心：不得补默认值，也不能标成可投影。
+    cam=build_spatial_payload([point(height=None)],[])['cameras'][0]
+    assert cam['mount_height_m'] is None
+    assert cam['ray_projection_ready'] is False
+
+def test_missing_fov_disables_ray_projection():
+    row=list(point());row[12]=None
+    cam=build_spatial_payload([tuple(row)],[])['cameras'][0]
+    assert cam['horizontal_fov_deg'] is None
+    assert cam['ray_projection_ready'] is False
+
+def test_mount_height_changes_spatial_revision():
+    a=build_spatial_payload([point()],[])['spatial_revision']
+    b=build_spatial_payload([point(height=5.5)],[])['spatial_revision']
+    assert a!=b
+
+@pytest.mark.parametrize('bad',[0.1,80,'4米'])
+def test_invalid_mount_height_is_refused(bad):
+    with pytest.raises(SpatialReadError,match='map_spatial_invalid_mount_height'):
+        build_spatial_payload([point(height=bad)],[])
 
 def test_position_and_tilt_not_confused_with_fov():
     x=build_spatial_payload([point()],[(1,'observation',False,POLY)])

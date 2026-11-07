@@ -16,6 +16,19 @@
     GRANT SELECT (id,name,enabled,map_camera_id,index_code,external_index_code,deleted_at) ON TABLE public.cameras_registry TO trajnexa_reader;
     ALTER ROLE trajnexa_reader SET default_transaction_read_only = on;
 
+后续 M2b/M2c 与 B8-S 路线 A 又按列追加了下列权限（仍是列级 SELECT，没有整表授权）：
+
+    -- M2b 地图快照：镜头点位、视域、参考截帧
+    GRANT SELECT (location,direction,angle,camera_type,effective_range_m) ON TABLE public.cameras_camera TO trajnexa_reader;
+    GRANT SELECT (pose_quality,position_quality,horizontal_fov_deg) ON TABLE public.cameras_registry TO trajnexa_reader;
+    GRANT SELECT (camera_id_id,level,scenario,with_intersection,geom) ON TABLE public.cameras_camerafocus TO trajnexa_reader;
+    GRANT SELECT (camera_id,is_reference,image,uploaded_at,source_type) ON TABLE public.cameras_snapshot TO trajnexa_reader;
+    -- B8-S 路线 A：射线投影需要的安装高度与登记姿态
+    GRANT SELECT (mount_height_m,bearing_deg,tilt_deg) ON TABLE public.cameras_registry TO trajnexa_reader;
+
+没有 `mount_height_m` 授权时，`POINTS_SQL` 会整条失败并被压成 `map_spatial_query_unavailable`，表现为地图快照与添加要素锚点同时不可用；日志里才会出现真正的
+`psycopg.errors.InsufficientPrivilege: permission denied for table cameras_registry`。
+
 然后通过交互式 psql 的 \password trajnexa_reader 为该账号设置密码，切勿把明文密码提交 GitHub 或复用 Map 管理员账号。
 
 ## 主系统配置

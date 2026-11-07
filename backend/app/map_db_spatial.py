@@ -22,7 +22,8 @@ class SpatialReadError(ValueError):
 POINTS_SQL = """
 SELECT m.id, r.id, COALESCE(r.name, ''), ST_X(m.location), ST_Y(m.location),
        m.direction, m.angle, m.camera_type, m.effective_range_m,
-       r.pose_quality, r.position_quality, r.enabled, r.horizontal_fov_deg
+       r.pose_quality, r.position_quality, r.enabled, r.horizontal_fov_deg,
+       r.mount_height_m, r.bearing_deg, r.tilt_deg
 FROM public.cameras_camera AS m
 LEFT JOIN public.cameras_registry AS r
        ON r.map_camera_id = m.id AND r.deleted_at IS NULL
@@ -115,10 +116,11 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
         video_refs[row[0]]={'camera_uuid':camera_uuid,'image_id':image_id}
     cameras=[]; lookup={}; seen_uuid=set(); unlinked=0; null_points=0
     for row in point_rows:
-        if len(row)!=13:
+        if len(row)!=16:
             raise SpatialReadError('map_spatial_unexpected_camera_row')
         (map_id,uuid_raw,name,lon,lat,bearing,tilt,camtype,range_m,
-         pose_quality,position_quality,enabled,horizontal_fov)=row
+         pose_quality,position_quality,enabled,horizontal_fov,mount_height,
+         registry_bearing,registry_tilt)=row
         if not isinstance(map_id,int) or map_id in lookup:
             raise SpatialReadError('map_spatial_duplicate_or_invalid_map_id')
         if lon is None or lat is None:
@@ -136,22 +138,35 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
             seen_uuid.add(uuid)
         else:
             unlinked+=1
-        bearing=_number(bearing,0,360,'bearing')
-        tilt=_number(tilt,0,360,'tilt')
+        # 朝向优先用 Map 登记的已审核姿态（registry.bearing_deg/tilt_deg）；
+        # cameras_camera.direction/angle 是导入时的地图原始值，球机等设备可能差上百九十度，
+        # 拿它做射线投影会把目标投到镜头背后。两者都不补默认值。
+        bearing_source='registry' if registry_bearing is not None else 'map_camera'
+        bearing=_number(registry_bearing if registry_bearing is not None else bearing,
+                        0,360,'bearing')
+        tilt=_number(registry_tilt if registry_tilt is not None else tilt,0,360,'tilt')
         range_m=_number(range_m,0,50000,'range')
         horizontal_fov=_number(horizontal_fov,0,360,'horizontal_fov')
+        # 安装高度是路线 A（相机参数射线投影）的必要输入；缺它只能退到视域中心。
+        # 这里只搬运数值，不推断、不补默认值。
+        mount_height=_number(mount_height,0.5,60,'mount_height')
         # The map's numeric angle is TILT. It is not the horizontal FOV.
         # Presence of values is not proof of actual camera calibration.
         quality = (pose_quality if pose_quality in
                    ('reported','estimated','calibrated','unknown') else 'unknown')
         if bearing is None or tilt is None or uuid is None:
             quality='unknown'
+        # 参数齐全才允许自动射线投影；缺任何一项都必须显示降级，不做假设。
+        ray_ready = (mount_height is not None and horizontal_fov is not None
+                     and horizontal_fov > 0 and tilt is not None and bearing is not None)
         item={
             'map_camera_id':str(map_id),'camera_uuid':uuid,
             'display_name':str(name or '')[:120] or None,
             'location':{'lon':lon,'lat':lat,'crs':'EPSG:4326'},
             'bearing_deg':bearing,'tilt_deg':tilt,
+            'bearing_source':bearing_source,
             'horizontal_fov_deg':horizontal_fov,
+            'mount_height_m':mount_height,'ray_projection_ready':ray_ready,
             'range_m':range_m,'camera_type':str(camtype or '')[:60],
             'pose_quality':quality,
             'position_quality':position_quality if position_quality in

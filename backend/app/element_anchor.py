@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import map_db_spatial
+from app import m6_camera_ray_projection as ray_projection
 from app import m6_ground_projection as ground_projection
 from app import m6_spatial_adapter as adapter
 from app.config import settings
@@ -140,6 +141,8 @@ def _fov_point(camera: dict) -> dict | None:
 
 def _calibration_point(camera_uuid: str, pixel, frame_size) -> dict | None:
     """有已审核标定且世界坐标是 WGS84 时才给 L2；否则 None（不猜坐标转换）。"""
+    if pixel is None or frame_size is None:
+        return None
     try:
         calibration = map_db_spatial.read_ground_calibration_for_camera(
             dsn=settings.map_db_readonly_url, camera_uuid=camera_uuid)
@@ -151,7 +154,7 @@ def _calibration_point(camera_uuid: str, pixel, frame_size) -> dict | None:
         return None
     try:
         result = ground_projection.project(calibration, pixel, frame_size=frame_size)
-    except ground_projection.GroundCalibrationError:
+    except (ground_projection.GroundCalibrationError, TypeError, ValueError):
         return None
     point = result.get('ground_point') or {}
     if not (isinstance(point.get('x'), (int, float)) and isinstance(point.get('y'), (int, float))):
@@ -164,6 +167,59 @@ def _calibration_point(camera_uuid: str, pixel, frame_size) -> dict | None:
             'quality': result.get('quality') or 'estimated_review_required',
             'calibration_id': result.get('calibration_id'),
             'uncertainties': result.get('uncertainties') or []}
+
+
+def _ray_point(camera: dict, pixel, frame_size) -> tuple[dict | None, str | None]:
+    """路线 A：截图接地点像素 + Map 相机参数 → 地面交点，等级 experimental_estimate。
+
+    这不是正式 L2：位姿与内参没有独立测量，只能作为「实验估计」显示。
+    缺任何一项必要参数就返回原因码，由上层降级到视域中心——绝不假设默认高度或俯角。
+    """
+    if pixel is None or frame_size is None:
+        return None, 'contact_pixel_missing'
+    location = _location(camera)
+    if location is None:
+        return None, 'camera_position_missing'
+    if not camera.get('ray_projection_ready'):
+        return None, 'camera_parameters_incomplete'
+    params = {
+        'width': frame_size[0], 'height': frame_size[1],
+        'hfov_deg': camera.get('horizontal_fov_deg'),
+        'pitch_deg': camera.get('tilt_deg'),
+        'yaw_deg': camera.get('bearing_deg'),
+        'height_m': camera.get('mount_height_m'),
+        'lon': location['lon'], 'lat': location['lat'],
+    }
+    try:
+        result = ray_projection.project(params, pixel)
+    except ray_projection.ProjectionUnavailable as exc:
+        return None, f'ray_{exc}'
+    except (TypeError, ValueError):
+        return None, 'ray_projection_invalid_parameters'
+    point = result.get('ground_point') or {}
+    lon, lat = point.get('x'), point.get('y')
+    if not (isinstance(lon, (int, float)) and isinstance(lat, (int, float))):
+        return None, 'ray_projection_invalid_point'
+    try:
+        radius = ray_projection.uncertainty_radius(params, pixel)
+    except (TypeError, ValueError):
+        radius = None
+    return {
+        'ground_point': {'lat': round(float(lat), 7), 'lon': round(float(lon), 7),
+                         'crs': 'EPSG:4326'},
+        'uncertainty_radius_m': round(float(radius), 2) if radius else None,
+        'projection_level': 'L1',
+        'quality': 'experimental_estimate',
+        'projection_method': 'camera_ray_ground_intersection',
+        'contact': {'pixel': [round(float(pixel[0]), 2), round(float(pixel[1]), 2)],
+                    'frame_size': [round(float(frame_size[0]), 2),
+                                   round(float(frame_size[1]), 2)],
+                    'quality': 'estimated', 'source': 'box_bottom_center'},
+        'range_m': result.get('range_m'),
+        'uncertainties': ['pose_reported_unverified', 'intrinsics_from_hfov_assumed',
+                          'ground_plane_flat_assumed',
+                          'contact_point_is_box_bottom_center'],
+    }, None
 
 
 def _camera_fallback(camera: dict) -> dict | None:
@@ -180,16 +236,24 @@ def _camera_fallback(camera: dict) -> dict | None:
 
 
 def locate(spatial: dict, camera: dict, pixel, frame_size) -> dict:
+    """定位优先级：已审核 L2 → 参数射线投影（实验估计）→ L1 视域中心 → L0 镜头位置。"""
     camera_uuid = camera.get('camera_uuid')
     if camera_uuid:
         found = _calibration_point(str(camera_uuid), pixel, frame_size)
         if found:
             return found
+    ray, ray_error = _ray_point(camera, pixel, frame_size)
+    if ray:
+        return ray
     found = _fov_point(camera)
     if found:
+        if ray_error:
+            found['ray_error'] = ray_error
         return found
     found = _camera_fallback(camera)
     if found:
+        if ray_error:
+            found['ray_error'] = ray_error
         return found
     raise AnchorError('camera_position_missing', '该镜头在 Map 上没有坐标，无法定位')
 

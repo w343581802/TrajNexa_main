@@ -63,6 +63,13 @@ def test_fov_point_is_inside_polygon_and_bounded():
     assert 5.0 <= found['uncertainty_radius_m'] <= anchor.MAX_RADIUS_M
 
 
+def test_fov_point_is_explicitly_an_unverified_region_center():
+    found = anchor._fov_point(_cameras()[0])
+    assert found['projection_level'] == 'L1'
+    assert found['quality'] == 'fov_centroid_unverified'
+    assert 'map_fov_model_not_verified_coverage' in found['uncertainties']
+
+
 def test_fov_point_without_geometry_returns_none():
     assert anchor._fov_point({'fov_levels': []}) is None
 
@@ -100,3 +107,66 @@ def test_pixel_and_frame_size_validation():
     assert anchor._frame_size([2560, 1440]) == [2560.0, 1440.0]
     with pytest.raises(anchor.AnchorError):
         anchor._frame_size([0, 1440])
+
+
+# ------------------------------------------------- 路线 A：参数射线投影
+
+def _ray_camera(**overrides):
+    """Map 侧参数齐全的镜头：4 m 高、俯角 25°、正北 355°、水平视场 64°。"""
+    camera = {
+        'camera_uuid': 'u-ray',
+        'display_name': '3-DX-中仁路98号-球',
+        'location': {'lon': 110.2103, 'lat': 25.2500},
+        'bearing_deg': 355.0, 'tilt_deg': 25.0,
+        'horizontal_fov_deg': 64.0, 'mount_height_m': 4.0,
+        'ray_projection_ready': True, 'range_m': 60.0,
+        'fov_levels': [],
+    }
+    camera.update(overrides)
+    return camera
+
+
+def test_ray_point_is_experimental_estimate_not_verified_l2():
+    found, error = anchor._ray_point(_ray_camera(), [960.0, 1000.0], [1920.0, 1080.0])
+    assert error is None
+    assert found['quality'] == 'experimental_estimate'
+    assert found['projection_level'] == 'L1'
+    assert found['projection_method'] == 'camera_ray_ground_intersection'
+    assert found['ground_point']['crs'] == 'EPSG:4326'
+    # 地面点在镜头前方（向北），不能落到镜头背后或几公里外
+    assert 25.2500 < found['ground_point']['lat'] < 25.2600
+    assert found['uncertainty_radius_m'] is None or 0 < found['uncertainty_radius_m'] <= anchor.MAX_RADIUS_M
+    assert 'contact_point_is_box_bottom_center' in found['uncertainties']
+    assert found['contact']['source'] == 'box_bottom_center'
+
+
+def test_ray_point_requires_all_camera_parameters():
+    found, error = anchor._ray_point(
+        _ray_camera(mount_height_m=None, ray_projection_ready=False),
+        [960.0, 1000.0], [1920.0, 1080.0])
+    assert found is None and error == 'camera_parameters_incomplete'
+
+
+def test_ray_point_requires_contact_pixel():
+    found, error = anchor._ray_point(_ray_camera(), None, [1920.0, 1080.0])
+    assert found is None and error == 'contact_pixel_missing'
+
+
+def test_ray_point_rejects_pixel_outside_frame():
+    found, error = anchor._ray_point(_ray_camera(), [2500.0, 1000.0], [1920.0, 1080.0])
+    assert found is None and error == 'ray_pixel_outside_frame'
+
+
+def test_locate_prefers_ray_over_fov_center():
+    camera = _ray_camera()
+    camera['fov_levels'] = _cameras()[0]['fov_levels']
+    found = anchor.locate({'cameras': []}, camera, [960.0, 1000.0], [1920.0, 1080.0])
+    assert found['quality'] == 'experimental_estimate'
+
+
+def test_locate_degrades_to_fov_and_reports_why():
+    camera = _ray_camera(mount_height_m=None, ray_projection_ready=False)
+    camera['fov_levels'] = _cameras()[0]['fov_levels']
+    found = anchor.locate({'cameras': []}, camera, [960.0, 1000.0], [1920.0, 1080.0])
+    assert found['quality'] == 'fov_centroid_unverified'
+    assert found['ray_error'] == 'camera_parameters_incomplete'
