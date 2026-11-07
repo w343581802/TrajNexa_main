@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     m5_vision_models_json: str = ''
     name_roi_enabled: bool = True  # two extra bottom-right OCR passes when enabled
     map_db_readonly_url: str = ''  # optional SELECT-only connection to Map PostgreSQL
+    # B8-S 自动标定：主系统只转发 Map 的作业/候选/审核接口，不复制候选逻辑。
+    # 留空 = 未配置，相关路由按「功能未启用」返回 404。
+    map_api_base_url: str = ''  # e.g. http://trajnexa-map-web:8000
+    # Map 的 Django 只接受 ALLOWED_HOSTS 里的 Host 头（默认 localhost）。
+    # 容器间用服务名访问时显式发这个 Host，避免被 400 Bad Request 拒掉。
+    map_api_host_header: str = 'localhost'
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。
     recordings_root: Path = Path('/data/videos')
     recordings_scan_interval_seconds: int = 30  # 开启自动扫描后的增量扫描间隔
