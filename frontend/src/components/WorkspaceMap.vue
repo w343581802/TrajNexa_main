@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, activeTrackingRun, layers, observationList, recordingCameraUuids, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
@@ -43,6 +43,8 @@ let map: L.Map | null = null;
 const lReal = L.layerGroup();
 const lFocus = L.layerGroup();
 const lAnchors = L.layerGroup();
+/** 目标时间框：细线 + 可拖动标签，和定位点分开一层，方便单独开关 */
+const lLabels = L.layerGroup();
 const lTrack = L.layerGroup();
 const lSpatial = L.layerGroup();
 const lExperimental = L.layerGroup();
@@ -115,7 +117,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -200,6 +202,17 @@ const selectedReal = computed(
   () => snapshot.value?.cameras.find((item) => item.camera_id === selectedRealId.value) ?? null,
 );
 
+/** Map 参考截帧：只用来确认画面朝向，取图失败就安静地隐藏，不在卡片里报错。 */
+const shotFailed = ref(false);
+const selectedSnapshotUrl = computed(() => {
+  const ref = selectedReal.value?.snapshot;
+  if (!ref || shotFailed.value) return null;
+  return `/map-api/api/v1/camera-registry/${ref.camera_uuid}/snapshots/${ref.image_id}/content/`;
+});
+watch(selectedRealId, () => {
+  shotFailed.value = false;
+});
+
 
 /* ---------------------------- 弹层 ---------------------------- */
 
@@ -276,6 +289,20 @@ function anchorLatLng(element: { cameraId: string | null } | null | undefined) {
   return camera ? L.latLng(camera.lat, camera.lon) : toLatLng(REGION_ANCHOR.x, REGION_ANCHOR.y);
 }
 
+/**
+ * 要素在地图上的「定位点」：优先用后端算出的锚点（L2 已审核标定 / L1 视域中心 / L0 镜头位置），
+ * 没有再退回镜头坐标；两者都没有就返回 null，交给「待定位区域」占位。
+ */
+function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatLng | null {
+  const anchor = anchorByElement.value[element.id];
+  const ground = anchor?.ground_point;
+  if (ground && Number.isFinite(ground.lat) && Number.isFinite(ground.lon)) {
+    return L.latLng(ground.lat, ground.lon);
+  }
+  const camera = snapshotCamera(element.cameraId);
+  return camera ? L.latLng(camera.lat, camera.lon) : null;
+}
+
 function pickReal(camera: SnapshotCamera) {
   selectedRealId.value = camera.camera_id;
   realCardOpen.value = true;
@@ -289,7 +316,7 @@ function pickAnchor(elementId: string) {
   anchorCardOpen.value = true;
   realCardOpen.value = false;
   const element = visibleElements.value.find((item) => item.id === elementId);
-  cardLatLng.value = anchorLatLng(element);
+  cardLatLng.value = (element ? anchorPointOf(element) : null) ?? anchorLatLng(element);
   placeCard();
 
   /* B8 追踪图层：已研判镜头连虚线，正在研判的镜头加脉冲 */
@@ -348,13 +375,13 @@ watch(
 
 const anchorChips = computed(() => visibleElements.value.find((e) => e.id === wb.selectedAnchorId) ?? null);
 
-/* 锚点坐标：绑定到 Map 镜头就贴镜头，否则画「待定位区域」圈 */
-const cameraAnchors = computed(() =>
+/* 锚点坐标：有后端定位点就画定位点，没有就归到「待定位区域」 */
+const locatedAnchors = computed(() =>
   visibleElements.value
-    .map((element) => ({ element, camera: snapshotCamera(element.cameraId) }))
-    .filter((item) => item.camera !== null),
+    .map((element) => ({ element, point: anchorPointOf(element) }))
+    .filter((item): item is { element: (typeof visibleElements.value)[number]; point: L.LatLng } => item.point !== null),
 );
-const regionAnchors = computed(() => visibleElements.value.filter((element) => !snapshotCamera(element.cameraId)));
+const regionAnchors = computed(() => visibleElements.value.filter((element) => anchorPointOf(element) === null));
 
 /* ---------------------------- 图层渲染 ---------------------------- */
 
@@ -382,6 +409,58 @@ function anchorIcon(label: string, selected: boolean): L.DivIcon {
     iconSize: [22, 30],
     iconAnchor: [11, 30],
   });
+}
+
+/* ---------------------------- 目标时间框 ----------------------------
+ * 细线从定位点连到一个可拖动的时间标签；拖动只改变标签位置（label_offset），
+ * 不改定位真值 —— 定位点永远来自后端锚点。
+ * ------------------------------------------------------------------ */
+
+const LABEL_ZOOM = 17;
+
+/** 用固定缩放级别换算像素偏移，保证缩放时标签相对定位点的位置不漂。 */
+function labelPoint(point: L.LatLng, offset: { dx?: number; dy?: number }): L.LatLng {
+  if (!map) return point;
+  const base = map.project(point, LABEL_ZOOM);
+  return map.unproject(L.point(base.x + (offset.dx ?? 0), base.y + (offset.dy ?? 0)), LABEL_ZOOM);
+}
+
+function timeBoxIcon(text: string, selected: boolean): L.DivIcon {
+  return L.divIcon({
+    className: "time-box-wrap",
+    html: `<span class="time-box${selected ? " is-selected" : ""}">${escapeLabel(text)}</span>`,
+    iconSize: [80, 24],
+    iconAnchor: [40, 12],
+  });
+}
+
+/** 回填路径：后端把追踪结果按段给出，取所有有效地面点连成一条线。 */
+function tracePointsOf(elementId: string): L.LatLng[] {
+  const trace = traceByElement.value[elementId];
+  if (!trace?.segments?.length) return [];
+  const points: L.LatLng[] = [];
+  for (const segment of trace.segments) {
+    for (const point of segment.points ?? []) {
+      if (Number.isFinite(point.lat) && Number.isFinite(point.lon)) {
+        points.push(L.latLng(point.lat, point.lon));
+      }
+    }
+  }
+  return points;
+}
+
+/** 结束时间框用最后一点的时间；后端给的是 ISO，这里只取时分秒。 */
+function traceEndClock(elementId: string): string {
+  const trace = traceByElement.value[elementId];
+  const segments = trace?.segments ?? [];
+  for (let s = segments.length - 1; s >= 0; s -= 1) {
+    const points = segments[s].points ?? [];
+    for (let p = points.length - 1; p >= 0; p -= 1) {
+      const t = points[p]?.t;
+      if (typeof t === "string" && t.length >= 19) return t.slice(11, 19);
+    }
+  }
+  return "";
 }
 
 const spatialObservations = ref<TargetSpatialObservationRow[]>([]);
@@ -660,7 +739,7 @@ watch(highlightTrackId, (trackId) => {
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lRegion].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -712,19 +791,83 @@ function render() {
     }
   }
 
-  /* 目标要素锚点：绑定 Map 镜头就贴镜头坐标，否则只画「待定位区域」圈 */
-  if (layers.anchors) {
-    for (const item of cameraAnchors.value) {
-      const camera = item.camera;
-      if (!camera) continue;
-      L.marker([camera.lat, camera.lon], {
-        icon: anchorIcon(item.element.cameraLabel || item.element.timeLabel, wb.selectedAnchorId === item.element.id),
-        keyboard: false,
-      })
-        .addTo(lAnchors)
-        .on("click", () => pickAnchor(item.element.id));
+  /* 目标要素定位点：坐标来自后端锚点（L2 已审核标定 / L1 视域中心 / L0 镜头位置）
+   * 时间框单独一层：细线连到可拖动的标签，拖动只改标签位置，不改定位真值。 */
+  if (layers.anchors || layers.labels) {
+    for (const item of locatedAnchors.value) {
+      const element = item.element;
+      const point = item.point as L.LatLng;
+      const anchor = anchorByElement.value[element.id];
+      const selected = wb.selectedAnchorId === element.id;
+      const clock = anchor?.capture_local?.slice(11, 19) || element.timeLabel;
+      const path = tracePointsOf(element.id);
+      if (path.length >= 2) {
+        /* 回填出路径后：不再画单点，改画一条路径 +「起始 / 结束」两个时间框 */
+        if (layers.anchors) {
+          L.polyline(path, { color: "#7dd3fc", weight: selected ? 2.6 : 1.8, opacity: 0.92 })
+            .addTo(lAnchors)
+            .bindTooltip(`回填路径 · ${anchor?.camera_label || element.cameraLabel}`, { direction: "top", offset: [0, -6], className: "map-tip" })
+            .on("click", () => pickAnchor(element.id));
+        }
+        if (layers.labels) {
+          const ends = [
+            { at: path[0], text: clock, kind: "起始" },
+            { at: path[path.length - 1], text: traceEndClock(element.id) || clock, kind: "结束" },
+          ];
+          for (const end of ends) {
+            const labelAt = labelPoint(end.at, anchor?.label_offset ?? {});
+            L.polyline([end.at, labelAt], { color: "#7dd3fc", weight: 1, opacity: 0.55, interactive: false }).addTo(lLabels);
+            L.marker(labelAt, { icon: timeBoxIcon(`${end.kind} ${end.text}`, selected), keyboard: false, autoPan: false })
+              .addTo(lLabels)
+              .on("click", () => pickAnchor(element.id));
+          }
+        }
+        continue;
+      }
+      if (layers.anchors) {
+        const level = anchor?.projection_level ?? "L0";
+        L.circleMarker(point, {
+          radius: selected ? 7.5 : 5.6,
+          color: "#0b0f14",
+          weight: 1.6,
+          fillColor: level === "L2" ? "#ffd166" : level === "L1" ? "#a98bff" : "#8b9bb0",
+          fillOpacity: 0.95,
+        })
+          .addTo(lAnchors)
+          .bindTooltip(`${clock} · ${anchor?.camera_label || element.cameraLabel}`, { direction: "top", offset: [0, -6], className: "map-tip" })
+          .on("click", () => pickAnchor(element.id));
+        if (anchor?.uncertainty_radius_m) {
+          L.circle(point, {
+            radius: anchor.uncertainty_radius_m,
+            color: "#a98bff",
+            weight: 1,
+            dashArray: "4 6",
+            fillColor: "#a98bff",
+            fillOpacity: 0.05,
+            interactive: false,
+          }).addTo(lAnchors);
+        }
+      }
+      if (layers.labels && anchor) {
+        const at = labelPoint(point, anchor.label_offset ?? {});
+        L.polyline([point, at], { color: "#cbd5e1", weight: 1, opacity: 0.7, interactive: false }).addTo(lLabels);
+        const marker = L.marker(at, {
+          icon: timeBoxIcon(clock, selected),
+          draggable: true,
+          keyboard: false,
+          autoPan: false,
+        })
+          .addTo(lLabels)
+          .on("click", () => pickAnchor(element.id));
+        marker.on("dragend", () => {
+          if (!map) return;
+          const moved = map.project(marker.getLatLng(), LABEL_ZOOM);
+          const base = map.project(point, LABEL_ZOOM);
+          void actions.moveAnchorLabel(element.id, Math.round(moved.x - base.x), Math.round(moved.y - base.y));
+        });
+      }
     }
-    for (const element of regionAnchors.value) {
+    if (layers.anchors && regionAnchors.value.length) {
       const center = toLatLng(REGION_ANCHOR.x, REGION_ANCHOR.y);
       L.circle(center, {
         radius: worldRadiusMeters(REGION_ANCHOR.r),
@@ -735,9 +878,9 @@ function render() {
         fillOpacity: 0.07,
       })
         .addTo(lAnchors)
-        .on("click", () => pickAnchor(element.id));
+        .on("click", () => pickAnchor(regionAnchors.value[0].id));
       L.marker(center, {
-        icon: textIcon("区域锚点（待定位）", "region-label"),
+        icon: textIcon(`待定位区域 · ${regionAnchors.value.length} 项`, "region-label"),
         interactive: false,
         keyboard: false,
       }).addTo(lAnchors);
@@ -880,8 +1023,8 @@ function render() {
 }
 
 watch(
-  [layers, wb.selectedCameraId, wb.selectedObservationId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, timelineCards, () => wb.selectedCardId],
+  [layers, wb.selectedCameraId, wb.selectedObservationId, wb.selectedAnchorId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, timelineCards, visibleElements, anchorByElement, traceByElement, () => wb.selectedCardId],
   () => render(),
   { deep: true },
 );
@@ -1097,6 +1240,9 @@ function focusAnchor() {
       </label>
       <label class="layer-row"><input v-model="layers.anchors" type="checkbox" /><span>目标起始锚点</span><em>{{ visibleElements.length }}</em></label>
       <label class="layer-row">
+        <input v-model="layers.labels" type="checkbox" /><span>目标时间框（细线 + 截图时间）</span><em>{{ Object.keys(anchorByElement).length }}</em>
+      </label>
+      <label class="layer-row">
         <input v-model="layers.spatial" type="checkbox" /><span>目标空间状态（L1/L2）</span><em>{{ spatialObservations.length }}</em>
         <label class="legend-toggle"><input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点几何投影样本）</span><em>{{ experimentalPoints.length }}</em></label>
         <label class="legend-toggle"><input v-model="layers.trackSample" type="checkbox" /><span>追踪实验估计（片段样本）</span><em>{{ trackSamplePoints.length }}</em></label>
@@ -1119,8 +1265,12 @@ function focusAnchor() {
       </ul>
       <p class="legend-title">目标要素</p>
       <ul class="legend">
-        <li><i class="ln ln--anchor" />起始锚点（标签显示时间 / 摄像头名称）</li>
-        <li><i class="sw sw--idle" />区域锚点：未绑定镜头，仅示意待定位区域</li>
+        <li><i class="sw sw--anchor-l2" />定位点 L2：已审核地面标定</li>
+        <li><i class="sw sw--anchor-l1" />定位点 L1：视域中心（未标定）</li>
+        <li><i class="sw sw--anchor-l0" />定位点 L0：只有镜头位置</li>
+        <li><i class="ln ln--timebox" />细线 + 时间框：截图时间，可拖动标签</li>
+        <li><i class="sw sw--idle" />待定位区域：没有镜头也没有定位点</li>
+        <li class="legend-note">定位点是可追溯估计，不代表身份；拖动只移动标签，不改坐标。</li>
       </ul>
       <p class="legend-title">目标空间状态（B8-S）</p>
       <ul class="legend">
@@ -1240,6 +1390,10 @@ function focusAnchor() {
           {{ selectedReal.camera_type || "类型未登记" }} · {{ selectedReal.zone || "区域未登记" }}
           <span class="dim mono">{{ cameraCode(selectedReal) }}</span>
         </p>
+        <figure v-if="selectedSnapshotUrl" class="cam-shot">
+          <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="shotFailed = true" />
+          <figcaption>Map 参考截帧（只读）· 只用于确认画面朝向，不构成身份证据</figcaption>
+        </figure>
         <dl class="cam-kv">
           <div><dt>经纬度</dt><dd class="num">{{ selectedReal.lon.toFixed(5) }}, {{ selectedReal.lat.toFixed(5) }}</dd></div>
           <div><dt>朝向</dt><dd class="num">{{ selectedReal.bearing_deg ?? "—" }}°</dd></div>
@@ -1715,6 +1869,47 @@ function focusAnchor() {
   transform: rotate(-45deg);
 }
 
+/* 目标要素：定位点分级 + 时间框 */
+.sw--anchor-l2 { background: #ffd166; border-radius: 50%; }
+.sw--anchor-l1 { background: #a98bff; border-radius: 50%; }
+.sw--anchor-l0 { background: #8b9bb0; border-radius: 50%; }
+
+.ln--timebox {
+  border-color: #cbd5e1;
+  border-top-width: 1px;
+}
+
+.map-canvas :deep(.time-box-wrap) {
+  background: none;
+  border: 0;
+  cursor: grab;
+}
+
+.map-canvas :deep(.time-box-wrap.is-dragging) {
+  cursor: grabbing;
+}
+
+/* 时间框：小圆角胶囊，里面只有截图时间；拖动只改标签位置，不改定位真值 */
+.map-canvas :deep(.time-box) {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.65);
+  background: rgba(11, 15, 20, 0.86);
+  color: #e6edf6;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.map-canvas :deep(.time-box.is-selected) {
+  border-color: #ffd166;
+  color: #ffe6a3;
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.35), 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
 .map-compass {
   position: absolute;
   top: 10px;
@@ -1934,6 +2129,30 @@ function focusAnchor() {
   display: flex;
   gap: 6px;
   font-size: 10px;
+  color: var(--text-3);
+}
+
+.cam-shot {
+  display: grid;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+}
+
+.cam-shot img {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+}
+
+.cam-shot figcaption {
+  padding: 4px 6px;
+  border-top: 1px solid var(--line);
+  background: rgba(8, 12, 18, 0.9);
+  font-size: 9px;
   color: var(--text-3);
 }
 

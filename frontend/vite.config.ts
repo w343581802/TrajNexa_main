@@ -13,7 +13,9 @@ export default defineConfig({
       '/api': { target: process.env.API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
       '/map-api': {
         target: MAP_PROXY_TARGET,
-        changeOrigin: true,
+        // Map 的 nginx 只接受 Host: localhost；不能让代理把容器名写成 Host。
+        changeOrigin: false,
+        headers: { Host: 'localhost' },
         rewrite: (path) => path.replace(/^\/map-api/, ''),
       },
     },

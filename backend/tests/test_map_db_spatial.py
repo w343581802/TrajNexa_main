@@ -5,6 +5,7 @@ import pytest
 from app.map_db_spatial import build_spatial_payload,read_map_spatial,SpatialReadError
 
 A='11111111-1111-4111-8111-111111111111'
+IMG='33333333-3333-4333-8333-333333333333'
 POLY=json.dumps({'type':'Polygon','coordinates':[[[110,25],[110.001,25],
     [110.001,25.001],[110,25]]]},separators=(',',':'))
 
@@ -64,15 +65,18 @@ def test_empty_database_is_explicit_empty_not_mock():
     assert x['counts']['map_cameras']==0 and x['cameras']==[]
 
 def test_only_cameras_with_video_frame_snapshot_are_lit():
-    x=build_spatial_payload([point(1),point(2,uuid='22222222-2222-4222-8222-222222222222')],[],[(1,)])
+    x=build_spatial_payload([point(1),point(2,uuid='22222222-2222-4222-8222-222222222222')],[],[(1,A,IMG)])
     rows={c['map_camera_id']:c for c in x['cameras']}
     assert rows['1']['has_video'] is True
+    assert rows['1']['snapshot']=={'camera_uuid':A,'image_id':IMG}
     assert rows['2']['has_video'] is False
+    assert rows['2']['snapshot'] is None
     assert x['counts']['with_video']==1
 
 def test_video_row_shape_is_validated():
-    with pytest.raises(SpatialReadError,match='map_spatial_unexpected_video_row'):
-        build_spatial_payload([point()],[],[(1,'video_frame')])
+    for bad in [(1,'video_frame'),(1,A),(1,'not-a-uuid',IMG),(1,A,'not-a-uuid')]:
+        with pytest.raises(SpatialReadError,match='map_spatial_unexpected_video_row'):
+            build_spatial_payload([point()],[],[bad])
 
 class Cursor:
     def __init__(self):self.calls=[]
@@ -83,7 +87,7 @@ class Cursor:
         if 'ST_X' in self.calls[-1]:
             return [point()]
         if 'cameras_snapshot' in self.calls[-1]:
-            return [(1,)]
+            return [(1,A,IMG)]
         return [(1,'recognition',True,POLY)]
 class Conn:
     def __init__(self, cursor=None):self.cur=cursor or Cursor()

@@ -384,3 +384,42 @@ class TargetSpatialObservation(Base):
     uncertainty_radius_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TargetElementAnchor(Base):
+    """添加要素后的定位结论（B8-P1）。
+
+    定位点来自 Map 镜头与标定/视域模型，不是用户拖动出来的；时间框拖动只写 label_offset。
+    轨迹回填复用 tracking_runs，本表只存 run 指针与状态，不复制轨迹点。
+    """
+    __tablename__ = 'target_element_anchors'
+    __table_args__ = (
+        Index('ix_target_element_anchors_case', 'case_id', 'created_at'),
+        Index('ix_target_element_anchors_group', 'group_id', 'object_id'),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('cases.id'), index=True)
+    group_id: Mapped[str] = mapped_column(
+        ForeignKey('target_element_groups.id', ondelete='CASCADE'), index=True)
+    object_id: Mapped[str] = mapped_column(String(36))
+    media_id: Mapped[str | None] = mapped_column(ForeignKey('media_assets.id'), nullable=True)
+    camera_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    camera_label: Mapped[str] = mapped_column(String(120), default='')
+    camera_source: Mapped[str] = mapped_column(String(24), default='none')
+    capture_local: Mapped[str | None] = mapped_column(String(19), nullable=True)
+    capture_source: Mapped[str] = mapped_column(String(24), default='none')
+    capture_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    pixel_xy: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    frame_size: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    projection_level: Mapped[str] = mapped_column(String(4), default='L0')
+    projection_quality: Mapped[str] = mapped_column(String(40), default='region_only_unverified')
+    ground_point: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    uncertainty_radius_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    projection_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    label_offset: Mapped[dict] = mapped_column(JSON, default=dict)
+    trace_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    trace_status: Mapped[str] = mapped_column(String(16), default='none')
+    trace_window: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 onupdate=utcnow)

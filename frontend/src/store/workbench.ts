@@ -25,6 +25,8 @@ import {
   type TimelineCard,
   type TimelineEvent,
   type TimelineViewPayload,
+  type ElementAnchor,
+  type ElementTrace,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -83,6 +85,8 @@ export const layers = reactive({
   targetTrack: false,
   fov: true,
   anchors: true,
+  /** 目标时间框：细线 + 可拖动的时间标签，默认开 */
+  labels: true,
 });
 
 export const pendingElementFile = shallowRef<File | null>(null);
@@ -170,6 +174,16 @@ export const featureList = ref<TargetFeature[]>([]);
 export const observationList = ref<Observation[]>([]);
 export const jobList = ref<Job[]>([]);
 export const featureStats = reactive({ pending: 0, conflicts: 0, refs: 0 });
+
+/**
+ * 添加要素的定位点（按要素 id 索引）。
+ * 只有「完整截图 + 角标时间 + 镜头唯一」的元素才有；局部截图不进这里，也不进时间轴。
+ */
+export const anchorByElement = ref<Record<string, ElementAnchor>>({});
+/** 录像回填：按要素记状态与空间点；有点才在地图上画线 */
+export const traceByElement = ref<Record<string, ElementTrace>>({});
+/** 要素 id → 后端目标组 id：定位与轨迹回填都要靠它，刷新后也用它复原。 */
+export const elementGroupIds = ref<Record<string, string>>({});
 
 /* ------------------------------ 录像资源 ------------------------------ */
 
@@ -923,6 +937,10 @@ export type ElementPayload = {
   boxes: NonNullable<TargetElement["boxes"]>;
   sourceMediaId?: string | null;
   m4ObservationId?: string | null;
+  /** 后端目标组 id：定位点与轨迹回填挂在它下面（保存时由弹窗创建后回传） */
+  targetGroupId?: string | null;
+  /** full = 完整截图（有时间有地点）；crop = 局部截图（只加特征，不定位、不进时间轴） */
+  base?: "full" | "crop";
 };
 
 /** 表单级校验：任一条不满足就不写库，错误文案直接回给弹窗 */
@@ -1181,7 +1199,163 @@ function applyCardSelection(cardId: string | null): void {
   }
 }
 
+/**
+ * 定位点：完整截图保存后自动向后端要位置；局部截图 / 无角标时间直接跳过。
+ * 后端只做「可能位置」——L2 需要已审核标定，L1 是 Map 视域模型中心，L0 是镜头位置。
+ */
+async function syncAnchor(element: TargetElement, payload: ElementPayload): Promise<void> {
+  const groupId = payload.targetGroupId;
+  if (!groupId || !wb.caseId) return;
+  try {
+    const result = await mainApi.createElementAnchor(wb.caseId, groupId, {
+      base: payload.base === "crop" ? "crop" : "full",
+      object_id: "P1",
+      camera_uuid: element.cameraId,
+      camera_name: element.cameraId ? null : element.cameraLabel,
+      capture_local: payload.timeUnknown ? null : `${payload.date}T${payload.timeLabel.trim()}`,
+      capture_source: "osd",
+      media_id: element.sourceMediaId ?? null,
+    });
+    if (result.anchor) {
+      anchorByElement.value = { ...anchorByElement.value, [element.id]: result.anchor };
+      if (result.trace?.status && result.trace.status !== "none") {
+        void pollElementTrace(element.id, groupId);
+      }
+    }
+  } catch (error) {
+    toast(`定位点没算出来：${error instanceof Error ? error.message : String(error)}`, "warn");
+  }
+}
+
+/** 回填轮询：排队/运行期间每 6 秒看一次，出点就换成路径，最多看 20 次 */
+async function pollElementTrace(elementId: string, groupId: string, attempt = 0): Promise<void> {
+  if (!wb.caseId) return;
+  try {
+    const trace = await mainApi.getElementTrace(wb.caseId, groupId);
+    traceByElement.value = { ...traceByElement.value, [elementId]: trace };
+    const active = trace.status === "queued" || trace.status === "running" || trace.status === "pending";
+    if (active && attempt < 20) {
+      window.setTimeout(() => void pollElementTrace(elementId, groupId, attempt + 1), 6000);
+    }
+  } catch {
+    // 回填失败不影响定位点本身，下一次进页面再读
+  }
+}
+
+/**
+ * 从后端恢复「添加要素」：目标组 + 定位锚点。
+ * 刷新页面后要素不丢：组里带 bbox / 属性 / 镜头名，锚点带截图时间与定位点。
+ */
+export async function loadElements(caseId = wb.caseId): Promise<void> {
+  if (!caseId) return;
+  try {
+    const payload = await mainApi.listElements(caseId);
+    if (wb.caseId !== caseId) return;
+    const known: Record<string, string> = { ...elementGroupIds.value };
+    const byGroup: Record<string, string> = {};
+    for (const [elementId, groupId] of Object.entries(known)) byGroup[groupId] = elementId;
+    const anchors: Record<string, ElementAnchor> = { ...anchorByElement.value };
+    const rows: TargetElement[] = [];
+    for (const item of payload.items ?? []) {
+      const group = (item.group ?? {}) as Record<string, any>;
+      const anchor = (item.anchor ?? null) as ElementAnchor | null;
+      const groupId = String(group.id ?? "");
+      if (!groupId) continue;
+      const objects = Array.isArray(group.objects) ? group.objects : [];
+      const primary = objects.find((row: any) => row.id === group.primary_object_id) ?? objects[0] ?? null;
+      const id = byGroup[groupId] ?? `g-${groupId.slice(0, 8)}`;
+      const box = Array.isArray(primary?.bbox_norm_xyxy) ? primary.bbox_norm_xyxy.map(Number) : null;
+      const assoc = objects.find((row: any) => row.role === "associated");
+      const assocBox = Array.isArray(assoc?.bbox_norm_xyxy) ? assoc.bbox_norm_xyxy.map(Number) as [number, number, number, number] : null;
+      const capture = anchor?.capture_local ?? null;
+      const objectClass = String(primary?.object_class ?? "other");
+      rows.push({
+        id,
+        timeLabel: capture ? capture.slice(11, 16) : "时间未知",
+        time: capture ?? "",
+        cameraId: anchor?.camera_uuid ?? null,
+        cameraLabel: anchor?.camera_label || String(group.source?.camera_name ?? "") || "区域：仅确定大致区域",
+        status: anchor ? "confirmed" : "unlocated",
+        statusLabel: anchor ? "已定位" : "待定位",
+        note: "",
+        tone: anchor ? "color" : "gray",
+        quality: anchor ? "good" : "low",
+        category: objectClass === "vehicle" ? "vehicle" : objectClass === "person" ? "person" : "other",
+        attributes: (Array.isArray(group.attributes) ? group.attributes : []).map((row: any, index: number) => ({
+          key: String(row.name ?? row.attribute_key ?? `特征 ${index + 1}`),
+          value: row.value == null ? "" : String(row.value),
+          unknown: row.observation_status === "unknown" || row.value == null,
+        })),
+        boxes: box && box.length === 4 ? [{
+          id: String(primary?.id ?? "P1"),
+          x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1],
+          kind: objectClass === "vehicle" ? "vehicle" : "person",
+          label: "人工截图框选", auto: false,
+        }] : [],
+        sourceMediaId: group.media_id ?? null,
+        assocBox,
+        timeUnknown: !capture,
+        base: anchor ? "full" : "crop",
+      });
+      known[id] = groupId;
+      if (anchor) anchors[id] = anchor;
+    }
+    elementList.value = rows;
+    elementGroupIds.value = known;
+    anchorByElement.value = anchors;
+    // 有定位点且已开始回填的要素：进页面读一次回填状态（不再循环轮询）
+    for (const [elementId, anchor] of Object.entries(anchors)) {
+      const status = anchor?.trace_status;
+      if (!status || status === "none") continue;
+      const groupId = known[elementId];
+      if (groupId) void pollElementTrace(elementId, groupId, 20);
+    }
+    // 有定位点的要素补一张锚点观测，时间轴与地图选中才有同一实体
+    for (const row of rows) {
+      if (!anchorByElement.value[row.id]) continue;
+      if (observationList.value.some((obs) => obs.id === `O-${row.id}`)) continue;
+      observationList.value.push(buildAnchorObservation(row));
+    }
+  } catch (error) {
+    toast(`要素读回失败：${error instanceof Error ? error.message : String(error)}`, "warn");
+  }
+}
+
 export const actions = {
+  /**
+   * 特征栏里手动改一条特征：先改本地（界面立刻生效），再按目标组属性 PATCH 回后端。
+   * 后端每次都会写一条 attribute revision，所以「改了又改」有审计轨迹。
+   */
+  async updateElementFeature(featureId: string, value: string): Promise<void> {
+    const feature = featureList.value.find((item) => item.id === featureId);
+    if (!feature?.elementId) return;
+    const element = elementList.value.find((item) => item.id === feature.elementId);
+    if (!element) return;
+    const text = value.trim();
+    element.attributes = (element.attributes ?? []).map((attr) => (
+      attr.key === feature.attr ? { ...attr, value: text, unknown: !text } : attr
+    ));
+    feature.value = text || "未知";
+    feature.status = text ? "review" : "unknown";
+    feature.statusLabel = text ? "人工修改 · 待核验" : "未知（人工标注）";
+    const groupId = elementGroupIds.value[element.id];
+    if (!groupId || !wb.caseId) return;
+    try {
+      const detail = await mainApi.getTargetGroup(wb.caseId, groupId);
+      const rows = Array.isArray(detail.attributes) ? detail.attributes : [];
+      const updated = rows.map((row) => (
+        String(row.name) === feature.attr
+          ? { ...row, value: text || null, observation_status: text ? "known" : "unknown", review_state: "human_verified", source: "human" }
+          : row
+      ));
+      await mainApi.updateTargetGroup(wb.caseId, groupId, { attributes: updated });
+      feature.status = text ? "verified" : "unknown";
+      feature.statusLabel = text ? "人工核验" : "未知（人工标注）";
+      toast("特征已保存（修订历史 +1）", "ok");
+    } catch (error) {
+      toast(`特征保存失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+    }
+  },
   openCases() {
     ui.caseManageOpen = true;
     void loadCases();
@@ -1197,6 +1371,7 @@ export const actions = {
     clearTimeline();
     void loadRecordings(caseId);
     void (async () => {
+      await loadElements(caseId);
       await loadTrackingRuns();
       await loadTimeline();
     })();
@@ -1329,6 +1504,24 @@ export const actions = {
     wb.selectedElementId = id;
     const element = elementList.value.find((e) => e.id === id);
     if (element?.cameraId) wb.selectedCameraId = element.cameraId;
+    // 点地图上的点/时间框 = 选中时间轴对应卡片（两处同一个选中真源）
+    if (id && observationList.value.some((o) => o.id === `O-${id}`)) {
+      actions.selectObservation(`O-${id}`);
+    }
+  },
+  /** 拖动时间框只改标签位置；定位真值不动（后端也拒绝改 ground_point）。 */
+  async moveAnchorLabel(elementId: string, dx: number, dy: number) {
+    const anchor = anchorByElement.value[elementId];
+    if (!anchor || !wb.caseId) return;
+    const previous = { ...(anchor.label_offset || {}) };
+    anchor.label_offset = { dx, dy };
+    try {
+      const result = await mainApi.patchElementAnchor(wb.caseId, anchor.id, { label_offset: { dx, dy } });
+      anchorByElement.value = { ...anchorByElement.value, [elementId]: result.anchor };
+    } catch {
+      anchor.label_offset = previous;
+      toast("时间框位置没保存成功，已回到原位", "warn");
+    }
   },
   selectObservation(id: string) {
     const obs = observationList.value.find((o) => o.id === id);
@@ -1481,9 +1674,15 @@ export const actions = {
     const element = buildElement(id, payload);
     elementList.value.push(element);
     if (elementList.value.length === 1) alignRangeToElement(element);
-    observationList.value.push(buildAnchorObservation(element));
+    if (payload.targetGroupId) {
+      elementGroupIds.value = { ...elementGroupIds.value, [id]: payload.targetGroupId };
+    }
+    // 局部截图只写目标特征：不进时间轴，也不产生地图定位点
+    const placeOnMap = payload.base !== "crop" && !payload.timeUnknown;
+    if (placeOnMap) observationList.value.push(buildAnchorObservation(element));
     observationList.value.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
     applyAttributes(id, payload);
+    if (placeOnMap) void syncAnchor(element, payload);
     wb.selectedElementId = id;
     wb.selectedAnchorId = id;
     wb.selectedObservationId = `O-${id}`;

@@ -35,11 +35,15 @@ export type TargetElement = {
   attributes?: ElementAttribute[];
   /** 人工框选 / 自动检测框，仅用于回溯画面位置 */
   boxes?: ElementBox[];
+  /** 关联对象框（归一化 x1,y1,x2,y2）：只作证据，不单独定位 */
+  assocBox?: [number, number, number, number] | null;
   /** M4a origin metadata: permanent database evidence, not the in-memory element ID. */
   sourceMediaId?: string | null;
   m4ObservationId?: string | null;
   /** 角标时间是否未知（未知时不参与时间排序） */
   timeUnknown?: boolean;
+  /** full = 完整截图（有时间有地点，进时间轴）；crop = 局部截图（只记特征） */
+  base?: "full" | "crop";
   /** 记录来源：一律是用户添加 */
   origin?: "user";
 };

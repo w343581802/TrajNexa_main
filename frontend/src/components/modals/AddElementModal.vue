@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import StatusChip from "../ui/StatusChip.vue";
-import { actions, currentCase, elementList, pendingElementFile, toast, ui, type ElementPayload } from "../../store/workbench";
+import { actions, currentCase, elementGroupIds, elementList, pendingElementFile, toast, ui, type ElementPayload } from "../../store/workbench";
 import {
   CAMERA_STATUS_TEXT,
   TIME_STATUS_TEXT,
@@ -1001,11 +1001,17 @@ async function save(keepOpen: boolean) {
       return;
     }
   }
+  // 编辑已有要素时沿用原目标组；新建时用下面 createTargetGroup 的返回值。
+  let groupId: string | null = editingElement.value ? elementGroupIds.value[editingElement.value.id] ?? null : null;
+  // 定位只认「完整截图」：角标时间 + 能对上镜头；局部截图（只有目标块）只写特征。
+  const base: "full" | "crop" = !timeUnknown.value && (!!confirmedCamera.value || !!cameraName.value?.trim()) ? "full" : "crop";
   const payload: ElementPayload = {
     date: date.value,
     timeLabel: timeLabel.value,
     timeUnknown: timeUnknown.value,
     cameraId: confirmedCamera.value,
+    base,
+    targetGroupId: groupId,
     cameraLabel: cameraName.value
       ? `${cameraName.value}${confirmedCamera.value ? "" : "（未绑定目录）"}`
       : "区域：仅确定大致区域",
@@ -1041,7 +1047,7 @@ async function save(keepOpen: boolean) {
         assocObservation.value = saved;
         assocObsId = saved.id;
       }
-      await mainApi.createTargetGroup(currentCase.value.id, {
+      const created = await mainApi.createTargetGroup(currentCase.value.id, {
         media_id: selectedMediaId.value,
         primary_object_id: "P1",
         objects: [
@@ -1055,6 +1061,7 @@ async function save(keepOpen: boolean) {
         attributes: [...attrRows(primaryAttrs.value, "P1", m4Box.value), ...(assocBox.value ? attrRows(assocAttrs.value, "A1", assocBox.value) : [])],
         source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
+      groupId = created.id;
     } catch (error) {
       toast("目标组保存失败：" + (error instanceof Error ? error.message : String(error)), "danger");
       return;

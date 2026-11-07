@@ -14,6 +14,52 @@
 
 const BASE = "/api/v1";
 
+/** 添加要素的定位点：来自 Map 镜头与视域/标定模型，不是拖动出来的。 */
+export type ElementAnchor = {
+  id: string;
+  case_id: string;
+  group_id: string;
+  object_id: string;
+  media_id: string | null;
+  camera_uuid: string | null;
+  camera_label: string;
+  camera_source: string;
+  capture_local: string | null;
+  capture_source: string;
+  capture_verified: boolean;
+  pixel_xy: number[] | null;
+  frame_size: number[] | null;
+  projection_level: "L2" | "L1" | "L0";
+  projection_quality: string;
+  ground_point: { lat: number; lon: number; crs?: string } | null;
+  uncertainty_radius_m: number | null;
+  projection_payload: Record<string, unknown>;
+  label_offset: { dx?: number; dy?: number };
+  trace_run_id: string | null;
+  trace_status: string;
+  trace_window: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+/** 录像回填：排队/运行只有状态；ready 后按段给出地面点，前端连成路径。 */
+export type ElementTrace = {
+  group_id?: string;
+  status: "none" | "queued" | "running" | "pending" | "no_points" | "ready" | "unavailable";
+  segments: {
+    start?: string | null;
+    end?: string | null;
+    points: {
+      t: string;
+      lat: number;
+      lon: number;
+      spatial_level: string;
+      uncertainty_radius_m: number | null;
+    }[];
+  }[];
+  note?: string;
+};
+
 export type M4DetectionProposal = {
   proposal_index: number;
   object_class: "person" | "vehicle";
@@ -820,6 +866,44 @@ export const mainApi = {
     request<{ id: string; attribute_key: string; name: string; old_value: string | null;
       old_review_state: string | null; new_value: string | null; new_review_state: string;
       changed_at: string }[]>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}/revisions`),
+
+  /* ---------------------- 添加要素定位与时间框（B8-P1） ---------------------- */
+
+  /** 完整截图：按角标时间 + 镜头在地图上定位；局部截图后端回 skipped，不伪造点位。 */
+  createElementAnchor: (caseId: string, groupId: string, body: {
+    base: "full" | "crop";
+    object_id?: string;
+    camera_uuid?: string | null;
+    camera_name?: string | null;
+    capture_local?: string | null;
+    capture_source?: string;
+    pixel_xy?: number[] | null;
+    frame_size?: number[] | null;
+    media_id?: string | null;
+  }) => request<{ anchor?: ElementAnchor; trace?: ElementTrace; skipped?: string; reason?: string; note?: string }>(
+    `/cases/${encodeURIComponent(caseId)}/elements/${encodeURIComponent(groupId)}/anchor`,
+    jsonBody(body as unknown as Record<string, unknown>, "POST"),
+  ),
+
+  listElementAnchors: (caseId: string) =>
+    request<{ items: ElementAnchor[] }>(`/cases/${encodeURIComponent(caseId)}/elements/anchors`),
+
+  /** 时间框只移动标签：只能改 label_offset，改位置会被后端 409 拒绝。 */
+  patchElementAnchor: (caseId: string, anchorId: string, body: { label_offset: { dx: number; dy: number } }) =>
+    request<{ anchor: ElementAnchor }>(
+      `/cases/${encodeURIComponent(caseId)}/elements/anchors/${encodeURIComponent(anchorId)}`,
+      jsonBody(body as unknown as Record<string, unknown>, "PATCH"),
+    ),
+
+  /** 刷新后重建要素：目标组 + 属性 + 锚点。 */
+  listElements: (caseId: string) =>
+    request<{ case_id: string; items: { group: Record<string, unknown>; anchor: ElementAnchor | null }[] }>(
+      `/cases/${encodeURIComponent(caseId)}/elements`),
+
+  /** 回填路径：queued/running 时只有状态，ready 后给出按段的地面点。 */
+  getElementTrace: (caseId: string, groupId: string) =>
+    request<ElementTrace>(
+      `/cases/${encodeURIComponent(caseId)}/elements/${encodeURIComponent(groupId)}/trace`),
 
   listTrackingCameras: (caseId: string) =>
     request<{ camera_uuid: string | null; camera_label: string; clips: number;

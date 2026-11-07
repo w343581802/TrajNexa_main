@@ -23,6 +23,7 @@ from app import m4_video_api
 from app import video_naming_api
 from app import m6_run_api
 from app import target_group_api
+from app import element_anchor_api
 from app import m6_l2_api
 from app import m6_experimental_api
 from app import m6_track_spatial_api
@@ -63,6 +64,8 @@ app.include_router(m4_video_api.router)
 app.include_router(video_naming_api.router)
 app.include_router(m6_run_api.router)
 app.include_router(target_group_api.router)
+# 添加要素定位：截图时间 + 镜头 → 可能位置、时间框标签、录像回填（B8-P1）
+app.include_router(element_anchor_api.router)
 app.include_router(m6_l2_api.router)
 app.include_router(m6_experimental_api.router)
 app.include_router(m6_track_spatial_api.router)

@@ -5,6 +5,8 @@ import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type Timelin
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
 import {
   actions,
+  anchorByElement,
+  elementList,
   timelineCards,
   timelineView,
   timelineViewError,
@@ -211,6 +213,47 @@ const regionTab = ref<RegionTab>("all");
 const frameDims = ref<Record<string, { w: number; h: number }>>({});
 
 const view = computed(() => timelineView.value);
+
+/**
+ * 「添加要素」的定位时间卡：一条锚点一行，按截图时间排。
+ * 与地图上的定位点/时间框同一真源（wb.selectedAnchorId），点哪边都选中同一条。
+ */
+const elementCards = computed(() => {
+  const categoryText: Record<string, string> = { person: "人员", vehicle: "车辆", other: "其他" };
+  return Object.entries(anchorByElement.value)
+    .map(([elementId, anchor], index) => {
+      const element = elementList.value.find((item) => item.id === elementId) ?? null;
+      const at = anchor.capture_local ? Date.parse(anchor.capture_local) : Number.NaN;
+      return {
+        elementId,
+        index,
+        at,
+        cardId: `element:${elementId}`,
+        time: anchor.capture_local ? anchor.capture_local.slice(11, 19) : element?.timeLabel ?? "时间未知",
+        title: element?.category ? categoryText[element.category] ?? "目标" : "目标",
+        camera: anchor.camera_label || element?.cameraLabel || "镜头未识别",
+        level: anchor.projection_level,
+        radius: anchor.uncertainty_radius_m,
+        traceStatus: anchor.trace_status,
+      };
+    })
+    .sort((a, b) => {
+      const at = Number.isFinite(a.at) ? a.at : Number.POSITIVE_INFINITY;
+      const bt = Number.isFinite(b.at) ? b.at : Number.POSITIVE_INFINITY;
+      return at === bt ? a.index - b.index : at - bt;
+    });
+});
+
+/** 点时间卡 = 选中同一个要素：地图时间框高亮、右侧信息同步，不额外改定位真值。 */
+function focusElementCard(elementId: string) {
+  actions.selectAnchor(elementId);
+}
+
+const ELEMENT_LEVEL_TEXT: Record<string, string> = {
+  L2: "L2 已审核标定",
+  L1: "L1 视域中心",
+  L0: "L0 镜头位置",
+};
 
 /** 仅开发环境、且该目标没有真实已确认轨迹时，追加明确标注的演示卡。 */
 const demoData = computed(() => {
@@ -1052,6 +1095,32 @@ watch(() => view.value?.targetId, () => closeDetail());
         <span>演示：{{ demoCards.length }} 张“已确认轨迹”为界面样例（轨迹段与帧数为示意），使用真实录像关键帧；身份未经真实审核，不能作为证据。</span>
       </div>
 
+      <!-- 添加要素生成的定位时间卡：与地图上的定位点 / 时间框同一真源 -->
+      <section v-if="elementCards.length" class="tm-elements">
+        <header class="tm-elements-head">
+          <span>添加要素 · 定位时间卡</span>
+          <em class="num">{{ elementCards.length }}</em>
+        </header>
+        <ul class="tm-elements-list">
+          <li
+            v-for="card in elementCards"
+            :key="card.cardId"
+            class="tm-element-card"
+            :class="{ 'is-active': wb.selectedAnchorId === card.elementId }"
+          >
+            <button type="button" class="tm-element-main" @click="focusElementCard(card.elementId)">
+              <span class="tm-element-time num">{{ card.time }}</span>
+              <span class="tm-element-title">{{ card.title }}</span>
+              <span class="tm-element-camera">{{ card.camera }}</span>
+              <span class="tm-element-level" :data-level="card.level">{{ ELEMENT_LEVEL_TEXT[card.level] ?? card.level }}</span>
+              <span v-if="card.radius" class="tm-element-radius num">±{{ Math.round(card.radius) }} m</span>
+              <span v-if="card.traceStatus && card.traceStatus !== 'none'" class="tm-element-trace">{{ card.traceStatus }}</span>
+            </button>
+          </li>
+        </ul>
+        <p class="tm-elements-note">时间只是截图角标读数；位置是可追溯估计，不构成身份证据。</p>
+      </section>
+
       <div class="tm-nav tm-nav--earlier">
         <div class="tm-nav-head">
           <span class="tm-nav-title">↑ 向前追踪（更早时间）</span>
@@ -1551,6 +1620,74 @@ watch(() => view.value?.targetId, () => closeDetail());
   font-size: 11.5px;
   line-height: 1.5;
 }
+
+.tm-elements {
+  margin: 8px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-soft) 70%, transparent);
+  overflow: hidden;
+}
+
+.tm-elements-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.tm-elements-head em {
+  color: var(--text);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.tm-elements-list { margin: 0; padding: 4px; list-style: none; }
+
+.tm-element-card + .tm-element-card { margin-top: 2px; }
+
+.tm-element-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tm-element-card.is-active .tm-element-main,
+.tm-element-main:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.tm-element-time { color: var(--text); font-size: 11px; font-weight: 600; }
+.tm-element-title { font-size: 11px; }
+.tm-element-camera { color: var(--text-dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-element-level {
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+.tm-element-level[data-level="L2"] { border-color: #ffd166; color: #b98b12; }
+.tm-element-level[data-level="L1"] { border-color: #a98bff; color: #6c4fd0; }
+.tm-element-radius { color: var(--text-dim); font-size: 9.5px; }
+.tm-element-trace { color: var(--text-dim); font-size: 9.5px; }
+.tm-elements-note { margin: 0; padding: 0 10px 8px; color: var(--text-dim); font-size: 9.5px; }
 
 .tm-demo-banner {
   display: flex;

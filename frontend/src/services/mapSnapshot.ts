@@ -1,7 +1,8 @@
 /**
  * TrajNexa_Map 只读空间数据客户端（主系统直连 Map 只读库，M2b 接口）。
  *
- * 主系统只消费 `GET /api/v1/spatial/cameras`，不读 Map 的 ORM 表、不写回 GIS，也不依赖 Map 的 HTTP 服务。
+ * 主系统只消费 `GET /api/v1/spatial/cameras`，不读 Map 的 ORM 表、不写回 GIS。
+ * 空间真值仍来自主系统后端；只有参考截帧的图片字节经 `/map-api` 读 Map 的公开只读内容接口。
  * 坐标恒为 WGS84；`pose_quality` 用于判断能否画视域，未知姿态不得在地图上伪造朝向或扇形。
  * FOV 是 Map 的模型几何，不是实测覆盖。
  */
@@ -33,6 +34,8 @@ export type SnapshotCamera = {
   pose_quality: PoseQuality;
   /** Map 侧是否有录像参考帧（source_type=video_frame）；没有时主系统保持灰色。 */
   has_video: boolean;
+  /** 参考帧定位；仅用于显示原图，不参与身份或空间结论。 */
+  snapshot: { camera_uuid: string; image_id: string } | null;
   fov_rings: [number, number][][] | null;
   fov_levels: FovLevelRings[] | null;
 };
@@ -59,6 +62,7 @@ type SpatialCamera = {
   camera_type: string;
   pose_quality: string;
   has_video?: boolean;
+  snapshot?: { camera_uuid: string; image_id: string } | null;
   fov_levels: { level: string; geometry: { type: string; coordinates: unknown } }[];
 };
 
@@ -107,6 +111,7 @@ function toSnapshotCamera(camera: SpatialCamera): SnapshotCamera | null {
     // 只有台账标明 calibrated 才允许画视域；其余一律按未知姿态处理，不臆造扇形
     pose_quality: calibrated ? "calibrated" : "unknown",
     has_video: Boolean(camera.has_video),
+    snapshot: camera.snapshot ?? null,
     fov_rings: null,
     fov_levels: calibrated && levels.length ? levels : null,
   };

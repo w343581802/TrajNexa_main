@@ -35,13 +35,15 @@ WHERE scenario = 'mean' AND geom IS NOT NULL
 ORDER BY camera_id_id, level LIMIT 9001
 """
 VIDEO_SQL = """
-SELECT DISTINCT r.map_camera_id
+SELECT DISTINCT ON (r.map_camera_id)
+       r.map_camera_id, r.id, s.id
 FROM public.cameras_snapshot AS s
 JOIN public.cameras_registry AS r ON r.id = s.camera_id
 WHERE s.source_type = 'video_frame'
   AND s.image <> ''
   AND r.deleted_at IS NULL
   AND r.map_camera_id IS NOT NULL
+ORDER BY r.map_camera_id, s.is_reference DESC, s.uploaded_at DESC, s.id
 LIMIT 3001
 """
 LEVELS = ('identification', 'recognition', 'observation')
@@ -99,11 +101,18 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
         raise SpatialReadError('map_spatial_too_many_fov_rows')
     if len(video_rows)>MAX_CAMERAS:
         raise SpatialReadError('map_spatial_too_many_camera_videos')
-    video_ids=set()
+    video_refs={}
     for row in video_rows:
-        if len(row)!=1 or not isinstance(row[0],int):
+        if len(row)!=3 or not isinstance(row[0],int):
             raise SpatialReadError('map_spatial_unexpected_video_row')
-        video_ids.add(row[0])
+        try:
+            camera_uuid=str(UUID(str(row[1])))
+            image_id=str(UUID(str(row[2])))
+        except (ValueError,TypeError):
+            raise SpatialReadError('map_spatial_unexpected_video_row') from None
+        if row[0] in video_refs:
+            raise SpatialReadError('map_spatial_duplicate_camera_video')
+        video_refs[row[0]]={'camera_uuid':camera_uuid,'image_id':image_id}
     cameras=[]; lookup={}; seen_uuid=set(); unlinked=0; null_points=0
     for row in point_rows:
         if len(row)!=13:
@@ -148,7 +157,8 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
             'position_quality':position_quality if position_quality in
                 ('reported','verified','unknown') else 'unknown',
             'enabled':enabled if isinstance(enabled,bool) else None,
-            'has_video':map_id in video_ids,
+            'has_video':map_id in video_refs,
+            'snapshot':video_refs.get(map_id),
             'fov_levels':[],
             'fov_provenance':'map_model_geometry_not_verified_coverage',
             'map_registry_link':'linked' if uuid else 'map_only_unbound',
@@ -289,6 +299,55 @@ def read_ground_calibration(*, dsn, calibration_id, connect=None):
         raise SpatialReadError('map_spatial_db_unavailable') from None
     if row is None:
         raise SpatialReadError('calibration_not_published')
+    return {'calibration_id': row[0], 'camera_uuid': row[1], 'map_camera_id': row[2],
+            'review_status': row[3], 'world_crs': row[4],
+            'reference_width': float(row[5]), 'reference_height': float(row[6]),
+            'image_preprocess': row[7], 'frame_mode': row[8],
+            'homography_3x3': row[9], 'ground_valid_polygon': row[10],
+            'holdout_residual_m': row[11], 'calibration_revision': row[12],
+            'spatial_revision': row[13]}
+
+
+GROUND_CALIBRATION_BY_CAMERA_SQL = """
+    SELECT id::text, camera_uuid, map_camera_id, review_status, world_crs,
+           reference_width, reference_height, image_preprocess, frame_mode,
+           homography_3x3, ground_valid_polygon, holdout_residual_m,
+           calibration_revision, spatial_revision
+      FROM cameras_ground_calibration
+     WHERE camera_uuid = %s AND review_status = 'approved'
+     ORDER BY published_at DESC NULLS LAST, created_at DESC
+     LIMIT 1
+"""
+
+
+def read_ground_calibration_for_camera(*, dsn, camera_uuid, connect=None):
+    """按镜头取最新一条已审核标定；没有就返回 None（调用方降级，不猜）。
+
+    只读、只认 approved；human_verified 与 approved 在本库是同义状态位。
+    """
+    if not isinstance(dsn, str) or not dsn.strip():
+        raise SpatialReadError('map_spatial_db_not_configured')
+    if not isinstance(camera_uuid, str) or not camera_uuid.strip():
+        return None
+    if connect is None:
+        try:
+            import psycopg
+        except ImportError:
+            raise SpatialReadError('map_spatial_driver_unavailable') from None
+        connect = psycopg.connect
+    try:
+        with connect(dsn, connect_timeout=4) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+                cursor.execute("SET LOCAL statement_timeout = '6000ms'")
+                cursor.execute(GROUND_CALIBRATION_BY_CAMERA_SQL, (camera_uuid,))
+                row = cursor.fetchone()
+    except SpatialReadError:
+        raise
+    except Exception:
+        raise SpatialReadError('map_spatial_db_unavailable') from None
+    if row is None:
+        return None
     return {'calibration_id': row[0], 'camera_uuid': row[1], 'map_camera_id': row[2],
             'review_status': row[3], 'world_crs': row[4],
             'reference_width': float(row[5]), 'reference_height': float(row[6]),
