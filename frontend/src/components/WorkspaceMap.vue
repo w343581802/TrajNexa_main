@@ -277,6 +277,17 @@ const cardStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
 });
 
+/** 镜头卡只放名称和参考图，宽度和锚点卡分开算，避免影响锚点卡定位。 */
+const CAM_CARD = { w: 360, h: 268 };
+const camCardStyle = computed(() => {
+  const point = cardPoint.value;
+  if (!point) return undefined;
+  const box = mapSize.value;
+  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CAM_CARD.w - 8, 8));
+  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CAM_CARD.h, 8));
+  return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
+});
+
 /** 目标要素绑定的 Map 镜头（cameraId 存的是 Map 的 camera_uuid） */
 const snapshotCamera = (uuid: string | null) =>
   uuid ? snapshot.value?.cameras.find((item) => item.camera_uuid === uuid) ?? null : null;
@@ -305,6 +316,11 @@ function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatL
 
 function pickReal(camera: SnapshotCamera) {
   selectedRealId.value = camera.camera_id;
+  // 卡片只承担「看这台镜头长什么样」；没有参考截帧就不弹空卡。
+  if (!camera.snapshot) {
+    realCardOpen.value = false;
+    return;
+  }
   realCardOpen.value = true;
   anchorCardOpen.value = false;
   cardLatLng.value = L.latLng(camera.lat, camera.lon);
@@ -781,12 +797,11 @@ function render() {
         fillColor: !lit ? "#7b8798" : calibrated ? "#4fd1d9" : "#8b9bb0",
         fillOpacity: 0.92,
       }).addTo(lReal);
-      marker.bindTooltip(
-        `${cameraLabel(camera)} · ${
-          !lit ? "录像资源里未识别到这台镜头（灰）" : calibrated ? "已识别到录像" : "姿态未知（不画扇形）"
-        }`,
-        { direction: "top", offset: [0, -6], className: "map-tip" },
-      );
+      marker.bindTooltip(cameraCode(camera), {
+        direction: "top",
+        offset: [0, -6],
+        className: "map-tip",
+      });
       marker.on("click", () => pickReal(camera));
     }
   }
@@ -1375,37 +1390,14 @@ function focusAnchor() {
 
     <!-- TrajNexa_Map 镜头卡 -->
     <Transition name="slide">
-      <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="cardStyle">
+      <aside v-if="realCardOpen && selectedReal && selectedSnapshotUrl" class="cam-card cam-card--real popover" :style="camCardStyle">
         <header class="cam-head">
-          <span class="mono cam-id">{{ cameraLabel(selectedReal) }}</span>
-          <span class="chip" :data-tone="selectedReal.pose_quality === 'calibrated' ? 'info' : 'muted'">
-            <i class="dot" />{{ selectedReal.pose_quality === "calibrated" ? "已标定姿态" : "姿态未知" }}
-          </span>
-          <span class="chip" :data-tone="isRealLit(selectedReal) ? 'ok' : 'muted'">
-            <i class="dot" />{{ isRealLit(selectedReal) ? "录像资源已识别到" : "录像资源未识别到" }}
-          </span>
+          <h3 class="cam-name">{{ cameraCode(selectedReal) }}</h3>
           <button class="icon-btn" aria-label="关闭镜头卡片" @click="realCardOpen = false"><AppIcon name="close" :size="13" /></button>
         </header>
-        <p class="cam-sub">
-          {{ selectedReal.camera_type || "类型未登记" }} · {{ selectedReal.zone || "区域未登记" }}
-          <span class="dim mono">{{ cameraCode(selectedReal) }}</span>
-        </p>
-        <figure v-if="selectedSnapshotUrl" class="cam-shot">
+        <figure class="cam-shot">
           <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="shotFailed = true" />
-          <figcaption>Map 参考截帧（只读）· 只用于确认画面朝向，不构成身份证据</figcaption>
         </figure>
-        <dl class="cam-kv">
-          <div><dt>经纬度</dt><dd class="num">{{ selectedReal.lon.toFixed(5) }}, {{ selectedReal.lat.toFixed(5) }}</dd></div>
-          <div><dt>朝向</dt><dd class="num">{{ selectedReal.bearing_deg ?? "—" }}°</dd></div>
-          <div><dt>视域</dt><dd class="num">{{ selectedReal.fov_deg ?? "—" }}°</dd></div>
-          <div><dt>量程</dt><dd class="num">{{ selectedReal.range_m ?? "—" }} m</dd></div>
-        </dl>
-        <div class="cam-actions">
-          <button class="btn btn--sm btn--outline" @click="actions.openCorrection()">
-            <AppIcon name="edit" :size="12" />上报修正工单
-          </button>
-        </div>
-        <p class="cam-note">来自 TrajNexa_Map 只读空间数据；主系统不回写 GIS，不构成身份结论。</p>
       </aside>
     </Transition>
 
@@ -2090,11 +2082,11 @@ function focusAnchor() {
   position: absolute;
   right: 10px;
   bottom: 34px;
-  width: 276px;
+  width: 360px;
   padding: 10px;
   z-index: 5;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   background: rgba(11, 17, 25, 0.96);
 }
 
@@ -2104,32 +2096,21 @@ function focusAnchor() {
   gap: 6px;
 }
 
-.cam-id {
-  font-size: 10px;
-  color: var(--accent-hi);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 4px;
-  padding: 0 4px;
-}
-
 .cam-head .icon-btn {
   margin-left: auto;
+  flex: none;
   width: 20px;
   height: 20px;
 }
 
 .cam-name {
-  font-size: var(--fs-title);
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--text-0);
-}
-
-.cam-sub {
-  display: flex;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--text-3);
+  overflow-wrap: anywhere;
 }
 
 .cam-shot {
@@ -2144,66 +2125,8 @@ function focusAnchor() {
 .cam-shot img {
   display: block;
   width: 100%;
-  max-height: 260px;
+  height: auto;
   object-fit: contain;
-}
-
-.cam-shot figcaption {
-  padding: 4px 6px;
-  border-top: 1px solid var(--line);
-  background: rgba(8, 12, 18, 0.9);
-  font-size: 9px;
-  color: var(--text-3);
-}
-
-.cam-kv {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px 10px;
-  padding: 6px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.cam-kv > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: 10px;
-}
-
-.cam-kv dt {
-  color: var(--text-3);
-}
-
-.cam-kv dd {
-  color: var(--text-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cam-cov {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 10.5px;
-  color: var(--text-2);
-}
-
-.cam-cov b {
-  color: var(--text-0);
-}
-
-.cam-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.cam-note {
-  font-size: 9.5px;
-  color: var(--text-3);
 }
 
 /* 底部状态条 */
