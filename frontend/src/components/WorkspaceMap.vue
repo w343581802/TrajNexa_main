@@ -549,7 +549,7 @@ function drawCameraMarker(camera: SnapshotCamera) {
   const lit = isRealLit(camera);
   const selected = selectedRealId.value === camera.camera_id;
   const marker = L.circleMarker([camera.lat, camera.lon], {
-    radius: selected ? 7.5 : calibrated ? 5.2 : 4.6,
+    radius: selected ? 8.5 : calibrated ? 6.2 : 5.4,
     color: selected ? "#d8f6ff" : "#060a0f",
     weight: selected ? 2 : 1.4,
     fillColor: !lit ? "#7b8798" : calibrated ? "#4fd1d9" : "#8b9bb0",
@@ -560,6 +560,14 @@ function drawCameraMarker(camera: SnapshotCamera) {
     direction: "top",
     offset: [0, -6],
     className: "map-tip",
+    interactive: true,
+  });
+  marker.on("tooltipopen", () => {
+    const tip = marker.getTooltip()?.getElement();
+    if (tip) {
+      tip.onclick = (event: MouseEvent) => { event.stopPropagation(); pickReal(camera); };
+      tip.onpointerdown = (event: PointerEvent) => { event.stopPropagation(); pickReal(camera); };
+    }
   });
   marker.on("click", () => pickReal(camera));
 }
@@ -582,6 +590,14 @@ function drawClusterMarker(group: CameraCluster) {
     direction: "top",
     offset: [0, -size / 2],
     className: "map-tip",
+    interactive: true,
+  });
+  marker.on("tooltipopen", () => {
+    const tip = marker.getTooltip()?.getElement();
+    if (tip) {
+      tip.onclick = (event: MouseEvent) => { event.stopPropagation(); openCluster(group.members, group.lat, group.lon); };
+      tip.onpointerdown = (event: PointerEvent) => { event.stopPropagation(); openCluster(group.members, group.lat, group.lon); };
+    }
   });
   marker.on("click", () => openCluster(group.members, group.lat, group.lon));
 }
@@ -1710,7 +1726,7 @@ function focusAnchor() {
       <aside
         v-if="cameraToolboxOpen"
         class="cam-card cam-toolbox popover"
-        :class="{ 'is-dragging': toolboxDragging }"
+        :class="{ 'is-dragging': toolboxDragging, 'cam-toolbox--minimal': !clusterCardOpen }"
         :style="camToolboxStyle"
         @click.stop
       >
@@ -1745,12 +1761,16 @@ function focusAnchor() {
           </div>
         </template>
 
-        <nav class="cam-tabs" role="tablist" aria-label="镜头卡页签">
+        <nav v-if="clusterCardOpen" class="cam-tabs" role="tablist" aria-label="镜头卡页签">
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'info' }" :aria-selected="cameraTab === 'info'" @click="cameraTab = 'info'">摄像头信息</button>
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'investigate' }" :aria-selected="cameraTab === 'investigate'" @click="cameraTab = 'investigate'">目标排查</button>
         </nav>
 
         <template v-if="selectedReal">
+          <figure v-if="!clusterCardOpen && selectedSnapshotUrl" class="cam-shot cam-shot--minimal">
+            <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
+          </figure>
+          <template v-else-if="clusterCardOpen">
           <figure v-if="cameraTab === 'info' && selectedSnapshotUrl" class="cam-shot">
             <figcaption v-if="selectedSnapshotSource" class="cam-source">{{ selectedSnapshotSource }}</figcaption>
             <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
@@ -1780,6 +1800,7 @@ function focusAnchor() {
             </div>
             <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
           </form>
+          </template>
         </template>
         <p v-else class="cam-empty">选择上方镜头查看详情</p>
 
@@ -2487,6 +2508,10 @@ function focusAnchor() {
   border-radius: 10px;
 }
 
+.cam-toolbox--minimal {
+  width: min(320px, calc(100vw - 16px));
+}
+
 .cam-head--toolbox {
   padding: 12px 12px 10px;
   cursor: grab;
@@ -2745,6 +2770,17 @@ function focusAnchor() {
   height: auto;
   max-height: min(260px, 38vh);
   object-fit: contain;
+}
+
+.cam-toolbox--minimal .cam-shot--minimal {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cam-toolbox--minimal .cam-shot--minimal img {
+  max-height: calc(100vh - 180px);
 }
 
 .cam-shot-foot {
@@ -3019,6 +3055,7 @@ function focusAnchor() {
 
 .map-leaflet :deep(.map-tip) {
   padding: 3px 6px;
+  cursor: pointer;
   border: 1px solid #b9c2cc;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.97);
