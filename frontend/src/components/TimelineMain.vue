@@ -20,6 +20,7 @@ type ViewFilter = "all" | "confirmed" | "region";
 
 const filter = ref<ViewFilter>("all");
 const detailId = ref<string | null>(null);
+const scrollEl = ref<HTMLElement | null>(null);
 const focusedCandidateId = ref<string | null>(null);
 const playbackCardId = ref<string | null>(null);
 const playbackUrl = ref<string | null>(null);
@@ -308,6 +309,29 @@ const viewCounts = computed(() => {
   const confirmed = rows.filter((card) => card.kind === "confirmed_track").length;
   const region = rows.filter((card) => card.kind === "region_investigation").length;
   return { confirmed, region, total: confirmed + region };
+});
+
+/**
+ * 地图上的定位点/时间框选中后，高亮时间轴里对应的要素卡。
+ * 没有要素卡时再回退到当前技术卡所属的主视图卡。
+ */
+const focusedCardId = computed(() => {
+  if (wb.selectedAnchorId) {
+    const elementCardId = `element:${wb.selectedAnchorId}`;
+    if (allViewCards.value.some((card) => card.cardId === elementCardId)) return elementCardId;
+  }
+  if (!wb.selectedCardId) return null;
+  const hit = allViewCards.value.find(
+    (card) => card.cardId === wb.selectedCardId || card.detailCardIds.includes(wb.selectedCardId as string),
+  );
+  return hit?.cardId ?? null;
+});
+
+watch(focusedCardId, async (cardId) => {
+  if (!cardId) return;
+  await nextTick();
+  const row = scrollEl.value?.querySelector<HTMLElement>(`[data-tm-card-id="${cardId}"]`);
+  row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 });
 
 const detailCard = computed(() => allViewCards.value.find((card) => card.cardId === detailId.value) ?? null);
@@ -1150,7 +1174,7 @@ watch(() => view.value?.targetId, () => closeDetail());
 
 <template>
   <div class="tm">
-    <div class="tm-scroll">
+    <div ref="scrollEl" class="tm-scroll">
       <div class="tm-summary">
         <button
           v-for="item in FILTERS"
@@ -1196,9 +1220,9 @@ watch(() => view.value?.targetId, () => closeDetail());
       </div>
 
       <ol v-else class="tm-list">
-        <li v-for="card in cards" :key="card.cardId" class="tm-row" :data-kind="card.kind">
+        <li v-for="card in cards" :key="card.cardId" class="tm-row" :data-kind="card.kind" :data-tm-card-id="card.cardId">
           <span class="tm-dot" :data-tone="kindTone(card)" />
-          <article class="tm-card" :data-kind="card.kind" :class="{ 'is-open': detailId === card.cardId }">
+          <article class="tm-card" :data-kind="card.kind" :class="{ 'is-open': detailId === card.cardId, 'is-focused': focusedCardId === card.cardId }">
             <div class="tm-card-layout" :class="{ 'has-thumbs': confirmedThumbs(card).length > 0 }">
               <div class="tm-card-content">
                 <header class="tm-card-head">
@@ -1847,6 +1871,11 @@ watch(() => view.value?.targetId, () => closeDetail());
 }
 
 .tm-card.is-open { border-color: var(--accent-line); }
+.tm-card.is-focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
+}
 
 .tm-card-layout {
   display: block;

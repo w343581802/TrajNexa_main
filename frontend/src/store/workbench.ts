@@ -1680,6 +1680,11 @@ export const actions = {
   /** 点卡片：唯一真源是 wb.selectedCardId，地图后续只读它 */
   selectTimelineCard(cardId: string | null) {
     applyCardSelection(cardId);
+    // 选了非锚点技术卡，就撤掉地图锚点的对应卡片高亮，避免两个高亮同时存在。
+    if (cardId && !cardId.startsWith("anchor:")) {
+      wb.selectedAnchorId = null;
+      wb.selectedElementId = null;
+    }
   },
   openTracking() {
     ui.trackingOpen = true;
@@ -1801,10 +1806,8 @@ export const actions = {
     wb.selectedElementId = id;
     const element = elementList.value.find((e) => e.id === id);
     if (element?.cameraId) wb.selectedCameraId = element.cameraId;
-    // 点地图上的点/时间框 = 选中时间轴对应卡片（两处同一个选中真源）
-    if (id && observationList.value.some((o) => o.id === `O-${id}`)) {
-      actions.selectObservation(`O-${id}`);
-    }
+    // 点地图上的点/时间框 = 高亮时间轴里对应的要素卡（TimelineMain 读 selectedAnchorId）；
+    // 不再顺带 selectObservation，否则会打开锚点操作卡。
   },
   /** 拖动时间框只改标签位置；定位真值不动（后端也拒绝改 ground_point）。 */
   async moveAnchorLabel(elementId: string, dx: number, dy: number) {

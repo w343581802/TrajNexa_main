@@ -651,14 +651,13 @@ function closeCameraToolbox() {
 
 function pickAnchor(elementId: string) {
   actions.selectAnchor(elementId);
-  anchorCardOpen.value = true;
+  /* 点定位点/时间框只做选中：时间轴卡片高亮由 selectedAnchorId 驱动，
+     不再弹出锚点操作卡；需要操作卡时从要素抽屉进入。 */
+  anchorCardOpen.value = false;
   realCardOpen.value = false;
   clusterCardOpen.value = false;
   clusterMembers.value = [];
   resetToolboxPosition();
-  const element = visibleElements.value.find((item) => item.id === elementId);
-  cardLatLng.value = (element ? anchorPointOf(element) : null) ?? anchorLatLng(element);
-  placeCard();
 
   /* B8 追踪图层：已研判镜头连虚线，正在研判的镜头加脉冲 */
   if (layers.anchors && trackingWindows.value.length) {
@@ -1150,7 +1149,7 @@ function render() {
           ];
           for (const end of ends) {
             const labelAt = labelPoint(end.at, anchor?.label_offset ?? {});
-            L.polyline([end.at, labelAt], { color: "#7dd3fc", weight: 1, opacity: 0.55, interactive: false }).addTo(lLabels);
+            L.polyline([end.at, labelAt], { color: "#7dd3fc", weight: selected ? 2.4 : 2, opacity: 0.8, interactive: false }).addTo(lLabels);
             L.marker(labelAt, { icon: timeBoxIcon(`${end.kind} ${end.text}`, selected), keyboard: false, autoPan: false })
               .addTo(lLabels)
               .on("click", () => pickAnchor(element.id));
@@ -1184,7 +1183,14 @@ function render() {
       }
       if (layers.labels && anchor) {
         const at = labelPoint(point, anchor.label_offset ?? {});
-        L.polyline([point, at], { color: "#cbd5e1", weight: 1, opacity: 0.7, interactive: false }).addTo(lLabels);
+        const level = anchor.projection_level ?? "L0";
+        const anchorColor = level === "L2" ? "#ffd166" : level === "L1" ? "#a98bff" : "#8b9bb0";
+        L.polyline([point, at], {
+          color: anchorColor,
+          weight: selected ? 2.8 : 2.2,
+          opacity: 0.9,
+          interactive: false,
+        }).addTo(lLabels);
         const marker = L.marker(at, {
           icon: timeBoxIcon(clock, selected),
           draggable: true,
