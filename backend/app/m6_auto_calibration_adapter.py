@@ -143,6 +143,12 @@ def job(job_id: str, *, client: _Transport | None = None) -> dict:
     return client.get(f"/api/v1/spatial/auto-calibration-jobs/{job_id}/")
 
 
+def jobs(camera_uuid: str = "", *, client: _Transport | None = None) -> dict:
+    client = client or transport()
+    query = f"?camera_uuid={camera_uuid}" if camera_uuid else ""
+    return client.get(f"/api/v1/spatial/auto-calibration-jobs/{query}")
+
+
 def candidates(camera_uuid: str, *, review_status: str = "",
                client: _Transport | None = None) -> dict:
     client = client or transport()

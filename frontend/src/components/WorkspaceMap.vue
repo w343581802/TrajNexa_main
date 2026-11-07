@@ -5,11 +5,19 @@ import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
 import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
-import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, timeWindow, timelineCards, trackingWindows, trackSegments, visibleElements, wb } from "../store/workbench";
+import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, spatialTrajectories, timeWindow, timelineCards, trackingWindows, trackSegments, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
 import { basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type ElementAnchor, type TargetSpatialObservationRow } from "../services/mainApi";
+import {
+  mainApi,
+  type AutoCalibrationCandidate,
+  type AutoCalibrationJob,
+  type AutoCalibrationOptions,
+  type TrackGeoSegment,
+  type TrackGeoTrack,
+} from "../services/mainApi";
 
 /* ---------------------------- 地理投影 ----------------------------
  * 底图为 OSM 瓦片（WGS84），进界面后被 styles/map.css 压成暗色。镜头点位直接使用 Map 发布经纬度；
@@ -52,6 +60,8 @@ const lTrackExp = L.layerGroup();
 const lTargetTrack = L.layerGroup();
 /** 真实案件的实验轨迹：逐帧框 + Map 相机参数现算，不是试点样本 */
 const lGeoTrack = L.layerGroup();
+/** 正式 L2/L3 轨迹（已审核标定）：通常没有数据，有才画，绝不拿实验估计冒充。 */
+const lFormal = L.layerGroup();
 const lRegion = L.layerGroup();
 
 /** 与 TrajNexa_Map 同一套视域等级配色（Map 侧 FOV_STYLES：辨识 / 识别 / 观察）。 */
@@ -119,7 +129,7 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lRegion].forEach((group) => group.addTo(map!));
+  [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lFormal, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
 
@@ -240,7 +250,7 @@ function onShotError() {
 }
 
 /* 镜头卡的两个页签：摄像头信息保持原样；目标排查先只做界面，不启动后端任务。 */
-type CameraTab = "info" | "investigate";
+type CameraTab = "info" | "investigate" | "calibrate";
 type InvestigationStatus = "idle" | "running" | "paused";
 
 const cameraTab = ref<CameraTab>("info");
@@ -276,6 +286,132 @@ function resetCameraPanel() {
   investigationDate.value = defaultInvestigationDate();
   investigationStart.value = "15:00:00";
   investigationEnd.value = "15:10:00";
+  calibrationStatus.value = "idle";
+  calibrationError.value = "";
+  calibrationOptions.value = null;
+  calibrationCandidates.value = [];
+  calibrationJob.value = null;
+}
+
+/* ------------------------ B8-S 自动标定（镜头卡第三页签） ------------------------
+ * 作业、候选与审核都归 Map 持有，这里只做入口：发起作业 → 看候选 → 人工审核。
+ * 候选恒为 experimental_estimate：没有独立留出真值时 Map 会以 409 拒绝审核。
+ * ------------------------------------------------------------------------------ */
+
+const calibrationStatus = ref<"idle" | "loading" | "ready" | "error">("idle");
+const calibrationError = ref("");
+const calibrationOptions = ref<AutoCalibrationOptions | null>(null);
+const calibrationCandidates = ref<AutoCalibrationCandidate[]>([]);
+const calibrationJob = ref<AutoCalibrationJob | null>(null);
+const calibrationBusy = ref(false);
+const calibrationActor = ref("现场核查");
+const calibrationHoldout = ref("");
+
+const calibrationReady = computed(() => calibrationOptions.value?.ready === true);
+const calibrationBlockers = computed(() => calibrationOptions.value?.blockers ?? []);
+
+function calibrationOf(text: string): string {
+  return (
+    {
+      camera_not_found: "Map 里找不到这台镜头",
+      camera_uuid_required: "缺少镜头编号",
+      auto_calibration_disabled: "主系统未开启 B8-S 自动标定（B8_AUTO_CALIBRATION_ENABLED）",
+      auto_calibration_unavailable: "未配置 Map 接口地址（MAP_API_BASE_URL）",
+      map_api_unreachable: "连不上 Map 服务",
+      map_api_timeout: "Map 服务超时",
+      map_api_bad_json: "Map 返回的不是 JSON",
+      holdout_residual_missing: "必须先有独立留出真值的残差 p90，才能审核通过",
+      holdout_p90_exceeds_limit: "留出残差 p90 超过阈值，不能审核通过",
+      candidate_not_found: "候选不存在或已被删除",
+    }[text] ?? text
+  );
+}
+
+async function loadCalibration(cameraUuid: string) {
+  calibrationStatus.value = "loading";
+  calibrationError.value = "";
+  calibrationJob.value = null;
+  try {
+    const [options, candidates] = await Promise.all([
+      mainApi.autoCalibrationOptions(cameraUuid),
+      mainApi.autoCalibrationCandidates(cameraUuid),
+    ]);
+    calibrationOptions.value = options;
+    calibrationCandidates.value = candidates.items ?? [];
+    calibrationStatus.value = "ready";
+  } catch (error) {
+    calibrationOptions.value = null;
+    calibrationCandidates.value = [];
+    calibrationError.value = error instanceof Error ? error.message : String(error);
+    calibrationStatus.value = "error";
+  }
+}
+
+function calibrationCameraUuid(): string {
+  return selectedReal.value?.camera_uuid ?? "";
+}
+
+function openCalibrationTab() {
+  cameraTab.value = "calibrate";
+  const uuid = calibrationCameraUuid();
+  if (!uuid) {
+    calibrationStatus.value = "error";
+    calibrationError.value = "这台镜头在 Map 中没有 camera_uuid，无法做自动标定";
+    return;
+  }
+  void loadCalibration(uuid);
+}
+
+async function runAutoCalibration() {
+  const uuid = calibrationCameraUuid();
+  if (!uuid || calibrationBusy.value) return;
+  calibrationBusy.value = true;
+  calibrationError.value = "";
+  try {
+    const payload = await mainApi.requestAutoCalibrationJob({
+      camera_uuid: uuid,
+      actor: calibrationActor.value,
+    });
+    calibrationJob.value = payload.job;
+    const candidates = await mainApi.autoCalibrationCandidates(uuid);
+    calibrationCandidates.value = candidates.items ?? [];
+  } catch (error) {
+    calibrationError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    calibrationBusy.value = false;
+  }
+}
+
+async function reviewCalibration(candidate: AutoCalibrationCandidate, action: "approve" | "reject") {
+  if (calibrationBusy.value) return;
+  const p90 = Number(calibrationHoldout.value);
+  if (action === "approve" && !(Number.isFinite(p90) && p90 > 0)) {
+    calibrationError.value = "审核通过必须填写独立留出真值的 p90 残差（米）；没有真值就先用「驳回」。";
+    return;
+  }
+  calibrationBusy.value = true;
+  calibrationError.value = "";
+  try {
+    const body: Parameters<typeof mainApi.reviewAutoCalibrationCandidate>[1] = {
+      action,
+      actor: calibrationActor.value,
+    };
+    if (action === "approve") body.holdout_residual_m = { residual_m: { p90 } };
+    await mainApi.reviewAutoCalibrationCandidate(candidate.candidate_id, body);
+    const uuid = calibrationCameraUuid();
+    if (uuid) {
+      const [candidates, options] = await Promise.all([
+        mainApi.autoCalibrationCandidates(uuid),
+        mainApi.autoCalibrationOptions(uuid),
+      ]);
+      calibrationCandidates.value = candidates.items ?? [];
+      calibrationOptions.value = options;
+    }
+  } catch (error) {
+    calibrationError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    calibrationBusy.value = false;
+  }
 }
 
 function startInvestigation() {
@@ -940,6 +1076,29 @@ const geoTrackStats = computed(() => {
   return { points, segments, tracks: tracks.length, withCoords: tracksWithCoords };
 });
 
+/** 正式 L2/L3 片段统计：没有已审核标定时恒为 0/0。 */
+const formalStats = computed(() => {
+  const segments = spatialTrajectories.value?.segments ?? [];
+  let points = 0;
+  for (const segment of segments) points += segment.point_count ?? segment.points.length;
+  return { segments: segments.length, points };
+});
+
+/**
+ * 点实验轨迹的某一段：展开该段的时间窗、点数、质量与降级原因。
+ * 只展示 worker 落库与投影结果，不改任何数据。
+ */
+const geoSegment = ref<{ track: TrackGeoTrack; segment: TrackGeoSegment } | null>(null);
+
+function geoSegmentText(track: TrackGeoTrack, segment: TrackGeoSegment): string {
+  const start = segment.start_seconds;
+  const end = segment.end_seconds;
+  const window = start == null || end == null
+    ? "时间窗未知"
+    : `${start.toFixed(1)}s → ${end.toFixed(1)}s（${(end - start).toFixed(1)}s）`;
+  return `${track.camera_label || "镜头未知"} · ${window}`;
+}
+
 const evidenceTime = ref(0);
 const evidencePlaying = ref(false);
 const evidenceDuration = ref(0);
@@ -1133,7 +1292,7 @@ watch(highlightTrackId, (trackId) => {
 
 function render() {
   if (!map) return;
-  [lReal, lFocus, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lRegion].forEach((group) => group.clearLayers());
+  [lReal, lFocus, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lFormal, lRegion].forEach((group) => group.clearLayers());
 
   /* 真实镜头：TrajNexa_Map 只读快照 */
   if (realVisible.value) {
@@ -1402,7 +1561,14 @@ function render() {
               weight: 2.4,
               opacity: 0.9,
               dashArray: ready ? undefined : "5 5",
-            }).addTo(lGeoTrack);
+            })
+              .addTo(lGeoTrack)
+              .on("click", () => {
+                geoSegment.value = { track, segment };
+              })
+              .bindTooltip(`${geoSegmentText(track, segment)}<br/>点线段看这一段的详情`, {
+                direction: "top",
+              });
           }
           path = [];
         };
@@ -1432,6 +1598,45 @@ function render() {
     }
   }
 
+  /*
+   * 正式 L2/L3 轨迹：只画后端按「已审核标定」拼出的片段，通常为空。
+   * 空态什么都不画——绝不把实验估计画成正式轨迹。
+   */
+  if (layers.formalTrack && spatialTrajectories.value?.segments?.length) {
+    for (const segment of spatialTrajectories.value.segments) {
+      const path = segment.points
+        .map((point) => [point.lat, point.lon] as [number, number])
+        .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
+      if (path.length > 1) {
+        L.polyline(path, {
+          color: "#ffd166",
+          weight: 2.6,
+          opacity: 0.95,
+          dashArray: segment.quality === "single_point" ? "2 6" : undefined,
+        })
+          .addTo(lFormal)
+          .bindTooltip(
+            `正式 L2 片段 #${segment.segment}<br/>${segment.start_at?.replace("T", " ").slice(5, 19) ?? "?"} → ${segment.end_at?.replace("T", " ").slice(5, 19) ?? "?"}<br/>${segment.point_count} 点 · ${segment.length_m} m${segment.duration_seconds == null ? "" : ` · ${Math.round(segment.duration_seconds)} s`}<br/>仍为可追溯估计，不含身份结论`,
+            { direction: "top" },
+          );
+      }
+      for (const point of segment.points) {
+        if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+        L.circleMarker([point.lat, point.lon], {
+          radius: 4,
+          color: "#0b0f14",
+          weight: 1.4,
+          fillColor: "#ffd166",
+          fillOpacity: 0.95,
+        })
+          .addTo(lFormal)
+          .bindTooltip(`L2 观测 · ${point.at?.replace("T", " ").slice(5, 19) ?? "?"}`, {
+            direction: "top",
+          });
+      }
+    }
+  }
+
   /* R1-5：区域研判设备高亮。仅设备位置与检索范围，区域卡不代表目标到达。 */
   for (const camera of regionCameras.value) {
     L.circleMarker([camera.lat, camera.lon], {
@@ -1456,7 +1661,7 @@ function render() {
 
 watch(
   [layers, wb.selectedCameraId, wb.selectedObservationId, wb.selectedAnchorId, timeWindow, realVisible, selectedRealId, snapshot, recordingCameraUuids,
-   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, trackSegments, timelineCards, visibleElements, anchorByElement, traceByElement, () => wb.selectedCardId],
+   trackingWindows, activeTrackingRun, spatialObservations, experimentalPoints, trackSamplePoints, targetTrack, trackSegments, spatialTrajectories, timelineCards, visibleElements, anchorByElement, traceByElement, () => wb.selectedCardId],
   () => render(),
   { deep: true },
 );
@@ -1699,6 +1904,9 @@ function focusAnchor() {
       <label class="layer-row">
         <input v-model="layers.geoTrack" type="checkbox" /><span>本案件实验轨迹（逐帧框 · 相机参数）</span><em>{{ geoTrackStats.points }}/{{ geoTrackStats.segments }}</em>
       </label>
+      <label class="layer-row">
+        <input v-model="layers.formalTrack" type="checkbox" /><span>正式 L2/L3 轨迹（需已审核标定）</span><em>{{ formalStats.points }}/{{ formalStats.segments }}</em>
+      </label>
       <label class="layer-row layer-row--sub">
         <input v-model="layers.experimental" type="checkbox" /><span>实验估计（试点固定样本）</span><em>{{ experimentalPoints.length }}</em>
       </label>
@@ -1738,6 +1946,7 @@ function focusAnchor() {
       <p class="legend-title">目标空间状态（B8-S）</p>
       <ul class="legend">
         <li><span class="sw sw--geo-track"></span>本案件实验轨迹（逐帧框 + 相机参数，粉；缺坐标处分段）</li>
+        <li><span class="sw sw--formal-track"></span>正式 L2/L3 轨迹（已审核标定，琥珀；无标定时为空）</li>
         <li><span class="sw sw--experimental"></span>实验估计（未经审核／无独立真值）</li>
         <li><span class="sw sw--track"></span>追踪实验估计（片段样本）</li>
         <li><span class="sw sw--target"></span>目标轨迹（实验估计，点击回看）</li>
@@ -1765,6 +1974,23 @@ function focusAnchor() {
         <button class="btn btn--sm btn--outline" @click="applyCustomWindow">应用</button>
       </div>
       <p class="panel-note">仅影响地图可用性与覆盖时间轴的查询范围，不改变观测事实。</p>
+    </div>
+
+    <div v-if="geoSegment" class="map-panel map-panel--segment popover" @click.stop>
+      <header class="panel-head">
+        <span>实验轨迹段</span>
+        <button class="icon-btn" aria-label="关闭" title="关闭" @click="geoSegment = null"><AppIcon name="close" :size="12" /></button>
+      </header>
+      <dl class="cam-kv">
+        <dt>镜头</dt><dd>{{ geoSegment.track.camera_label || "未识别" }}</dd>
+        <dt>track</dt><dd class="num">{{ geoSegment.segment.track_id }}</dd>
+        <dt>时间窗</dt><dd class="num">{{ geoSegmentText(geoSegment.track, geoSegment.segment) }}</dd>
+        <dt>点数</dt><dd class="num">{{ geoSegment.segment.points.length }}</dd>
+        <dt>定位级别</dt><dd>{{ geoSegment.segment.spatial_level === "L2-candidate" ? "L2 候选（射线投影）" : geoSegment.segment.spatial_level }}</dd>
+        <dt>质量</dt><dd>{{ geoSegment.segment.quality === "experimental_estimate" ? "实验估计" : geoSegment.segment.quality }}</dd>
+        <dt>断线原因</dt><dd>{{ geoSegment.segment.break_reason || "—" }}</dd>
+      </dl>
+      <p class="panel-note">这一段来自 worker 落库的逐帧框，用 Map 相机参数现算；未审核，不是正式 L2，也不是身份证据。</p>
     </div>
 
     <div v-if="wb.emptyMode" class="map-empty-hint">
@@ -1880,6 +2106,7 @@ function focusAnchor() {
         <nav v-if="clusterCardOpen" class="cam-tabs" role="tablist" aria-label="镜头卡页签">
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'info' }" :aria-selected="cameraTab === 'info'" @click="cameraTab = 'info'">摄像头信息</button>
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'investigate' }" :aria-selected="cameraTab === 'investigate'" @click="cameraTab = 'investigate'">目标排查</button>
+          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'calibrate' }" :aria-selected="cameraTab === 'calibrate'" @click="openCalibrationTab">空间标定</button>
         </nav>
 
         <template v-if="selectedReal">
@@ -1916,6 +2143,102 @@ function focusAnchor() {
             </div>
             <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
           </form>
+
+          <section v-else-if="cameraTab === 'calibrate'" class="cam-calibrate">
+            <p class="cc-note">
+              零人工控制点：只用 Map 上报的相机位置、安装高度、俯角与水平 FOV 做地面投影。
+              候选恒为实验估计，未审核前不能当正式 L2 用。
+            </p>
+            <p v-if="calibrationStatus === 'loading'" class="cc-hint">正在读取 Map 标定参数…</p>
+            <p v-else-if="calibrationStatus === 'error'" class="cc-error">{{ calibrationOf(calibrationError) }}</p>
+            <template v-else-if="calibrationOptions">
+              <dl class="cc-kv">
+                <div>
+                  <dt>安装高度</dt>
+                  <dd>{{ calibrationOptions.pose.mount_height_m == null ? "缺失" : calibrationOptions.pose.mount_height_m + " m" }}</dd>
+                </div>
+                <div>
+                  <dt>朝向 / 俯角</dt>
+                  <dd>
+                    {{ calibrationOptions.pose.bearing_deg == null ? "缺失" : calibrationOptions.pose.bearing_deg + "°" }}
+                    /
+                    {{ calibrationOptions.pose.tilt_deg == null ? "缺失" : calibrationOptions.pose.tilt_deg + "°" }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>水平 FOV</dt>
+                  <dd>{{ calibrationOptions.pose.horizontal_fov_deg == null ? "缺失" : calibrationOptions.pose.horizontal_fov_deg + "°" }}</dd>
+                </div>
+                <div>
+                  <dt>姿态质量</dt>
+                  <dd>{{ calibrationOptions.pose.pose_quality || "未知" }}</dd>
+                </div>
+              </dl>
+              <p v-if="!calibrationReady" class="cc-error">
+                参数不齐，无法投影：{{ calibrationBlockers.map(calibrationOf).join("；") }}
+              </p>
+              <div class="cc-actions">
+                <button
+                  type="button"
+                  class="btn btn--primary btn--sm"
+                  :disabled="!calibrationReady || calibrationBusy"
+                  @click="runAutoCalibration"
+                >
+                  {{ calibrationBusy ? "处理中…" : "发起自动标定" }}
+                </button>
+                <input v-model="calibrationActor" class="cc-actor" aria-label="操作人" placeholder="操作人" />
+              </div>
+              <p v-if="calibrationJob" class="cc-hint">
+                作业状态：{{ calibrationJob.status }}
+                <template v-if="calibrationJob.blockers.length">（{{ calibrationJob.blockers.map(calibrationOf).join("；") }}）</template>
+                <template v-if="calibrationJob.candidate_id"> · 已生成候选</template>
+              </p>
+              <p v-if="calibrationError" class="cc-error">{{ calibrationOf(calibrationError) }}</p>
+
+              <h4 class="cc-title">候选（{{ calibrationCandidates.length }}）</h4>
+              <p v-if="!calibrationCandidates.length" class="cc-hint">还没有候选：点上面的按钮生成一次。</p>
+              <ul v-else class="cc-list">
+                <li v-for="candidate in calibrationCandidates" :key="candidate.candidate_id" class="cc-row">
+                  <div class="cc-row-head">
+                    <span class="cc-badge" :data-state="candidate.review_status">
+                      {{ candidate.review_status === "approved" ? "已通过" : candidate.review_status === "rejected" ? "已驳回" : "待审核" }}
+                    </span>
+                    <span class="cc-time mono">{{ (candidate.created_at ?? "").replace("T", " ").slice(5, 19) }}</span>
+                    <span class="cc-valid">{{ candidate.validation_status === "validated" ? "已验证" : "未验证" }}</span>
+                  </div>
+                  <p class="cc-row-meta mono">
+                    签名 {{ candidate.pose_signature.slice(0, 12) }} · 置信度
+                    {{ candidate.confidence == null ? "未给" : candidate.confidence }}
+                  </p>
+                  <div class="cc-row-actions">
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      :disabled="calibrationBusy"
+                      @click="reviewCalibration(candidate, 'reject')"
+                    >
+                      驳回
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn--primary btn--sm"
+                      :disabled="calibrationBusy || !calibrationHoldout"
+                      @click="reviewCalibration(candidate, 'approve')"
+                    >
+                      通过
+                    </button>
+                  </div>
+                </li>
+              </ul>
+              <label class="cc-holdout">
+                <span>留出真值残差 p90（米）</span>
+                <input v-model="calibrationHoldout" type="number" min="0" step="0.1" placeholder="例如 1.2" />
+              </label>
+              <p class="cc-foot">
+                审核通过必须有独立留出真值；没有真值时 Map 会拒绝（409），不能靠人工签字把实验估计升级成 L2。
+              </p>
+            </template>
+          </section>
           </template>
         </template>
         <p v-else class="cam-empty">选择上方镜头查看详情</p>
@@ -2182,6 +2505,13 @@ function focusAnchor() {
   width: 262px;
 }
 
+/* 实验轨迹段详情：左下角浮层，不遮挡图层/图例 */
+.map-panel--segment {
+  left: 14px;
+  bottom: 60px;
+  width: 268px;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -2314,6 +2644,7 @@ function focusAnchor() {
 .map-target-chip { top: 172px; color: #a5f3fc; border-color: #164e63; }
 .sw--target { border: 2px solid #22d3ee; background: #0e7490; border-radius: 50%; }
 .sw--geo-track { background: #f472b6; border-radius: 2px; }
+.sw--formal-track { background: #ffd166; border-radius: 2px; }
 .legend-title {
   font-size: 9.5px;
   letter-spacing: 0.08em;
@@ -2819,6 +3150,163 @@ function focusAnchor() {
   gap: 5px;
   font-size: 10px;
   line-height: 1.3;
+  color: var(--text-3);
+}
+
+/* B8-S 自动标定页签 */
+.cam-calibrate {
+  display: grid;
+  gap: 8px;
+  padding: 8px 2px 2px;
+}
+
+.cc-note,
+.cc-foot {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.cc-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.cc-error {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #ff9b9b;
+}
+
+.cc-kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.cc-kv > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.cc-kv dt {
+  color: var(--text-3);
+}
+
+.cc-kv dd {
+  margin: 0;
+  color: var(--text-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cc-actor,
+.cc-holdout input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-input);
+  color: var(--text-0);
+  font: inherit;
+  font-size: 11px;
+}
+
+.cc-actor:focus,
+.cc-holdout input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-title {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.cc-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cc-row {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-raised, rgba(255, 255, 255, 0.02));
+}
+
+.cc-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.cc-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--text-1);
+}
+
+.cc-badge[data-state="approved"] {
+  border-color: #4fd1c5;
+  color: #4fd1c5;
+}
+
+.cc-badge[data-state="rejected"] {
+  border-color: #ff9b9b;
+  color: #ff9b9b;
+}
+
+.cc-time {
+  flex: 1;
+}
+
+.cc-valid {
+  color: var(--text-4);
+}
+
+.cc-row-meta {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-4);
+}
+
+.cc-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cc-holdout {
+  display: grid;
+  gap: 4px;
+  font-size: 10.5px;
   color: var(--text-3);
 }
 

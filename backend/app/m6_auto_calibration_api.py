@@ -67,6 +67,11 @@ def create_calibration_job(payload: JobInput) -> dict:
                  actor=payload.actor, method=payload.method)
 
 
+@router.get('/spatial/auto-calibration/jobs')
+def calibration_jobs(camera_uuid: str = '') -> dict:
+    return _call(adapter.jobs, camera_uuid)
+
+
 @router.get('/spatial/auto-calibration/jobs/{job_id}')
 def calibration_job(job_id: str) -> dict:
     return _call(adapter.job, job_id)

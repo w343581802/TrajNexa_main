@@ -28,6 +28,7 @@ import {
   type ElementAnchor,
   type ElementTrace,
   type TrackGeoEnvelope,
+  type SpatialTrajectoryEnvelope,
 } from "../services/mainApi";
 
 export type RoundStatus = "draft" | "ready" | "running" | "paused" | "review" | "done";
@@ -86,6 +87,8 @@ export const layers = reactive({
   targetTrack: false,
   /** 真实案件的实验轨迹（逐帧框 + Map 参数现算）；默认开，因为它才是本案件的实际结果 */
   geoTrack: true,
+  /** 正式 L2/L3 轨迹（已审核标定才有）；通常为空，开了也只画真实存在的片段 */
+  formalTrack: true,
   fov: true,
   anchors: true,
   /** 目标时间框：细线 + 可拖动的时间标签，默认开 */
@@ -226,6 +229,9 @@ export const trackingReviews = ref<TrackingReviewRow[]>([]);
 export const trackSegments = ref<TrackGeoEnvelope | null>(null);
 export const trackSegmentsLoading = ref(false);
 export const trackSegmentsError = ref<string | null>(null);
+/** 正式 L2/L3 轨迹片段：只有已审核标定才会产生，通常为空数组。 */
+export const spatialTrajectories = ref<SpatialTrajectoryEnvelope | null>(null);
+export const spatialTrajectoriesError = ref<string | null>(null);
 export const trackingLoading = ref(false);
 export const trackingError = ref<string | null>(null);
 
@@ -1123,6 +1129,24 @@ export async function loadTrackSegments(runId: string | null = null): Promise<vo
   }
 }
 
+/**
+ * 正式 L2/L3 轨迹：只有通过审核的地面标定才会有 L2 观测，所以这里经常是空数组。
+ * 空表示「还没有已审核标定」，不是错误，也不该用实验估计去填。
+ */
+export async function loadSpatialTrajectories(): Promise<void> {
+  if (!wb.caseId) {
+    spatialTrajectories.value = null;
+    return;
+  }
+  try {
+    spatialTrajectories.value = await mainApi.listSpatialTrajectories(wb.caseId);
+    spatialTrajectoriesError.value = null;
+  } catch (error) {
+    spatialTrajectories.value = null;
+    spatialTrajectoriesError.value = trackingErrorMessage(error);
+  }
+}
+
 export async function refreshTrackingRun(runId: string): Promise<void> {
   if (!wb.caseId) return;
   try {
@@ -1700,6 +1724,7 @@ export const actions = {
     void (async () => {
       await loadElements(caseId);
       await loadTrackingRuns();
+      void loadSpatialTrajectories();
       await loadTimeline();
     })();
     if (announce) toast(`已切换到案件「${target.name}」`, "info");

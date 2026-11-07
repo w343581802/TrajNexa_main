@@ -121,6 +121,102 @@ export type TrackGeoEnvelope = {
   note?: string;
 };
 
+/** 正式 L2/L3 轨迹片段：只有已审核标定（L2）的观测才会进这里，当前案件通常为空。 */
+export type SpatialTrajectoryPoint = {
+  lon: number;
+  lat: number;
+  observation_id?: string | null;
+  uncertainty_radius_m?: number | null;
+  at: string;
+};
+export type SpatialTrajectorySegment = {
+  segment: number;
+  points: SpatialTrajectoryPoint[];
+  point_count: number;
+  start_at: string;
+  end_at: string;
+  length_m: number;
+  direction_deg: number | null;
+  quality: "trajectory_estimated_review_required" | "single_point" | string;
+  identity_status: string;
+  uncertainties: string[];
+  duration_seconds: number | null;
+};
+export type SpatialTrajectoryEnvelope = {
+  case_id: string;
+  segments: SpatialTrajectorySegment[];
+  skipped_rows: number;
+  note?: string;
+};
+
+/** B8-S 自动标定：作业、候选与审核留痕都归 Map 持有，主系统只转发。 */
+export type AutoCalibrationPose = {
+  camera_uuid: string;
+  map_camera_id: string | null;
+  display_name: string | null;
+  lat: number | null;
+  lon: number | null;
+  bearing_deg: number | null;
+  tilt_deg: number | null;
+  mount_height_m: number | null;
+  horizontal_fov_deg: number | null;
+  pose_quality: string;
+};
+export type AutoCalibrationMethod = {
+  method: string;
+  label: string;
+  ready: boolean;
+  blockers: string[];
+  required_fields: string[];
+  quality?: string;
+  coordinate_transform?: Record<string, unknown>;
+};
+export type AutoCalibrationOptions = {
+  camera_uuid: string;
+  map_camera_id: string | null;
+  display_name: string | null;
+  ready: boolean;
+  blockers: string[];
+  pose: AutoCalibrationPose;
+  methods: AutoCalibrationMethod[];
+  note?: string;
+};
+export type AutoCalibrationCandidate = {
+  candidate_id: string;
+  camera_uuid: string;
+  map_camera_id: string | null;
+  method: string;
+  quality: string;
+  review_status: "auto_candidate" | "approved" | "rejected";
+  validation_status: "unvalidated" | "validated";
+  confidence: number | null;
+  pose: AutoCalibrationPose;
+  pose_signature: string;
+  coordinate_transform: Record<string, unknown>;
+  fit_report: { ready: boolean; blockers: string[]; required_fields: string[] };
+  evidence: Record<string, unknown>;
+  holdout_residual_m: Record<string, unknown>;
+  reviewed_at: string | null;
+  reviewed_by: string;
+  review_note: string;
+  created_at: string;
+  events?: { action: string; actor: string; note: string; created_at: string }[];
+};
+export type AutoCalibrationJob = {
+  job_id: string;
+  camera_uuid: string;
+  map_camera_id: string | null;
+  method: string;
+  status: "queued" | "running" | "done" | "insufficient_evidence" | "failed";
+  blockers: string[];
+  checks: Record<string, unknown>;
+  pose: AutoCalibrationPose | null;
+  candidate_id: string | null;
+  error: string;
+  requested_by: string;
+  created_at: string;
+};
+
 export type M4DetectionProposal = {
   proposal_index: number;
   object_class: "person" | "vehicle";
@@ -1028,6 +1124,55 @@ export const mainApi = {
   listTrackSegments: (caseId: string, runId: string) =>
     request<TrackGeoEnvelope>(
       `/cases/${encodeURIComponent(caseId)}/tracking-runs/${encodeURIComponent(runId)}/track-segments`,
+    ),
+
+  /**
+   * 正式 L2 观测拼出的轨迹片段。只有通过审核的地面标定才会产生 L2，
+   * 所以这里通常是空数组——空不是错误，是「还没有已审核标定」。
+   */
+  listSpatialTrajectories: (caseId: string) =>
+    request<SpatialTrajectoryEnvelope>(
+      `/cases/${encodeURIComponent(caseId)}/spatial-trajectories`,
+    ),
+
+  /**
+   * B8-S 自动标定（零人工控制点）：只转发给 Map，主系统不缓存候选、不改状态。
+   * 候选恒为 experimental_estimate；没有独立留出真值时审核会被 Map 以 409 拒绝。
+   */
+  autoCalibrationOptions: (cameraUuid: string) =>
+    request<AutoCalibrationOptions>(
+      `/spatial/auto-calibration/options/${encodeURIComponent(cameraUuid)}`,
+    ),
+
+  autoCalibrationJobs: (cameraUuid: string) =>
+    request<{ items: AutoCalibrationJob[] }>(
+      `/spatial/auto-calibration/jobs?camera_uuid=${encodeURIComponent(cameraUuid)}`,
+    ),
+
+  requestAutoCalibrationJob: (body: { camera_uuid: string; actor?: string; method?: string }) =>
+    request<{ job: AutoCalibrationJob }>("/spatial/auto-calibration/jobs", {
+      ...jsonBody(body as Record<string, unknown>, "POST"),
+    }),
+
+  autoCalibrationCandidates: (cameraUuid: string, reviewStatus = "") =>
+    request<{ camera_uuid?: string; items: AutoCalibrationCandidate[]; note?: string }>(
+      `/spatial/auto-calibration/candidates/${encodeURIComponent(cameraUuid)}` +
+        (reviewStatus ? `?review_status=${encodeURIComponent(reviewStatus)}` : ""),
+    ),
+
+  reviewAutoCalibrationCandidate: (
+    candidateId: string,
+    body: {
+      action: "approve" | "reject";
+      actor: string;
+      note?: string;
+      holdout_residual_m?: { residual_m: { p90: number } } | null;
+      max_holdout_p90_m?: number | null;
+    },
+  ) =>
+    request<{ candidate: AutoCalibrationCandidate }>(
+      `/spatial/auto-calibration/candidates/${encodeURIComponent(candidateId)}/review`,
+      { ...jsonBody(body as Record<string, unknown>, "POST") },
     ),
 
   reviewTrackingCandidate: (caseId: string, runId: string, body: {
