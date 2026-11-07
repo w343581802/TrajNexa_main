@@ -917,7 +917,13 @@ export async function deleteCase(caseId: string): Promise<CaseDeleteResult | nul
 
 /* ------------------------------ 添加 / 编辑要素 ------------------------------ */
 
-export type ElementAttributeInput = { key: string; value: string; unknown: boolean };
+export type ElementAttributeInput = {
+  key: string;
+  value: string;
+  unknown: boolean;
+  /** 后端属性 review_state：人工录入一律 human_verified；仅旧数据里还有 model_proposed */
+  reviewState?: string;
+};
 
 export type ElementPayload = {
   /** 画面角标日期，默认案发日；OCR 解析出日期时用识别值 */
@@ -943,6 +949,10 @@ export type ElementPayload = {
   targetGroupId?: string | null;
   /** full = 完整截图（有时间有地点）；crop = 局部截图（只加特征，不定位、不进时间轴） */
   base?: "full" | "crop";
+  /** 目标框底部中心的原图像素，用于地面接触点投影；不是框中心。 */
+  groundContactPixel?: [number, number] | null;
+  /** 与 groundContactPixel 同一原图的 [width, height]。 */
+  frameSize?: [number, number] | null;
 };
 
 /** 表单级校验：任一条不满足就不写库，错误文案直接回给弹窗 */
@@ -1014,13 +1024,19 @@ function featuresFromAttributes(
     const value = attr.value.trim();
     if (!value && !attr.unknown) return;
     const unknown = attr.unknown || !value;
+    // 手动添加要素里的特征不设核验步骤：人工录入即已核验；只有历史数据里的模型提议还算待核验。
+    const proposed = !unknown && attr.reviewState === "model_proposed";
     created.push({
       id: `F-${elementId}-${index + 1}`,
       elementId,
       attr: attr.key,
       value: unknown ? "未知" : value,
-      status: unknown ? "unknown" : "proposed",
-      statusLabel: unknown ? "未知（人工标注）" : "人工录入 · 待核验",
+      status: unknown ? "unknown" : proposed ? "proposed" : "verified",
+      statusLabel: unknown
+        ? "未知（人工标注）"
+        : proposed
+          ? "模型提议 · 待核验"
+          : "人工录入 · 已核验",
       meta: "人工录入",
       sources: 1,
       window: timeUnknown ? "—" : timeLabel,
@@ -1226,6 +1242,8 @@ async function syncAnchor(
   payload: Pick<ElementPayload, "date" | "timeLabel" | "timeUnknown"> & {
     base?: "full" | "crop";
     targetGroupId?: string | null;
+    groundContactPixel?: [number, number] | null;
+    frameSize?: [number, number] | null;
   },
 ): Promise<void> {
   const groupId = payload.targetGroupId;
@@ -1238,6 +1256,8 @@ async function syncAnchor(
       camera_name: element.cameraId ? null : element.cameraLabel,
       capture_local: payload.timeUnknown ? null : `${payload.date}T${payload.timeLabel.trim()}`,
       capture_source: "osd",
+      pixel_xy: payload.groundContactPixel ?? null,
+      frame_size: payload.frameSize ?? null,
       media_id: element.sourceMediaId ?? null,
     });
     if (result.anchor) {
@@ -1318,6 +1338,7 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
           key: String(row.name ?? row.attribute_key ?? `特征 ${index + 1}`),
           value: row.value == null ? "" : String(row.value),
           unknown: row.observation_status === "unknown" || row.value == null,
+          reviewState: row.review_state == null ? "" : String(row.review_state),
         })),
         boxes: box && box.length === 4 ? [{
           id: String(primary?.id ?? "P1"),
@@ -1414,8 +1435,8 @@ export const actions = {
       attr.key === feature.attr ? { ...attr, value: text, unknown: !text } : attr
     ));
     feature.value = text || "未知";
-    feature.status = text ? "review" : "unknown";
-    feature.statusLabel = text ? "人工修改 · 待核验" : "未知（人工标注）";
+    feature.status = text ? "verified" : "unknown";
+    feature.statusLabel = text ? "人工修改 · 已核验" : "未知（人工标注）";
     const groupId = elementGroupIds.value[element.id];
     if (!groupId || !wb.caseId) return;
     try {
@@ -1428,7 +1449,7 @@ export const actions = {
       ));
       await mainApi.updateTargetGroup(wb.caseId, groupId, { attributes: updated });
       feature.status = text ? "verified" : "unknown";
-      feature.statusLabel = text ? "人工核验" : "未知（人工标注）";
+      feature.statusLabel = text ? "人工修改 · 已核验" : "未知（人工标注）";
       toast("特征已保存（修订历史 +1）", "ok");
     } catch (error) {
       toast(`特征保存失败：${error instanceof Error ? error.message : String(error)}`, "danger");

@@ -181,6 +181,22 @@ function m4MatchesStored(): boolean {
     !!original && original.length === 4 &&
     original.every((value, index) => Math.abs(value - b[index]) < 0.0001);
 }
+
+/** 地面投影使用目标框底部中心，不能使用框中心（框中心通常落在人体/车辆内部）。 */
+function groundContactGeometry(): {
+  pixel: [number, number] | null;
+  frameSize: [number, number] | null;
+} {
+  const box = m4Box.value;
+  const image = m4Image.value;
+  if (!box || !image?.naturalWidth || !image.naturalHeight) {
+    return { pixel: null, frameSize: null };
+  }
+  return {
+    pixel: [((box[0] + box[2]) / 2) * image.naturalWidth, box[3] * image.naturalHeight],
+    frameSize: [image.naturalWidth, image.naturalHeight],
+  };
+}
 const m4History = ref<M4Observation[]>([]);
 const m4HistoryBusy = ref(false);
 const m4HistoryMore = ref(false);
@@ -737,7 +753,9 @@ function attrRows(list: AttrRow[], subject: string, bbox: number[] | null = null
       attribute_key: attr.custom ? `custom.${(attr.key.trim() || "feature")}` : attr.attributeKey,
       value: attr.unknown ? null : attr.value.trim() || null,
       observation_status: attr.unknown ? "unknown" : "known",
-      review_state: attr.unknown ? "unknown" : attr.rejected ? "human_rejected" : attr.auto ? "model_proposed" : "human_verified",
+      // 手动添加要素窗口里的人工录入不再走核验流程：人在弹窗里看过并保存，即视为已核验。
+      // 模型预填的值同样按已核验落库，但 provenance 保留模型来源，方便回溯它原本是模型给的。
+      review_state: attr.unknown ? "unknown" : attr.rejected ? "human_rejected" : "human_verified",
       source: attr.auto && !attr.rejected ? "model" : "human",
       provenance: attr.auto && !attr.rejected ? { model: displayFeatures.value?.appearance.semantic_attributes?.semantic_model ?? null, engine: m4Engine, feature_text: attr.value.trim(), bbox_norm_xyxy: bbox } : {},
     }));
@@ -1033,6 +1051,8 @@ async function save(keepOpen: boolean) {
       label: "人工截图框选", auto: false,
     }] : (editingElement.value?.boxes ?? []),
     assocBox: assocBox.value ? [...assocBox.value] as [number, number, number, number] : null,
+    groundContactPixel: groundContactGeometry().pixel,
+    frameSize: groundContactGeometry().frameSize,
   };
 
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
@@ -1396,7 +1416,7 @@ function undoReject(feature: string) { rejectedAiFeatures.value = rejectedAiFeat
     </div>
 
     <template #footer>
-      <p class="ae-foot-note">保存后不会自动启动或扩大研判；未核验属性仅作为特征候选，不会覆盖已核验特征。</p>
+      <p class="ae-foot-note">保存后不会自动启动或扩大研判；这里的特征由人工在弹窗内确认，保存即记为「已核验」，不需要再走核验流程。</p>
       <span class="grow" />
       <button class="btn btn--ghost" @click="requestClose">取消</button>
       <button v-if="!editingElement" class="btn btn--outline" @click="save(true)">保存并继续添加</button>
