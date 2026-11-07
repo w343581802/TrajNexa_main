@@ -1773,7 +1773,6 @@ function focusAnchor() {
         </template>
         <p v-else class="cam-empty">选择上方镜头查看详情</p>
 
-        <p v-if="clusterCardOpen" class="cam-cluster-note">按当前缩放聚合；放大后点位拉开会自动拆开。列表只用于选镜头，不代表目标或身份结论。</p>
       </aside>
     </Transition>
 
@@ -2577,14 +2576,6 @@ function focusAnchor() {
   text-align: center;
 }
 
-.cam-cluster-note {
-  margin: 0;
-  padding: 8px 12px 10px;
-  border-top: 1px solid var(--line);
-  font-size: 9px;
-  line-height: 1.45;
-  color: var(--text-3);
-}
 
 .cam-head {
   display: flex;
