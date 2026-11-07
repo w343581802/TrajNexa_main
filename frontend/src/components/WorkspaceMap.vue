@@ -123,12 +123,9 @@ function initMap() {
 
   map.on("zoomend", () => {
     zoom.value = map!.getZoom();
-    /* 聚合成员随缩放变化；旧列表不再对应当前视野，直接收起。 */
-    clusterCardOpen.value = false;
+    /* 聚合成员随缩放变化；旧列表不再对应当前视野，收起整个工具窗。 */
+    if (clusterCardOpen.value) closeCameraToolbox();
     renderRealMarkers();
-  });
-  map.on("click", () => {
-    clusterCardOpen.value = false;
   });
   map.on("move zoom resize", () => {
     placeCard();
@@ -191,7 +188,7 @@ function fitView() {
 
 async function reloadSnapshot() {
   snapshotState.value = "loading";
-  clusterCardOpen.value = false;
+  closeCameraToolbox();
   try {
     snapshot.value = await loadMapSnapshot(true);
     snapshotState.value = "ready";
@@ -292,12 +289,10 @@ function cancelInvestigation() {
   investigationStatus.value = "idle";
 }
 
-function closeCameraCard() {
-  realCardOpen.value = false;
-  resetCameraPanel();
-}
-
-watch(selectedRealId, resetCameraPanel);
+/* 聚合内换镜头保留当前页签；只有从地图直接打开单镜头时才回到信息页。 */
+watch(selectedRealId, () => {
+  if (!clusterCardOpen.value) resetCameraPanel();
+});
 
 
 /* ---------------------------- 弹层 ---------------------------- */
@@ -331,14 +326,25 @@ function applyCustomWindow() {
  * 添加要素（截图）不再影响点灯；没有扫描结果时一律灰色。
  */
 const isRealLit = (camera: SnapshotCamera) => recordingCameraUuids.value.has(camera.camera_uuid ?? "");
-const COMPASS_8 = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"];
+const BEARING_ARROWS = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
+const BEARING_NAMES = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"];
 
-/** 视角方向来自 Map 台账的 bearing_deg；没有朝向时明确写未知，不用录像状态替代。 */
-function bearingText(camera: SnapshotCamera): string {
+function bearingIndex(camera: SnapshotCamera): number | null {
   const value = camera.bearing_deg;
-  if (value == null || !Number.isFinite(value)) return "未知";
+  if (value == null || !Number.isFinite(value)) return null;
   const deg = ((value % 360) + 360) % 360;
-  return `${Math.round(deg)}° ${COMPASS_8[Math.round(deg / 45) % 8]}`;
+  return Math.round(deg / 45) % 8;
+}
+
+/** 视角方向来自 Map 台账的 bearing_deg；只显示箭头，不把角度数字带到界面上。 */
+function bearingArrow(camera: SnapshotCamera): string {
+  const index = bearingIndex(camera);
+  return index == null ? "—" : BEARING_ARROWS[index];
+}
+
+function bearingTitle(camera: SnapshotCamera): string {
+  const index = bearingIndex(camera);
+  return index == null ? "视角方向未知" : `视角方向：${BEARING_NAMES[index]}`;
 }
 
 const windowLabel = computed(
@@ -351,9 +357,8 @@ const anchorCardOpen = ref(false);
 const realCardOpen = ref(false);
 
 /* 镜头聚合：按当前缩放下的屏幕距离分组，避免同一路口的多个点位完全叠在一起。 */
-const CLUSTER_RADIUS_PX = 44;
+const CLUSTER_RADIUS_PX = 30;
 const clusterCardOpen = ref(false);
-const clusterTab = ref<CameraTab>("info");
 const clusterMembers = ref<SnapshotCamera[]>([]);
 
 const cardLatLng = ref<L.LatLng | null>(null);
@@ -379,27 +384,71 @@ const cardStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
 });
 
-/** 镜头卡只放名称和参考图，宽度和锚点卡分开算，避免影响锚点卡定位。 */
-const CAM_CARD = { w: 360, h: 330 };
-const camCardStyle = computed(() => {
+/** 镜头 toolbox：同一浮层里常驻摄像头列表 + 选中镜头详情，页签只换下半部分。 */
+const CAM_TOOLBOX = { w: 360, h: 500 };
+const cameraToolboxOpen = computed(() => realCardOpen.value || clusterCardOpen.value);
+
+/* toolbox 可拖动：位置一旦被用户拖过，就不再跟随地图锚点。 */
+const toolboxDrag = ref<{ startX: number; startY: number; left: number; top: number } | null>(null);
+const toolboxPosition = ref<{ left: number; top: number } | null>(null);
+const toolboxDragging = ref(false);
+
+const camToolboxStyle = computed(() => {
+  const dragged = toolboxPosition.value;
+  if (dragged) return { left: `${dragged.left}px`, top: `${dragged.top}px`, bottom: "auto" };
   const point = cardPoint.value;
   if (!point) return undefined;
   const box = mapSize.value;
-  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CAM_CARD.w - 8, 8));
-  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CAM_CARD.h, 8));
+  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CAM_TOOLBOX.w - 8, 8));
+  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CAM_TOOLBOX.h, 8));
   return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
 });
 
-/** 聚合卡：多行列出同一组摄像头，点击一行进入单镜头卡片。 */
-const CAM_CLUSTER_CARD = { w: 320, h: 340 };
-const camClusterStyle = computed(() => {
-  const point = cardPoint.value;
-  if (!point) return undefined;
-  const box = mapSize.value;
-  const left = Math.min(Math.max(point.x + 16, 8), Math.max(box.w - CAM_CLUSTER_CARD.w - 8, 8));
-  const top = Math.min(Math.max(point.y - 92, 8), Math.max(box.h - CAM_CLUSTER_CARD.h, 8));
-  return { left: `${left}px`, top: `${top}px`, bottom: "auto" };
-});
+function resetToolboxPosition() {
+  toolboxDrag.value = null;
+  toolboxPosition.value = null;
+  toolboxDragging.value = false;
+}
+
+function beginToolboxDrag(event: PointerEvent) {
+  if (event.button !== 0) return;
+  const target = event.target as HTMLElement | null;
+  if (!target || target.closest("button, input, select, textarea, a")) return;
+  const header = event.currentTarget as HTMLElement;
+  const card = header.closest(".cam-toolbox") as HTMLElement | null;
+  if (!card) return;
+  const host = card.offsetParent as HTMLElement | null;
+  const hostRect = host?.getBoundingClientRect();
+  const rect = card.getBoundingClientRect();
+  toolboxDrag.value = {
+    startX: event.clientX,
+    startY: event.clientY,
+    left: rect.left - (hostRect?.left ?? 0),
+    top: rect.top - (hostRect?.top ?? 0),
+  };
+  toolboxPosition.value = { left: toolboxDrag.value.left, top: toolboxDrag.value.top };
+  toolboxDragging.value = true;
+  header.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+}
+
+function moveToolboxDrag(event: PointerEvent) {
+  const drag = toolboxDrag.value;
+  if (!drag) return;
+  const maxLeft = Math.max(mapSize.value.w - CAM_TOOLBOX.w, 0);
+  const maxTop = Math.max(mapSize.value.h - CAM_TOOLBOX.h, 0);
+  const left = Math.min(Math.max(drag.left + event.clientX - drag.startX, 0), maxLeft);
+  const top = Math.min(Math.max(drag.top + event.clientY - drag.startY, 0), maxTop);
+  toolboxPosition.value = { left, top };
+  event.preventDefault();
+}
+
+function endToolboxDrag(event: PointerEvent) {
+  if (!toolboxDrag.value) return;
+  toolboxDrag.value = null;
+  toolboxDragging.value = false;
+  (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+}
 
 /** 目标要素绑定的 Map 镜头（cameraId 存的是 Map 的 camera_uuid） */
 const snapshotCamera = (uuid: string | null) =>
@@ -427,15 +476,24 @@ function anchorPointOf(element: { id: string; cameraId: string | null }): L.LatL
   return camera ? L.latLng(camera.lat, camera.lon) : null;
 }
 
-function pickReal(camera: SnapshotCamera) {
+/** 单镜头详情：直接点单镜头时清空聚合成员；聚合内选镜头时保留列表，不关工具窗。 */
+function openCameraDetail(camera: SnapshotCamera, options: { keepCluster?: boolean } = {}) {
+  if (!options.keepCluster) {
+    clusterMembers.value = [];
+    clusterCardOpen.value = false;
+    resetToolboxPosition();
+  }
   selectedRealId.value = camera.camera_id;
-  resetCameraPanel();
+  if (!options.keepCluster) resetCameraPanel();
   // 没有参考截帧时仍显示名称卡，只是不显示图片区域。
   realCardOpen.value = true;
-  clusterCardOpen.value = false;
   anchorCardOpen.value = false;
-  cardLatLng.value = L.latLng(camera.lat, camera.lon);
+  if (!options.keepCluster) cardLatLng.value = L.latLng(camera.lat, camera.lon);
   placeCard();
+}
+
+function pickReal(camera: SnapshotCamera) {
+  openCameraDetail(camera);
 }
 
 /* ---------------------------- 镜头聚合 ---------------------------- */
@@ -532,7 +590,7 @@ function renderRealMarkers() {
   if (!map) return;
   lReal.clearLayers();
   if (!realVisible.value) {
-    clusterCardOpen.value = false;
+    closeCameraToolbox();
     return;
   }
   const groups = clusterCameraGroups(snapshot.value?.cameras ?? []);
@@ -548,27 +606,31 @@ function openCluster(members: SnapshotCamera[], lat: number, lon: number) {
     const litB = isRealLit(b) ? 0 : 1;
     return litA - litB || cameraCode(a).localeCompare(cameraCode(b), "zh-Hans-CN");
   });
+  resetToolboxPosition();
   clusterCardOpen.value = true;
-  clusterTab.value = "info";
-  realCardOpen.value = false;
+  realCardOpen.value = true;
   anchorCardOpen.value = false;
-  selectedRealId.value = null;
+  cameraTab.value = "info";
+  /* 先选中第一个镜头，再重置面板：排查日期要取该镜头录像，而不是“今天”。 */
+  const first = clusterMembers.value[0] ?? null;
+  selectedRealId.value = first?.camera_id ?? null;
+  resetCameraPanel();
   cardLatLng.value = L.latLng(lat, lon);
   placeCard();
 }
 
-function pickClusterCamera(camera: SnapshotCamera, tab: CameraTab = "info") {
-  clusterCardOpen.value = false;
-  pickReal(camera);
-  // 镜头切换的 watcher 会先重置为「摄像头信息」；等它跑完再落到聚合卡选中的页签。
-  void nextTick(() => {
-    cameraTab.value = tab;
-  });
+/** 列表内换镜头只换详情；不关工具窗、不重置位置，也不把页签打回信息页。 */
+function pickClusterCamera(camera: SnapshotCamera) {
+  openCameraDetail(camera, { keepCluster: true });
 }
 
-function closeClusterCard() {
+function closeCameraToolbox() {
+  realCardOpen.value = false;
   clusterCardOpen.value = false;
-  clusterTab.value = "info";
+  selectedRealId.value = null;
+  clusterMembers.value = [];
+  resetToolboxPosition();
+  resetCameraPanel();
 }
 
 function pickAnchor(elementId: string) {
@@ -576,6 +638,8 @@ function pickAnchor(elementId: string) {
   anchorCardOpen.value = true;
   realCardOpen.value = false;
   clusterCardOpen.value = false;
+  clusterMembers.value = [];
+  resetToolboxPosition();
   const element = visibleElements.value.find((item) => item.id === elementId);
   cardLatLng.value = (element ? anchorPointOf(element) : null) ?? anchorLatLng(element);
   placeCard();
@@ -619,12 +683,16 @@ watch(
       anchorCardOpen.value = true;
       realCardOpen.value = false;
       clusterCardOpen.value = false;
+      clusterMembers.value = [];
+      resetToolboxPosition();
       const element = visibleElements.value.find((item) => item.id === obs.elementId);
       cardLatLng.value = anchorLatLng(element);
       placeCard();
     } else if (obs && obs.kind !== "gap") {
       const camera = snapshotCamera(obs.cameraId);
       if (camera) {
+        clusterMembers.value = [];
+        resetToolboxPosition();
         realCardOpen.value = true;
         selectedRealId.value = camera.camera_id;
         resetCameraPanel();
@@ -1292,7 +1360,11 @@ onMounted(() => {
   initMap();
   render();
   void reloadSnapshot();
-  watch(() => wb.caseId, () => void loadSpatialObservations());
+  watch(() => wb.caseId, () => {
+    closeCameraToolbox();
+    anchorCardOpen.value = false;
+    void loadSpatialObservations();
+  });
   window.addEventListener("focus", refreshSnapshotOnFocus);
 });
 
@@ -1623,75 +1695,85 @@ function focusAnchor() {
       </aside>
     </Transition>
 
-    <!-- TrajNexa_Map 镜头卡 -->
+    <!-- 镜头工具窗：列表与详情在同一浮层内，选中镜头不跳位、不重开 -->
     <Transition name="slide">
-      <aside v-if="realCardOpen && selectedReal" class="cam-card cam-card--real popover" :style="camCardStyle">
-        <header class="cam-head">
-          <h3 class="cam-name">{{ cameraCode(selectedReal) }}</h3>
-          <button class="icon-btn" aria-label="关闭镜头卡片" @click="closeCameraCard"><AppIcon name="close" :size="13" /></button>
+      <aside
+        v-if="cameraToolboxOpen"
+        class="cam-card cam-toolbox popover"
+        :class="{ 'is-dragging': toolboxDragging }"
+        :style="camToolboxStyle"
+        @click.stop
+      >
+        <header
+          class="cam-head cam-head--toolbox"
+          :class="{ 'is-dragging': toolboxDragging }"
+          @pointerdown="beginToolboxDrag"
+          @pointermove="moveToolboxDrag"
+          @pointerup="endToolboxDrag"
+          @pointercancel="endToolboxDrag"
+        >
+          <h3 class="cam-name">
+            {{ clusterCardOpen ? `附近 ${clusterMembers.length} 个摄像头` : selectedReal ? cameraCode(selectedReal) : "摄像头" }}
+          </h3>
+          <button class="icon-btn" aria-label="关闭摄像头工具窗" @pointerdown.stop @click.stop="closeCameraToolbox"><AppIcon name="close" :size="13" /></button>
         </header>
+
+        <template v-if="clusterCardOpen">
+          <div class="cam-cluster-list">
+            <button
+              v-for="camera in clusterMembers"
+              :key="camera.camera_id"
+              type="button"
+              class="cam-cluster-row"
+              :class="{ 'is-on': selectedRealId === camera.camera_id }"
+              :title="cameraCode(camera)"
+              @click="pickClusterCamera(camera)"
+            >
+              <span class="cc-name">{{ cameraCode(camera) }}</span>
+              <span class="cc-bearing" :title="bearingTitle(camera)" :aria-label="bearingTitle(camera)">视角 <span class="cc-arrow">{{ bearingArrow(camera) }}</span></span>
+            </button>
+          </div>
+        </template>
 
         <nav class="cam-tabs" role="tablist" aria-label="镜头卡页签">
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'info' }" :aria-selected="cameraTab === 'info'" @click="cameraTab = 'info'">摄像头信息</button>
           <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': cameraTab === 'investigate' }" :aria-selected="cameraTab === 'investigate'" @click="cameraTab = 'investigate'">目标排查</button>
         </nav>
 
-        <figure v-if="cameraTab === 'info' && selectedSnapshotUrl" class="cam-shot">
-          <figcaption v-if="selectedSnapshotSource" class="cam-source">{{ selectedSnapshotSource }}</figcaption>
-          <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
-        </figure>
+        <template v-if="selectedReal">
+          <figure v-if="cameraTab === 'info' && selectedSnapshotUrl" class="cam-shot">
+            <figcaption v-if="selectedSnapshotSource" class="cam-source">{{ selectedSnapshotSource }}</figcaption>
+            <img :src="selectedSnapshotUrl" alt="镜头参考截帧" @error="onShotError" />
+            <div class="cam-shot-foot">
+              <span>{{ cameraCode(selectedReal) }}</span>
+              <span v-if="selectedRecordingClip?.start_local" class="mono">{{ selectedRecordingClip.start_local.replace("T", " ").slice(0, 19) }}</span>
+            </div>
+          </figure>
 
-        <form v-else-if="cameraTab === 'investigate'" class="cam-investigate" @submit.prevent="startInvestigation">
-          <label class="ci-date">
-            <span>排查时间</span>
-            <input v-model="investigationDate" type="date" :disabled="investigationStatus !== 'idle'" required />
-          </label>
-          <div class="ci-range">
-            <input v-model="investigationStart" type="time" step="1" aria-label="开始时间" :disabled="investigationStatus !== 'idle'" required />
-            <span aria-hidden="true">—</span>
-            <input v-model="investigationEnd" type="time" step="1" aria-label="结束时间" :disabled="investigationStatus !== 'idle'" required />
-          </div>
-          <p v-if="investigationStatus === 'idle' && !investigationValid" class="ci-hint">请选择排查时间，并确保结束时间晚于开始时间。</p>
-          <div class="ci-actions">
-            <button v-if="investigationStatus === 'idle'" type="submit" class="btn btn--primary btn--sm" :disabled="!investigationValid">开始排查</button>
-            <template v-else>
-              <button type="button" class="btn btn--primary btn--sm" @click="toggleInvestigationPause">{{ investigationStatus === "running" ? "暂停" : "继续" }}</button>
-              <button type="button" class="btn btn--ghost btn--sm" @click="cancelInvestigation">取消</button>
-            </template>
-          </div>
-          <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
-        </form>
-      </aside>
-    </Transition>
+          <form v-else-if="cameraTab === 'investigate'" class="cam-investigate" @submit.prevent="startInvestigation">
+            <label class="ci-date">
+              <span>排查时间</span>
+              <input v-model="investigationDate" type="date" :disabled="investigationStatus !== 'idle'" required />
+            </label>
+            <div class="ci-range">
+              <input v-model="investigationStart" type="time" step="1" aria-label="开始时间" :disabled="investigationStatus !== 'idle'" required />
+              <span aria-hidden="true">—</span>
+              <input v-model="investigationEnd" type="time" step="1" aria-label="结束时间" :disabled="investigationStatus !== 'idle'" required />
+            </div>
+            <p v-if="investigationStatus === 'idle' && !investigationValid" class="ci-hint">请选择排查时间，并确保结束时间晚于开始时间。</p>
+            <div class="ci-actions">
+              <button v-if="investigationStatus === 'idle'" type="submit" class="btn btn--primary btn--sm" :disabled="!investigationValid">开始排查</button>
+              <template v-else>
+                <button type="button" class="btn btn--primary btn--sm" @click="toggleInvestigationPause">{{ investigationStatus === "running" ? "暂停" : "继续" }}</button>
+                <button type="button" class="btn btn--ghost btn--sm" @click="cancelInvestigation">取消</button>
+              </template>
+            </div>
+            <p v-if="investigationStatus !== 'idle'" class="ci-note">当前版本仅保留界面状态，尚未接入分析任务。</p>
+          </form>
+        </template>
+        <p v-else class="cam-empty">选择上方镜头查看详情</p>
 
-    <!-- 同一组镜头：多行列表，点击一行进入单镜头卡片 -->
-    <Transition name="slide">
-      <aside v-if="clusterCardOpen" class="cam-card cam-cluster-card popover" :style="camClusterStyle">
-        <header class="cam-head">
-          <h3 class="cam-name">附近 {{ clusterMembers.length }} 个摄像头</h3>
-          <button class="icon-btn" aria-label="关闭摄像头列表" @click="closeClusterCard"><AppIcon name="close" :size="13" /></button>
-        </header>
-
-        <nav class="cam-tabs cam-cluster-tabs" role="tablist" aria-label="聚合摄像头页签">
-          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': clusterTab === 'info' }" :aria-selected="clusterTab === 'info'" @click="clusterTab = 'info'">摄像头信息</button>
-          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': clusterTab === 'investigate' }" :aria-selected="clusterTab === 'investigate'" @click="clusterTab = 'investigate'">目标排查</button>
-        </nav>
-
-        <p v-if="clusterTab === 'investigate'" class="cam-cluster-lead">选择镜头后进入该镜头的目标排查。</p>
-        <div class="cam-cluster-list">
-          <button
-            v-for="camera in clusterMembers"
-            :key="camera.camera_id"
-            type="button"
-            class="cam-cluster-row"
-            :title="cameraCode(camera)"
-            @click="pickClusterCamera(camera, clusterTab)"
-          >
-            <span class="cc-name">{{ cameraCode(camera) }}</span>
-            <span class="cc-bearing" :title="`视角方向：${bearingText(camera)}`">视角 {{ bearingText(camera) }}</span>
-          </button>
-        </div>
-        <p class="cam-cluster-note">按当前缩放聚合；放大后点位拉开会自动拆开。列表只用于选镜头，不代表目标或身份结论。</p>
+        <p v-if="clusterCardOpen" class="cam-cluster-note">按当前缩放聚合；放大后点位拉开会自动拆开。列表只用于选镜头，不代表目标或身份结论。</p>
       </aside>
     </Transition>
 
@@ -2384,31 +2466,40 @@ function focusAnchor() {
   background: rgba(11, 17, 25, 0.96);
 }
 
-.cam-cluster-card {
-  width: 320px;
+/* 镜头工具窗：列表与选中镜头详情同层，列表可折叠 */
+.cam-toolbox {
+  width: 360px;
+  z-index: 40;
+  max-height: calc(100% - 24px);
+  padding: 0;
   gap: 0;
-  padding: 8px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 10px;
 }
 
-.cam-cluster-card .cam-head {
-  padding: 0 10px 8px;
+.cam-head--toolbox {
+  padding: 12px 12px 10px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
 
-.cam-cluster-card .cam-tabs {
-  margin: 0 10px 8px;
+.cam-head--toolbox.is-dragging {
+  cursor: grabbing;
 }
 
-.cam-cluster-lead {
-  margin: 0;
-  padding: 0 10px 7px;
-  font-size: 9px;
-  line-height: 1.45;
-  color: var(--text-3);
+.cam-head--toolbox .cam-name {
+  font-size: 15px;
+}
+
+.cam-head--toolbox .icon-btn {
+  cursor: pointer;
 }
 
 .cam-cluster-list {
   display: grid;
-  max-height: 236px;
+  max-height: 164px;
   overflow-y: auto;
   border-top: 1px solid var(--line);
 }
@@ -2419,13 +2510,13 @@ function focusAnchor() {
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
   color: var(--text-1);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
@@ -2433,6 +2524,12 @@ function focusAnchor() {
 
 .cam-cluster-row:hover {
   background: rgba(255, 255, 255, 0.06);
+  color: var(--text-0);
+}
+
+.cam-cluster-row.is-on {
+  background: rgba(77, 141, 255, 0.12);
+  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--text-0);
 }
 
@@ -2444,6 +2541,9 @@ function focusAnchor() {
 }
 
 .cc-bearing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex: none;
   font-size: 9px;
   color: var(--text-3);
@@ -2451,9 +2551,35 @@ function focusAnchor() {
   white-space: nowrap;
 }
 
+.cc-arrow {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-1);
+}
+
+
+.cam-toolbox .cam-tabs {
+  margin: 8px 12px 10px;
+}
+
+.cam-toolbox .cam-shot,
+.cam-toolbox .cam-investigate {
+  margin: 0 12px 12px;
+}
+
+.cam-empty {
+  margin: 0 12px 12px;
+  padding: 16px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--text-3);
+  font-size: 10px;
+  text-align: center;
+}
+
 .cam-cluster-note {
   margin: 0;
-  padding: 7px 10px 8px;
+  padding: 8px 12px 10px;
   border-top: 1px solid var(--line);
   font-size: 9px;
   line-height: 1.45;
@@ -2514,6 +2640,12 @@ function focusAnchor() {
   color: var(--text-0);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.cam-toolbox .cam-tab.is-on {
+  color: #fff;
+  background: linear-gradient(180deg, #2f7bff, #1c5fd0);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .cam-investigate {
@@ -2610,7 +2742,27 @@ function focusAnchor() {
   display: block;
   width: 100%;
   height: auto;
+  max-height: min(260px, 38vh);
   object-fit: contain;
+}
+
+.cam-shot-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-2);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.cam-shot-foot .mono {
+  flex: none;
+  color: var(--text-3);
+  font-size: 9px;
 }
 
 /* 底部状态条 */
