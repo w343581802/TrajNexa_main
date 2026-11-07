@@ -1,0 +1,17 @@
+{
+  "dataset_id": "template-not-for-accuracy-claims",
+  "camera_uuid": "00000000-0000-0000-0000-000000000000",
+  "collected_at": "",
+  "notes": "模板文件：把 points 换成真实测量的地面真值后再用 --truth 传入。不要填算法输出（ray_projection / auto_projection / self_estimate），load_truth 会直接拒绝。",
+  "points": [
+    {
+      "id": "T1",
+      "lon": 110.2113743,
+      "lat": 25.2566897,
+      "at": "2026-10-23T15:00:08",
+      "source": "surveyed",
+      "range_class": "near",
+      "evidence": "示例：现场 GNSS/尺量记录编号"
+    }
+  ]
+}

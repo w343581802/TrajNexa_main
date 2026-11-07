@@ -1,0 +1,77 @@
+{
+  "report": "b8s_projection_metrics_v1",
+  "generated_at": "2026-11-07T18:24:38+00:00",
+  "dataset": {
+    "case_id": "4da6cac0-5047-488e-af49-087e1513eb17",
+    "run_id": "bea059c5-a70c-41cf-833b-e97062436d02",
+    "layer": "experimental_estimate",
+    "persisted": false,
+    "spatial_revision": "mapdb-spatial:21e18d1d9728e2bf",
+    "spatial_error": null,
+    "tracks": 3,
+    "samples": 29
+  },
+  "gate": {
+    "mis_published": 0,
+    "mis_publish_rate": 0.0,
+    "requirement": "mis_publish_rate must be 0 (hard gate)"
+  },
+  "overall": {
+    "points": {
+      "total": 29,
+      "experimental": 26,
+      "formal": 0,
+      "camera_only": 0,
+      "degraded": 3
+    },
+    "rates": {
+      "experimental": 0.8966,
+      "camera_only": 0.0,
+      "degraded": 0.1034
+    },
+    "degrade_reasons": {
+      "ground_point_too_far": 3
+    },
+    "uncertainty_radius_m": {
+      "count": 26,
+      "median": 9.89,
+      "p90": 33.735,
+      "max": 38.64
+    },
+    "range_m": {
+      "count": 26,
+      "median": 22.145000000000003,
+      "p90": 64.96000000000001,
+      "max": 76.66
+    },
+    "buckets": {
+      "near": {
+        "total": 10,
+        "experimental": 10,
+        "degraded": 0
+      },
+      "mid": {
+        "total": 10,
+        "experimental": 10,
+        "degraded": 0
+      },
+      "far": {
+        "total": 6,
+        "experimental": 6,
+        "degraded": 0
+      },
+      "unknown": {
+        "total": 3,
+        "experimental": 0,
+        "degraded": 3
+      }
+    }
+  },
+  "truth": null,
+  "thresholds": null,
+  "notes": [
+    "实验估计不计入正式 L2/L3 发布成功率。",
+    "误差区域覆盖率只用投影时声明的 uncertainty_radius_m，事后不放大。",
+    "没有独立真值时 truth 为 null，不能把算法输出当基准。"
+  ]
+}
