@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
+import TargetCrop, { type CropBox } from "./TargetCrop.vue";
+import TargetImageViewer from "./TargetImageViewer.vue";
 import { candidateEvidenceUrl, keyframeUrl, mainApi, proxyVideoUrl, type TimelineCard, type TimelineViewCard, type TimelineViewRegion } from "../services/mainApi";
 import { demoConfirmedCards, DEMO_LABEL } from "../data/timelineDemo";
 import {
@@ -423,15 +425,21 @@ function elementTraceText(card: TimelineViewCard): string {
 
 const detailTechCards = computed<TimelineCard[]>(() => techCardsFor(detailCard.value));
 
-type CardThumb = { key: string; url: string; alt: string };
+type CardThumb = { key: string; url: string; alt: string; box?: CropBox | null };
 
 /** 已确认轨迹右侧缩略帧：从该段录像连续取三帧，折叠展示；不伪造证据图。 */
 function confirmedThumbs(card: TimelineViewCard): CardThumb[] {
   if (isElementCard(card)) {
-    /* 添加要素的「已确认目标」卡右侧直接放这张截图本身，不伪造录像帧。 */
+    /* 添加要素的「已确认目标」卡右侧直接放这张截图本身，不伪造录像帧；有目标框时按框裁剪。 */
     const element = elementList.value.find((item) => item.id === elementIdOf(card));
     if (!element?.sourceMediaId) return [];
-    return [{ key: card.cardId, url: mainApi.mediaContentUrl(element.sourceMediaId), alt: card.place + " 截图" }];
+    const box = element.boxes?.[0];
+    return [{
+      key: card.cardId,
+      url: mainApi.mediaContentUrl(element.sourceMediaId),
+      alt: card.place + " 目标截图",
+      box: box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null,
+    }];
   }
   if (card.kind !== "confirmed_track" || !wb.caseId) return [];
   const tech = techCardsFor(card).find((item) => item.playback?.clipId
@@ -449,6 +457,25 @@ function confirmedThumbs(card: TimelineViewCard): CardThumb[] {
     rows.push({ key, url: keyframeUrl(wb.caseId, clipId, at), alt: card.place + " 录像关键帧" });
   }
   return rows;
+}
+
+type CardImageState = { src: string; crop: CropBox | null; title: string; meta: string };
+
+const cardImageViewer = ref<CardImageState | null>(null);
+
+function openCardThumb(card: TimelineViewCard, thumb: CardThumb): void {
+  if (!thumb.box) return;
+  cardImageViewer.value = {
+    src: thumb.url,
+    crop: thumb.box,
+    title: `${card.title} · 目标截图`,
+    meta: `${clockRange(card)} · ${card.place} · 左：目标截图　右：完整图片`,
+  };
+}
+
+function thumbsTitle(card: TimelineViewCard): string {
+  if (isElementCard(card)) return "目标截图，点击查看大图";
+  return `录像关键帧 ${confirmedThumbs(card).length} 张（请求偏移，未校验 PTS）`;
 }
 
 function confirmedFrameTotal(card: TimelineViewCard | null): number {
@@ -1291,18 +1318,29 @@ watch(() => view.value?.targetId, () => closeDetail());
               </div>
 
               <div
-                v-if="card.kind === 'confirmed_track' && confirmedThumbs(card).length"
+                v-if="confirmedThumbs(card).length"
                 class="tm-thumbs"
-                :title="'录像关键帧 ' + confirmedThumbs(card).length + ' 张（请求偏移，未校验 PTS）'"
+                :title="thumbsTitle(card)"
               >
-                <img
-                  v-for="(thumb, index) in confirmedThumbs(card)"
-                  :key="thumb.key"
-                  class="tm-thumb"
-                  :src="thumb.url"
-                  :alt="thumb.alt"
-                  :style="{ '--i': index, zIndex: 6 - index }"
-                />
+                <template v-for="(thumb, index) in confirmedThumbs(card)" :key="thumb.key">
+                  <button
+                    v-if="thumb.box"
+                    type="button"
+                    class="tm-thumb tm-thumb--crop"
+                    :style="{ '--i': index, zIndex: 6 - index }"
+                    :aria-label="'查看' + thumb.alt + '大图'"
+                    @click.stop="openCardThumb(card, thumb)"
+                  >
+                    <TargetCrop :src="thumb.url" :box="thumb.box" :alt="thumb.alt" fit="contain" />
+                  </button>
+                  <img
+                    v-else
+                    class="tm-thumb"
+                    :src="thumb.url"
+                    :alt="thumb.alt"
+                    :style="{ '--i': index, zIndex: 6 - index }"
+                  />
+                </template>
                 <span v-if="confirmedThumbs(card).length > 1" class="tm-thumb-count num">{{ confirmedThumbs(card).length }}</span>
               </div>
             </div>
@@ -1666,6 +1704,16 @@ watch(() => view.value?.targetId, () => closeDetail());
       </div>
       </div>
     </Teleport>
+
+    <TargetImageViewer
+      v-if="cardImageViewer"
+      :src="cardImageViewer.src"
+      :crop="cardImageViewer.crop"
+      :title="cardImageViewer.title"
+      :meta="cardImageViewer.meta"
+      crop-label="目标截图"
+      @close="cardImageViewer = null"
+    />
   </div>
 </template>
 
@@ -1912,6 +1960,24 @@ watch(() => view.value?.targetId, () => closeDetail());
   height: 100%;
   min-height: 100%;
   margin-top: 1px;
+}
+
+.tm-thumb--crop {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  appearance: none;
+  cursor: zoom-in;
+}
+
+.tm-thumb--crop:hover {
+  border-color: var(--line-3);
+}
+
+.tm-thumb--crop :deep(.crop) {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
 }
 
 .tm-thumb {

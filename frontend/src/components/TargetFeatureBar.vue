@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppIcon from "./ui/AppIcon.vue";
 import TargetCrop, { type CropBox } from "./TargetCrop.vue";
+import TargetImageViewer from "./TargetImageViewer.vue";
 import {
   candidateEvidenceUrl,
   keyframeUrl,
@@ -69,9 +70,7 @@ function closeImageViewer(): void {
   imageViewer.value = null;
 }
 
-function onImageViewerKeydown(event: KeyboardEvent): void {
-  if (event.key === "Escape") closeImageViewer();
-}
+const viewerMeta = computed(() => `${targetCategory.value} · ${target.value?.timeLabel ?? "—"} · 左：截图大图　右：完整图片`);
 
 function normalized(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "");
@@ -383,7 +382,6 @@ watch(target, () => {
 });
 
 onMounted(async () => {
-  window.addEventListener("keydown", onImageViewerKeydown);
   void nextTick(bindThumbObserver);
   // 底部特征栏先于时间轴出现：静默补一次时间轴数据，右上才有真实证据帧可展示
   if (!wb.caseId || timelineCards.value.length) return;
@@ -394,7 +392,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   thumbObserver?.disconnect();
-  window.removeEventListener("keydown", onImageViewerKeydown);
 });
 </script>
 
@@ -618,46 +615,14 @@ onBeforeUnmount(() => {
     </div>
   </section>
 
-  <Teleport to="body">
-    <div v-if="imageViewer" class="fb-viewer" role="dialog" aria-modal="false" :aria-label="`${imageViewer.title}大图`">
-      <section class="fb-viewer-panel" @click.stop>
-        <header class="fb-viewer-head">
-          <div class="fb-viewer-title">
-            <h3>{{ imageViewer.title }}</h3>
-            <p>{{ targetCategory }} · {{ target?.timeLabel ?? "—" }} · 左：截图大图　右：完整图片</p>
-          </div>
-          <button class="fb-viewer-close" type="button" aria-label="关闭大图" title="关闭（Esc）" @click="closeImageViewer">
-            <AppIcon name="close" :size="15" />
-          </button>
-        </header>
-
-        <div class="fb-viewer-body">
-          <figure class="fb-viewer-pane">
-            <TargetCrop
-              class="fb-viewer-crop"
-              :src="shotUrl"
-              :box="imageViewer.crop"
-              :alt="imageViewer.title"
-              empty-text="没有留存截图"
-              fit="contain"
-            />
-            <figcaption>截图大图</figcaption>
-          </figure>
-          <figure class="fb-viewer-pane">
-            <TargetCrop
-              class="fb-viewer-full"
-              :src="shotUrl"
-              :box="null"
-              alt="完整图片"
-              empty-text="没有留存截图"
-              fit="contain"
-            />
-            <figcaption>完整图片</figcaption>
-          </figure>
-        </div>
-      </section>
-    </div>
-  </Teleport>
+  <TargetImageViewer
+    v-if="imageViewer"
+    :src="shotUrl"
+    :crop="imageViewer.crop"
+    :title="imageViewer.title"
+    :meta="viewerMeta"
+    @close="closeImageViewer"
+  />
 </template>
 
 <style scoped>
@@ -1312,130 +1277,5 @@ onBeforeUnmount(() => {
   font-size: 10.5px;
   color: var(--text-3);
   line-height: 1.5;
-}
-/* ---------------- 截图大图查看窗（无遮罩） ---------------- */
-
-.fb-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-  /* 无遮罩：不铺暗色背景，也不拦截窗口外的点击 */
-  pointer-events: none;
-}
-
-.fb-viewer-panel {
-  display: flex;
-  flex-direction: column;
-  width: min(1360px, 94vw);
-  height: min(800px, 84vh);
-  min-height: 0;
-  padding: 12px;
-  border: 1px solid var(--line-3);
-  border-radius: 10px;
-  background: #0a1017;
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.62);
-  pointer-events: auto;
-}
-
-.fb-viewer-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex: none;
-  padding: 2px 2px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.fb-viewer-title {
-  min-width: 0;
-}
-
-.fb-viewer-title h3 {
-  margin: 0;
-  color: var(--text-0);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.fb-viewer-title p {
-  margin: 3px 0 0;
-  color: var(--text-3);
-  font-size: 10.5px;
-}
-
-.fb-viewer-close {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--line-2);
-  border-radius: 5px;
-  background: #111a24;
-  color: var(--text-2);
-}
-
-.fb-viewer-close:hover {
-  border-color: var(--line-3);
-  color: var(--text-0);
-}
-
-.fb-viewer-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 12px;
-  flex: 1;
-  min-height: 0;
-  padding-top: 10px;
-}
-
-.fb-viewer-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  min-height: 0;
-  margin: 0;
-}
-
-.fb-viewer-pane figcaption {
-  flex: none;
-  color: var(--text-3);
-  font-size: 10.5px;
-}
-
-.fb-viewer-crop,
-.fb-viewer-full {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  background: #05090e;
-}
-
-@media (max-width: 900px) {
-  .fb-viewer {
-    padding: 10px;
-  }
-
-  .fb-viewer-panel {
-    height: 90vh;
-    padding: 10px;
-  }
-
-  .fb-viewer-body {
-    grid-template-columns: minmax(0, 1fr);
-    overflow-y: auto;
-  }
-
-  .fb-viewer-pane {
-    min-height: 220px;
-  }
 }
 </style>
