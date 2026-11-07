@@ -988,6 +988,7 @@ function buildElement(id: string, payload: ElementPayload): TargetElement {
       key: attr.key,
       value: attr.unknown ? "" : attr.value.trim(),
       unknown: attr.unknown,
+      reviewState: attr.reviewState,
     })),
     boxes: payload.boxes.map((box) => ({ ...box })),
     assocBox: payload.assocBox ? [...payload.assocBox] as [number, number, number, number] : null,
@@ -1021,6 +1022,8 @@ function featuresFromAttributes(
 ): TargetFeature[] {
   const created: TargetFeature[] = [];
   attributes.forEach((attr, index) => {
+    // 人工驳回的属性不进入目标特征栏：驳回表示该观察不成立，不能继续当作目标特征展示。
+    if (attr.reviewState === "human_rejected") return;
     const value = attr.value.trim();
     if (!value && !attr.unknown) return;
     const unknown = attr.unknown || !value;
@@ -1995,8 +1998,9 @@ export const actions = {
     wb.selectedObservationId = `O-${id}`;
     if (payload.cameraId) wb.selectedCameraId = payload.cameraId;
     featureStats.refs += 1;
-    const proposals = payload.attributes.filter((attr) => !attr.unknown && attr.value.trim()).length;
-    const unknowns = payload.attributes.filter((attr) => attr.unknown).length;
+    const kept = payload.attributes.filter((attr) => attr.reviewState !== "human_rejected");
+    const proposals = kept.filter((attr) => !attr.unknown && attr.value.trim()).length;
+    const unknowns = kept.filter((attr) => attr.unknown).length;
     toast(
       proposals + unknowns > 0
         ? `要素已保存：${proposals} 项特征候选进入待核查${unknowns ? `，${unknowns} 项标为未知` : ""}`

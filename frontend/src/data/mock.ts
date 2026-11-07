@@ -5,7 +5,7 @@
  * 演示种子（假摄像头 / 假要素 / 假观测 / 假作业 / 假轨迹）已全部删除。
  * ------------------------------------------------------------------ */
 
-export type ElementAttribute = { key: string; value: string; unknown: boolean };
+export type ElementAttribute = { key: string; value: string; unknown: boolean; reviewState?: string };
 
 export type ElementBox = {
   id: string;

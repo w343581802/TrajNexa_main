@@ -889,10 +889,10 @@ function resetForm() {
   confirmedCamera.value = null;
   nameSource.value = "";
   category.value = "person";
-  attributes.forEach((attr) => {
-    attr.value = "";
-    attr.unknown = false;
-  });
+  resetAttrList(attributes);
+  resetAttrList(vehicleAttributes);
+  resetAttrList(assocAttributes);
+  resetAttrList(assocPersonAttributes);
   note.value = "";
   report.value = null;
   recognizeError.value = null;
@@ -916,6 +916,8 @@ function fillFromElement() {
     if (target) {
       target.value = saved.value;
       target.unknown = saved.unknown;
+      target.rejected = saved.reviewState === "human_rejected";
+      target.auto = saved.reviewState === "model_proposed";
     }
   });
 }
@@ -1039,7 +1041,12 @@ async function save(keepOpen: boolean) {
     tone: confirmedCamera.value ? "color" : "gray",
     quality: "good",
     category: category.value,
-    attributes: attributes.map((attr) => ({ key: attr.key, value: attr.value, unknown: attr.unknown })),
+    attributes: primaryAttrs.value.map((attr) => ({
+      key: attr.key,
+      value: attr.value,
+      unknown: attr.unknown,
+      reviewState: attr.unknown ? "unknown" : attr.rejected ? "human_rejected" : "human_verified",
+    })),
     sourceMediaId: m4MatchesStored() ? selectedMediaId.value : (editingElement.value?.sourceMediaId ?? null),
     m4ObservationId: m4MatchesStored() ? m4Observation.value?.id : (editingElement.value?.m4ObservationId ?? null),
     boxes: m4MatchesStored() && m4Box.value ? [{
