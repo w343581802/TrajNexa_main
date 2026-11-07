@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import AppIcon from "./ui/AppIcon.vue";
@@ -331,6 +331,16 @@ function applyCustomWindow() {
  * 添加要素（截图）不再影响点灯；没有扫描结果时一律灰色。
  */
 const isRealLit = (camera: SnapshotCamera) => recordingCameraUuids.value.has(camera.camera_uuid ?? "");
+const COMPASS_8 = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"];
+
+/** 视角方向来自 Map 台账的 bearing_deg；没有朝向时明确写未知，不用录像状态替代。 */
+function bearingText(camera: SnapshotCamera): string {
+  const value = camera.bearing_deg;
+  if (value == null || !Number.isFinite(value)) return "未知";
+  const deg = ((value % 360) + 360) % 360;
+  return `${Math.round(deg)}° ${COMPASS_8[Math.round(deg / 45) % 8]}`;
+}
+
 const windowLabel = computed(
   () => `${minutesToLabel(timeWindow.start)}–${timeWindow.end >= 1440 ? "24:00" : minutesToLabel(timeWindow.end)}`,
 );
@@ -343,6 +353,7 @@ const realCardOpen = ref(false);
 /* 镜头聚合：按当前缩放下的屏幕距离分组，避免同一路口的多个点位完全叠在一起。 */
 const CLUSTER_RADIUS_PX = 44;
 const clusterCardOpen = ref(false);
+const clusterTab = ref<CameraTab>("info");
 const clusterMembers = ref<SnapshotCamera[]>([]);
 
 const cardLatLng = ref<L.LatLng | null>(null);
@@ -497,7 +508,7 @@ function drawCameraMarker(camera: SnapshotCamera) {
 
 function drawClusterMarker(group: CameraCluster) {
   const count = group.members.length;
-  const size = count > 9 ? 38 : 32;
+  const size = count > 9 ? 28 : 24;
   const marker = L.marker([group.lat, group.lon], {
     icon: L.divIcon({
       className: "cam-cluster",
@@ -538,6 +549,7 @@ function openCluster(members: SnapshotCamera[], lat: number, lon: number) {
     return litA - litB || cameraCode(a).localeCompare(cameraCode(b), "zh-Hans-CN");
   });
   clusterCardOpen.value = true;
+  clusterTab.value = "info";
   realCardOpen.value = false;
   anchorCardOpen.value = false;
   selectedRealId.value = null;
@@ -545,13 +557,18 @@ function openCluster(members: SnapshotCamera[], lat: number, lon: number) {
   placeCard();
 }
 
-function pickClusterCamera(camera: SnapshotCamera) {
+function pickClusterCamera(camera: SnapshotCamera, tab: CameraTab = "info") {
   clusterCardOpen.value = false;
   pickReal(camera);
+  // 镜头切换的 watcher 会先重置为「摄像头信息」；等它跑完再落到聚合卡选中的页签。
+  void nextTick(() => {
+    cameraTab.value = tab;
+  });
 }
 
 function closeClusterCard() {
   clusterCardOpen.value = false;
+  clusterTab.value = "info";
 }
 
 function pickAnchor(elementId: string) {
@@ -1654,6 +1671,13 @@ function focusAnchor() {
           <h3 class="cam-name">附近 {{ clusterMembers.length }} 个摄像头</h3>
           <button class="icon-btn" aria-label="关闭摄像头列表" @click="closeClusterCard"><AppIcon name="close" :size="13" /></button>
         </header>
+
+        <nav class="cam-tabs cam-cluster-tabs" role="tablist" aria-label="聚合摄像头页签">
+          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': clusterTab === 'info' }" :aria-selected="clusterTab === 'info'" @click="clusterTab = 'info'">摄像头信息</button>
+          <button type="button" role="tab" class="cam-tab" :class="{ 'is-on': clusterTab === 'investigate' }" :aria-selected="clusterTab === 'investigate'" @click="clusterTab = 'investigate'">目标排查</button>
+        </nav>
+
+        <p v-if="clusterTab === 'investigate'" class="cam-cluster-lead">选择镜头后进入该镜头的目标排查。</p>
         <div class="cam-cluster-list">
           <button
             v-for="camera in clusterMembers"
@@ -1661,10 +1685,10 @@ function focusAnchor() {
             type="button"
             class="cam-cluster-row"
             :title="cameraCode(camera)"
-            @click="pickClusterCamera(camera)"
+            @click="pickClusterCamera(camera, clusterTab)"
           >
             <span class="cc-name">{{ cameraCode(camera) }}</span>
-            <span class="cc-state" :class="{ 'is-lit': isRealLit(camera) }">{{ isRealLit(camera) ? "有录像" : "无录像" }}</span>
+            <span class="cc-bearing" :title="`视角方向：${bearingText(camera)}`">视角 {{ bearingText(camera) }}</span>
           </button>
         </div>
         <p class="cam-cluster-note">按当前缩放聚合；放大后点位拉开会自动拆开。列表只用于选镜头，不代表目标或身份结论。</p>
@@ -2370,6 +2394,18 @@ function focusAnchor() {
   padding: 0 10px 8px;
 }
 
+.cam-cluster-card .cam-tabs {
+  margin: 0 10px 8px;
+}
+
+.cam-cluster-lead {
+  margin: 0;
+  padding: 0 10px 7px;
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
 .cam-cluster-list {
   display: grid;
   max-height: 236px;
@@ -2407,14 +2443,12 @@ function focusAnchor() {
   white-space: nowrap;
 }
 
-.cc-state {
+.cc-bearing {
   flex: none;
   font-size: 9px;
-  color: var(--text-4);
-}
-
-.cc-state.is-lit {
-  color: #7fe3a1;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .cam-cluster-note {
@@ -2845,13 +2879,13 @@ function focusAnchor() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #4fd1d9;
+  border: 1.5px solid #4fd1d9;
   border-radius: 50%;
   background: rgba(8, 17, 24, 0.94);
   color: #d8f6ff;
-  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 0 4px rgba(79, 209, 217, 0.16), 0 2px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(79, 209, 217, 0.14), 0 2px 6px rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
 
