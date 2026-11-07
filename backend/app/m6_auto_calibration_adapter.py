@@ -37,15 +37,25 @@ def _base() -> str:
     return base
 
 
-def _http_json(method: str, url: str, payload: dict | None = None) -> dict:
-    body = None
+def _headers(payload: dict | None) -> dict:
     # Map 的 Django 只允许 ``ALLOWED_HOSTS`` 里的 Host 头（默认 localhost）。容器之间
     # 用服务名访问时，请求的 Host 会变成服务名而被 400 拒绝；这里显式发 Host，
     # 让「地址」和「Host 头」分开配置，不改 Map 侧的白名单。
     headers = {"Accept": "application/json", "Host": settings.map_api_host_header}
+    # Map 的标定**写**接口要 X-Calibration-Token（cameras/operator_auth.py，fail closed）。
+    # 未配置时这里不发头，Map 会按 403 拒绝——比在本地假装「有权限」安全。
+    if settings.map_api_admin_token:
+        headers["X-Calibration-Token"] = settings.map_api_admin_token
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+def _http_json(method: str, url: str, payload: dict | None = None) -> dict:
+    body = None
+    headers = _headers(payload)
     if payload is not None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:

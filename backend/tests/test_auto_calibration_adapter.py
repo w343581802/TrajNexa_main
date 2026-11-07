@@ -16,6 +16,21 @@ def _fake_transport(monkeypatch, responses):
     return call, calls
 
 
+def test_calibration_token_is_sent_when_configured(monkeypatch):
+    # Map 的写接口 fail closed：主系统必须带令牌，否则会拿到 403。
+    monkeypatch.setattr(settings, 'map_api_admin_token', 'secret-token')
+    headers = adapter._headers({'camera_uuid': 'u'})
+    assert headers['X-Calibration-Token'] == 'secret-token'
+    assert headers['Content-Type'] == 'application/json'
+
+
+def test_calibration_token_is_omitted_when_unset(monkeypatch):
+    # 没配就不发头，让 Map 明确拒绝，而不是在本地悄悄「放行」。
+    monkeypatch.setattr(settings, 'map_api_admin_token', '')
+    headers = adapter._headers(None)
+    assert 'X-Calibration-Token' not in headers
+
+
 def test_disabled_by_default(monkeypatch):
     monkeypatch.setattr(settings, 'b8_auto_calibration_enabled', False)
     monkeypatch.setattr(settings, 'map_api_base_url', 'http://map.test:8000')

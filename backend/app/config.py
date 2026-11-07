@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Map 的 Django 只接受 ALLOWED_HOSTS 里的 Host 头（默认 localhost）。
     # 容器间用服务名访问时显式发这个 Host，避免被 400 Bad Request 拒掉。
     map_api_host_header: str = 'localhost'
+    # Map 标定写接口的内部令牌（对应 Map 侧 CALIBRATION_ADMIN_TOKEN）。
+    # 留空 = 不发头，Map 会以 403 拒绝写操作；只读接口不受影响。
+    map_api_admin_token: str = ''
     # 录像资源：主系统只「读」录像目录，扫描结果单独存表，不改动任何录像文件。
     recordings_root: Path = Path('/data/videos')
     recordings_scan_interval_seconds: int = 30  # 开启自动扫描后的增量扫描间隔
