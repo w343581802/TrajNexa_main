@@ -7,6 +7,7 @@ import {
   actions,
   anchorByElement,
   elementList,
+  featureList,
   timelineCards,
   timelineView,
   timelineViewError,
@@ -341,6 +342,49 @@ function elementIdOf(card: TimelineViewCard): string {
 
 function badgeText(card: TimelineViewCard): string {
   return isElementCard(card) ? "待确定" : KIND_LABEL[card.kind];
+}
+
+/* 要素卡的详情：截图 + 定位信息 + 已录入特征，都来自同一个要素与锚点。 */
+function elementOf(card: TimelineViewCard) {
+  return elementList.value.find((item) => item.id === elementIdOf(card)) ?? null;
+}
+
+function elementShotUrl(card: TimelineViewCard): string {
+  const media = elementOf(card)?.sourceMediaId;
+  return media ? mainApi.mediaContentUrl(media) : "";
+}
+
+function elementFeatures(card: TimelineViewCard) {
+  const id = elementIdOf(card);
+  return featureList.value.filter((item) => item.elementId === id);
+}
+
+function kickerText(card: TimelineViewCard): string {
+  if (isElementCard(card)) return card.kind === "confirmed_track" ? "已确认目标" : "待确定";
+  return card.kind === "region_investigation" ? "区域排查" : KIND_LABEL[card.kind];
+}
+
+function elementAnchor(card: TimelineViewCard) {
+  return anchorByElement.value[elementIdOf(card)] ?? null;
+}
+
+function elementRadiusText(card: TimelineViewCard): string {
+  const radius = elementAnchor(card)?.uncertainty_radius_m;
+  return radius ? `±${Math.round(radius)} m` : "";
+}
+
+function elementTraceText(card: TimelineViewCard): string {
+  const status = anchorByElement.value[elementIdOf(card)]?.trace_status ?? "none";
+  const text: Record<string, string> = {
+    none: "未申请",
+    queued: "已排队",
+    running: "回填中",
+    pending: "等待录像",
+    no_points: "没有追出轨迹",
+    ready: "已有回填路径",
+    unavailable: "追踪服务不可用",
+  };
+  return text[status] ?? status;
 }
 
 const detailTechCards = computed<TimelineCard[]>(() => techCardsFor(detailCard.value));
@@ -978,11 +1022,6 @@ function candidateIdFor(card: TimelineCard): string | null {
 }
 
 function selectViewCard(card: TimelineViewCard): void {
-  if (isElementCard(card)) {
-    /* 要素卡没有技术卡可展开：查看详情 = 选中该要素（右侧特征栏 + 地图时间框同步）。 */
-    actions.selectAnchor(elementIdOf(card));
-    return;
-  }
   detailId.value = card.cardId;
   evidencePreview.value = [];
   playbackCardId.value = null;
@@ -991,6 +1030,11 @@ function selectViewCard(card: TimelineViewCard): void {
   modalExpanded.value = false;
   regionTab.value = "all";
   focusedCandidateId.value = card.detailCardIds[0] ?? null;
+  if (isElementCard(card)) {
+    /* 要素卡没有技术卡，但同样打开详情弹窗；顺手把地图与右侧特征栏切到这个要素。 */
+    actions.selectAnchor(elementIdOf(card));
+    return;
+  }
   if (isDemoCard(card)) {
     // 演示卡没有对应的真实技术卡，不进入地图选中流程。
     return;
@@ -1272,12 +1316,17 @@ watch(() => view.value?.targetId, () => closeDetail());
           <header class="rd-head" @pointerdown="beginModalDrag">
             <div class="rd-head-main">
               <span class="rd-head-icon">
-                <AppIcon :name="detailCard.kind === 'region_investigation' ? 'camera' : kindIcon(detailCard)" :size="19" />
+                <AppIcon :name="isElementCard(detailCard) ? 'target' : detailCard.kind === 'region_investigation' ? 'camera' : kindIcon(detailCard)" :size="19" />
               </span>
               <div class="rd-head-text">
-                <p class="rd-kicker">查看详情 <span>·</span> {{ detailCard.kind === 'region_investigation' ? '区域排查' : KIND_LABEL[detailCard.kind] }}</p>
+                <p class="rd-kicker">查看详情 <span>·</span> {{ kickerText(detailCard) }}</p>
                 <h2>{{ detailCard.place }}</h2>
-                <div v-if="detailCard.kind === 'region_investigation'" class="rd-sub">
+                <div v-if="isElementCard(detailCard)" class="rd-sub">
+                  <span><AppIcon name="clock" :size="12" />{{ clockRange(detailCard) }}</span>
+                  <span>{{ detailCard.identityStatus === 'human_confirmed' ? '目标已确认' : '待确定' }}</span>
+                  <span>{{ detailCard.spatialQuality || '没有定位点' }}</span>
+                </div>
+                <div v-else-if="detailCard.kind === 'region_investigation'" class="rd-sub">
                   <span><AppIcon name="clock" :size="12" />{{ clockRange(detailCard) }}</span>
                   <span v-if="regionDurationText" class="rd-duration">（{{ regionDurationText }}）</span>
                   <span><AppIcon name="camera" :size="12" />{{ detailCard.region?.deviceCount ?? 0 }} 台摄像头 · {{ detailCard.region?.plannedWindows ?? 0 }} 个分析窗口</span>
@@ -1303,7 +1352,36 @@ watch(() => view.value?.targetId, () => closeDetail());
             </div>
           </header>
 
-          <div v-if="detailCard.kind === 'region_investigation'" class="rd-body">
+          <div v-if="isElementCard(detailCard)" class="rd-body rd-detail-body">
+            <figure v-if="elementShotUrl(detailCard)" class="rd-element-shot">
+              <img :src="elementShotUrl(detailCard)" :alt="detailCard.place + ' 截图'" loading="lazy" />
+            </figure>
+            <p v-else class="tm-hint">这条要素没有留存截图。</p>
+
+            <p class="tm-kv"><span>目标类别</span>{{ detailCard.title }}</p>
+            <p class="tm-kv"><span>摄像头</span>{{ detailCard.place }}</p>
+            <p class="tm-kv"><span>截图时间</span>{{ clockRange(detailCard) }}（截图角标读数，未与录像时间戳核对）</p>
+            <p class="tm-kv"><span>定位级别</span>{{ detailCard.spatialQuality || '未定位' }}</p>
+            <p v-if="elementRadiusText(detailCard)" class="tm-kv"><span>不确定半径</span>{{ elementRadiusText(detailCard) }}</p>
+            <p class="tm-kv"><span>录像回填</span>{{ elementTraceText(detailCard) }}</p>
+
+            <h4 class="tm-section-title">已录入特征（{{ elementFeatures(detailCard).length }}）</h4>
+            <ul v-if="elementFeatures(detailCard).length" class="rd-element-feats">
+              <li v-for="feature in elementFeatures(detailCard)" :key="feature.id">
+                <span class="rd-element-attr">{{ feature.attr }}</span>
+                <span class="rd-element-value">{{ feature.value || '未填' }}</span>
+                <span class="rd-element-state">{{ feature.statusLabel }}</span>
+              </li>
+            </ul>
+            <p v-else class="tm-hint">还没有录入特征；可在右侧目标特征栏添加。</p>
+
+            <div class="tm-actions-row">
+              <button class="tm-action" @click="closeDetail(); locateViewCard(detailCard)">在地图上定位</button>
+              <button class="tm-action" @click="closeDetail(); actions.selectAnchor(elementIdOf(detailCard))">在特征栏打开</button>
+            </div>
+          </div>
+
+          <div v-else-if="detailCard.kind === 'region_investigation'" class="rd-body">
             <div class="rd-tabs" role="tablist" aria-label="摄像头分析状态筛选">
               <button
                 v-for="tab in REGION_TABS"
@@ -2431,6 +2509,31 @@ watch(() => view.value?.targetId, () => closeDetail());
 
 .rd-body { overflow-y: auto; padding: 12px 18px 16px; }
 .rd-detail-body { flex: 1; min-height: 0; padding: 14px 18px 18px; }
+
+/* 要素详情：截图只做等比展示，不做裁剪，避免把标签或 OSD 裁掉。 */
+.rd-element-shot {
+  margin: 0 0 12px;
+  border: 1px solid var(--line-1);
+  border-radius: 8px;
+  background: #0a1016;
+  overflow: hidden;
+}
+.rd-element-shot img { display: block; width: 100%; max-height: 320px; object-fit: contain; }
+.rd-element-feats { margin: 6px 0 12px; padding: 0; list-style: none; display: grid; gap: 4px; }
+.rd-element-feats li {
+  display: grid;
+  grid-template-columns: minmax(0, 96px) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 8px;
+  border: 1px solid var(--line-1);
+  border-radius: 6px;
+  background: #0d151d;
+  font-size: 11.5px;
+}
+.rd-element-attr { color: var(--text-2); }
+.rd-element-value { color: var(--text-0); word-break: break-word; }
+.rd-element-state { color: var(--text-2); font-size: 10.5px; }
 
 .rd-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 11px; }
 .rd-tab {
