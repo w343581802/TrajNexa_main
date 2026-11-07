@@ -215,26 +215,34 @@ const frameDims = ref<Record<string, { w: number; h: number }>>({});
 const view = computed(() => timelineView.value);
 
 /**
- * 「添加要素」的定位时间卡：一条锚点一行，按截图时间排。
- * 与地图上的定位点/时间框同一真源（wb.selectedAnchorId），点哪边都选中同一条。
+ * 「添加要素」的定位时间卡：以要素为准（完整截图就出卡），锚点只用来补级别与半径。
+ * 定位失败时卡片仍然在，标成「待定位」并说明原因——否则用户点了保存却什么都看不到。
  */
 const elementCards = computed(() => {
   const categoryText: Record<string, string> = { person: "人员", vehicle: "车辆", other: "其他" };
-  return Object.entries(anchorByElement.value)
-    .map(([elementId, anchor], index) => {
-      const element = elementList.value.find((item) => item.id === elementId) ?? null;
-      const at = anchor.capture_local ? Date.parse(anchor.capture_local) : Number.NaN;
+  return elementList.value
+    .filter((element) => element.base !== "crop")
+    .map((element, index) => {
+      const anchor = anchorByElement.value[element.id] ?? null;
+      const at = anchor?.capture_local
+        ? Date.parse(anchor.capture_local)
+        : element.time
+          ? Date.parse(element.time)
+          : Number.NaN;
+      const pending = !anchor;
       return {
-        elementId,
+        elementId: element.id,
         index,
         at,
-        cardId: `element:${elementId}`,
-        time: anchor.capture_local ? anchor.capture_local.slice(11, 19) : element?.timeLabel ?? "时间未知",
-        title: element?.category ? categoryText[element.category] ?? "目标" : "目标",
-        camera: anchor.camera_label || element?.cameraLabel || "镜头未识别",
-        level: anchor.projection_level,
-        radius: anchor.uncertainty_radius_m,
-        traceStatus: anchor.trace_status,
+        cardId: `element:${element.id}`,
+        time: anchor?.capture_local ? anchor.capture_local.slice(11, 19) : element.timeLabel || "时间未知",
+        title: element.category ? categoryText[element.category] ?? "目标" : "目标",
+        camera: anchor?.camera_label || element.cameraLabel || "镜头未识别",
+        level: anchor?.projection_level ?? "",
+        radius: anchor?.uncertainty_radius_m ?? null,
+        traceStatus: anchor?.trace_status ?? "none",
+        pending,
+        pendingText: pending ? "待定位" : "",
       };
     })
     .sort((a, b) => {
@@ -1112,7 +1120,8 @@ watch(() => view.value?.targetId, () => closeDetail());
               <span class="tm-element-time num">{{ card.time }}</span>
               <span class="tm-element-title">{{ card.title }}</span>
               <span class="tm-element-camera">{{ card.camera }}</span>
-              <span class="tm-element-level" :data-level="card.level">{{ ELEMENT_LEVEL_TEXT[card.level] ?? card.level }}</span>
+              <span v-if="card.pending" class="tm-element-level" data-level="pending">{{ card.pendingText }}</span>
+              <span v-else class="tm-element-level" :data-level="card.level">{{ ELEMENT_LEVEL_TEXT[card.level] ?? card.level }}</span>
               <span v-if="card.radius" class="tm-element-radius num">±{{ Math.round(card.radius) }} m</span>
               <span v-if="card.traceStatus && card.traceStatus !== 'none'" class="tm-element-trace">{{ card.traceStatus }}</span>
             </button>

@@ -990,7 +990,7 @@ async function save(keepOpen: boolean) {
           ...(assocBox.value ? [{ id: editingAssocId.value ?? "A1", object_class: assocCategory.value, role: "associated", bbox_norm_xyxy: [...assocBox.value], m4_observation_id: assocObservation.value?.id ?? null }] : []),
         ],
         attributes: [...attrRows(primaryAttrs.value, editingPrimaryId.value, m4Box.value), ...(assocBox.value && editingAssocId.value ? attrRows(assocAttrs.value, editingAssocId.value, assocBox.value) : [])],
-        source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
+        source: { ...((editingGroup.value as Record<string, any> | null)?.source ?? {}), summary: note.value.trim(), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
       });
       groupRevisions.value = await mainApi.listGroupRevisions(caseId, groupId);
       toast("目标组已更新", "ok");
@@ -1032,6 +1032,7 @@ async function save(keepOpen: boolean) {
       kind: category.value === "vehicle" ? "vehicle" : "person",
       label: "人工截图框选", auto: false,
     }] : (editingElement.value?.boxes ?? []),
+    assocBox: assocBox.value ? [...assocBox.value] as [number, number, number, number] : null,
   };
 
   // B8-B0：主目标 + 关联对象一次写入目标组；关联对象只作证据，不成为独立追踪任务
@@ -1059,9 +1060,15 @@ async function save(keepOpen: boolean) {
         ],
         relations: assocBox.value ? [{ subject_id: "P1", predicate: assocRelation.value, object_id: "A1" }] : [],
         attributes: [...attrRows(primaryAttrs.value, "P1", m4Box.value), ...(assocBox.value ? attrRows(assocAttrs.value, "A1", assocBox.value) : [])],
-        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value] },
+        source: { camera_name: cameraName.value || null, time_status: timeUnknown.value ? "unknown" : "unverified", summary: note.value.trim(), ai_ignored: [...ignoredAiFeatures.value], ai_rejected: [...rejectedAiFeatures.value],
+          // 截图时间/镜头/类型一并存进目标组：刷新后即使锚点没建成功，也能重建时间卡并补定位
+          capture_local: timeUnknown.value ? null : `${date.value}T${timeLabel.value.trim()}`,
+          capture_source: "osd", camera_uuid: confirmedCamera.value, base },
       });
       groupId = created.id;
+      // payload 在组创建之前就构造好了，这里必须回填，否则保存时拿不到目标组，
+      // 定位点与时间轴卡片都会静默消失。
+      payload.targetGroupId = groupId;
     } catch (error) {
       toast("目标组保存失败：" + (error instanceof Error ? error.message : String(error)), "danger");
       return;

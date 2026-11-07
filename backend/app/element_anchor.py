@@ -376,6 +376,14 @@ def patch_anchor(db: Session, case_id: str, anchor_id: str, payload: dict) -> di
     return {'anchor': _out(row)}
 
 
+def delete_anchor(db: Session, case_id: str, anchor_id: str) -> dict:
+    """删掉一个定位点：只动锚点行，目标组、特征与截图都保留。"""
+    row = _anchor(db, case_id, anchor_id)
+    db.delete(row)
+    db.commit()
+    return {'deleted': True, 'anchor_id': anchor_id}
+
+
 def delete_for_group(db: Session, group_id: str) -> None:
     for row in db.scalars(select(TargetElementAnchor).where(
             TargetElementAnchor.group_id == group_id)).all():

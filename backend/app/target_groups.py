@@ -5,14 +5,18 @@ All rows are case-scoped; media must belong to the same case. No identity assert
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import (Case, MediaAsset, TargetAttributeRevision, TargetElementGroup,
-                        TargetElementObject, TargetObjectAttribute, TargetObjectRelation)
+from app.models import (Case, MediaAsset, TargetAttributeRevision, TargetElementAnchor,
+                        TargetElementGroup, TargetElementObject, TargetObjectAttribute,
+                        TargetObjectRelation)
+
+logger = logging.getLogger(__name__)
 
 OBJECT_CLASSES = ('person', 'vehicle', 'other')
 ROLES = ('primary', 'associated')
@@ -276,3 +280,21 @@ def patch_group(db: Session, case_id: str, group_id: str, payload: dict) -> Targ
     db.commit()
     db.refresh(group)
     return group
+
+
+def delete_group(db: Session, case_id: str, group_id: str) -> dict:
+    """硬删除一个目标组：对象/关系/属性/修订/定位锚点一起删，媒体与录像不动。
+
+    演示期不做软删除；删除前把整组详情写进日志，事后还能查到删了什么。
+    """
+    group = _group(db, case_id, group_id)
+    detail = group_detail(db, case_id, group_id)
+    logger.warning('delete target group %s (case=%s): %s', group_id, case_id, detail)
+    for table in (TargetObjectAttribute, TargetObjectRelation, TargetElementObject,
+                  TargetAttributeRevision, TargetElementAnchor):
+        for row in db.scalars(select(table).where(table.group_id == group.id)).all():
+            db.delete(row)
+    db.flush()
+    db.delete(group)
+    db.commit()
+    return {'deleted': True, 'group_id': group_id}

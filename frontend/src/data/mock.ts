@@ -66,6 +66,12 @@ export type TargetFeature = {
   confidence?: number;
   window: string;
   conflict?: { value: string; reason: string };
+  /** 用户固定：切换时间轴卡片后仍保留在目标特征栏 */
+  pinned?: boolean;
+  /** 来自哪张时间轴卡片（卡片 id），用于“只显示用户选中卡片的新特征” */
+  sourceCardId?: string;
+  /** 来源截图；没有截图时不生成小图，避免假占位 */
+  sourceMediaId?: string;
 };
 
 export type ObsKind = "anchor" | "observation" | "gap";

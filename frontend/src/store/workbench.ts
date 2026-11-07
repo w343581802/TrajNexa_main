@@ -935,6 +935,8 @@ export type ElementPayload = {
   category: NonNullable<TargetElement["category"]>;
   attributes: ElementAttributeInput[];
   boxes: NonNullable<TargetElement["boxes"]>;
+  /** 关联对象框（归一化 x1,y1,x2,y2）；只作证据，不单独定位 */
+  assocBox?: [number, number, number, number] | null;
   sourceMediaId?: string | null;
   m4ObservationId?: string | null;
   /** 后端目标组 id：定位点与轨迹回填挂在它下面（保存时由弹窗创建后回传） */
@@ -970,6 +972,7 @@ function buildElement(id: string, payload: ElementPayload): TargetElement {
     quality: payload.quality,
     category: payload.category,
     timeUnknown: payload.timeUnknown,
+    base: payload.base,
     origin: "user",
     attributes: payload.attributes.map((attr) => ({
       key: attr.key,
@@ -977,6 +980,7 @@ function buildElement(id: string, payload: ElementPayload): TargetElement {
       unknown: attr.unknown,
     })),
     boxes: payload.boxes.map((box) => ({ ...box })),
+    assocBox: payload.assocBox ? [...payload.assocBox] as [number, number, number, number] : null,
     sourceMediaId: payload.sourceMediaId ?? null,
     m4ObservationId: payload.m4ObservationId ?? null,
   };
@@ -999,10 +1003,14 @@ function buildAnchorObservation(element: TargetElement): Observation {
 }
 
 /** 把要素录入的属性重算为特征候选：不确定值不进特征，已核验值不被覆盖 */
-function applyAttributes(elementId: string, payload: ElementPayload) {
-  featureList.value = featureList.value.filter((feature) => feature.elementId !== elementId);
+function featuresFromAttributes(
+  elementId: string,
+  attributes: ElementAttributeInput[],
+  timeLabel: string,
+  timeUnknown: boolean,
+): TargetFeature[] {
   const created: TargetFeature[] = [];
-  payload.attributes.forEach((attr, index) => {
+  attributes.forEach((attr, index) => {
     const value = attr.value.trim();
     if (!value && !attr.unknown) return;
     const unknown = attr.unknown || !value;
@@ -1015,10 +1023,20 @@ function applyAttributes(elementId: string, payload: ElementPayload) {
       statusLabel: unknown ? "未知（人工标注）" : "人工录入 · 待核验",
       meta: "人工录入",
       sources: 1,
-      window: payload.timeUnknown ? "—" : payload.timeLabel,
+      window: timeUnknown ? "—" : timeLabel,
     });
   });
-  featureList.value.push(...created);
+  return created;
+}
+
+function applyAttributes(elementId: string, payload: ElementPayload) {
+  featureList.value = featureList.value.filter((feature) => feature.elementId !== elementId);
+  featureList.value.push(...featuresFromAttributes(
+    elementId,
+    payload.attributes,
+    payload.timeLabel,
+    payload.timeUnknown,
+  ));
   featureStats.pending = featureList.value.filter(
     (feature) => feature.status === "review" || feature.status === "proposed",
   ).length;
@@ -1203,7 +1221,13 @@ function applyCardSelection(cardId: string | null): void {
  * 定位点：完整截图保存后自动向后端要位置；局部截图 / 无角标时间直接跳过。
  * 后端只做「可能位置」——L2 需要已审核标定，L1 是 Map 视域模型中心，L0 是镜头位置。
  */
-async function syncAnchor(element: TargetElement, payload: ElementPayload): Promise<void> {
+async function syncAnchor(
+  element: { id: string; cameraId: string | null; cameraLabel: string; sourceMediaId?: string | null },
+  payload: Pick<ElementPayload, "date" | "timeLabel" | "timeUnknown"> & {
+    base?: "full" | "crop";
+    targetGroupId?: string | null;
+  },
+): Promise<void> {
   const groupId = payload.targetGroupId;
   if (!groupId || !wb.caseId) return;
   try {
@@ -1254,7 +1278,9 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
     const known: Record<string, string> = { ...elementGroupIds.value };
     const byGroup: Record<string, string> = {};
     for (const [elementId, groupId] of Object.entries(known)) byGroup[groupId] = elementId;
-    const anchors: Record<string, ElementAnchor> = { ...anchorByElement.value };
+    // 锚点只属于当前案件的要素：不能沿用上一个案件残留的 anchorByElement，
+    // 否则切换案件后时间轴/地图会继续显示旧案件的定位点。
+    const anchors: Record<string, ElementAnchor> = {};
     const rows: TargetElement[] = [];
     for (const item of payload.items ?? []) {
       const group = (item.group ?? {}) as Record<string, any>;
@@ -1267,8 +1293,15 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
       const box = Array.isArray(primary?.bbox_norm_xyxy) ? primary.bbox_norm_xyxy.map(Number) : null;
       const assoc = objects.find((row: any) => row.role === "associated");
       const assocBox = Array.isArray(assoc?.bbox_norm_xyxy) ? assoc.bbox_norm_xyxy.map(Number) as [number, number, number, number] : null;
-      const capture = anchor?.capture_local ?? null;
+      const capture = anchor?.capture_local ?? (group.source?.capture_local ? String(group.source.capture_local) : null);
       const objectClass = String(primary?.object_class ?? "other");
+      // 截图类型不能由"有没有锚点"反推：定位失败也是一张完整截图，刷新后仍要留在时间轴
+      const sourceTime = String(group.source?.time_status ?? "unknown");
+      const sourceCamera = String(group.source?.camera_name ?? "").trim();
+      const storedBase = String(group.source?.base ?? "");
+      const base: "full" | "crop" = storedBase
+        ? (storedBase === "crop" ? "crop" : "full")
+        : (anchor || (sourceTime !== "unknown" && Boolean(sourceCamera)) ? "full" : "crop");
       rows.push({
         id,
         timeLabel: capture ? capture.slice(11, 16) : "时间未知",
@@ -1277,7 +1310,7 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
         cameraLabel: anchor?.camera_label || String(group.source?.camera_name ?? "") || "区域：仅确定大致区域",
         status: anchor ? "confirmed" : "unlocated",
         statusLabel: anchor ? "已定位" : "待定位",
-        note: "",
+        note: String(group.source?.summary ?? ""),
         tone: anchor ? "color" : "gray",
         quality: anchor ? "good" : "low",
         category: objectClass === "vehicle" ? "vehicle" : objectClass === "person" ? "person" : "other",
@@ -1295,7 +1328,7 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
         sourceMediaId: group.media_id ?? null,
         assocBox,
         timeUnknown: !capture,
-        base: anchor ? "full" : "crop",
+        base,
       });
       known[id] = groupId;
       if (anchor) anchors[id] = anchor;
@@ -1303,6 +1336,38 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
     elementList.value = rows;
     elementGroupIds.value = known;
     anchorByElement.value = anchors;
+    // 刷新/切案件后从后端属性重建特征：否则图片、摘要都在，但「目标特征」永远是 0 项。
+    const restoredFeatures = rows.flatMap((row) => featuresFromAttributes(
+      row.id,
+      row.attributes ?? [],
+      row.timeLabel,
+      Boolean(row.timeUnknown),
+    ));
+    const currentElementIds = new Set(rows.map((row) => row.id));
+    featureList.value = [
+      ...featureList.value.filter((feature) => !feature.elementId || !currentElementIds.has(feature.elementId)),
+      ...restoredFeatures,
+    ];
+    featureStats.pending = featureList.value.filter(
+      (feature) => feature.status === "review" || feature.status === "proposed",
+    ).length;
+    featureStats.conflicts = featureList.value.filter((feature) => feature.conflict).length;
+    // 切换案件时 applyWorkspace(emptyWorkspace()) 会先把 emptyMode 置 true；
+    // 这里恢复出真实要素后必须同步解除，否则界面仍按空任务隐藏要素与特征栏。
+    wb.emptyMode = rows.length === 0;
+    if (rows.length > 0) {
+      if (!wb.selectedElementId || !rows.some((row) => row.id === wb.selectedElementId)) {
+        wb.selectedElementId = rows[0].id;
+        wb.selectedAnchorId = rows[0].id;
+        wb.selectedCameraId = rows[0].cameraId ?? null;
+      }
+      if (wb.roundStatus === "draft") wb.roundStatus = "running";
+    } else {
+      wb.selectedElementId = null;
+      wb.selectedAnchorId = null;
+      wb.selectedCameraId = null;
+      wb.roundStatus = "draft";
+    }
     // 有定位点且已开始回填的要素：进页面读一次回填状态（不再循环轮询）
     for (const [elementId, anchor] of Object.entries(anchors)) {
       const status = anchor?.trace_status;
@@ -1315,6 +1380,19 @@ export async function loadElements(caseId = wb.caseId): Promise<void> {
       if (!anchorByElement.value[row.id]) continue;
       if (observationList.value.some((obs) => obs.id === `O-${row.id}`)) continue;
       observationList.value.push(buildAnchorObservation(row));
+    }
+    // 自愈：完整截图但还没有锚点（早期保存时 groupId 没回填），进页面时补一次定位
+    for (const row of rows) {
+      if (anchorByElement.value[row.id] || row.base === "crop") continue;
+      const groupId = known[row.id];
+      if (!groupId) continue;
+      void syncAnchor(row, {
+        base: "full",
+        targetGroupId: groupId,
+        date: (row.time || "").slice(0, 10),
+        timeLabel: row.timeLabel,
+        timeUnknown: !row.time || row.timeLabel === "时间未知",
+      });
     }
   } catch (error) {
     toast(`要素读回失败：${error instanceof Error ? error.message : String(error)}`, "warn");
@@ -1354,6 +1432,203 @@ export const actions = {
       toast("特征已保存（修订历史 +1）", "ok");
     } catch (error) {
       toast(`特征保存失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+    }
+  },
+  /** 固定/取消固定一条特征：固定后切换时间轴卡片也保留，不随选中卡片消失。 */
+  toggleFeaturePin(featureId: string): void {
+    const feature = featureList.value.find((item) => item.id === featureId);
+    if (!feature) return;
+    feature.pinned = !feature.pinned;
+    toast(feature.pinned ? "已固定该特征，切换卡片时保留" : "已取消固定；仅在选中该卡片时显示", "info");
+  },
+  /**
+   * 删掉一条特征：本地立即移除，再把目标组的属性列表按「去掉这一条」重写。
+   * 后端 patch_group 会写 attribute revision，所以删掉的值仍可在修订历史里查到。
+   */
+  async removeElementFeature(featureId: string): Promise<boolean> {
+    const feature = featureList.value.find((item) => item.id === featureId);
+    if (!feature?.elementId) return false;
+    const element = elementList.value.find((item) => item.id === feature.elementId);
+    if (!element) return false;
+    if (!window.confirm(`删除特征「${feature.attr}」？删除后修订历史仍可追溯，但当前特征不再显示。`)) return false;
+    const name = feature.attr;
+    element.attributes = (element.attributes ?? []).filter((attr) => attr.key !== name);
+    featureList.value = featureList.value.filter((item) => item.id !== featureId);
+    featureStats.refs = Math.max(0, featureStats.refs - 1);
+    const groupId = elementGroupIds.value[element.id];
+    if (!groupId || !wb.caseId) {
+      toast("特征已从当前工作台移除", "ok");
+      return true;
+    }
+    try {
+      const detail = await mainApi.getTargetGroup(wb.caseId, groupId);
+      const rows = Array.isArray(detail.attributes) ? detail.attributes : [];
+      await mainApi.updateTargetGroup(wb.caseId, groupId, {
+        attributes: rows.filter((row) => String(row.name) !== name),
+      });
+      toast("特征已删除（修订历史保留）", "ok");
+      return true;
+    } catch (error) {
+      toast(`特征删除失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+      return false;
+    }
+  },
+  /** 移除关联对象：只保留主目标，关联框与关系一起清掉。 */
+  async removeAssociatedObject(elementId: string): Promise<boolean> {
+    const element = elementList.value.find((item) => item.id === elementId);
+    if (!element) return false;
+    if (!window.confirm("移除关联对象？主目标与截图保留，关联框和关系会被清掉。")) return false;
+    element.assocBox = null;
+    const groupId = elementGroupIds.value[elementId];
+    if (!groupId || !wb.caseId) return true;
+    try {
+      const detail = await mainApi.getTargetGroup(wb.caseId, groupId);
+      const objects = (Array.isArray(detail.objects) ? detail.objects : [])
+        .filter((row: Record<string, unknown>) => String(row.role ?? "") !== "associated");
+      await mainApi.updateTargetGroup(wb.caseId, groupId, { objects, relations: [] });
+      toast("关联对象已移除", "ok");
+      return true;
+    } catch (error) {
+      toast(`移除关联对象失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+      return false;
+    }
+  },
+  /**
+   * 删除一个要素：目标组、特征、定位点、回填状态一起清；截图与录像只读不动。
+   * 后端硬删除，删除前会把整组详情写进日志。
+   */
+  async deleteElement(elementId: string): Promise<boolean> {
+    const element = elementList.value.find((item) => item.id === elementId);
+    if (!element) return false;
+    if (!window.confirm("删除这个要素？目标特征、定位点与时间轴卡片会一起删除；截图和录像不受影响。")) return false;
+    const groupId = elementGroupIds.value[elementId];
+    if (groupId && wb.caseId) {
+      try {
+        await mainApi.deleteTargetGroup(wb.caseId, groupId);
+      } catch (error) {
+        toast(`删除失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+        return false;
+      }
+    }
+    elementList.value = elementList.value.filter((item) => item.id !== elementId);
+    const featureIds = new Set(featureList.value.filter((item) => item.elementId === elementId).map((item) => item.id));
+    featureList.value = featureList.value.filter((item) => item.elementId !== elementId);
+    featureStats.refs = Math.max(0, featureStats.refs - featureIds.size);
+    observationList.value = observationList.value.filter((item) => item.elementId !== elementId);
+    const anchors = { ...anchorByElement.value };
+    delete anchors[elementId];
+    anchorByElement.value = anchors;
+    const traces = { ...traceByElement.value };
+    delete traces[elementId];
+    traceByElement.value = traces;
+    const nextIds = { ...elementGroupIds.value };
+    delete nextIds[elementId];
+    elementGroupIds.value = nextIds;
+    if (!elementList.value.length) {
+      wb.emptyMode = true;
+      wb.roundStatus = "draft";
+      wb.selectedElementId = null;
+      wb.selectedAnchorId = null;
+      wb.selectedObservationId = null;
+    } else if (wb.selectedElementId === elementId) {
+      const next = elementList.value[0];
+      wb.selectedElementId = next.id;
+      wb.selectedAnchorId = next.id;
+      wb.selectedObservationId = `O-${next.id}`;
+      wb.selectedCameraId = next.cameraId ?? null;
+    }
+    toast("要素已删除", "ok");
+    return true;
+  },
+  /**
+   * 特征栏里手动新增一条特征：本地先出现，再追加到目标组属性。
+   * 同属性的已有特征走 updateElementFeature，避免出现两个同名卡片。
+   */
+  async addElementFeature(elementId: string, attr: string, value: string): Promise<boolean> {
+    const element = elementList.value.find((item) => item.id === elementId);
+    const name = attr.trim();
+    if (!element || !name) return false;
+    const text = value.trim();
+    const existing = featureList.value.find((item) => item.elementId === elementId && item.attr === name);
+    if (existing) {
+      await actions.updateElementFeature(existing.id, text);
+      return true;
+    }
+
+    const feature: TargetFeature = {
+      id: `F-${elementId}-manual-${Date.now()}`,
+      elementId,
+      attr: name,
+      value: text || "未知",
+      status: text ? "verified" : "unknown",
+      statusLabel: text ? "人工新增" : "未知（人工标注）",
+      meta: "人工新增",
+      sources: 1,
+      window: "人工",
+      confidence: text ? 100 : undefined,
+    };
+    element.attributes = [...(element.attributes ?? []), { key: name, value: text, unknown: !text }];
+    featureList.value.unshift(feature);
+
+    const groupId = elementGroupIds.value[element.id];
+    if (!groupId || !wb.caseId) {
+      toast("特征已加入当前工作台；该要素没有目标组，刷新后不会保留", "warn");
+      return true;
+    }
+    try {
+      const detail = await mainApi.getTargetGroup(wb.caseId, groupId);
+      const rows = Array.isArray(detail.attributes) ? detail.attributes : [];
+      await mainApi.updateTargetGroup(wb.caseId, groupId, {
+        revision: Number(detail.revision ?? 1),
+        attributes: [
+          ...rows,
+          {
+            subject_id: "P1",
+            name,
+            attribute_key: `custom.${name}`,
+            value: text || null,
+            observation_status: text ? "known" : "unknown",
+            review_state: "human_verified",
+            source: "human",
+            provenance: {},
+          },
+        ],
+      });
+      toast("特征已新增（修订历史 +1）", "ok");
+      return true;
+    } catch (error) {
+      featureList.value = featureList.value.filter((item) => item.id !== feature.id);
+      element.attributes = (element.attributes ?? []).filter((item) => item.key !== name);
+      toast(`特征新增失败：${error instanceof Error ? error.message : String(error)}`, "danger");
+      return false;
+    }
+  },
+  /**
+   * 保存「目标特征说明」：本地先生效，再写目标组 source.summary（不新增表字段）。
+   * 没有目标组的局部截图只保存在当前工作台，并明确提示刷新后可能丢失。
+   */
+  async saveElementSummary(elementId: string, value: string): Promise<void> {
+    const element = elementList.value.find((item) => item.id === elementId);
+    if (!element) return;
+    const text = value.trim();
+    element.note = text;
+    const groupId = elementGroupIds.value[element.id];
+    if (!wb.caseId || !groupId) {
+      toast("说明已保存在当前工作台；该要素没有目标组，刷新后不会保留", "warn");
+      return;
+    }
+    try {
+      const detail = await mainApi.getTargetGroup(wb.caseId, groupId);
+      const source = (detail.source && typeof detail.source === "object" && !Array.isArray(detail.source))
+        ? detail.source as Record<string, unknown>
+        : {};
+      await mainApi.updateTargetGroup(wb.caseId, groupId, {
+        revision: Number(detail.revision ?? 1),
+        source: { ...source, summary: text },
+      });
+      toast("目标特征说明已保存", "ok");
+    } catch (error) {
+      toast(`说明保存失败：${error instanceof Error ? error.message : String(error)}`, "danger");
     }
   },
   openCases() {
@@ -1456,6 +1731,7 @@ export const actions = {
       status: 'proposed', statusLabel: '新观测（待核）',
       meta: '来自追踪候选；相似度 ' + (cand.retrieval_score ?? '—') + '，不是属性结论',
       sources: 1, window: window,
+      pinned: true, sourceCardId: 'segment:' + cand.id,
     });
   },
   async extendTracking(seconds = 60, runId?: string) {
@@ -1616,6 +1892,13 @@ export const actions = {
   },
   async openLatestGroupEditor() {
     if (!wb.caseId) { toast('请先选择案件', 'warn'); return; }
+    // 优先编辑当前选中要素自己的目标组；没有选中时才退回最近一个组
+    const selected = wb.selectedElementId ? elementGroupIds.value[wb.selectedElementId] : null;
+    if (selected) {
+      ui.editingGroupId = selected;
+      ui.addElementOpen = true;
+      return;
+    }
     const groups = await mainApi.listTargetGroups(wb.caseId);
     const latest = groups.items[0];
     if (!latest) { toast('当前案件还没有目标组，先添加目标要素', 'info'); return; }
@@ -1721,6 +2004,15 @@ export const actions = {
     observationList.value.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
     applyAttributes(elementId, payload);
     wb.selectedElementId = elementId;
+    // 编辑时改了时间/镜头要重算定位：后端按 (group_id, object_id) upsert，不会产生重复行
+    const groupId = elementGroupIds.value[elementId];
+    if (groupId && payload.base !== "crop" && !payload.timeUnknown) {
+      void syncAnchor({ ...element, id: elementId }, { ...payload, targetGroupId: groupId });
+    } else if (groupId && (payload.base === "crop" || payload.timeUnknown)) {
+      // 完整截图改成局部截图：定位点要撤掉，不能留一个和截图对不上的点
+      delete anchorByElement.value[elementId];
+      anchorByElement.value = { ...anchorByElement.value };
+    }
     toast("要素已更新；特征候选按最新录入重算", "ok");
     return elementId;
   },

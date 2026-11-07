@@ -56,3 +56,9 @@ def update_target_group(case_id: str, group_id: str, payload: dict,
                         db: Session = Depends(get_db)):
     _guard(service.patch_group, db, case_id, group_id, payload)
     return service.group_detail(db, case_id, group_id)
+
+
+@router.delete('/cases/{case_id}/target-groups/{group_id}')
+def delete_target_group(case_id: str, group_id: str, db: Session = Depends(get_db)):
+    """删除一个目标组：对象/关系/属性/修订/定位锚点一起删，截图与录像不动。"""
+    return _guard(service.delete_group, db, case_id, group_id)

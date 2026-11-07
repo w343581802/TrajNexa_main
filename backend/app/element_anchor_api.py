@@ -59,6 +59,14 @@ def patch_element_anchor(case_id: str, anchor_id: str, payload: dict,
     return _guard(service.patch_anchor, db, case_id, anchor_id, payload)
 
 
+@router.delete('/cases/{case_id}/elements/anchors/{anchor_id}')
+def delete_element_anchor(case_id: str, anchor_id: str, db: Session = Depends(get_db)) -> dict:
+    """撤掉一个定位点（例如截图改成局部截图）：只删锚点，目标组与特征保留。"""
+    if db.get(Case, case_id) is None:
+        fail(404, 'case_not_found', 'case_not_found')
+    return _guard(service.delete_anchor, db, case_id, anchor_id)
+
+
 @router.get('/cases/{case_id}/elements/{group_id}/trace')
 def element_trace(case_id: str, group_id: str, db: Session = Depends(get_db)) -> dict:
     if db.get(Case, case_id) is None:

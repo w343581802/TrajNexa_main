@@ -867,6 +867,13 @@ export const mainApi = {
       old_review_state: string | null; new_value: string | null; new_review_state: string;
       changed_at: string }[]>(`/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}/revisions`),
 
+  /** 删除目标组：对象/特征/修订/定位锚点一起删，截图与录像不动（硬删除）。 */
+  deleteTargetGroup: (caseId: string, groupId: string) =>
+    request<{ deleted: boolean; group_id: string }>(
+      `/cases/${encodeURIComponent(caseId)}/target-groups/${encodeURIComponent(groupId)}`,
+      { method: "DELETE" },
+    ),
+
   /* ---------------------- 添加要素定位与时间框（B8-P1） ---------------------- */
 
   /** 完整截图：按角标时间 + 镜头在地图上定位；局部截图后端回 skipped，不伪造点位。 */
@@ -893,6 +900,13 @@ export const mainApi = {
     request<{ anchor: ElementAnchor }>(
       `/cases/${encodeURIComponent(caseId)}/elements/anchors/${encodeURIComponent(anchorId)}`,
       jsonBody(body as unknown as Record<string, unknown>, "PATCH"),
+    ),
+
+  /** 撤掉定位点（例如要素从完整截图改成局部截图）：只删锚点，特征保留。 */
+  deleteElementAnchor: (caseId: string, anchorId: string) =>
+    request<{ deleted: boolean; anchor_id: string }>(
+      `/cases/${encodeURIComponent(caseId)}/elements/anchors/${encodeURIComponent(anchorId)}`,
+      { method: "DELETE" },
     ),
 
   /** 刷新后重建要素：目标组 + 属性 + 锚点。 */

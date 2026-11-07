@@ -120,3 +120,24 @@ def test_same_client_ids_can_repeat_across_groups(env):
     assert first.json()['id'] != second.json()['id']
     assert {o['id'] for o in first.json()['objects']}.isdisjoint(
         {o['id'] for o in second.json()['objects']})
+
+
+def test_delete_group_removes_children_and_keeps_media(env):
+    """删除要素：组与子行一起删，截图（media）保留；重复删除返回 404。"""
+    client, Session, _ = env
+    case_id, media_id = _case_and_media(Session)
+    body = client.post('/api/v1/cases/%s/target-groups' % case_id,
+                       json=_payload(media_id, [_person(), _vehicle()], primary='P1',
+                                     attributes=[{'subject_id': 'P1', 'name': '上衣颜色',
+                                                  'value': '白色', 'observation_status': 'known'}])).json()
+    resp = client.delete('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id']))
+    assert resp.status_code == 200 and resp.json() == {'deleted': True, 'group_id': body['id']}
+    assert client.get('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id'])).status_code == 404
+    again = client.delete('/api/v1/cases/%s/target-groups/%s' % (case_id, body['id']))
+    assert again.status_code == 404
+
+    from app.models import MediaAsset, TargetElementObject, TargetObjectAttribute
+    with Session() as db:
+        assert db.query(TargetElementObject).filter_by(group_id=body['id']).count() == 0
+        assert db.query(TargetObjectAttribute).filter_by(group_id=body['id']).count() == 0
+        assert db.get(MediaAsset, media_id) is not None
