@@ -15,18 +15,20 @@ def point(map_id=1,uuid=A,bearing=90,tilt=35,pose='calibrated',lat=25,height=4.0
             bearing,tilt,'fixed',80.0,pose,'verified',True,75.0,height,
             registry_bearing,registry_tilt)
 
-def test_registry_pose_wins_over_map_camera_direction():
-    # Map 原始 direction 与登记姿态可能差很多（球机 168° vs 355°），
-    # 射线投影必须用登记姿态，否则会把目标投到镜头背后。
-    cam=build_spatial_payload([point(bearing=168,registry_bearing=355,
+def test_map_camera_direction_wins_over_registry_pose():
+    # Map 画视域楔形用的是 cameras_camera.direction（实测 168° 与视域质心 163.5° 相符），
+    # registry.bearing_deg 对球机是另一套登记值（实测 355°，与楔形差 187°），
+    # 射线投影必须跟楔形一致，否则目标会被投到镜头背后。
+    cam=build_spatial_payload([point(bearing=168,tilt=25,registry_bearing=355,
+                                     registry_tilt=25)],[])['cameras'][0]
+    assert cam['bearing_deg']==168 and cam['tilt_deg']==25
+    assert cam['bearing_source']=='map_camera'
+
+def test_missing_map_camera_pose_falls_back_to_registry():
+    cam=build_spatial_payload([point(bearing=None,tilt=None,registry_bearing=355,
                                      registry_tilt=25)],[])['cameras'][0]
     assert cam['bearing_deg']==355 and cam['tilt_deg']==25
     assert cam['bearing_source']=='registry'
-
-def test_missing_registry_pose_falls_back_to_map_camera_angle():
-    cam=build_spatial_payload([point(bearing=168,tilt=25)],[])['cameras'][0]
-    assert cam['bearing_deg']==168 and cam['tilt_deg']==25
-    assert cam['bearing_source']=='map_camera'
 
 def test_mount_height_is_read_and_enables_ray_projection():
     cam=build_spatial_payload([point()],[])['cameras'][0]

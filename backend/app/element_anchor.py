@@ -402,6 +402,62 @@ def create_anchor(db: Session, case_id: str, group_id: str, payload: dict) -> di
             'note': '定位点是估计结果，等级与不确定度以 projection_level / projection_quality 为准'}
 
 
+def refresh_anchors(db: Session, case_id: str, spatial: dict) -> int:
+    """Map 姿态或标定变了就重算定位点。
+
+    定位点是派生值而不是用户输入：镜头朝向、安装高度、FOV 或标定更新后，
+    旧点会落在错误位置（实测球机 direction 与 registry bearing 差 187 度，
+    用错朝向会把目标投到镜头背后）。只重算地面点/等级/半径，
+    保留用户拖过的 label_offset 与回填状态。
+    """
+    rows = db.scalars(select(TargetElementAnchor).where(
+        TargetElementAnchor.case_id == case_id)).all()
+    if not rows:
+        return 0
+    revision = spatial.get('spatial_revision')
+    cameras = {c.get('camera_uuid'): c for c in spatial.get('cameras') or []}
+    refreshed = 0
+    for row in rows:
+        payload = row.projection_payload or {}
+        if payload.get('spatial_revision') == revision:
+            continue
+        camera = cameras.get(row.camera_uuid)
+        if camera is None:
+            continue
+        try:
+            located = locate(spatial, camera, row.pixel_xy, row.frame_size)
+        except AnchorError:
+            continue
+        if not located.get('ground_point'):
+            continue
+        row.projection_level = located['projection_level']
+        row.projection_quality = located['quality']
+        row.ground_point = located['ground_point']
+        row.uncertainty_radius_m = located.get('uncertainty_radius_m')
+        row.camera_label = str(camera.get('display_name') or '').strip() or row.camera_label
+        row.projection_payload = {**located,
+                                  'camera_pose_quality': camera.get('pose_quality'),
+                                  'spatial_revision': revision,
+                                  'observation_binding': payload.get('observation_binding')}
+        row.updated_at = _utcnow()
+        refreshed += 1
+    if refreshed:
+        db.commit()
+    return refreshed
+
+
+def refresh_case_anchors(db: Session, case_id: str) -> int:
+    """读一次 Map 快照后重算本案件所有过期锚点；Map 不可用时保持原样。"""
+    if db.scalars(select(TargetElementAnchor.id).where(
+            TargetElementAnchor.case_id == case_id).limit(1)).first() is None:
+        return 0
+    try:
+        spatial = map_db_spatial.read_map_spatial(dsn=settings.map_db_readonly_url)
+    except map_db_spatial.SpatialReadError:
+        return 0
+    return refresh_anchors(db, case_id, spatial)
+
+
 def list_anchors(db: Session, case_id: str) -> dict:
     rows = db.scalars(select(TargetElementAnchor)
                       .where(TargetElementAnchor.case_id == case_id)

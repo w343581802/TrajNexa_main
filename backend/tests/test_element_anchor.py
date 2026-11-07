@@ -170,3 +170,51 @@ def test_locate_degrades_to_fov_and_reports_why():
     found = anchor.locate({'cameras': []}, camera, [960.0, 1000.0], [1920.0, 1080.0])
     assert found['quality'] == 'fov_centroid_unverified'
     assert found['ray_error'] == 'camera_parameters_incomplete'
+
+
+class _Rows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self, _stmt):
+        return self
+
+    def all(self):
+        return self._rows
+
+    def commit(self):
+        self.committed = True
+
+
+def _anchor_row(revision='old', label_offset=None):
+    from types import SimpleNamespace
+    return SimpleNamespace(
+        camera_uuid='u-ray', pixel_xy=[960.0, 1000.0], frame_size=[1920.0, 1080.0],
+        projection_payload={'spatial_revision': revision, 'observation_binding': 'obs-1'},
+        label_offset=label_offset if label_offset is not None else {'x': 12, 'y': -4},
+        ground_point={'lat': 0.0, 'lon': 0.0}, projection_level='L1',
+        projection_quality='fov_centroid_unverified', uncertainty_radius_m=None,
+        camera_label='旧名', updated_at=None)
+
+
+def test_refresh_recomputes_stale_anchor_and_keeps_label_offset():
+    # Map 姿态/标定变了必须重算派生坐标，否则旧点会留在错位置；
+    # 但用户拖过的标签位置不是派生值，不能被覆盖。
+    row = _anchor_row()
+    db = _Rows([row])
+    spatial = {'spatial_revision': 'new', 'cameras': [_ray_camera()]}
+    assert anchor.refresh_anchors(db, 'case', spatial) == 1
+    assert row.projection_quality == 'experimental_estimate'
+    assert row.projection_payload['spatial_revision'] == 'new'
+    assert row.projection_payload['observation_binding'] == 'obs-1'
+    assert row.label_offset == {'x': 12, 'y': -4}
+    assert row.ground_point['lat'] > 25.2500
+    assert db.committed is True
+
+
+def test_refresh_skips_anchor_already_on_current_revision():
+    row = _anchor_row(revision='new')
+    db = _Rows([row])
+    spatial = {'spatial_revision': 'new', 'cameras': [_ray_camera()]}
+    assert anchor.refresh_anchors(db, 'case', spatial) == 0
+    assert not hasattr(db, 'committed')

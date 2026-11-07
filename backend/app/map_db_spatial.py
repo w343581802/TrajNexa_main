@@ -138,13 +138,14 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
             seen_uuid.add(uuid)
         else:
             unlinked+=1
-        # 朝向优先用 Map 登记的已审核姿态（registry.bearing_deg/tilt_deg）；
-        # cameras_camera.direction/angle 是导入时的地图原始值，球机等设备可能差上百九十度，
-        # 拿它做射线投影会把目标投到镜头背后。两者都不补默认值。
-        bearing_source='registry' if registry_bearing is not None else 'map_camera'
-        bearing=_number(registry_bearing if registry_bearing is not None else bearing,
+        # 朝向优先用 cameras_camera.direction/angle（Map 自己绘制视域楔形用的就是它，
+        # 实测该镜头 direction=168 与视域质心方位 163.5 一致）。
+        # registry.bearing_deg 对球机可能是另一套登记值（实测 355，与楔形差 187 度），
+        # 只有 Map 侧缺值时才回退，不补默认值。
+        bearing_source='map_camera' if bearing is not None else 'registry'
+        bearing=_number(bearing if bearing is not None else registry_bearing,
                         0,360,'bearing')
-        tilt=_number(registry_tilt if registry_tilt is not None else tilt,0,360,'tilt')
+        tilt=_number(tilt if tilt is not None else registry_tilt,0,360,'tilt')
         range_m=_number(range_m,0,50000,'range')
         horizontal_fov=_number(horizontal_fov,0,360,'horizontal_fov')
         # 安装高度是路线 A（相机参数射线投影）的必要输入；缺它只能退到视域中心。

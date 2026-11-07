@@ -83,6 +83,8 @@ def list_elements(case_id: str, db: Session = Depends(get_db)) -> dict:
     """刷新后重建要素：目标组 + 属性 + 锚点 + 回填状态。"""
     if db.get(Case, case_id) is None:
         fail(404, 'case_not_found', 'case_not_found')
+    # 定位点是派生值：Map 姿态/标定更新后先重算，再返回给前端，避免旧点留在错位置。
+    _guard(service.refresh_case_anchors, db, case_id)
     anchors = {row.group_id: row for row in db.scalars(
         select(TargetElementAnchor).where(TargetElementAnchor.case_id == case_id)
         .order_by(TargetElementAnchor.created_at)).all()}
