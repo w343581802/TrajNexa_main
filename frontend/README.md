@@ -100,6 +100,8 @@ npm run typecheck
   再填帧秒数（时刻 = 录像起点 + 帧秒数），保存到后端 `data/truth/`，可直接喂给 `scripts/b8_projection_metrics.py --truth`。
   摄像头坐标**不能**当目标位置真值——它本身就是投影链路的输入，用它验证等于用 A 验证 A。
   拾取器里的镜头视域是虚线，表示模型几何、不当测距依据。
+  弹窗顶栏显示 `Map 数据 <spatial_revision>`，每次打开都会**强制重拉**镜头快照（`loadMapSnapshot(true)`），
+  Map 侧改完台账点「刷新」即可看到新坐标；打开期间不轮询，避免后台请求打断点选。
 - **影像源回退**：Esri World Imagery 在部分网络整段 403，`src/services/basemapTiles.ts` 会在**首个成功瓦片前累计 4 次失败**后
   自动换 Google 影像（`mt{s}.google.com/vt/lyrs=s`），再失败退 OSM 底图；状态栏署名随实际瓦片源切换（影像 © Esri / 影像 © Google），
   避免「写着 Esri 其实显示 Google」。

@@ -44,6 +44,8 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const cameras = ref<SnapshotCamera[]>([]);
+/** Map 侧空间数据版本；改完镜头台账后靠它确认弹窗用的是不是新数据 */
+const revision = ref("");
 const cameraUuid = ref("");
 const baseTime = ref("");
 const points = ref<Picked[]>([]);
@@ -157,7 +159,7 @@ function onMapClick(event: L.LeafletMouseEvent): void {
   drawPoint(row);
 }
 
-function drawCamera(): void {
+function drawCamera(focus = true): void {
   if (!map || !cameraLayer || !fovLayer) return;
   cameraLayer.clearLayers();
   fovLayer.clearLayers();
@@ -182,7 +184,8 @@ function drawCamera(): void {
   })
     .bindTooltip(cameraCode(target), { direction: "top" })
     .addTo(cameraLayer);
-  map.setView([target.lat, target.lon], 18);
+  // 刷新台账时不要把用户正在点选的视野拽走，只有换镜头才重新定位
+  if (focus) map.setView([target.lat, target.lon], 18);
 }
 
 /** 卫星影像是人工判读依据，不做暗色调色 */
@@ -194,13 +197,23 @@ function setBase(kind: "satellite" | "map"): void {
   tiles.bringToBack();
 }
 
-async function loadCameras(): Promise<void> {
+/**
+ * 读 Map 镜头。
+ *
+ * `mapSnapshot.loadMapSnapshot()` 带模块级缓存，主地图与拾取器共用同一份；
+ * Map 侧改完镜头台账后主地图会换 `spatial_revision` 重拉，拾取器若直接复用缓存就会一直显示旧坐标。
+ * 所以打开弹窗、点「刷新」都强制走一次网络（force=true），并把版本号显示出来供核对。
+ */
+async function loadCameras(force = false, focus = false): Promise<void> {
   loading.value = true;
   try {
-    const snapshot = await loadMapSnapshot();
+    const snapshot = await loadMapSnapshot(force);
     cameras.value = snapshot.cameras;
+    revision.value = snapshot.spatial_revision;
     const first = withUuid.value[0];
-    if (!cameraUuid.value && first?.camera_uuid) cameraUuid.value = first.camera_uuid;
+    const stillThere = withUuid.value.some((row) => row.camera_uuid === cameraUuid.value);
+    if (!stillThere && first?.camera_uuid) cameraUuid.value = first.camera_uuid;
+    drawCamera(focus);
   } catch (error) {
     toast(error instanceof Error ? error.message : "Map 镜头读取失败", "warn");
   } finally {
@@ -350,7 +363,8 @@ watch(
     }
     if (!baseTime.value) baseTime.value = defaultBaseTime();
     if (!datasetRoot.value) void loadDatasets();
-    if (!cameras.value.length) void loadCameras();
+    // 每次打开都强制重拉 Map 镜头：台账刚改过时缓存里的坐标是旧的；打开时按新坐标重新定位
+    void loadCameras(true, true);
     await nextTick();
     initMap();
   },
@@ -382,6 +396,15 @@ onBeforeUnmount(destroyMap);
           <span>录像起点</span>
           <input v-model="baseTime" class="input" placeholder="2026-10-23T15:00:00" />
         </label>
+        <div class="tp-field">
+          <span>Map 数据</span>
+          <div class="tp-rev">
+            <code :title="revision">{{ revision.replace("mapdb-spatial:", "") || "—" }}</code>
+            <button class="btn btn--ghost btn--sm" :disabled="loading" @click="loadCameras(true)">
+              <AppIcon name="refresh" :size="12" />{{ loading ? "读取中…" : "刷新" }}
+            </button>
+          </div>
+        </div>
         <span class="grow" />
         <label class="tp-field tp-field--inline">
           <span>底图</span>
@@ -479,6 +502,8 @@ onBeforeUnmount(destroyMap);
 .tp-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-3); }
 .tp-field > span { letter-spacing: .04em; }
 .tp-field--inline { flex-direction: row; align-items: center; gap: 6px; }
+.tp-rev { display: flex; align-items: center; gap: 6px; }
+.tp-rev code { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
 .grow { flex: 1; }
 .tp-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 12px; }
 .tp-map-wrap { display: flex; flex-direction: column; gap: 6px; }
