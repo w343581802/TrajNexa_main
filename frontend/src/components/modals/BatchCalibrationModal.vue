@@ -14,7 +14,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import AppIcon from "../ui/AppIcon.vue";
 import BaseModal from "../ui/BaseModal.vue";
 import { cameraCode, loadMapSnapshot, type SnapshotCamera } from "../../services/mapSnapshot";
-import { mainApi, type AutoCalibrationJob, type AutoCalibrationOptions } from "../../services/mainApi";
+import { mainApi, type AutoCalibrationCandidate, type AutoCalibrationJob, type AutoCalibrationOptions } from "../../services/mainApi";
 import { toast, ui } from "../../store/workbench";
 
 type RowState = {
@@ -38,6 +38,107 @@ const refreshing = ref(false);
 const scanned = ref(0);
 const actor = ref("批量标定");
 let pollTimer: number | null = null;
+
+/* ---- 候选审核（展开区） ---- */
+
+/** 已展开候选的镜头（key 同 rows）。 */
+const candOpen = ref<Record<string, boolean>>({});
+const candList = ref<Record<string, AutoCalibrationCandidate[]>>({});
+const candLoading = ref<Record<string, boolean>>({});
+/** 审核时要填的独立留出真值 p90（米），按候选 id 存输入串。 */
+const holdoutP90 = ref<Record<string, string>>({});
+const reviewNote = ref<Record<string, string>>({});
+const reviewing = ref<Record<string, boolean>>({});
+
+const REVIEW_STATUS: Record<string, string> = {
+  auto_candidate: "待审核",
+  approved: "已通过",
+  rejected: "已驳回",
+};
+
+function reviewLabel(value: string | undefined): string {
+  if (!value) return "待审核";
+  return REVIEW_STATUS[value] ?? value;
+}
+
+function reviewTone(candidate: AutoCalibrationCandidate): string {
+  if (candidate.review_status === "approved") return "bc-ok";
+  if (candidate.review_status === "rejected") return "bc-bad";
+  return "bc-warn";
+}
+
+function keyOf(camera: SnapshotCamera): string {
+  return camera.camera_uuid ?? `id:${camera.camera_id}`;
+}
+
+async function toggleCandidates(camera: SnapshotCamera): Promise<void> {
+  const key = keyOf(camera);
+  if (candOpen.value[key]) {
+    candOpen.value[key] = false;
+    return;
+  }
+  candOpen.value[key] = true;
+  if (candList.value[key]) return;
+  candLoading.value[key] = true;
+  try {
+    const payload = await mainApi.autoCalibrationCandidates(camera.camera_uuid as string);
+    candList.value[key] = payload.items ?? [];
+  } catch (error) {
+    toast(error instanceof Error ? error.message : "候选读取失败", "warn");
+    candOpen.value[key] = false;
+  } finally {
+    candLoading.value[key] = false;
+  }
+}
+
+/**
+ * 审核一条候选。
+ *
+ * 通过必须有独立留出真值 p90：这正是「实验估计 → 正式 L2」的分界线，
+ * 所以这里不做任何默认值或自动填充，填不出来就只能驳回。
+ */
+async function decide(
+  camera: SnapshotCamera,
+  candidate: AutoCalibrationCandidate,
+  action: "approve" | "reject",
+): Promise<void> {
+  const id = candidate.candidate_id;
+  if (reviewing.value[id]) return;
+  const who = actor.value.trim() || "批量标定";
+  if (!who) {
+    toast("请先填写操作人", "warn");
+    return;
+  }
+  let residual: { residual_m: { p90: number } } | null = null;
+  if (action === "approve") {
+    const raw = Number(holdoutP90.value[id] ?? "");
+    if (!Number.isFinite(raw) || raw <= 0) {
+      toast("通过审核要填独立留出真值的 p90 残差（米），没有真值只能驳回", "warn");
+      return;
+    }
+    residual = { residual_m: { p90: raw } };
+  }
+  reviewing.value[id] = true;
+  try {
+    const payload = await mainApi.reviewAutoCalibrationCandidate(id, {
+      action,
+      actor: who,
+      note: reviewNote.value[id]?.trim() || "",
+      holdout_residual_m: residual,
+    });
+    const list = candList.value[keyOf(camera)];
+    if (list) {
+      const index = list.findIndex((item) => item.candidate_id === id);
+      if (index >= 0) list[index] = payload.candidate;
+    }
+    toast(action === "approve" ? "候选已通过审核" : "候选已驳回", "ok");
+    await loadCandidateCounts();
+  } catch (error) {
+    toast(error instanceof Error ? error.message : "审核失败", "warn");
+  } finally {
+    reviewing.value[id] = false;
+  }
+}
 
 const BLOCKER_TEXT: Record<string, string> = {
   auto_calibration_disabled: "主系统未开启自动标定（B8_AUTO_CALIBRATION_ENABLED）",
@@ -345,6 +446,9 @@ watch(
         <div
           v-for="camera in targetCameras"
           :key="camera.camera_uuid ?? camera.camera_id"
+          class="bc-item"
+        >
+        <div
           class="bc-row"
           :class="{ 'is-blocked': rowOf(camera).status === 'ready' && !rowOf(camera).ready }"
           role="row"
@@ -378,12 +482,60 @@ watch(
           </span>
           <span class="bc-cand" role="cell">
             <template v-if="rowOf(camera).candidates">
-              <i class="bc-ok">{{ rowOf(camera).candidates }} 条</i>
+              <button class="bc-link" @click="toggleCandidates(camera)">
+                <i class="bc-ok">{{ rowOf(camera).candidates }} 条</i>
+                <em class="bc-dim">{{ candOpen[keyOf(camera)] ? "收起" : "审核" }}</em>
+              </button>
             </template>
             <template v-else-if="rowOf(camera).job?.candidate_id"><i class="bc-ok">已生成</i></template>
             <template v-else><i class="bc-dim">—</i></template>
           </span>
         </div>
+
+        <div v-if="candOpen[keyOf(camera)]" class="bc-cands">
+          <p v-if="candLoading[keyOf(camera)]" class="bc-dim">正在读取候选…</p>
+          <p v-else-if="!(candList[keyOf(camera)] ?? []).length" class="bc-dim">这台镜头还没有候选。</p>
+          <div
+            v-for="candidate in candList[keyOf(camera)] ?? []"
+            :key="candidate.candidate_id"
+            class="bc-cand-row"
+          >
+            <span class="bc-cand-meta">
+              <i :class="reviewTone(candidate)">{{ reviewLabel(candidate.review_status) }}</i>
+              <em class="bc-dim">{{ candidate.method }} · {{ candidate.quality }}</em>
+              <em v-if="candidate.validation_status === 'validated'" class="bc-ok">已进正式等级</em>
+              <em v-else class="bc-dim">未验证</em>
+            </span>
+            <span class="bc-cand-act">
+              <input
+                v-model="holdoutP90[candidate.candidate_id]"
+                class="input bc-p90"
+                placeholder="留出真值 p90（米）"
+                :disabled="candidate.review_status !== 'auto_candidate'"
+              />
+              <input
+                v-model="reviewNote[candidate.candidate_id]"
+                class="input bc-note-input"
+                placeholder="审核备注（可选）"
+                :disabled="candidate.review_status !== 'auto_candidate'"
+              />
+              <button
+                class="btn btn--primary btn--sm"
+                :disabled="candidate.review_status !== 'auto_candidate' || reviewing[candidate.candidate_id]"
+                @click="decide(camera, candidate, 'approve')"
+              >通过</button>
+              <button
+                class="btn btn--ghost btn--sm"
+                :disabled="candidate.review_status !== 'auto_candidate' || reviewing[candidate.candidate_id]"
+                @click="decide(camera, candidate, 'reject')"
+              >驳回</button>
+            </span>
+          </div>
+          <p class="bc-dim bc-cand-foot">
+            通过 = 承认这条候选达到正式等级，必须有独立留出真值的 p90；没有真值就驳回，不要用不确定度代替。
+          </p>
+        </div>
+      </div>
       </div>
 
       <div class="bc-note">
@@ -535,6 +687,68 @@ watch(
 .bc-warn { color: #ffbf00; }
 .bc-bad { color: #ff6b6b; }
 .bc-dim { color: var(--text-3); }
+
+.bc-item { border-bottom: 1px solid var(--line-soft, rgba(255, 255, 255, 0.05)); }
+
+.bc-item:last-child { border-bottom: none; }
+
+.bc-item > .bc-row { border-bottom: none; }
+
+.bc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.bc-link:hover em { color: var(--text-1); }
+
+.bc-cands {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px 10px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px dashed var(--line-soft, rgba(255, 255, 255, 0.07));
+}
+
+.bc-cand-row {
+  display: grid;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 10.5px;
+}
+
+.bc-cand-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bc-cand-meta i,
+.bc-cand-meta em { font-style: normal; }
+
+.bc-cand-act {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bc-p90 { width: 132px; }
+.bc-note-input { flex: 1 1 140px; min-width: 120px; }
+
+.bc-cand-foot {
+  margin: 2px 0 0;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
 
 .bc-note {
   display: flex;
