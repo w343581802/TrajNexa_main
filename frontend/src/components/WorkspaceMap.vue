@@ -77,16 +77,34 @@ const basemap = ref<Basemap>("map");
 const imageryCredit = ref<string>(ATTRIBUTION.imagery);
 let tileLayer: L.TileLayer | null = null;
 
+/**
+ * 缩放上限跟瓦片源走：OSM/Esri 到 19 级就没了（实测 OSM z20 直接 400），
+ * Google 影像能到 21 级。回退换源时同步抬/降上限，否则「+」到 19 就点不动。
+ */
+function applyBasemapMeta(layer: L.TileLayer) {
+  if (!map) return;
+  const max = layer.options.maxZoom ?? 19;
+  map.setMaxZoom(max);
+  if (map.getZoom() > max) map.setZoom(max);
+}
+
+function onBasemapChange(event: L.LeafletEvent) {
+  const detail = event as L.LeafletEvent & { attribution?: string; maxZoom?: number };
+  if (detail.attribution) imageryCredit.value = detail.attribution;
+  if (typeof detail.maxZoom === "number" && map) {
+    map.setMaxZoom(detail.maxZoom);
+    if (map.getZoom() > detail.maxZoom) map.setZoom(detail.maxZoom);
+  }
+}
+
 /** 换底图：地图 = OSM 瓦片（由 .is-dark-base 压暗），卫星 = 真实影像（Esri，失败自动回退） */
 function swapBasemap() {
   if (!map) return;
   if (tileLayer) map.removeLayer(tileLayer);
   imageryCredit.value = ATTRIBUTION.imagery;
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  tileLayer.on("basemapchange", (event: L.LeafletEvent) => {
-    const attribution = (event as L.LeafletEvent & { attribution?: string }).attribution;
-    if (attribution) imageryCredit.value = attribution;
-  });
+  tileLayer.on("basemapchange", onBasemapChange);
+  applyBasemapMeta(tileLayer);
 }
 
 function setBasemap(kind: Basemap) {
@@ -136,10 +154,8 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
-  tileLayer.on("basemapchange", (event: L.LeafletEvent) => {
-    const attribution = (event as L.LeafletEvent & { attribution?: string }).attribution;
-    if (attribution) imageryCredit.value = attribution;
-  });
+  tileLayer.on("basemapchange", onBasemapChange);
+  applyBasemapMeta(tileLayer);
   [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lFormal, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();

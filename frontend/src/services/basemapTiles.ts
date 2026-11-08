@@ -25,19 +25,22 @@ export const ATTRIBUTION = {
   imageryGoogle: "影像 © Google",
 } as const;
 
-type ImagerySource = { url: string; attribution: string; options?: L.TileLayerOptions };
+type ImagerySource = { url: string; attribution: string; maxZoom: number; options?: L.TileLayerOptions };
 
 const IMAGERY_SOURCES: ImagerySource[] = [
   {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: ATTRIBUTION.imagery,
+    maxZoom: 19,
   },
   {
     url: "https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
     attribution: ATTRIBUTION.imageryGoogle,
+    // Google 影像可到 21 级；实测本机 z20/z21 都返回影像，OSM 到 z20 直接 400
+    maxZoom: 21,
     options: { subdomains: "0123" },
   },
-  { url: OSM_TILES, attribution: ATTRIBUTION.map },
+  { url: OSM_TILES, attribution: ATTRIBUTION.map, maxZoom: 19 },
 ];
 
 export function mapTiles(): L.TileLayer {
@@ -53,7 +56,7 @@ export function mapTiles(): L.TileLayer {
 export function imageryTiles(): L.TileLayer {
   const first = IMAGERY_SOURCES[0];
   const layer = L.tileLayer(first.url, {
-    maxZoom: 19,
+    maxZoom: first.maxZoom,
     attribution: first.attribution,
     ...(first.options ?? {}),
   });
@@ -77,13 +80,16 @@ export function imageryTiles(): L.TileLayer {
     layer.setUrl(next.url, false);
     layer.options.subdomains = next.options?.subdomains ?? "abc";
     layer.options.attribution = next.attribution;
+    // 换源同时换缩放上限：Google 能到 21，Esri/OSM 到 19
+    layer.options.maxZoom = next.maxZoom;
     const owner = (layer as unknown as { _map?: L.Map })._map;
+    owner?.setMaxZoom(next.maxZoom);
     if (owner?.attributionControl) {
       owner.attributionControl.removeAttribution(previous.attribution);
       owner.attributionControl.addAttribution(next.attribution);
     }
     // 状态栏的自定义署名要跟着换，否则会写着 Esri 却显示 Google 影像
-    layer.fire("basemapchange", { attribution: next.attribution });
+    layer.fire("basemapchange", { attribution: next.attribution, maxZoom: next.maxZoom });
     // setUrl 不会重取已报错的瓦片，触发一次可见范围重绘
     layer.redraw();
   });
