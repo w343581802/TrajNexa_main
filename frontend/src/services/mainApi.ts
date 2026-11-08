@@ -160,6 +160,8 @@ export type AutoCalibrationPose = {
   tilt_deg: number | null;
   mount_height_m: number | null;
   horizontal_fov_deg: number | null;
+  /** 台账没录 FOV 时 Map 按业务默认 80° 补齐，来源记在这里。 */
+  horizontal_fov_source?: "map_camera" | "default_80" | null;
   pose_quality: string;
 };
 export type AutoCalibrationMethod = {

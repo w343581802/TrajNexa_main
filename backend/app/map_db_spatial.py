@@ -15,6 +15,12 @@ MAX_CAMERAS = 3000
 MAX_FOV_ROWS = 9000
 MAX_GEOMETRY_BYTES = 8 * 1024 * 1024
 
+# 台账未录水平视场角时的业务默认值。
+# 来源：户主 2026-11-08 明确「FOV 参数应该是默认的 80，参数不用补录」。
+# 它只用于射线投影的可用性判断与实验估计，必须通过 horizontal_fov_source
+# 与不确定度里的 hfov_default_80_assumed 标出来，不得当作实测内参。
+DEFAULT_HORIZONTAL_FOV_DEG = 80.0
+
 class SpatialReadError(ValueError):
     """Public sanitized error code; database errors might contain credentials."""
 
@@ -148,6 +154,14 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
         tilt=_number(tilt if tilt is not None else registry_tilt,0,360,'tilt')
         range_m=_number(range_m,0,50000,'range')
         horizontal_fov=_number(horizontal_fov,0,360,'horizontal_fov')
+        # 水平视场角缺省取 80°：这是户主 2026-11-08 明确给出的业务默认值（此类枪机/球机
+        # 在本项目台账里的标称视场角），不是代码猜出来的。缺省时显式记
+        # horizontal_fov_source='default_80'，下游据此把不确定度写成「按默认 80° 假设」，
+        # 不允许把默认值伪装成实测值。
+        horizontal_fov_source='map_camera'
+        if horizontal_fov is None:
+            horizontal_fov=DEFAULT_HORIZONTAL_FOV_DEG
+            horizontal_fov_source='default_80'
         # 安装高度是路线 A（相机参数射线投影）的必要输入；缺它只能退到视域中心。
         # 这里只搬运数值，不推断、不补默认值。
         mount_height=_number(mount_height,0.5,60,'mount_height')
@@ -157,7 +171,8 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
                    ('reported','estimated','calibrated','unknown') else 'unknown')
         if bearing is None or tilt is None or uuid is None:
             quality='unknown'
-        # 参数齐全才允许自动射线投影；缺任何一项都必须显示降级，不做假设。
+        # 参数齐全才允许自动射线投影：高度/俯角/朝向缺一不可。
+        # 水平 FOV 缺省已按业务默认 80° 补齐（见上），因此它不再单独阻塞。
         ray_ready = (mount_height is not None and horizontal_fov is not None
                      and horizontal_fov > 0 and tilt is not None and bearing is not None)
         item={
@@ -167,6 +182,7 @@ def build_spatial_payload(point_rows, fov_rows, video_rows=()):
             'bearing_deg':bearing,'tilt_deg':tilt,
             'bearing_source':bearing_source,
             'horizontal_fov_deg':horizontal_fov,
+            'horizontal_fov_source':horizontal_fov_source,
             'mount_height_m':mount_height,'ray_projection_ready':ray_ready,
             'range_m':range_m,'camera_type':str(camtype or '')[:60],
             'pose_quality':quality,

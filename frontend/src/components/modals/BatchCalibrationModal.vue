@@ -23,6 +23,8 @@ type RowState = {
   blockers: string[];
   error: string;
   job: AutoCalibrationJob | null;
+  /** 该镜头的水平 FOV 是台账真值还是业务默认 80°（缺省补齐）。 */
+  fovDefault: boolean;
   /** 该镜头当前有多少条候选（作业完成后由刷新补齐）。 */
   candidates: number;
   busy: boolean;
@@ -82,7 +84,8 @@ function jobTone(status: string | undefined): string {
 function rowOf(camera: SnapshotCamera): RowState {
   const key = camera.camera_uuid ?? `id:${camera.camera_id}`;
   if (!rows.value[key]) {
-    rows.value[key] = { status: "idle", ready: false, blockers: [], error: "", job: null, candidates: 0, busy: false };
+    rows.value[key] = { status: "idle", ready: false, blockers: [], error: "",
+                        fovDefault: false, job: null, candidates: 0, busy: false };
   }
   return rows.value[key];
 }
@@ -139,6 +142,7 @@ async function scan(): Promise<void> {
       const options: AutoCalibrationOptions = await mainApi.autoCalibrationOptions(camera.camera_uuid as string);
       row.ready = options.ready;
       row.blockers = options.blockers ?? [];
+      row.fovDefault = options.pose?.horizontal_fov_source === "default_80";
       row.status = "ready";
       row.error = "";
     } catch (error) {
@@ -354,7 +358,10 @@ watch(
             <template v-else-if="rowOf(camera).status === 'error'">
               <i class="bc-bad" :title="rowOf(camera).error">读取失败</i>
             </template>
-            <template v-else-if="rowOf(camera).ready"><i class="bc-ok">齐全</i></template>
+            <template v-else-if="rowOf(camera).ready">
+              <i class="bc-ok">齐全</i>
+              <em v-if="rowOf(camera).fovDefault" class="bc-dim">（FOV 默认 80°）</em>
+            </template>
             <template v-else>
               <i class="bc-warn">{{ rowOf(camera).blockers.map(blockerText).join("；") || "参数不齐" }}</i>
             </template>
@@ -383,7 +390,7 @@ watch(
         <AppIcon name="info" :size="13" />
         <span>
           自动标定只用 Map 已有参照帧与镜头参数推算，候选恒为实验估计；审核通过要填独立留出真值的 p90 残差，
-          没有真值就只能驳回。缺水平视场角的镜头请走外场台账，不要用典型值补。
+          没有真值就只能驳回。台账没录水平视场角的镜头按业务默认 80° 参与试算，它是假设内参、不是实测值。
         </span>
       </div>
     </div>

@@ -29,6 +29,8 @@ export type SnapshotCamera = {
   lat: number;
   bearing_deg: number | null;
   fov_deg: number | null;
+  /** 台账没录 FOV 时后端按业务默认 80° 补齐，这里标明来源，UI 不能说成实测。 */
+  fov_source: "map_camera" | "default_80" | null;
   range_m: number | null;
   height_m: number | null;
   /** 路线 A（相机参数射线投影）所需参数是否齐全；缺一项就只能退视域中心。 */
@@ -60,6 +62,7 @@ type SpatialCamera = {
   bearing_deg: number | null;
   tilt_deg: number | null;
   horizontal_fov_deg: number | null;
+  horizontal_fov_source?: "map_camera" | "default_80" | null;
   mount_height_m?: number | null;
   ray_projection_ready?: boolean;
   bearing_source?: string;
@@ -111,6 +114,7 @@ function toSnapshotCamera(camera: SpatialCamera): SnapshotCamera | null {
     lat: camera.location.lat,
     bearing_deg: camera.bearing_deg,
     fov_deg: camera.horizontal_fov_deg,
+    fov_source: camera.horizontal_fov_source ?? null,
     range_m: camera.range_m,
     height_m: camera.mount_height_m ?? null,
     ray_ready: Boolean(camera.ray_projection_ready),

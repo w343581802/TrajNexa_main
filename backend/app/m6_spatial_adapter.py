@@ -49,6 +49,7 @@ def camera_spec(camera, spatial_revision, binding_status=BINDING_NONE):
         "bearing_deg": camera.get("bearing_deg"),
         "tilt_deg": camera.get("tilt_deg"),
         "horizontal_fov_deg": camera.get("horizontal_fov_deg"),
+        "horizontal_fov_source": camera.get("horizontal_fov_source"),
         "range_m": camera.get("range_m"),
         "fov": {
             "observation": (levels.get("observation") or {}).get("geometry"),

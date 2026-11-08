@@ -41,11 +41,19 @@ def test_missing_mount_height_disables_ray_projection_without_guessing():
     assert cam['mount_height_m'] is None
     assert cam['ray_projection_ready'] is False
 
-def test_missing_fov_disables_ray_projection():
+def test_missing_fov_uses_business_default_80():
+    # 户主 2026-11-08：FOV 默认 80°，参数不用补录；但来源必须标出来，
+    # 让下游的不确定度写成「按默认 80° 假设」。
     row=list(point());row[12]=None
     cam=build_spatial_payload([tuple(row)],[])['cameras'][0]
-    assert cam['horizontal_fov_deg'] is None
-    assert cam['ray_projection_ready'] is False
+    assert cam['horizontal_fov_deg']==80.0
+    assert cam['horizontal_fov_source']=='default_80'
+    assert cam['ray_projection_ready'] is True
+
+def test_present_fov_is_marked_as_map_camera_value():
+    cam=build_spatial_payload([point()],[])['cameras'][0]
+    assert cam['horizontal_fov_deg']==75.0
+    assert cam['horizontal_fov_source']=='map_camera'
 
 def test_mount_height_changes_spatial_revision():
     a=build_spatial_payload([point()],[])['spatial_revision']

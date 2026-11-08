@@ -216,7 +216,12 @@ def _ray_point(camera: dict, pixel, frame_size) -> tuple[dict | None, str | None
                                    round(float(frame_size[1]), 2)],
                     'quality': 'estimated', 'source': 'box_bottom_center'},
         'range_m': result.get('range_m'),
-        'uncertainties': ['pose_reported_unverified', 'intrinsics_from_hfov_assumed',
+        # 台账缺 FOV 时快照按业务默认 80° 补齐（map_db_spatial.DEFAULT_HORIZONTAL_FOV_DEG），
+        # 这里必须把「内参是默认值」写进不确定度，不能与实测内参混为一谈。
+        'uncertainties': ['pose_reported_unverified',
+                          'intrinsics_from_default_hfov_80_assumed'
+                          if camera.get('horizontal_fov_source') == 'default_80'
+                          else 'intrinsics_from_hfov_assumed',
                           'ground_plane_flat_assumed',
                           'contact_point_is_box_bottom_center'],
     }, None

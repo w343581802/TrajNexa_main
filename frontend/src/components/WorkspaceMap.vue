@@ -2175,7 +2175,7 @@ function focusAnchor() {
                 </div>
                 <div>
                   <dt>水平 FOV</dt>
-                  <dd>{{ calibrationOptions.pose.horizontal_fov_deg == null ? "缺失" : calibrationOptions.pose.horizontal_fov_deg + "°" }}</dd>
+                  <dd>{{ calibrationOptions.pose.horizontal_fov_deg == null ? "缺失" : calibrationOptions.pose.horizontal_fov_deg + "°" }}{{ calibrationOptions.pose.horizontal_fov_source === "default_80" ? "（业务默认，非实测）" : "" }}</dd>
                 </div>
                 <div>
                   <dt>姿态质量</dt>

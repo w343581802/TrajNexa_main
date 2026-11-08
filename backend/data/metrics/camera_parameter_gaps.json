@@ -1,9 +1,9 @@
 {
   "schema_version": "b8s-camera-parameter-gaps:1",
-  "generated_at": "2026-11-07T23:47:51+00:00",
+  "generated_at": "2026-11-08T02:21:59+00:00",
   "source": {
     "url": "http://127.0.0.1:8000/api/v1/spatial/cameras",
-    "spatial_revision": "mapdb-spatial:21e18d1d9728e2bf",
+    "spatial_revision": "mapdb-spatial:6cb5be4d874d56c0",
     "counts": {
       "map_cameras": 31,
       "displayable_points": 31,
@@ -14,16 +14,16 @@
       "with_video": 30
     }
   },
-  "policy": "缺失参数不当 0、不猜 FOV：补齐前该镜头只能出镜头位置点（L0），不能出射线投影（L1）。补录来源见 design/77 §12.17。",
+  "policy": "缺失参数不当 0、不按机型猜 FOV；唯一例外是水平视场角按业务默认 80° 补齐，并用 horizontal_fov_source='default_80' 标记，朝向/俯角/高度缺任何一项仍只能出镜头位置点（L0）。默认值来源见 design/77 §12.17、§12.19。",
   "summary": {
     "cameras": 31,
-    "ray_projection_ready": 18,
-    "blocked": 13,
+    "ray_projection_ready": 31,
+    "blocked": 0,
     "missing_counts": {
       "bearing_deg": 0,
       "tilt_deg": 0,
       "mount_height_m": 0,
-      "horizontal_fov_deg": 13
+      "horizontal_fov_deg": 0
     },
     "pose_quality": {
       "calibrated": 31
@@ -31,347 +31,13 @@
     "fov_provenance": {
       "map_model_geometry_not_verified_coverage": 31
     },
+    "horizontal_fov_source": {
+      "map_camera": 18,
+      "default_80": 13
+    },
     "server_flag_mismatch": []
   },
   "cameras": [
-    {
-      "map_camera_id": "9000000000000055",
-      "camera_uuid": "65f346b1-6549-4bdf-9936-8a7042aed7ba",
-      "display_name": "1-LT-桂康路正通路口-向北",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 30.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 25.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000042",
-      "camera_uuid": "5941a4f2-ab54-4860-b2aa-06129feb7177",
-      "display_name": "1-LT-桂康路正通路口-向西",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 267.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 20.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000049",
-      "camera_uuid": "b19e7ac2-6b33-44b4-8dbc-8929abb0fdcf",
-      "display_name": "1-LT-步行街桂康路-向西",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 197.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 20.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": 46.0,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000036",
-      "camera_uuid": "011ff668-9547-4e2f-a9fe-af58f519f047",
-      "display_name": "3-DX-中仁路孔明园E40栋-向西",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 232.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 21.0,
-      "mount_height_m": 3.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000033",
-      "camera_uuid": "092137e4-9ac6-4b4f-a6b9-4897eaf1e4e0",
-      "display_name": "3-DX-中仁路都市丽景小区-向南",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 274.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 35.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000056",
-      "camera_uuid": "72245bbb-8183-4a36-85bf-e8f0ada3b2db",
-      "display_name": "3-DX-桂康菜市入口-球",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 30.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 19.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": false,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000043",
-      "camera_uuid": "02242ff2-1a03-4b41-a521-e8ea7ed0ddbd",
-      "display_name": "3-DX-桂康菜市入口万顺堂药-向北",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 0.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 23.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000047",
-      "camera_uuid": "8e1215a2-a56b-4808-aa97-2ddf83ad7d27",
-      "display_name": "3-DX-桂康路翠园雅筑西门-向东",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 268.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 25.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000040",
-      "camera_uuid": "725b85d1-9af8-430e-a4ff-d3607d96f908",
-      "display_name": "3-DX-桂康路鸿湖园C3栋-向东",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 89.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 22.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000052",
-      "camera_uuid": "2dec2a5f-7d71-4ddb-bc08-fd8eb7660bd7",
-      "display_name": "YD-中仁路都市丽景正门1",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 198.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 25.0,
-      "mount_height_m": 2.5,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000037",
-      "camera_uuid": "f9cc5b92-e85f-4c3d-bdf8-5694290825d2",
-      "display_name": "YD-桂康路中仁路T口1-1",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 77.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 22.0,
-      "mount_height_m": 2.5,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000031",
-      "camera_uuid": "2c3c304b-2cfd-4c57-992d-b01ac8b38996",
-      "display_name": "中仁居民区中仁路59号南",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 57.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 25.0,
-      "mount_height_m": 3.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
-    {
-      "map_camera_id": "9000000000000053",
-      "camera_uuid": "f369b512-148b-47c1-87b1-589be4766314",
-      "display_name": "桂康路翠园雅筑后门口",
-      "camera_type": "fixed",
-      "pose_quality": "calibrated",
-      "bearing_deg": 92.0,
-      "bearing_source": "map_camera",
-      "tilt_deg": 20.0,
-      "mount_height_m": 4.0,
-      "horizontal_fov_deg": null,
-      "range_m": null,
-      "has_video": true,
-      "ray_projection_ready": false,
-      "missing_fields": [
-        "horizontal_fov_deg"
-      ],
-      "missing_labels": [
-        "水平视场角"
-      ],
-      "fix_hints": [
-        "外场台账补录水平视场角（度），不要填默认值"
-      ],
-      "anchor_fallback": "L0_camera_position",
-      "server_flag_mismatch": false
-    },
     {
       "map_camera_id": "9000000000000051",
       "camera_uuid": "79cec34c-009d-4d6d-befd-6fb64337ee0a",
@@ -383,6 +49,7 @@
       "tilt_deg": 25.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -403,7 +70,50 @@
       "tilt_deg": 10.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": 206.0,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000055",
+      "camera_uuid": "65f346b1-6549-4bdf-9936-8a7042aed7ba",
+      "display_name": "1-LT-桂康路正通路口-向北",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 30.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 25.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000042",
+      "camera_uuid": "5941a4f2-ab54-4860-b2aa-06129feb7177",
+      "display_name": "1-LT-桂康路正通路口-向西",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 267.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 20.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
       "missing_fields": [],
@@ -423,7 +133,29 @@
       "tilt_deg": 22.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000049",
+      "camera_uuid": "b19e7ac2-6b33-44b4-8dbc-8929abb0fdcf",
+      "display_name": "1-LT-步行街桂康路-向西",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 197.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 20.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": 46.0,
       "has_video": true,
       "ray_projection_ready": true,
       "missing_fields": [],
@@ -443,7 +175,29 @@
       "tilt_deg": 25.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 64.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": 39.0,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000036",
+      "camera_uuid": "011ff668-9547-4e2f-a9fe-af58f519f047",
+      "display_name": "3-DX-中仁路孔明园E40栋-向西",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 232.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 21.0,
+      "mount_height_m": 3.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
       "missing_fields": [],
@@ -463,6 +217,28 @@
       "tilt_deg": 25.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000033",
+      "camera_uuid": "092137e4-9ac6-4b4f-a6b9-4897eaf1e4e0",
+      "display_name": "3-DX-中仁路都市丽景小区-向南",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 274.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 35.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -483,6 +259,49 @@
       "tilt_deg": 27.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000056",
+      "camera_uuid": "72245bbb-8183-4a36-85bf-e8f0ada3b2db",
+      "display_name": "3-DX-桂康菜市入口-球",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 30.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 19.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
+      "has_video": false,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000043",
+      "camera_uuid": "02242ff2-1a03-4b41-a521-e8ea7ed0ddbd",
+      "display_name": "3-DX-桂康菜市入口万顺堂药-向北",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 0.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 23.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -503,6 +322,49 @@
       "tilt_deg": 27.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000047",
+      "camera_uuid": "8e1215a2-a56b-4808-aa97-2ddf83ad7d27",
+      "display_name": "3-DX-桂康路翠园雅筑西门-向东",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 268.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 25.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000040",
+      "camera_uuid": "725b85d1-9af8-430e-a4ff-d3607d96f908",
+      "display_name": "3-DX-桂康路鸿湖园C3栋-向东",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 89.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 22.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -523,6 +385,28 @@
       "tilt_deg": 25.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000052",
+      "camera_uuid": "2dec2a5f-7d71-4ddb-bc08-fd8eb7660bd7",
+      "display_name": "YD-中仁路都市丽景正门1",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 198.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 25.0,
+      "mount_height_m": 2.5,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -543,6 +427,7 @@
       "tilt_deg": 25.0,
       "mount_height_m": 3.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -563,7 +448,29 @@
       "tilt_deg": 20.0,
       "mount_height_m": 4.0,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": 70.0,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000037",
+      "camera_uuid": "f9cc5b92-e85f-4c3d-bdf8-5694290825d2",
+      "display_name": "YD-桂康路中仁路T口1-1",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 77.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 22.0,
+      "mount_height_m": 2.5,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
       "missing_fields": [],
@@ -583,6 +490,7 @@
       "tilt_deg": 18.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": 115.0,
       "has_video": true,
       "ray_projection_ready": true,
@@ -603,6 +511,7 @@
       "tilt_deg": 25.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -623,6 +532,7 @@
       "tilt_deg": 20.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -643,6 +553,7 @@
       "tilt_deg": 25.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -663,6 +574,7 @@
       "tilt_deg": 20.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -683,6 +595,7 @@
       "tilt_deg": 30.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -703,6 +616,28 @@
       "tilt_deg": 20.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
+      "range_m": null,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000031",
+      "camera_uuid": "2c3c304b-2cfd-4c57-992d-b01ac8b38996",
+      "display_name": "中仁居民区中仁路59号南",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 57.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 25.0,
+      "mount_height_m": 3.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
       "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
@@ -723,7 +658,29 @@
       "tilt_deg": 20.0,
       "mount_height_m": 2.5,
       "horizontal_fov_deg": 60.0,
+      "horizontal_fov_source": "map_camera",
       "range_m": 32.0,
+      "has_video": true,
+      "ray_projection_ready": true,
+      "missing_fields": [],
+      "missing_labels": [],
+      "fix_hints": [],
+      "anchor_fallback": "L1_ray_csv",
+      "server_flag_mismatch": false
+    },
+    {
+      "map_camera_id": "9000000000000053",
+      "camera_uuid": "f369b512-148b-47c1-87b1-589be4766314",
+      "display_name": "桂康路翠园雅筑后门口",
+      "camera_type": "fixed",
+      "pose_quality": "calibrated",
+      "bearing_deg": 92.0,
+      "bearing_source": "map_camera",
+      "tilt_deg": 20.0,
+      "mount_height_m": 4.0,
+      "horizontal_fov_deg": 80.0,
+      "horizontal_fov_source": "default_80",
+      "range_m": null,
       "has_video": true,
       "ray_projection_ready": true,
       "missing_fields": [],

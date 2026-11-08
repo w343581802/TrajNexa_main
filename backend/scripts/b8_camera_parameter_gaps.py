@@ -8,8 +8,9 @@
 数据取自本机 api 的 `GET /api/v1/spatial/cameras`（与前端地图同一份快照），
 逐台列出「射线投影要什么参数、现在缺哪个、补齐前退化到哪一级」。
 
-刻意不做的事：不给缺失参数填默认值、不按机型猜 FOV。缺的就是台账外场补录，
-填 0 或 60 会让投影看起来「通了」，实际把误差藏进结果里。
+刻意不做的事：不改台账、不按机型猜 FOV。唯一的例外是水平视场角——户主
+2026-11-08 确认「FOV 参数应该是默认的 80，参数不用补录」，所以快照会在台账为空时
+补 80° 并标 ``horizontal_fov_source='default_80'``；报告把它单独统计，绝不是实测内参。
 """
 from __future__ import annotations
 
@@ -38,7 +39,7 @@ FIX_HINTS = {
     "bearing_deg": "外场台账补录方位角（0–360°）",
     "tilt_deg": "外场台账补录俯角（0–90°）",
     "mount_height_m": "外场台账补录安装高度（米）",
-    "horizontal_fov_deg": "外场台账补录水平视场角（度），不要填默认值",
+    "horizontal_fov_deg": "台账已按业务默认 80° 参与试算；有实测值再覆盖",
 }
 
 
@@ -81,6 +82,7 @@ def camera_gap(camera: dict[str, Any]) -> dict[str, Any]:
         "tilt_deg": camera.get("tilt_deg"),
         "mount_height_m": camera.get("mount_height_m"),
         "horizontal_fov_deg": camera.get("horizontal_fov_deg"),
+        "horizontal_fov_source": camera.get("horizontal_fov_source"),
         "range_m": camera.get("range_m"),
         "has_video": bool(camera.get("has_video")),
         "ray_projection_ready": ready,
@@ -100,11 +102,14 @@ def build_report(payload: dict[str, Any], *, base_url: str) -> dict[str, Any]:
     }
     pose_quality: dict[str, int] = {}
     provenance: dict[str, int] = {}
+    fov_source: dict[str, int] = {}
     for camera in payload.get("cameras") or []:
         pose = str(camera.get("pose_quality") or "unknown")
         pose_quality[pose] = pose_quality.get(pose, 0) + 1
         source = str(camera.get("fov_provenance") or "unknown")
         provenance[source] = provenance.get(source, 0) + 1
+        fov = str(camera.get("horizontal_fov_source") or "unknown")
+        fov_source[fov] = fov_source.get(fov, 0) + 1
     blocked = [row for row in cameras if not row["ray_projection_ready"]]
     return {
         "schema_version": "b8s-camera-parameter-gaps:1",
@@ -115,8 +120,9 @@ def build_report(payload: dict[str, Any], *, base_url: str) -> dict[str, Any]:
             "counts": payload.get("counts") or {},
         },
         "policy": (
-            "缺失参数不当 0、不猜 FOV：补齐前该镜头只能出镜头位置点（L0），"
-            "不能出射线投影（L1）。补录来源见 design/77 §12.17。"
+            "缺失参数不当 0、不按机型猜 FOV；唯一例外是水平视场角按业务默认 80° 补齐，"
+            "并用 horizontal_fov_source='default_80' 标记，朝向/俯角/高度缺任何一项仍只能出"
+            "镜头位置点（L0）。默认值来源见 design/77 §12.17、§12.19。"
         ),
         "summary": {
             "cameras": len(cameras),
@@ -125,6 +131,7 @@ def build_report(payload: dict[str, Any], *, base_url: str) -> dict[str, Any]:
             "missing_counts": missing_counts,
             "pose_quality": pose_quality,
             "fov_provenance": provenance,
+            "horizontal_fov_source": fov_source,
             "server_flag_mismatch": [row["map_camera_id"] for row in cameras if row["server_flag_mismatch"]],
         },
         "cameras": cameras,
