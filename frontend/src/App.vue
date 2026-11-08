@@ -14,6 +14,7 @@ import LiveGisMap from "./components/LiveGisMap.vue";
 import AddElementModal from "./components/modals/AddElementModal.vue";
 import CaseManageModal from "./components/modals/CaseManageModal.vue";
 import CorrectionDialog from "./components/modals/CorrectionDialog.vue";
+import BatchCalibrationModal from "./components/modals/BatchCalibrationModal.vue";
 import CoverageModal from "./components/modals/CoverageModal.vue";
 import ElementsDrawer from "./components/modals/ElementsDrawer.vue";
 import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
@@ -113,6 +114,7 @@ onMounted(() => {
     <FeatureDetailSheet />
     <ElementsDrawer />
     <CorrectionDialog />
+    <BatchCalibrationModal />
     <ToastStack />
   </div>
 </template>

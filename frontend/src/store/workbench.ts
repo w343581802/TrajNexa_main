@@ -162,6 +162,8 @@ export const ui = reactive({
   elementsOpen: false,
   featureDetailOpen: false,
   correctionOpen: false,
+  /** 批量自动标定（对所有参数齐全的 Map 镜头一次发起） */
+  batchCalibrationOpen: false,
   dockCollapsed: false,
   dockHeight: 264,
   /** 任务控制卡片统一显示缩略图还是缩略视频 */
@@ -1948,6 +1950,10 @@ export const actions = {
     ui.coverageCameraId = cameraId ?? wb.selectedCameraId;
     if (cameraId) wb.selectedCameraId = cameraId;
   },
+  /** 批量自动标定：不依赖案件，直接读 Map 镜头快照逐台发起。 */
+  openBatchCalibration() {
+    ui.batchCalibrationOpen = true;
+  },
   /**
    * 「添加要素」= 先弹系统选图框，选中后立即打开「添加目标要素」并自动识别。
    * 编辑已有要素（传 elementId）只是打开弹窗，不再选图。
@@ -2307,6 +2313,7 @@ export function applyDemoHash() {
     elements: () => (ui.elementsOpen = true),
     feature: () => (ui.featureDetailOpen = true),
     correction: () => (ui.correctionOpen = true),
+    calibration: () => actions.openBatchCalibration(),
     empty: () => actions.switchScene(true),
   };
   map[key]?.();

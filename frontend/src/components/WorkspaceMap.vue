@@ -1855,6 +1855,14 @@ function focusAnchor() {
       <button class="tb-btn tb-btn--icon" :class="{ 'is-open': openPanel === 'legend' }" title="图例" aria-label="图例" @click="togglePanel('legend')">
         <AppIcon name="list" :size="14" />
       </button>
+      <button
+        class="tb-btn tb-btn--icon"
+        title="批量自动标定（参数齐全的镜头）"
+        aria-label="批量自动标定"
+        @click="actions.openBatchCalibration()"
+      >
+        <AppIcon name="sliders" :size="14" />
+      </button>
       <button class="tb-btn tb-btn--icon" title="定位到起始锚点" aria-label="定位到起始锚点" @click="focusAnchor">
         <AppIcon name="target" :size="14" />
       </button>

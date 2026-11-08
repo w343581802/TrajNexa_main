@@ -31,7 +31,7 @@ npm run typecheck
 | 历史记录（侧栏页） | `HistoryPage.vue` | 轮次归档页；归档接口未接入前为真实空态 |
 | 底部容器 | `BottomDock.vue` | 可拖拽 208px–62vh、可收起；收起时显示一行摘要（含待审核数） |
 
-弹层：`modals/CaseManageModal.vue`（案件管理：新增 / 切换 / 删除）、`modals/CoverageModal.vue`（录像覆盖时间轴）、`modals/AddElementModal.vue`（「添加要素」先弹选图框，选中即打开弹窗并自动识别 → 人工确认时间与摄像头名称）、`modals/RecordingDirModal.vue`（录像目录选择，支持「添加视频 / 挂载目录」两种入口文案）、`modals/ClipReviewModal.vue`（待审核片段的人工审核）、`modals/FeatureDetailSheet.vue`（特征校验/历史）、`modals/ElementsDrawer.vue`（要素列表）、`modals/CorrectionDialog.vue`（空间修正工单）。
+弹层：`modals/CaseManageModal.vue`（案件管理：新增 / 切换 / 删除）、`modals/CoverageModal.vue`（录像覆盖时间轴）、`modals/AddElementModal.vue`（「添加要素」先弹选图框，选中即打开弹窗并自动识别 → 人工确认时间与摄像头名称）、`modals/RecordingDirModal.vue`（录像目录选择，支持「添加视频 / 挂载目录」两种入口文案）、`modals/ClipReviewModal.vue`（待审核片段的人工审核）、`modals/FeatureDetailSheet.vue`（特征校验/历史）、`modals/ElementsDrawer.vue`（要素列表）、`modals/CorrectionDialog.vue`（空间修正工单）、`modals/BatchCalibrationModal.vue`（批量自动标定：扫参数、只对齐全的发起、回读作业与候选）。
 
 ### 案件（研判工作的入口）
 
@@ -90,6 +90,9 @@ npm run typecheck
 - **要素锚点**：要素绑定的 `cameraId` 就是 Map 的 `camera_uuid`，锚点直接落在该镜头经纬度；
   没有绑定镜头的要素画成「区域锚点（待定位）」圈，只表示待定位区域，不是真实轨迹。
 - Map 空间数据不可用（`/api/v1/spatial/cameras` 返回错误）时地图不空白：顶部提示“Map 空间数据不可用：暂时没有镜头点位与视域”，并提供重试。
+- **批量自动标定**：工具条的滑杆按钮打开 `BatchCalibrationModal`，一次扫描全部镜头的参数齐全度，
+  只对齐全的那批串行发起 Map 自动标定作业；作业只生成 `experimental_estimate` 候选，审核通过仍需带独立留出真值的 p90，
+  缺参数的镜头只显示「缺什么（等外场台账）」，前端不补默认值、不写 Map 基础数据。
 
 ## Map GIS 视图（M2c）
 
