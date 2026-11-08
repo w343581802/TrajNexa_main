@@ -72,5 +72,7 @@ class Settings(BaseSettings):
     b8_experimental_geo_display: bool = True
     b8_auto_calibration_enabled: bool = False
     b8_auto_geo_publish_enabled: bool = False
+    # B8-S §6.2 真值集目录：GIS 拾取器写在这里，指标脚本 `--truth` 直接读同一目录。
+    truth_datasets_dir: Path = Path('data/truth')
 
 settings = Settings()

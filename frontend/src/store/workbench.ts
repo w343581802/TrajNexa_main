@@ -164,6 +164,8 @@ export const ui = reactive({
   correctionOpen: false,
   /** 批量自动标定（对所有参数齐全的 Map 镜头一次发起） */
   batchCalibrationOpen: false,
+  /** 真值点拾取（卫星影像上点地物 + 帧秒数 → 真值集 JSON） */
+  truthPickerOpen: false,
   dockCollapsed: false,
   dockHeight: 264,
   /** 任务控制卡片统一显示缩略图还是缩略视频 */
@@ -1954,6 +1956,10 @@ export const actions = {
   openBatchCalibration() {
     ui.batchCalibrationOpen = true;
   },
+  /** 真值点拾取：对照卫星影像点地物，产出可被指标脚本消费的真值集。 */
+  openTruthPicker() {
+    ui.truthPickerOpen = true;
+  },
   /**
    * 「添加要素」= 先弹系统选图框，选中后立即打开「添加目标要素」并自动识别。
    * 编辑已有要素（传 elementId）只是打开弹窗，不再选图。
@@ -2314,6 +2320,7 @@ export function applyDemoHash() {
     feature: () => (ui.featureDetailOpen = true),
     correction: () => (ui.correctionOpen = true),
     calibration: () => actions.openBatchCalibration(),
+    truth: () => actions.openTruthPicker(),
     empty: () => actions.switchScene(true),
   };
   map[key]?.();

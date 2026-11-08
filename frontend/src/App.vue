@@ -15,6 +15,7 @@ import AddElementModal from "./components/modals/AddElementModal.vue";
 import CaseManageModal from "./components/modals/CaseManageModal.vue";
 import CorrectionDialog from "./components/modals/CorrectionDialog.vue";
 import BatchCalibrationModal from "./components/modals/BatchCalibrationModal.vue";
+import TruthPointPicker from "./components/modals/TruthPointPicker.vue";
 import CoverageModal from "./components/modals/CoverageModal.vue";
 import ElementsDrawer from "./components/modals/ElementsDrawer.vue";
 import FeatureDetailSheet from "./components/modals/FeatureDetailSheet.vue";
@@ -115,6 +116,7 @@ onMounted(() => {
     <ElementsDrawer />
     <CorrectionDialog />
     <BatchCalibrationModal />
+<TruthPointPicker />
     <ToastStack />
   </div>
 </template>

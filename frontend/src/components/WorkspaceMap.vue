@@ -7,7 +7,7 @@ import MockFrame from "./ui/MockFrame.vue";
 import { minutesToLabel, timeWindowPresets } from "../data/mock";
 import { actions, activeTrackingRun, anchorByElement, traceByElement, layers, observationList, recordingCameraUuids, recordingClips, selectedTimelineCard, spatialTrajectories, timeWindow, timelineCards, trackingWindows, trackSegments, visibleElements, wb } from "../store/workbench";
 import { cameraCode, cameraLabel, loadMapSnapshot, type MapSnapshot, type SnapshotCamera } from "../services/mapSnapshot";
-import { basemapTiles } from "../services/basemapTiles";
+import { ATTRIBUTION, basemapTiles } from "../services/basemapTiles";
 import { experimentalProjection, experimentalTrackSample, getTargetTrackSample, proxyVideoUrl, keyframeUrl, type TargetTrackPoint, type TargetTrackSegment, type ExperimentalProjectionRow } from "../services/mainApi";
 import { listTargetSpatialObservations, type ElementAnchor, type TargetSpatialObservationRow } from "../services/mainApi";
 import {
@@ -73,13 +73,20 @@ const FOV_COLORS: Record<string, string> = {
 
 type Basemap = "map" | "satellite";
 const basemap = ref<Basemap>("map");
+/** 当前实际在用的瓦片署名：影像可能因 Esri 被拒自动回退到 Google，署名不能写死 */
+const imageryCredit = ref<string>(ATTRIBUTION.imagery);
 let tileLayer: L.TileLayer | null = null;
 
-/** 换底图：地图 = OSM 瓦片（由 .is-dark-base 压暗），卫星 = Esri 真实影像 */
+/** 换底图：地图 = OSM 瓦片（由 .is-dark-base 压暗），卫星 = 真实影像（Esri，失败自动回退） */
 function swapBasemap() {
   if (!map) return;
   if (tileLayer) map.removeLayer(tileLayer);
+  imageryCredit.value = ATTRIBUTION.imagery;
   tileLayer = basemapTiles(basemap.value).addTo(map);
+  tileLayer.on("basemapchange", (event: L.LeafletEvent) => {
+    const attribution = (event as L.LeafletEvent & { attribution?: string }).attribution;
+    if (attribution) imageryCredit.value = attribution;
+  });
 }
 
 function setBasemap(kind: Basemap) {
@@ -89,9 +96,9 @@ function setBasemap(kind: Basemap) {
 }
 
 // 暗色做法和 TrajNexa_Map 一致：styles/map.css 的 .is-dark-base 对瓦片层做 brightness(.7) contrast(1.2)
-/** 状态栏的底图署名：卫星是 Esri 影像，地图是 OSM 瓦片（暗色只是滤镜） */
+/** 状态栏的底图署名：卫星写实际影像源（Esri / 回退后的 Google），地图是 OSM 瓦片（暗色只是滤镜） */
 const basemapCredit = computed(() =>
-  basemap.value === "satellite" ? "影像 © Esri · Maxar · Earthstar Geographics" : "底图 © OpenStreetMap contributors",
+  basemap.value === "satellite" ? imageryCredit.value : "底图 © OpenStreetMap contributors",
 );
 
 const query = ref("");
@@ -129,6 +136,10 @@ function initMap() {
     preferCanvas: true,
   });
   tileLayer = basemapTiles(basemap.value).addTo(map);
+  tileLayer.on("basemapchange", (event: L.LeafletEvent) => {
+    const attribution = (event as L.LeafletEvent & { attribution?: string }).attribution;
+    if (attribution) imageryCredit.value = attribution;
+  });
   [lFocus, lReal, lAnchors, lLabels, lTrack, lSpatial, lExperimental, lTrackExp, lTargetTrack, lGeoTrack, lFormal, lRegion].forEach((group) => group.addTo(map!));
   map.fitBounds(GEO_BOUNDS, { padding: [24, 24] });
   zoom.value = map.getZoom();
@@ -1862,6 +1873,14 @@ function focusAnchor() {
         @click="actions.openBatchCalibration()"
       >
         <AppIcon name="sliders" :size="14" />
+      </button>
+      <button
+        class="tb-btn tb-btn--icon"
+        title="真值点拾取（卫星影像上取地物坐标）"
+        aria-label="真值点拾取"
+        @click="actions.openTruthPicker()"
+      >
+        <AppIcon name="pin" :size="14" />
       </button>
       <button class="tb-btn tb-btn--icon" title="定位到起始锚点" aria-label="定位到起始锚点" @click="focusAnchor">
         <AppIcon name="target" :size="14" />

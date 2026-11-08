@@ -1177,6 +1177,15 @@ export const mainApi = {
       { ...jsonBody(body as Record<string, unknown>, "POST") },
     ),
 
+  /** B8-S §6.2 真值点：GIS 拾取器写入，`--truth` 直接消费同一份文件。 */
+  truthDatasets: () => request<TruthDatasetList>("/spatial/camera-truth/datasets"),
+
+  saveTruthDataset: (body: TruthDatasetPayload, overwrite = false) =>
+    request<TruthDatasetSaveResult>(
+      `/spatial/camera-truth/datasets${overwrite ? "?overwrite=true" : ""}`,
+      { ...jsonBody(body as unknown as Record<string, unknown>, "POST") },
+    ),
+
   reviewTrackingCandidate: (caseId: string, runId: string, body: {
     candidate_id: string; decision: "approve" | "reject" | "revoke";
     reviewer?: string; note?: string;
@@ -1717,4 +1726,71 @@ export function clipVideoUrl(caseId: string, clipId: string): string {
 /** TB4：源片段可能是 HEVC，浏览器无法解码；播放改用 H.264 代理片段（重编码副本）。 */
 export function proxyVideoUrl(caseId: string, clipId: string, start: number, duration: number): string {
   return `${BASE}/cases/${caseId}/recordings/clips/${clipId}/proxy-video?start=${start.toFixed(2)}&duration=${duration.toFixed(2)}`;
+}
+
+/** B8-S §6.2：真值点数据集（GIS 拾取器写、指标脚本读同一目录）。 */
+export interface TruthDatasetRow {
+  dataset_id: string;
+  file: string;
+  camera_uuid: string | null;
+  camera_label: string | null;
+  collected_at: string | null;
+  saved_at: string;
+  points: number;
+  template: boolean;
+}
+
+export interface TruthDatasetList {
+  status: "available";
+  root: string;
+  datasets: TruthDatasetRow[];
+  counts: { datasets: number; usable: number };
+  allowed_sources: string[];
+  refused_sources: string[];
+  note: string;
+}
+
+export interface TruthPointInput {
+  id: string;
+  lon: number;
+  lat: number;
+  at: string;
+  frame_seconds?: number;
+  source: string;
+  range_class?: string | null;
+  evidence?: string;
+}
+
+export interface TruthDatasetPayload {
+  dataset_id?: string;
+  camera_uuid?: string | null;
+  camera_label?: string | null;
+  time_basis?: string;
+  base_time?: string | null;
+  notes?: string;
+  collected_via?: string;
+  points: TruthPointInput[];
+}
+
+export interface TruthDatasetSaveResult {
+  status: "saved";
+  dataset_id: string;
+  path: string;
+  points: number;
+  sources: string[];
+  warnings: string[];
+  note: string;
+}
+
+export async function truthDatasets(): Promise<TruthDatasetList> {
+  return request<TruthDatasetList>("/spatial/camera-truth/datasets");
+}
+
+export async function saveTruthDataset(
+  payload: TruthDatasetPayload,
+  options: { overwrite?: boolean } = {},
+): Promise<TruthDatasetSaveResult> {
+  const suffix = options.overwrite ? "?overwrite=true" : "";
+  return request<TruthDatasetSaveResult>(`/spatial/camera-truth/datasets${suffix}`,
+    jsonBody(payload as unknown as Record<string, unknown>, "POST"));
 }

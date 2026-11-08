@@ -31,7 +31,7 @@ npm run typecheck
 | 历史记录（侧栏页） | `HistoryPage.vue` | 轮次归档页；归档接口未接入前为真实空态 |
 | 底部容器 | `BottomDock.vue` | 可拖拽 208px–62vh、可收起；收起时显示一行摘要（含待审核数） |
 
-弹层：`modals/CaseManageModal.vue`（案件管理：新增 / 切换 / 删除）、`modals/CoverageModal.vue`（录像覆盖时间轴）、`modals/AddElementModal.vue`（「添加要素」先弹选图框，选中即打开弹窗并自动识别 → 人工确认时间与摄像头名称）、`modals/RecordingDirModal.vue`（录像目录选择，支持「添加视频 / 挂载目录」两种入口文案）、`modals/ClipReviewModal.vue`（待审核片段的人工审核）、`modals/FeatureDetailSheet.vue`（特征校验/历史）、`modals/ElementsDrawer.vue`（要素列表）、`modals/CorrectionDialog.vue`（空间修正工单）、`modals/BatchCalibrationModal.vue`（批量自动标定：扫参数、只对齐全的发起、回读作业与候选、展开候选做审核）。
+弹层：`modals/CaseManageModal.vue`（案件管理：新增 / 切换 / 删除）、`modals/CoverageModal.vue`（录像覆盖时间轴）、`modals/AddElementModal.vue`（「添加要素」先弹选图框，选中即打开弹窗并自动识别 → 人工确认时间与摄像头名称）、`modals/RecordingDirModal.vue`（录像目录选择，支持「添加视频 / 挂载目录」两种入口文案）、`modals/ClipReviewModal.vue`（待审核片段的人工审核）、`modals/FeatureDetailSheet.vue`（特征校验/历史）、`modals/ElementsDrawer.vue`（要素列表）、`modals/CorrectionDialog.vue`（空间修正工单）、`modals/BatchCalibrationModal.vue`（批量自动标定：扫参数、只对齐全的发起、回读作业与候选、展开候选做审核）、`modals/TruthPointPicker.vue`（真值点拾取：卫星影像点地物 + 帧秒数 → 写 `data/truth/`）。
 
 ### 案件（研判工作的入口）
 
@@ -96,6 +96,13 @@ npm run typecheck
   表格里标「（FOV 默认 80°）」，前端不写 Map 基础数据、也不把它当实测内参。
 - **候选审核**：候选数那一列可点开，逐条显示「待审核/已通过/已驳回 + 未验证/已进正式等级」；
   通过必须手填独立留出真值的 p90（米），不填会被前端拦住，驳回可写备注。审核本身由 Map 判定，前端只转发。
+- **真值点拾取**：工具条的图钉按钮打开 `TruthPointPicker`，在卫星影像上点住地物（路口标线、楼角）得到 WGS84 坐标，
+  再填帧秒数（时刻 = 录像起点 + 帧秒数），保存到后端 `data/truth/`，可直接喂给 `scripts/b8_projection_metrics.py --truth`。
+  摄像头坐标**不能**当目标位置真值——它本身就是投影链路的输入，用它验证等于用 A 验证 A。
+  拾取器里的镜头视域是虚线，表示模型几何、不当测距依据。
+- **影像源回退**：Esri World Imagery 在部分网络整段 403，`src/services/basemapTiles.ts` 会在**首个成功瓦片前累计 4 次失败**后
+  自动换 Google 影像（`mt{s}.google.com/vt/lyrs=s`），再失败退 OSM 底图；状态栏署名随实际瓦片源切换（影像 © Esri / 影像 © Google），
+  避免「写着 Esri 其实显示 Google」。
 
 ## Map GIS 视图（M2c）
 

@@ -107,7 +107,8 @@ CAMERAS_SQL = """
 WITH box AS (SELECT ST_MakeEnvelope(%s,%s,%s,%s,4326) AS geom)
 SELECT m.id, r.id, COALESCE(NULLIF(r.name,''), tags.legacy_name, ''), ST_X(m.location), ST_Y(m.location),
        m.direction, m.angle, m.camera_type, m.effective_range_m,
-       r.pose_quality, r.position_quality, r.enabled, r.horizontal_fov_deg
+       r.pose_quality, r.position_quality, r.enabled, r.horizontal_fov_deg,
+       r.mount_height_m, r.bearing_deg, r.tilt_deg
 FROM public.cameras_camera m
 LEFT JOIN public.cameras_registry r
        ON r.map_camera_id=m.id AND r.deleted_at IS NULL

@@ -18,8 +18,10 @@ def row_building(source='osm',fid='base-building:3'):
     return (fid,source,'20','','building',GEO_POLY)
 
 def camera(map_id=8,uuid=None):
+    # 列顺序必须与 CAMERAS_SQL 一致：末三列是 mount_height/bearing/tilt（可空）
     return (map_id,UUID(uuid) if uuid else None,'摄像头' if uuid else '',
-            110.12,25.12,45,30,'fixed',None,'calibrated','verified',True,None)
+            110.12,25.12,45,30,'fixed',None,'calibrated','verified',True,None,
+            None,None,None)
 
 def test_valid_viewport_and_json():
     a=parse_bbox(BBOX)
